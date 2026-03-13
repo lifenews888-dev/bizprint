@@ -1,0 +1,59 @@
+import { Injectable } from '@nestjs/common'
+
+@Injectable()
+export class SheetOptimizerService {
+
+optimize(body:any){
+
+const sheetW = body.sheet_width_mm
+const sheetH = body.sheet_height_mm
+
+const itemW = body.item_width_mm
+const itemH = body.item_height_mm
+
+const bleed = body.bleed_mm ?? 3
+const gap = body.gap_mm ?? 5
+
+const w = itemW + bleed*2
+const h = itemH + bleed*2
+
+const cols = Math.floor(sheetW / (w+gap))
+const rows = Math.floor(sheetH / (h+gap))
+
+const total = cols * rows
+
+const rCols = Math.floor(sheetW / (h+gap))
+const rRows = Math.floor(sheetH / (w+gap))
+
+const rTotal = rCols * rRows
+
+let best = {
+orientation:"normal",
+cols,
+rows,
+total
+}
+
+if(rTotal > total){
+best = {
+orientation:"rotated",
+cols:rCols,
+rows:rRows,
+total:rTotal
+}
+}
+
+const sheetArea = sheetW * sheetH
+const usedArea = best.total * itemW * itemH
+
+const waste = sheetArea - usedArea
+const wastePercent = (waste / sheetArea) * 100
+
+return {
+layout:best,
+waste_percent:Number(wastePercent.toFixed(2))
+}
+
+}
+
+}
