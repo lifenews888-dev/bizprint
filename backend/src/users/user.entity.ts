@@ -1,4 +1,4 @@
-import {
+﻿import {
   Entity, PrimaryGeneratedColumn, Column,
   CreateDateColumn, UpdateDateColumn
 } from 'typeorm';
@@ -52,6 +52,15 @@ export class User {
 
   @CreateDateColumn()
   created_at: Date;
+
+  @Column({ nullable: true })
+  bank_name: string;
+
+  @Column({ nullable: true })
+  bank_account: string;
+
+  @Column({ nullable: true })
+  bank_account_name: string;
 
   @UpdateDateColumn()
   updated_at: Date;

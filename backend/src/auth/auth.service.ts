@@ -1,4 +1,4 @@
-import {
+﻿import {
   Injectable,
   UnauthorizedException,
   ConflictException,
@@ -35,7 +35,7 @@ export class AuthService {
       full_name: dto.full_name,
       phone: dto.phone,
       company_name: dto.company_name,
-      role: 'customer',
+      role: dto.role || 'customer',
     });
 
     await this.userRepository.save(user);
@@ -79,7 +79,7 @@ export class AuthService {
       role: user.role,
     };
     return {
-      access_token: this.jwtService.sign(payload),
+      access_token: this.jwtService.sign(payload, { expiresIn: '7d' }),
       user: {
         id: user.id,
         email: user.email,

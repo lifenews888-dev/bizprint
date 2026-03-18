@@ -1,8 +1,13 @@
-import { Entity, PrimaryGeneratedColumn, Column } from 'typeorm'
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn } from 'typeorm'
+
+export enum MachineStatus {
+  AVAILABLE = 'available',
+  BUSY = 'busy',
+  MAINTENANCE = 'maintenance',
+}
 
 @Entity('machine')
 export class Machine {
-
   @PrimaryGeneratedColumn()
   id: number
 
@@ -27,4 +32,13 @@ export class Machine {
   @Column()
   factory_id: number
 
+  @Column({
+    type: 'enum',
+    enum: MachineStatus,
+    default: MachineStatus.AVAILABLE,
+  })
+  status: MachineStatus
+
+  @CreateDateColumn()
+  created_at: Date
 }

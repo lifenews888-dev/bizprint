@@ -1,21 +1,40 @@
-import { Injectable } from '@nestjs/common';
+﻿import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, IsNull } from 'typeorm';
 import { Category } from './category.entity';
 
 @Injectable()
 export class CategoriesService {
   constructor(
     @InjectRepository(Category)
-    private categoryRepo: Repository<Category>,
+    private repo: Repository<Category>,
   ) {}
 
-  create(data: Partial<Category>) {
-    const category = this.categoryRepo.create(data);
-    return this.categoryRepo.save(category);
+  async findAll() {
+    return this.repo.find({ order: { sort_order: 'ASC' } });
   }
 
-  findAll() {
-    return this.categoryRepo.find();
+  async findTree() {
+    const all = await this.repo.find({ order: { sort_order: 'ASC' } });
+    const roots = all.filter(c => !c.parent_id);
+    return roots.map(r => ({
+      ...r,
+      children: all.filter(c => c.parent_id === r.id),
+    }));
+  }
+
+  async create(dto: Partial<Category>) {
+    const cat = this.repo.create(dto);
+    return this.repo.save(cat);
+  }
+
+  async update(id: string, dto: Partial<Category>) {
+    await this.repo.update(id, dto);
+    return this.repo.findOne({ where: { id } });
+  }
+
+  async remove(id: string) {
+    await this.repo.delete(id);
+    return { success: true };
   }
 }

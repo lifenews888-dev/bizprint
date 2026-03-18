@@ -1,38 +1,33 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn } from 'typeorm'
+﻿import {
+  Entity, PrimaryGeneratedColumn, Column,
+  ManyToOne, CreateDateColumn, UpdateDateColumn
+} from 'typeorm'
+import { Order } from '../orders/entities/order.entity'
+
+export enum ProductionJobStatus {
+  PENDING     = 'pending',
+  IN_PROGRESS = 'in_progress',
+  COMPLETED   = 'completed',
+  CANCELLED   = 'cancelled',
+}
 
 @Entity()
 export class ProductionJob {
+  @PrimaryGeneratedColumn()
+  id: number
 
-  @PrimaryGeneratedColumn('uuid')
-  id: string
-
-  @Column()
-  order_id: number
-
-  @Column()
-  factory_id: number
+  @Column({ type: 'enum', enum: ProductionJobStatus, default: ProductionJobStatus.PENDING })
+  status: ProductionJobStatus
 
   @Column({ nullable: true })
-  machine_id: number
+  notes: string
 
-  @Column({
-    default: 'queued'
-  })
-  status: string
-
-  @Column()
-  queue_position: number
-
-  @Column({ type: 'timestamp', nullable: true })
-  started_at: Date
-
-  @Column({ type: 'timestamp', nullable: true })
-  completed_at: Date
+  @ManyToOne(() => Order, { nullable: true, eager: true })
+  order: Order
 
   @CreateDateColumn()
   created_at: Date
 
   @UpdateDateColumn()
   updated_at: Date
-
 }

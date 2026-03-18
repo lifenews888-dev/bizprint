@@ -1,41 +1,26 @@
-import { Controller, Post, Body, Get, Param, Patch, ParseIntPipe } from '@nestjs/common'
+﻿import { Controller, Get, Patch, Post, Param, Body, ParseIntPipe } from '@nestjs/common'
 import { ProductionJobsService } from './production-jobs.service'
+import { ProductionJobStatus } from './production-job.entity'
 
 @Controller('production-jobs')
 export class ProductionJobsController {
+  constructor(private readonly service: ProductionJobsService) {}
 
-  constructor(
-    private readonly productionJobsService: ProductionJobsService
-  ) {}
-
-  // CREATE JOB
-  @Post()
-  createJob(@Body() body: any) {
-    return this.productionJobsService.createJob(
-      body.order_id,
-      body.factory_id,
-      body.machine_id
-    )
+  @Get()
+  findAll() {
+    return this.service.findAll()
   }
 
-  // FACTORY QUEUE
-  @Get('factory/:factoryId')
-  getFactoryQueue(
-    @Param('factoryId', ParseIntPipe) factoryId: number
+  @Patch(':id/status')
+  updateStatus(
+    @Param('id', ParseIntPipe) id: number,
+    @Body('status') status: ProductionJobStatus,
   ) {
-    return this.productionJobsService.getFactoryQueue(factoryId)
+    return this.service.updateStatus(id, status)
   }
 
-  // START JOB
-  @Patch(':id/start')
-  startJob(@Param('id') id: string) {
-    return this.productionJobsService.startJob(id)
+  @Post('from-order/:orderId')
+  createFromOrder(@Param('orderId', ParseIntPipe) orderId: number) {
+    return this.service.createFromOrder(orderId)
   }
-
-  // COMPLETE JOB
-  @Patch(':id/complete')
-  completeJob(@Param('id') id: string) {
-    return this.productionJobsService.completeJob(id)
-  }
-
 }

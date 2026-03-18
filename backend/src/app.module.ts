@@ -1,4 +1,5 @@
-import { Module } from '@nestjs/common'
+﻿import { Module } from '@nestjs/common'
+import { ChatModule } from './chat/chat.module'
 import { ConfigModule } from '@nestjs/config'
 import { TypeOrmModule } from '@nestjs/typeorm'
 import { ThrottlerModule } from '@nestjs/throttler'
@@ -6,7 +7,10 @@ import { ThrottlerModule } from '@nestjs/throttler'
 import { AuthModule } from './auth/auth.module'
 import { VendorsModule } from './vendors/vendors.module'
 import { CategoriesModule } from './categories/categories.module'
+import { WalletModule } from './wallet/wallet.module'
+import { ReferralModule } from './referral/referral.module'
 import { ProductsModule } from './products/products.module'
+import { ProductAttributesModule } from './product-attributes/product-attributes.module'
 import { VariantsModule } from './variants/variants.module'
 import { ProductVariantsModule } from './product-variants/product-variants.module'
 import { PriceModule } from './price/price.module'
@@ -37,11 +41,22 @@ import { QuoteEngineModule } from './quote-engine/quote-engine.module'
 import { FactoriesModule } from './factories/factories.module'
 import { ProductionJobsModule } from './production-jobs/production-jobs.module'
 import { ProductionSchedulerModule } from './production-scheduler/production-scheduler.module'
+import { MailModule } from './mail/mail.module'
+import { SettingsModule } from './settings/settings.module'
+import { PricingRulesModule } from './pricing-rules/pricing-rules.module'
+import { PaperTypesModule } from './paper-types/paper-types.module'
+import { DesignRequestsModule } from './design-requests/design-requests.module';
+import { DeliveryModule } from './delivery/delivery.module';
+import { TemplatesModule } from './templates/templates.module';
+import { QuotesV2Module } from './quotes-v2/quotes-v2.module'
+import { BannersModule } from './banners/banners.module'
+import { PagesModule } from './pages/pages.module'
+import { MenusModule } from './menus/menus.module'
 
 @Module({
   imports: [
+    ChatModule,
     ConfigModule.forRoot({ isGlobal: true }),
-
     TypeOrmModule.forRoot({
       type: 'postgres',
       host: 'localhost',
@@ -54,13 +69,14 @@ import { ProductionSchedulerModule } from './production-scheduler/production-sch
       dropSchema: false,
       logging: false,
     }),
-
     ThrottlerModule.forRoot([{ ttl: 60000, limit: 100 }]),
-
     AuthModule,
     VendorsModule,
     CategoriesModule,
+    WalletModule,
+    ReferralModule,
     ProductsModule,
+    ProductAttributesModule,
     VariantsModule,
     ProductVariantsModule,
     PriceModule,
@@ -72,6 +88,7 @@ import { ProductionSchedulerModule } from './production-scheduler/production-sch
     MachineSelectorModule,
     PrintCostModule,
     ImpositionModule,
+    PaymentModule,
     ProductionSchedulerModule,
     PrintQuoteModule,
     AutoQuoteModule,
@@ -82,7 +99,6 @@ import { ProductionSchedulerModule } from './production-scheduler/production-sch
     OrdersModule,
     CartModule,
     QuoteModule,
-    PaymentModule,
     ProductionModule,
     VendorDashboardModule,
     CustomerDashboardModule,
@@ -91,6 +107,17 @@ import { ProductionSchedulerModule } from './production-scheduler/production-sch
     QuoteEngineModule,
     FactoriesModule,
     ProductionJobsModule,
+    MailModule,
+    SettingsModule,
+    PricingRulesModule,
+    PaperTypesModule,
+    DesignRequestsModule,
+    DeliveryModule,
+    TemplatesModule,
+    QuotesV2Module,
+    BannersModule,
+    PagesModule,
+    MenusModule,
   ],
 })
 export class AppModule {}

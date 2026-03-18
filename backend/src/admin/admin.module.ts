@@ -3,6 +3,7 @@ import { TypeOrmModule } from '@nestjs/typeorm'
 
 import { AdminService } from './admin.service'
 import { AdminController } from './admin.controller'
+import { AdminGuard } from './admin.guard'
 
 import { Vendor } from '../vendors/vendor.entity'
 import { Order } from '../orders/entities/order.entity'
@@ -12,15 +13,10 @@ import { User } from '../users/user.entity'
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([
-      Vendor,
-      Order,
-      Machine,
-      ProductionJob,
-      User
-    ])
+    TypeOrmModule.forFeature([Vendor, Order, Machine, ProductionJob, User]),
   ],
-  providers: [AdminService],
-  controllers: [AdminController]
+  providers: [AdminService, AdminGuard],
+  controllers: [AdminController],
+  exports: [AdminGuard],
 })
 export class AdminModule {}

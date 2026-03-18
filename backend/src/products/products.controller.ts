@@ -1,19 +1,71 @@
-import { Controller, Get, Post, Body } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Body, Param, Query, UseGuards, Request } from '@nestjs/common';
 import { ProductsService } from './products.service';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 @Controller('products')
 export class ProductsController {
+  constructor(private readonly productsService: ProductsService) {}
 
-constructor(private readonly productsService: ProductsService) {}
+  @Get()
+  findAll(@Query('category_id') categoryId?: string) {
+    return this.productsService.findAll(categoryId);
+  }
 
-@Post()
-create(@Body() body:any) {
-return this.productsService.create(body);
+  @Get(':id')
+  findOne(@Param('id') id: string) {
+    return this.productsService.findOne(id);
+  }
+
+  @Post()
+  @UseGuards(JwtAuthGuard)
+  create(@Body() body: any) {
+    return this.productsService.create(body);
+  }
+
+  @Patch(':id')
+  @UseGuards(JwtAuthGuard)
+  update(@Param('id') id: string, @Body() body: any) {
+    return this.productsService.update(id, body);
+  }
+
+  @Delete(':id')
+  @UseGuards(JwtAuthGuard)
+  remove(@Param('id') id: string) {
+    return this.productsService.remove(id);
+  }
 }
 
-@Get()
-findAll() {
-return this.productsService.findAll();
-}
+@Controller('vendor-store')
+export class VendorStoreController {
+  constructor(private readonly productsService: ProductsService) {}
 
+  @UseGuards(JwtAuthGuard)
+  @Get('products')
+  getMyProducts(@Request() req: any) {
+    return this.productsService.findByVendor(req.user.id);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('products')
+  createProduct(@Request() req: any, @Body() body: any) {
+    return this.productsService.createForVendor(req.user.id, body);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Patch('products/:id')
+  updateProduct(@Request() req: any, @Param('id') id: string, @Body() body: any) {
+    return this.productsService.updateForVendor(req.user.id, id, body);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Delete('products/:id')
+  removeProduct(@Request() req: any, @Param('id') id: string) {
+    return this.productsService.removeForVendor(req.user.id, id);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('stats')
+  getStats(@Request() req: any) {
+    return this.productsService.getVendorOrderStats(req.user.id);
+  }
 }

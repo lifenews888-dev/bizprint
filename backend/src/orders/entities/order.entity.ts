@@ -1,4 +1,4 @@
-import {
+﻿import {
   Entity, PrimaryGeneratedColumn, Column,
   CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn
 } from 'typeorm';
@@ -21,19 +21,37 @@ export class Order {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column()
+  @Column({ nullable: true })
   customer_id: string;
 
   @ManyToOne(() => User, { nullable: true })
   @JoinColumn({ name: 'customer_id' })
   customer: User;
 
-  @Column()
+  @Column({ nullable: true })
   product_id: string;
 
   @ManyToOne(() => Product, { nullable: true })
   @JoinColumn({ name: 'product_id' })
   product: Product;
+
+  @Column({ nullable: true })
+  quote_id: string;
+
+  @Column({ nullable: true })
+  quote_number: string;
+
+  @Column({ nullable: true })
+  customer_name: string;
+
+  @Column({ nullable: true })
+  customer_phone: string;
+
+  @Column({ nullable: true })
+  customer_email: string;
+
+  @Column({ nullable: true })
+  product_name: string;
 
   @Column()
   quantity: number;
@@ -43,6 +61,18 @@ export class Order {
 
   @Column({ nullable: true })
   height_mm: number;
+
+  @Column({ nullable: true })
+  paper_gsm: number;
+
+  @Column({ nullable: true })
+  color_mode: string;
+
+  @Column({ nullable: true })
+  sides: string;
+
+  @Column({ nullable: true })
+  finishing: string;
 
   @Column({ nullable: true })
   factory_id: string;
@@ -61,6 +91,15 @@ export class Order {
 
   @Column({ default: OrderStatus.PENDING })
   status: string;
+
+  @Column({ nullable: true })
+  payment_status: string;
+
+  @Column({ nullable: true })
+  payment_method: string;
+
+  @Column({ nullable: true })
+  invoice_no: string;
 
   @Column({ nullable: true })
   file_url: string;

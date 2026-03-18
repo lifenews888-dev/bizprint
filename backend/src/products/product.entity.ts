@@ -1,12 +1,23 @@
 import {
   Entity, PrimaryGeneratedColumn, Column,
-  CreateDateColumn, UpdateDateColumn, OneToMany
+  CreateDateColumn, UpdateDateColumn
 } from 'typeorm';
+
+export enum ProductType {
+  PRINT   = 'print',
+  READY   = 'ready',
+}
 
 @Entity('products')
 export class Product {
   @PrimaryGeneratedColumn('uuid')
   id: string;
+
+  @Column({ type: 'varchar', default: ProductType.PRINT })
+  product_type: string;
+
+  @Column({ nullable: true })
+  vendor_id: string;
 
   @Column()
   name: string;
@@ -40,6 +51,15 @@ export class Product {
 
   @Column({ nullable: true })
   thumbnail_url: string;
+
+  @Column({ nullable: true })
+  sale_price: number;
+
+  @Column({ nullable: true })
+  stock_quantity: number;
+
+  @Column({ nullable: true })
+  sku: string;
 
   @Column({ default: true })
   is_active: boolean;
