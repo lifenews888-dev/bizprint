@@ -1,6 +1,59 @@
+# Dependencies
+node_modules/
+package-lock.json
 
-bizprint-courier/
-bizprint-web/
+# Build output
+backend/dist/
+backend/dist2/
+backend/dist2_out/
+backend/backend/
+frontend/.next/
+frontend/out/
+
+# Environment
+.env
+.env.*
+!.env.example
+backend/src/.env
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.sublime-workspace
+
+# Logs
+*.log
+npm-debug.log*
+
+# Backups
+*.bak
+*.bak.*
+
+# Uploads
 backend/uploads/
+
+# Legacy scripts
+*.ps1
+scripts/
 frontend/fix-*.js
 frontend/final-clean.js
+frontend/make-placeholders.js
+
+# Temp
+.temp/
+.tmp/
+
+# Sub-projects
+bizprint-courier/
+bizprint-web/
+bizprint-upgrade/
+bizprint-workflow/
+delivery-upgrade/
+app/
+
+# Coverage
+coverage/
