@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { getDashboardRoute } from '@/config/sidebar-config'
 
@@ -11,40 +11,42 @@ interface User {
   role: string
 }
 
-/**
- * Hook that checks if the current user has the required role.
- * Redirects to login if no auth, or to their correct dashboard if wrong role.
- * Returns { user, loading } — render nothing until loading is false.
- */
 export function useRoleGuard(allowedRoles: string[]): { user: User | null; loading: boolean } {
   const router = useRouter()
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
+  const rolesRef = useRef(allowedRoles)
+  rolesRef.current = allowedRoles
 
   useEffect(() => {
-    const token = localStorage.getItem('access_token') || localStorage.getItem('token')
-    const stored = localStorage.getItem('user')
-
-    if (!token || !stored) {
-      router.push('/login')
-      return
-    }
+    let mounted = true
 
     try {
+      const token = localStorage.getItem('access_token') || localStorage.getItem('token')
+      const stored = localStorage.getItem('user')
+
+      if (!token || !stored) {
+        router.push('/login')
+        return
+      }
+
       const parsed = JSON.parse(stored)
-      if (!allowedRoles.includes(parsed.role)) {
-        // Wrong role — redirect to their correct dashboard
+
+      if (!rolesRef.current.includes(parsed.role)) {
         router.push(getDashboardRoute(parsed.role))
         return
       }
-      setUser(parsed)
+
+      if (mounted) {
+        setUser(parsed)
+        setLoading(false)
+      }
     } catch {
       router.push('/login')
-      return
     }
 
-    setLoading(false)
-  }, [allowedRoles, router])
+    return () => { mounted = false }
+  }, [router])
 
   return { user, loading }
 }
