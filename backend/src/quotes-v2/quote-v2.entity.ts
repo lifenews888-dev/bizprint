@@ -16,13 +16,13 @@ export class QuoteV2 {
   @Column({ unique: true })
   quote_number: string;
 
-  @Column()
+  @Column({ default: '' })
   customer_name: string;
 
-  @Column()
+  @Column({ default: '' })
   customer_phone: string;
 
-  @Column()
+  @Column({ default: '' })
   customer_email: string;
 
   @Column({ nullable: true })

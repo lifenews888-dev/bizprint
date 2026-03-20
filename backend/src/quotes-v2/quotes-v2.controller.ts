@@ -13,9 +13,9 @@ export class QuotesV2Controller {
   @Post()
   async create(@Body() body: any) {
     const quote = await this.svc.create({
-      customer_name:        body.customer_name,
-      customer_phone:       body.customer_phone,
-      customer_email:       body.customer_email,
+      customer_name:        body.customer_name || body.guest_name || body.contact?.name || '',
+      customer_phone:       body.customer_phone || body.guest_phone || body.contact?.phone || '',
+      customer_email:       body.customer_email || body.guest_email || body.contact?.email || '',
       product_name:         body.product_name,
       product_description:  body.product_description,
       quantity:             Number(body.quantity),
@@ -54,9 +54,11 @@ export class QuotesV2Controller {
       expires_at:           body.expires_at ? new Date(body.expires_at) : new Date(Date.now() + 3 * 24 * 60 * 60 * 1000),
     });
     try {
+      const emailTo = quote.customer_email || quote.guest_email || '';
+      if (!emailTo) throw new Error('No email address');
       await this.mail.sendQuoteToCustomer({
-        to:           quote.customer_email,
-        name:         quote.customer_name,
+        to:           emailTo,
+        name:         quote.customer_name || quote.guest_name || 'Хэрэглэгч',
         phone:        quote.customer_phone,
         quote_number: quote.quote_number,
         product_name: quote.product_name || '',
