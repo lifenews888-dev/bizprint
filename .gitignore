@@ -53,7 +53,7 @@ bizprint-web/
 bizprint-upgrade/
 bizprint-workflow/
 delivery-upgrade/
-app/
+/app/
 
 # Coverage
 coverage/

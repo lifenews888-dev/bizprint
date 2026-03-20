@@ -81,7 +81,7 @@ export default function ChatBox({ userId, userName, role }: Props) {
   }
 
   function startChatWith(targetRole: string, targetLabel: string) {
-    createRoom({ type: 'support', participants: [userId, targetRole], participantNames: [userName, targetLabel] })
+    createRoom(targetRole, targetLabel)
     setView('list')
     setTimeout(() => {
       const r = rooms.find(r => r.participants?.includes(userId) && r.participants?.includes(targetRole))
@@ -217,7 +217,7 @@ export default function ChatBox({ userId, userName, role }: Props) {
                           </div>
                           <div style={{ fontSize: 11, color: 'var(--text3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{lastMsg}</div>
                         </div>
-                        {room.unread_count > 0 && <div style={{ width: 18, height: 18, borderRadius: '50%', background: '#FF6B00', color: '#fff', fontSize: 10, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{room.unread_count}</div>}
+                        {(room.unread_count ?? 0) > 0 && <div style={{ width: 18, height: 18, borderRadius: '50%', background: '#FF6B00', color: '#fff', fontSize: 10, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{room.unread_count}</div>}
                       </div>
                     )
                   })}
@@ -258,7 +258,7 @@ export default function ChatBox({ userId, userName, role }: Props) {
                           </div>
                         )}
                         <div style={{ maxWidth: '76%' }}>
-                          {renderMsg(msg.message, isMe)}
+                          {renderMsg(msg.content, isMe)}
                           {showTime && <div style={{ fontSize: 10, color: 'var(--text3)', marginTop: 3, textAlign: isMe ? 'right' : 'left' }}>{ftime(msg.created_at)}{isMe && <span style={{ marginLeft: 4, color: '#10B981' }}>✓✓</span>}</div>}
                         </div>
                         {isMe && <div style={{ width: 28, height: 28, borderRadius: '50%', background: myCfg.bg, border: `1.5px solid ${myCfg.color}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, color: myCfg.color, flexShrink: 0, alignSelf: 'flex-end' }}>{userName[0]?.toUpperCase()}</div>}
