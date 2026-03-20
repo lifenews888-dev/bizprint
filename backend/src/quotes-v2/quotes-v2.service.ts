@@ -13,8 +13,9 @@ export class QuotesV2Service {
   async generateNumber(): Promise<string> {
     const today = new Date();
     const d = today.toISOString().slice(0,10).replace(/-/g,'');
-    const count = await this.repo.count();
-    return 'QT-' + d + '-' + String(count + 1).padStart(3, '0');
+    const rand = Math.random().toString(36).substring(2, 6).toUpperCase();
+    const ms = String(Date.now()).slice(-4);
+    return 'QT-' + d + '-' + ms + rand;
   }
 
   async create(data: Partial<QuoteV2>): Promise<QuoteV2> {
