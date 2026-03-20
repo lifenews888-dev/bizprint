@@ -54,6 +54,7 @@ bizprint-upgrade/
 bizprint-workflow/
 delivery-upgrade/
 /app/
+mobile/
 
 # Expo / React Native
 .expo/
