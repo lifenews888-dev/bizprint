@@ -16,10 +16,10 @@ export class PricingRule {
   @Column({ nullable: true })
   category_id: string;
 
-  @Column()
+  @Column({ nullable: true })
   attribute_key: string;
 
-  @Column({ default: '' })
+  @Column({ nullable: true, default: '' })
   attribute_value: string;
 
   @Column({ type: 'decimal', precision: 10, scale: 4, nullable: true })

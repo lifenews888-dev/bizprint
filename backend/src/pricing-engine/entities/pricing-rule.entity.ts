@@ -23,7 +23,7 @@ export enum EffectType {
   SET_MIN = 'SET_MIN',
 }
 
-@Entity('pricing_rules')
+@Entity('pricing_engine_rules')
 export class PricingRule {
   @PrimaryGeneratedColumn('uuid')
   id: string
