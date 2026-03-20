@@ -81,6 +81,10 @@ function fmt(n: number): string {
   return Math.round(n).toLocaleString('en-US') + '₮';
 }
 
+const CATEGORY_MAP: Record<string, string> = {
+  HADAG_REKLAM: 'Хаяг реклам', KHEVLEL: 'Хэвлэл', PROMO: 'Промо', AWARD: 'Шагнал',
+  'Хаяг реклам': 'Хаяг реклам', 'Хэвлэл': 'Хэвлэл', 'Промо': 'Промо', 'Шагнал': 'Шагнал',
+};
 const CATEGORY_ORDER = ['Хаяг реклам', 'Хэвлэл', 'Промо', 'Шагнал'];
 const CATEGORY_ICONS: Record<string, string> = {
   'Хаяг реклам': '\u{1F3E2}',
@@ -94,6 +98,226 @@ const RUSH_OPTIONS = [
   { label: '48цаг', hours: 48 },
   { label: '24цаг', hours: 24 },
 ] as const;
+
+/* ───────── fallback catalog when DB is empty ───────── */
+
+const FALLBACK_CATALOG: CatalogProduct[] = [
+  {
+    code: 'TOVGOR', name_mn: 'Товгор үсэг', name_en: 'Channel Letters', category: 'Хаяг реклам', subcategory: 'tovgor_usen', unit_type: 'PIECE',
+    materials: [
+      { code: 'PVC_3MM', name_mn: 'PVC 3мм', price_per_unit: 15000 },
+      { code: 'PVC_5MM', name_mn: 'PVC 5мм', price_per_unit: 20000 },
+      { code: 'ACRYLIC', name_mn: 'Акрил', price_per_unit: 35000 },
+    ],
+    sizes: [
+      { code: '20CM', name_mn: '20 см', width_m: 0.2, height_m: 0.2 },
+      { code: '30CM', name_mn: '30 см', width_m: 0.3, height_m: 0.3 },
+      { code: '40CM', name_mn: '40 см', width_m: 0.4, height_m: 0.4 },
+      { code: '50CM', name_mn: '50 см', width_m: 0.5, height_m: 0.5 },
+      { code: '60CM', name_mn: '60 см', width_m: 0.6, height_m: 0.6 },
+      { code: '80CM', name_mn: '80 см', width_m: 0.8, height_m: 0.8 },
+      { code: '100CM', name_mn: '100 см', width_m: 1.0, height_m: 1.0 },
+      { code: 'CUSTOM', name_mn: 'Тусгай хэмжээ', is_custom: true },
+    ],
+  },
+  {
+    code: 'NERJ_USEG', name_mn: 'Нерж үсэг', name_en: 'Stainless Steel Letters', category: 'Хаяг реклам', subcategory: 'nerj_usen', unit_type: 'M2',
+    materials: [
+      { code: 'NERJ_304', name_mn: 'Нерж 304', price_per_unit: 450000 },
+      { code: 'NERJ_201', name_mn: 'Нерж 201', price_per_unit: 350000 },
+    ],
+    sizes: [
+      { code: 'NO_LED', name_mn: 'Асдаггүй' },
+      { code: 'LED', name_mn: 'Асдаг LED' },
+      { code: 'CUSTOM', name_mn: 'Тусгай хэмжээ', is_custom: true },
+    ],
+  },
+  {
+    code: '3D_USEG', name_mn: '3D үсэг', name_en: '3D Letters', category: 'Хаяг реклам', subcategory: '3d_usen', unit_type: 'M2',
+    materials: [{ code: 'FOAM_PVC', name_mn: 'Хөөс PVC', price_per_unit: 350000 }],
+    sizes: [
+      { code: 'NO_LIGHT', name_mn: 'Гэрэлгүй' },
+      { code: 'LED', name_mn: 'Гэрэлтэй LED' },
+    ],
+  },
+  {
+    code: 'GERELT_SAMBAR', name_mn: 'Гэрэлт самбар', name_en: 'Light Box', category: 'Хаяг реклам', subcategory: 'sambar', unit_type: 'M2',
+    materials: [{ code: 'ALUM_FRAME', name_mn: 'Хөнгөн цагаан хүрээ', price_per_unit: 180000 }],
+    sizes: [
+      { code: 'DOTOR_4CM', name_mn: 'Дотор 4см' },
+      { code: 'DOTOR_6CM', name_mn: 'Дотор 6см' },
+      { code: 'DOTOR_8CM', name_mn: 'Дотор 8см' },
+      { code: 'GADNA_BULANTAI', name_mn: 'Гадна булантай' },
+      { code: 'GADNA_SOKHDOG', name_mn: 'Гадна сөхдөг' },
+    ],
+  },
+  {
+    code: 'OFFSET_A4', name_mn: 'Офсет хэвлэл', name_en: 'Offset Printing', category: 'Хэвлэл', subcategory: 'offset', unit_type: 'PIECE',
+    materials: [
+      { code: '80GSM', name_mn: '80гр цаас', price_per_unit: 60 },
+      { code: '120GSM', name_mn: '120гр цаас', price_per_unit: 90 },
+      { code: '150GSM', name_mn: '150гр цаас', price_per_unit: 120 },
+      { code: '200GSM', name_mn: '200гр цаас', price_per_unit: 160 },
+      { code: '300GSM', name_mn: '300гр цаас', price_per_unit: 220 },
+    ],
+    sizes: [
+      { code: 'A4', name_mn: 'A4 (210×297мм)', width_m: 0.21, height_m: 0.297 },
+      { code: 'A3', name_mn: 'A3 (297×420мм)', width_m: 0.297, height_m: 0.42 },
+      { code: 'A5', name_mn: 'A5 (148×210мм)', width_m: 0.148, height_m: 0.21 },
+      { code: 'BUSINESS_CARD', name_mn: 'Визит карт (90×50мм)', width_m: 0.09, height_m: 0.05 },
+    ],
+  },
+  {
+    code: 'WIDE_FORMAT', name_mn: 'Өргөн хэвлэл', name_en: 'Wide Format Printing', category: 'Хэвлэл', subcategory: 'wide', unit_type: 'M2',
+    materials: [
+      { code: 'BANNER', name_mn: 'Баннер', price_per_unit: 5000 },
+      { code: 'STICKER', name_mn: 'Стикер', price_per_unit: 8000 },
+      { code: 'FLAG', name_mn: 'Даавуу туг', price_per_unit: 12000 },
+      { code: 'CANVAS', name_mn: 'Canvas', price_per_unit: 15000 },
+    ],
+    sizes: [
+      { code: '1x1', name_mn: '1м × 1м', width_m: 1, height_m: 1 },
+      { code: '2x1', name_mn: '2м × 1м', width_m: 2, height_m: 1 },
+      { code: '3x1', name_mn: '3м × 1м', width_m: 3, height_m: 1 },
+      { code: 'CUSTOM', name_mn: 'Тусгай хэмжээ', is_custom: true },
+    ],
+  },
+  {
+    code: 'PROMO_ITEMS', name_mn: 'Промо бараа', name_en: 'Promotional Items', category: 'Промо', subcategory: 'promo', unit_type: 'PIECE',
+    materials: [
+      { code: 'PEN', name_mn: 'Үзэг', price_per_unit: 1500 },
+      { code: 'NOTEBOOK', name_mn: 'Дэвтэр', price_per_unit: 5000 },
+      { code: 'MUG', name_mn: 'Аяга', price_per_unit: 7000 },
+      { code: 'TSHIRT', name_mn: 'Футболк', price_per_unit: 12000 },
+    ],
+    sizes: [{ code: 'STANDARD', name_mn: 'Стандарт' }],
+  },
+  {
+    code: 'AWARDS', name_mn: 'Шагнал', name_en: 'Awards & Trophies', category: 'Шагнал', subcategory: 'award', unit_type: 'PIECE',
+    materials: [
+      { code: 'CRYSTAL', name_mn: 'Болор', price_per_unit: 25000 },
+      { code: 'WOOD', name_mn: 'Мод', price_per_unit: 18000 },
+      { code: 'MEDAL', name_mn: 'Медаль', price_per_unit: 6000 },
+      { code: 'BADGE', name_mn: 'Тэмдэг', price_per_unit: 4000 },
+    ],
+    sizes: [
+      { code: 'SMALL', name_mn: 'Жижиг' },
+      { code: 'MEDIUM', name_mn: 'Дунд' },
+      { code: 'LARGE', name_mn: 'Том' },
+    ],
+  },
+];
+
+const FALLBACK_PRICES: Record<string, Record<string, number>> = {
+  TOVGOR: { '20CM': 35000, '30CM': 45000, '40CM': 60000, '50CM': 75000, '60CM': 95000, '80CM': 180000, '100CM': 290000, 'CUSTOM': 280000 },
+  NERJ_USEG: { 'NO_LED': 850000, 'LED': 1300000, 'CUSTOM': 850000 },
+  '3D_USEG': { 'NO_LIGHT': 850000, 'LED': 1250000 },
+  GERELT_SAMBAR: { 'DOTOR_4CM': 280000, 'DOTOR_6CM': 320000, 'DOTOR_8CM': 350000, 'GADNA_BULANTAI': 380000, 'GADNA_SOKHDOG': 450000 },
+  OFFSET_A4: { 'A4': 150, 'A3': 280, 'A5': 90, 'BUSINESS_CARD': 60 },
+  WIDE_FORMAT: { '1x1': 8000, '2x1': 16000, '3x1': 24000, 'CUSTOM': 8000 },
+  PROMO_ITEMS: { 'STANDARD': 2500 },
+  AWARDS: { 'SMALL': 8000, 'MEDIUM': 25000, 'LARGE': 45000 },
+};
+
+const FALLBACK_FINISHINGS: Finishing[] = [
+  { code: 'MAT_LAM', name_mn: 'Мат ламинаци', price: 15 },
+  { code: 'GLOSS_LAM', name_mn: 'Гялгар ламинаци', price: 12 },
+  { code: 'UV', name_mn: 'UV лак', price: 20 },
+  { code: 'SOFT_TOUCH', name_mn: 'Soft touch', price: 25 },
+  { code: 'FOIL', name_mn: 'Фойл тамга', price: 50 },
+];
+
+const FALLBACK_ADDONS: Addon[] = [
+  { code: 'CRANE_1H', name_mn: 'Кран 1 цаг', price: 200000 },
+  { code: 'CRANE_8H', name_mn: 'Кран 8 цаг', price: 600000 },
+  { code: 'RELE', name_mn: 'Реле', price: 25000 },
+  { code: 'TOG_BUURUULAGCH', name_mn: 'Тог бууруулагч', price: 45000 },
+  { code: 'DESIGN', name_mn: 'Дизайн ажил', price: 50000 },
+  { code: 'DELIVERY', name_mn: 'Хүргэлт', price: 15000 },
+  { code: 'INSTALL', name_mn: 'Суурилуулалт м²', price: 80000 },
+];
+
+const MARGIN_RATES: Record<string, number> = { b2b: 0.20, retail: 0.45 };
+const RUSH_RATES: Record<number, number> = { 24: 0.30, 48: 0.15, 0: 0 };
+const QTY_DISCOUNTS = [
+  { min: 5000, pct: 0.20 },
+  { min: 1000, pct: 0.15 },
+  { min: 500, pct: 0.10 },
+  { min: 100, pct: 0.05 },
+];
+
+function localCalculate(params: {
+  productCode: string; sizeCode: string; materialPrice: number;
+  quantity: number; finishingCodes: string[]; addonCodes: string[];
+  rushHours: number; tier: string;
+}): PriceResult {
+  const { productCode, sizeCode, materialPrice, quantity, finishingCodes: fc, addonCodes: ac, rushHours, tier } = params;
+  const sizePrice = FALLBACK_PRICES[productCode]?.[sizeCode] || materialPrice || 0;
+  let base = sizePrice * quantity;
+  const discounts: { label: string; amount: number }[] = [];
+  const surcharges: { label: string; amount: number }[] = [];
+
+  // quantity discount
+  for (const d of QTY_DISCOUNTS) {
+    if (quantity >= d.min) {
+      const amt = Math.round(base * d.pct);
+      discounts.push({ label: `${d.min}+ ширхэг ${d.pct * 100}%`, amount: amt });
+      base -= amt;
+      break;
+    }
+  }
+  // rush
+  const rushRate = RUSH_RATES[rushHours] || 0;
+  if (rushRate > 0) {
+    const amt = Math.round(base * rushRate);
+    surcharges.push({ label: `${rushHours} цагийн яаралтай`, amount: amt });
+    base += amt;
+  }
+  // finishing
+  let fCost = 0;
+  for (const code of fc) {
+    const f = FALLBACK_FINISHINGS.find(x => x.code === code);
+    if (f) fCost += (f.price || 0) * quantity;
+  }
+  // addon
+  let aCost = 0;
+  for (const code of ac) {
+    const a = FALLBACK_ADDONS.find(x => x.code === code);
+    if (a) aCost += (a.price || 0);
+  }
+  const subtotal = base + fCost + aCost;
+  const marginRate = MARGIN_RATES[tier] || 0.45;
+  const marginAmount = Math.round(subtotal * marginRate);
+  const finalPrice = Math.round(subtotal + marginAmount);
+  const unitPrice = quantity > 0 ? Math.round(finalPrice / quantity) : 0;
+
+  const breakdown: { label: string; amount: number }[] = [
+    { label: 'Суурь үнэ', amount: sizePrice * quantity },
+  ];
+  if (discounts.length) breakdown.push({ label: 'Хөнгөлөлт', amount: -discounts[0].amount });
+  if (surcharges.length) breakdown.push({ label: 'Яаралтай', amount: surcharges[0].amount });
+  if (fCost) breakdown.push({ label: 'Finishing', amount: fCost });
+  if (aCost) breakdown.push({ label: 'Нэмэлт', amount: aCost });
+  breakdown.push({ label: `Маржин (${Math.round(marginRate * 100)}%)`, amount: marginAmount });
+  breakdown.push({ label: 'Нийт', amount: finalPrice });
+
+  return {
+    base_price: sizePrice * quantity,
+    final_price: finalPrice,
+    unit_price: unitPrice,
+    price_breakdown: breakdown,
+    rules_applied: [],
+    discounts,
+    surcharges,
+    finishing_cost: fCost,
+    addon_cost: aCost,
+    margin_amount: marginAmount,
+    vs_market_pct: null,
+    tactic_applied: false,
+    novat_note: 'НӨАТ ороогүй',
+    validity_hours: 72,
+  };
+}
 
 /* ───────── component ───────── */
 
@@ -136,15 +360,16 @@ export default function QuotePage() {
   /* debounce ref */
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  /* ── fetch catalog on mount ── */
+  /* ── fetch catalog on mount (fallback if empty) ── */
   useEffect(() => {
     setCatalogLoading(true);
     fetch(`${API}/products/catalog`)
       .then(r => r.json())
       .then((data: CatalogProduct[]) => {
-        setCatalog(Array.isArray(data) ? data : []);
+        const items = Array.isArray(data) && data.length > 0 ? data : FALLBACK_CATALOG;
+        setCatalog(items);
       })
-      .catch(() => setCatalog([]))
+      .catch(() => setCatalog(FALLBACK_CATALOG))
       .finally(() => setCatalogLoading(false));
   }, []);
 
@@ -156,23 +381,43 @@ export default function QuotePage() {
     }
     setProductLoading(true);
     setPriceResult(null);
+
+    const applyProduct = (data: Product) => {
+      setProduct(data);
+      if (data.materials?.length) setMaterialCode(data.materials[0].code);
+      else setMaterialCode('');
+      if (data.sizes?.length) setSizeCode(data.sizes[0].code);
+      else setSizeCode('');
+      setCustomWidth(1);
+      setCustomHeight(1);
+      setQuantity(1);
+      setFinishingCodes([]);
+      setAddonCodes([]);
+      setRushIdx(0);
+    };
+
+    const fallbackProduct = (): Product | null => {
+      const cp = FALLBACK_CATALOG.find(c => c.code === selectedCode);
+      if (!cp) return null;
+      return { ...cp, finishings: FALLBACK_FINISHINGS, addons: FALLBACK_ADDONS };
+    };
+
     fetch(`${API}/products/catalog/${selectedCode}`)
       .then(r => r.json())
       .then((data: Product) => {
-        setProduct(data);
-        /* set defaults */
-        if (data.materials?.length) setMaterialCode(data.materials[0].code);
-        else setMaterialCode('');
-        if (data.sizes?.length) setSizeCode(data.sizes[0].code);
-        else setSizeCode('');
-        setCustomWidth(1);
-        setCustomHeight(1);
-        setQuantity(1);
-        setFinishingCodes([]);
-        setAddonCodes([]);
-        setRushIdx(0);
+        if (data && data.code) {
+          applyProduct(data);
+        } else {
+          const fb = fallbackProduct();
+          if (fb) applyProduct(fb);
+          else setProduct(null);
+        }
       })
-      .catch(() => setProduct(null))
+      .catch(() => {
+        const fb = fallbackProduct();
+        if (fb) applyProduct(fb);
+        else setProduct(null);
+      })
       .finally(() => setProductLoading(false));
   }, [selectedCode]);
 
@@ -216,6 +461,20 @@ export default function QuotePage() {
       unit_type: product.unit_type,
     };
 
+    const doLocalFallback = () => {
+      const result = localCalculate({
+        productCode: selectedCode,
+        sizeCode,
+        materialPrice: selectedMaterial?.price_per_unit || 0,
+        quantity,
+        finishingCodes,
+        addonCodes,
+        rushHours: RUSH_OPTIONS[rushIdx].hours,
+        tier: pricingTier,
+      });
+      setPriceResult(result);
+    };
+
     setPriceLoading(true);
     fetch(`${API}/pricing-engine/calculate`, {
       method: 'POST',
@@ -223,8 +482,14 @@ export default function QuotePage() {
       body: JSON.stringify(body),
     })
       .then(r => r.json())
-      .then((data: PriceResult) => setPriceResult(data))
-      .catch(() => setPriceResult(null))
+      .then((data: PriceResult) => {
+        if (data && data.final_price != null) {
+          setPriceResult(data);
+        } else {
+          doLocalFallback();
+        }
+      })
+      .catch(() => doLocalFallback())
       .finally(() => setPriceLoading(false));
   }, [product, selectedCode, materialCode, sizeCode, customWidth, customHeight, quantity, finishingCodes, addonCodes, rushIdx, pricingTier]);
 
@@ -298,7 +563,7 @@ export default function QuotePage() {
 
   /* ── group catalog by category ── */
   const grouped = catalog.reduce<Record<string, CatalogProduct[]>>((acc, p) => {
-    const cat = p.category || 'Бусад';
+    const cat = CATEGORY_MAP[p.category] || p.category || 'Бусад';
     if (!acc[cat]) acc[cat] = [];
     acc[cat].push(p);
     return acc;
