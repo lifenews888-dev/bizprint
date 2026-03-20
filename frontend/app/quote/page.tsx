@@ -30,6 +30,7 @@ const MARGIN_MAP: Record<string, number> = { b2b: 1.20, retail: 1.45 };
 
 /* ─── helpers ─── */
 function fmt(n: number): string {
+  if (!n || isNaN(n) || !isFinite(n)) return '0₮';
   return Math.round(n).toLocaleString('en-US') + '₮';
 }
 
@@ -89,13 +90,16 @@ export default function QuotePage() {
   const [signProd, setSignProd] = useState('tovgor');
   const [tovgorSize, setTovgorSize] = useState(30);
   const [tovgorQty, setTovgorQty] = useState(1);
+  const [tovgorQtyStr, setTovgorQtyStr] = useState('1');
   const [nerjLit, setNerjLit] = useState(false);     // false=Асдаггүй true=Асдаг
   const [d3Lit, setD3Lit] = useState(false);
   const [sbLocation, setSbLocation] = useState<'in' | 'out'>('in');
   const [sbThickness, setSbThickness] = useState('4');
   const [sbOutType, setSbOutType] = useState('corner');
   const [dimW, setDimW] = useState(1);
+  const [dimWStr, setDimWStr] = useState('1');
   const [dimH, setDimH] = useState(1);
+  const [dimHStr, setDimHStr] = useState('1');
   const [extraRele, setExtraRele] = useState(false);
   const [extraTog, setExtraTog] = useState(false);
   const [extraCrane1, setExtraCrane1] = useState(false);
@@ -106,7 +110,9 @@ export default function QuotePage() {
   const [offProduct, setOffProduct] = useState('Нэрийн хуудас');
   const [offSize, setOffSize] = useState('A4');
   const [offPages, setOffPages] = useState(1);
+  const [offPagesStr, setOffPagesStr] = useState('1');
   const [offQty, setOffQty] = useState(100);
+  const [offQtyStr, setOffQtyStr] = useState('100');
   const [offGsm, setOffGsm] = useState(130);
   const [offColor, setOffColor] = useState<'full' | 'bw'>('full');
   const [offSides, setOffSides] = useState<'single' | 'double'>('single');
@@ -114,7 +120,9 @@ export default function QuotePage() {
   const [offFold, setOffFold] = useState('none');
   const [wideType, setWideType] = useState('banner');
   const [wideW, setWideW] = useState(1);
+  const [wideWStr, setWideWStr] = useState('1');
   const [wideL, setWideL] = useState(2);
+  const [wideLStr, setWideLStr] = useState('2');
 
   /* ─ modal ─ */
   const [showModal, setShowModal] = useState(false);
@@ -376,7 +384,9 @@ export default function QuotePage() {
           </div>
           <div style={{ flex: 1, minWidth: 120 }}>
             <label style={labelStyle}>Тоо ширхэг</label>
-            <input type="number" min={1} style={inputStyle} value={tovgorQty} onChange={e => setTovgorQty(Math.max(1, Number(e.target.value)))} />
+            <input type="number" min={1} step={1} style={inputStyle} value={tovgorQtyStr}
+              onChange={e => { setTovgorQtyStr(e.target.value); const n = parseInt(e.target.value); if (!isNaN(n) && n >= 1) setTovgorQty(n); }}
+              onBlur={e => { const n = parseInt(e.target.value); if (isNaN(n) || n < 1) { setTovgorQtyStr('1'); setTovgorQty(1); } }} />
           </div>
         </div>
       )}
@@ -388,7 +398,7 @@ export default function QuotePage() {
             <button style={toggleStyle(!nerjLit)} onClick={() => setNerjLit(false)}>Асдаггүй</button>
             <button style={toggleStyle(nerjLit)} onClick={() => setNerjLit(true)}>Асдаг</button>
           </div>
-          <DimInputs w={dimW} h={dimH} setW={setDimW} setH={setDimH} inputStyle={inputStyle} labelStyle={labelStyle} />
+          <DimInputs wStr={dimWStr} hStr={dimHStr} setW={v => { setDimW(v); setDimWStr(String(v)); }} setH={v => { setDimH(v); setDimHStr(String(v)); }} setWStr={setDimWStr} setHStr={setDimHStr} inputStyle={inputStyle} labelStyle={labelStyle} />
         </div>
       )}
 
@@ -399,7 +409,7 @@ export default function QuotePage() {
             <button style={toggleStyle(!d3Lit)} onClick={() => setD3Lit(false)}>Гэрэлгүй</button>
             <button style={toggleStyle(d3Lit)} onClick={() => setD3Lit(true)}>Гэрэлтэй</button>
           </div>
-          <DimInputs w={dimW} h={dimH} setW={setDimW} setH={setDimH} inputStyle={inputStyle} labelStyle={labelStyle} />
+          <DimInputs wStr={dimWStr} hStr={dimHStr} setW={v => { setDimW(v); setDimWStr(String(v)); }} setH={v => { setDimH(v); setDimHStr(String(v)); }} setWStr={setDimWStr} setHStr={setDimHStr} inputStyle={inputStyle} labelStyle={labelStyle} />
         </div>
       )}
 
@@ -428,13 +438,13 @@ export default function QuotePage() {
               </div>
             </div>
           )}
-          <DimInputs w={dimW} h={dimH} setW={setDimW} setH={setDimH} inputStyle={inputStyle} labelStyle={labelStyle} />
+          <DimInputs wStr={dimWStr} hStr={dimHStr} setW={v => { setDimW(v); setDimWStr(String(v)); }} setH={v => { setDimH(v); setDimHStr(String(v)); }} setWStr={setDimWStr} setHStr={setDimHStr} inputStyle={inputStyle} labelStyle={labelStyle} />
         </div>
       )}
 
       {/* PVC / Epoxy / Font / TMR */}
       {['pvc', 'epoxy', 'font', 'tmr'].includes(signProd) && (
-        <DimInputs w={dimW} h={dimH} setW={setDimW} setH={setDimH} inputStyle={inputStyle} labelStyle={labelStyle} />
+        <DimInputs wStr={dimWStr} hStr={dimHStr} setW={v => { setDimW(v); setDimWStr(String(v)); }} setH={v => { setDimH(v); setDimHStr(String(v)); }} setWStr={setDimWStr} setHStr={setDimHStr} inputStyle={inputStyle} labelStyle={labelStyle} />
       )}
 
       {/* Extras */}
@@ -468,11 +478,15 @@ export default function QuotePage() {
         </div>
         <div style={{ flex: 1, minWidth: 100 }}>
           <label style={labelStyle}>Хуудас тоо</label>
-          <input type="number" min={1} style={inputStyle} value={offPages} onChange={e => setOffPages(Math.max(1, Number(e.target.value)))} />
+          <input type="number" min={1} step={1} style={inputStyle} value={offPagesStr}
+            onChange={e => { setOffPagesStr(e.target.value); const n = parseInt(e.target.value); if (!isNaN(n) && n >= 1) setOffPages(n); }}
+            onBlur={e => { const n = parseInt(e.target.value); if (isNaN(n) || n < 1) { setOffPagesStr('1'); setOffPages(1); } }} />
         </div>
         <div style={{ flex: 1, minWidth: 100 }}>
           <label style={labelStyle}>Тоо ширхэг</label>
-          <input type="number" min={1} style={inputStyle} value={offQty} onChange={e => setOffQty(Math.max(1, Number(e.target.value)))} />
+          <input type="number" min={1} step={1} style={inputStyle} value={offQtyStr}
+            onChange={e => { setOffQtyStr(e.target.value); const n = parseInt(e.target.value); if (!isNaN(n) && n >= 1) setOffQty(n); }}
+            onBlur={e => { const n = parseInt(e.target.value); if (isNaN(n) || n < 1) { setOffQtyStr('1'); setOffQty(1); } }} />
         </div>
       </div>
       <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
@@ -525,7 +539,7 @@ export default function QuotePage() {
           ))}
         </div>
       </div>
-      <DimInputs w={wideW} h={wideL} setW={setWideW} setH={setWideL} inputStyle={inputStyle} labelStyle={labelStyle} wLabel="Өргөн (м)" hLabel="Урт (м)" />
+      <DimInputs wStr={wideWStr} hStr={wideLStr} setW={v => { setWideW(v); setWideWStr(String(v)); }} setH={v => { setWideL(v); setWideLStr(String(v)); }} setWStr={setWideWStr} setHStr={setWideLStr} inputStyle={inputStyle} labelStyle={labelStyle} wLabel="Өргөн (м)" hLabel="Урт (м)" />
     </div>
   );
 
@@ -589,28 +603,34 @@ export default function QuotePage() {
           <div style={{ flex: '0 0 340px', minWidth: 300, background: 'var(--surface)', borderRadius: 16, border: '1px solid var(--border)', padding: 24, position: 'sticky', top: 24 }}>
             <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 16 }}>Үнийн задаргаа</h2>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {breakdown.lines.map((line, i) => (
-                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14 }}>
-                  <span style={{ color: 'var(--text2)' }}>{line.label}</span>
-                  <span style={{ fontWeight: 600, color: line.color || 'var(--text)' }}>
-                    {line.amount < 0 ? '-' : line.amount > 0 && line.color ? '+' : ''}{fmt(Math.abs(line.amount))}
-                  </span>
+            {breakdown.total > 0 ? (
+              <>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  {breakdown.lines.map((line, i) => (
+                    <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14 }}>
+                      <span style={{ color: 'var(--text2)' }}>{line.label}</span>
+                      <span style={{ fontWeight: 600, color: line.color || 'var(--text)' }}>
+                        {line.amount < 0 ? '-' : line.amount > 0 && line.color ? '+' : ''}{fmt(Math.abs(line.amount))}
+                      </span>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
 
-            <div style={{ borderTop: '2px solid var(--border2)', marginTop: 16, paddingTop: 16 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 22, fontWeight: 800, color: '#ef4444' }}>
-                <span>НИЙТ</span>
-                <span>{fmt(breakdown.total)}</span>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: 'var(--text2)', marginTop: 4 }}>
-                <span>Нэгж үнэ</span>
-                <span>{fmt(breakdown.unitPrice)}/ш</span>
-              </div>
-              <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 8 }}>НӨАТ ороогүй</div>
-            </div>
+                <div style={{ borderTop: '2px solid var(--border2)', marginTop: 16, paddingTop: 16 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 22, fontWeight: 800, color: '#ef4444' }}>
+                    <span>НИЙТ</span>
+                    <span>{fmt(breakdown.total)}</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: 'var(--text2)', marginTop: 4 }}>
+                    <span>Нэгж үнэ</span>
+                    <span>{fmt(breakdown.unitPrice)}/ш</span>
+                  </div>
+                  <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 8 }}>НӨАТ ороогүй</div>
+                </div>
+              </>
+            ) : (
+              <div style={{ textAlign: 'center', padding: '32px 0', color: 'var(--text3)', fontSize: 14 }}>Параметр оруулна уу</div>
+            )}
 
             <button onClick={() => { setShowModal(true); setSuccessMsg(''); }} style={{
               marginTop: 20, width: '100%', padding: '14px 0', borderRadius: 10, border: 'none', cursor: 'pointer',
@@ -682,8 +702,10 @@ export default function QuotePage() {
 }
 
 /* ─── SMALL COMPONENTS ─── */
-function DimInputs({ w, h, setW, setH, inputStyle, labelStyle, wLabel, hLabel }: {
-  w: number; h: number; setW: (v: number) => void; setH: (v: number) => void;
+function DimInputs({ wStr, hStr, setW, setH, setWStr, setHStr, inputStyle, labelStyle, wLabel, hLabel }: {
+  wStr: string; hStr: string;
+  setW: (v: number) => void; setH: (v: number) => void;
+  setWStr: (v: string) => void; setHStr: (v: string) => void;
   inputStyle: React.CSSProperties; labelStyle: React.CSSProperties;
   wLabel?: string; hLabel?: string;
 }) {
@@ -691,11 +713,15 @@ function DimInputs({ w, h, setW, setH, inputStyle, labelStyle, wLabel, hLabel }:
     <div style={{ display: 'flex', gap: 12 }}>
       <div style={{ flex: 1 }}>
         <label style={labelStyle}>{wLabel || 'Өргөн (м)'}</label>
-        <input type="number" min={0.1} step={0.1} style={inputStyle} value={w} onChange={e => setW(Math.max(0.1, Number(e.target.value)))} />
+        <input type="number" min={0.1} step={0.1} style={inputStyle} value={wStr}
+          onChange={e => { setWStr(e.target.value); const n = parseFloat(e.target.value); if (!isNaN(n) && n >= 0.1) setW(n); }}
+          onBlur={e => { const n = parseFloat(e.target.value); if (isNaN(n) || n < 0.1) { setWStr('0.1'); setW(0.1); } }} />
       </div>
       <div style={{ flex: 1 }}>
         <label style={labelStyle}>{hLabel || 'Өндөр (м)'}</label>
-        <input type="number" min={0.1} step={0.1} style={inputStyle} value={h} onChange={e => setH(Math.max(0.1, Number(e.target.value)))} />
+        <input type="number" min={0.1} step={0.1} style={inputStyle} value={hStr}
+          onChange={e => { setHStr(e.target.value); const n = parseFloat(e.target.value); if (!isNaN(n) && n >= 0.1) setH(n); }}
+          onBlur={e => { const n = parseFloat(e.target.value); if (isNaN(n) || n < 0.1) { setHStr('0.1'); setH(0.1); } }} />
       </div>
     </div>
   );
