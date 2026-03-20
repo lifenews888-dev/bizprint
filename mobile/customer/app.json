@@ -30,7 +30,8 @@
       "permissions": ["ACCESS_FINE_LOCATION"]
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro"
     },
     "plugins": [
       "expo-router",
