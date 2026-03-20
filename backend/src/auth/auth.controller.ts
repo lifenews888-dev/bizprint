@@ -18,9 +18,25 @@ export class AuthController {
     return this.authService.login(dto);
   }
 
+  @Post('refresh')
+  refresh(@Body('refresh_token') refreshToken: string) {
+    return this.authService.refresh(refreshToken);
+  }
+
+  @Post('logout')
+  logout(@Body('refresh_token') refreshToken: string) {
+    return this.authService.logout(refreshToken);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('logout-all')
+  logoutAll(@Request() req: any) {
+    return this.authService.logoutAll(req.user.id);
+  }
+
   @UseGuards(JwtAuthGuard)
   @Get('me')
-  getMe(@Request() req) {
+  getMe(@Request() req: any) {
     return this.authService.getMe(req.user.id);
   }
 }

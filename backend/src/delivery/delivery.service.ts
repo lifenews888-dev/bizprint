@@ -231,6 +231,45 @@ export class DeliveryService {
     }
   }
 
+  // Driver-specific methods
+  async updateLocation(id: number, lat: number, lng: number, accuracy?: number) {
+    const delivery = await this.repo.findOne({ where: { id } })
+    if (!delivery) throw new NotFoundException('Delivery not found')
+    delivery.lat = lat
+    delivery.lng = lng
+    await this.repo.save(delivery)
+    return { updated: true, lat, lng }
+  }
+
+  async findDriverActive(courierId: string) {
+    return this.repo.find({
+      where: { courier_id: courierId as any, status: DeliveryStatus.IN_TRANSIT },
+      relations: ['order'],
+      order: { created_at: 'DESC' },
+    })
+  }
+
+  async findDriverHistory(courierId: string, limit = 50) {
+    return this.repo.find({
+      where: { courier_id: courierId as any, status: DeliveryStatus.DELIVERED },
+      relations: ['order'],
+      order: { created_at: 'DESC' },
+      take: limit,
+    })
+  }
+
+  async saveProofPhoto(id: number, photoUrl: string) {
+    const delivery = await this.repo.findOne({ where: { id } })
+    if (!delivery) throw new NotFoundException('Delivery not found')
+    // Store proof photo URL in provider_data JSON
+    const providerData = delivery.provider_data || {} as any
+    providerData.proof_photo = photoUrl
+    providerData.proof_timestamp = new Date().toISOString()
+    delivery.provider_data = providerData
+    await this.repo.save(delivery)
+    return { saved: true, photo_url: photoUrl }
+  }
+
   private async processCourierPayment(delivery: Delivery) {
     try {
       const courierId = String(delivery.courier_id)

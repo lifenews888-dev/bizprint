@@ -1,7 +1,9 @@
-import { Controller, Get, Post, Patch, Delete, Param, Body, ParseIntPipe, Query } from '@nestjs/common'
+import { Controller, Get, Post, Patch, Delete, Param, Body, ParseIntPipe, Query, UseGuards, Request, UseInterceptors, UploadedFile } from '@nestjs/common'
+import { FileInterceptor } from '@nestjs/platform-express'
 import { DeliveryService } from './delivery.service'
 import { WebhookService } from './webhook.service'
 import { DeliveryStatus } from './delivery.entity'
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard'
 
 @Controller('delivery')
 export class DeliveryController {
@@ -40,6 +42,44 @@ export class DeliveryController {
     @Body('status') status: DeliveryStatus,
   ) {
     return this.service.updateStatus(id, status)
+  }
+
+  // ==========================================
+  // DRIVER ENDPOINTS
+  // ==========================================
+
+  @Patch(':id/location')
+  @UseGuards(JwtAuthGuard)
+  updateLocation(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() body: { lat: number; lng: number; accuracy?: number },
+  ) {
+    return this.service.updateLocation(id, body.lat, body.lng, body.accuracy)
+  }
+
+  @Get('driver/active')
+  @UseGuards(JwtAuthGuard)
+  driverActive(@Request() req: any) {
+    return this.service.findDriverActive(req.user.id)
+  }
+
+  @Get('driver/history')
+  @UseGuards(JwtAuthGuard)
+  driverHistory(@Request() req: any, @Query('limit') limit?: string) {
+    return this.service.findDriverHistory(req.user.id, limit ? Number(limit) : 50)
+  }
+
+  @Post(':id/proof')
+  @UseGuards(JwtAuthGuard)
+  @UseInterceptors(FileInterceptor('photo'))
+  async uploadProof(
+    @Param('id', ParseIntPipe) id: number,
+    @UploadedFile() file: Express.Multer.File,
+    @Body('photo_url') photoUrl?: string,
+  ) {
+    // If file uploaded, construct URL; otherwise use photo_url from body
+    const url = file ? `/uploads/${file.filename}` : (photoUrl || '')
+    return this.service.saveProofPhoto(id, url)
   }
 
   // ==========================================

@@ -1,5 +1,6 @@
-import { Body, Controller, Get, Param, Patch, Query } from '@nestjs/common'
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query, UseGuards, Request } from '@nestjs/common'
 import { NotificationService } from './notification.service'
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard'
 
 @Controller('notifications')
 export class NotificationController {
@@ -18,5 +19,17 @@ export class NotificationController {
   @Patch('read-all')
   markAll(@Query('userId') userId = 'admin') {
     return this.service.markAllRead(userId)
+  }
+
+  @Post('register-push')
+  @UseGuards(JwtAuthGuard)
+  registerPush(@Request() req: any, @Body() body: { token: string; platform?: string; device_id?: string }) {
+    return this.service.registerPushToken(req.user.id, body.token, body.platform || 'web', body.device_id)
+  }
+
+  @Delete('unregister-push')
+  @UseGuards(JwtAuthGuard)
+  unregisterPush(@Body() body: { token: string }) {
+    return this.service.unregisterPushToken(body.token)
   }
 }
