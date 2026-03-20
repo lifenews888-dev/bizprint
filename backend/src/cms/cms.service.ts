@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common'
+import { Injectable, OnModuleInit, Logger } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
 import { Repository, In } from 'typeorm'
 import { SiteSettings } from './entities/site-settings.entity'
@@ -6,7 +6,9 @@ import { MegaMenu } from './entities/mega-menu.entity'
 import { CmsGateway } from './cms.gateway'
 
 @Injectable()
-export class CmsService {
+export class CmsService implements OnModuleInit {
+  private readonly logger = new Logger(CmsService.name)
+
   constructor(
     @InjectRepository(SiteSettings)
     private readonly settingsRepo: Repository<SiteSettings>,
@@ -14,6 +16,15 @@ export class CmsService {
     private readonly menuRepo: Repository<MegaMenu>,
     private readonly gateway: CmsGateway,
   ) {}
+
+  async onModuleInit() {
+    try {
+      const result = await this.seed()
+      this.logger.log(`CMS seed: ${result}`)
+    } catch (e) {
+      this.logger.warn(`CMS seed failed: ${e.message}`)
+    }
+  }
 
   // ─── Settings ────────────────────────────────────────────
 
