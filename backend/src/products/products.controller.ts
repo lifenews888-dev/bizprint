@@ -1,14 +1,28 @@
 import { Controller, Get, Post, Patch, Delete, Body, Param, Query, UseGuards, Request } from '@nestjs/common';
 import { ProductsService } from './products.service';
+import { ProductsMasterService } from '../products-master/products-master.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 @Controller('products')
 export class ProductsController {
-  constructor(private readonly productsService: ProductsService) {}
+  constructor(
+    private readonly productsService: ProductsService,
+    private readonly masterService: ProductsMasterService,
+  ) {}
 
   @Get()
   findAll(@Query('category_id') categoryId?: string) {
     return this.productsService.findAll(categoryId);
+  }
+
+  @Get('catalog')
+  getCatalog() {
+    return this.masterService.getCatalog();
+  }
+
+  @Get('catalog/:code')
+  getCatalogByCode(@Param('code') code: string) {
+    return this.masterService.getCatalogByCode(code);
   }
 
   @Get(':id')

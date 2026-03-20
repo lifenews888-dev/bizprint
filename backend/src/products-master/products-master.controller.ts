@@ -87,17 +87,6 @@ export class ProductsMasterController {
     return this.service.createAddon(body)
   }
 
-  // Public catalog
-  @Get('products/catalog')
-  getCatalog() {
-    return this.service.getCatalog()
-  }
-
-  @Get('products/catalog/:code')
-  getCatalogByCode(@Param('code') code: string) {
-    return this.service.getCatalogByCode(code)
-  }
-
   // Seed
   @Post('admin/products-master/seed')
   @UseGuards(JwtAuthGuard, AdminGuard)
