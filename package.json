@@ -1,0 +1,26 @@
+{
+  "name": "bizprint",
+  "version": "1.0.0",
+  "private": true,
+  "description": "BizPrint — Mongolian print-on-demand e-commerce platform",
+  "workspaces": [
+    "backend",
+    "frontend",
+    "mobile/customer",
+    "mobile/driver",
+    "packages/shared"
+  ],
+  "scripts": {
+    "backend": "cd backend && npm run start:dev",
+    "frontend": "cd frontend && npm run dev",
+    "customer": "cd mobile/customer && npx expo start",
+    "driver": "cd mobile/driver && npx expo start",
+    "build:backend": "cd backend && npm run build",
+    "build:frontend": "cd frontend && npm run build"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/bizprintpro-alt/bizprint.git"
+  },
+  "license": "ISC"
+}
