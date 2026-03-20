@@ -9,7 +9,7 @@ async function bootstrap() {
   app.useGlobalInterceptors(new ResponseInterceptor());
 
   app.enableCors({
-    origin: ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:8081'],
+    origin: true,  // Allow all origins in dev (mobile apps use device IP)
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Api-Version'],
     credentials: true,
@@ -19,7 +19,7 @@ async function bootstrap() {
     prefix: '/uploads/',
   });
 
-  await app.listen(4000);
-  console.log('BizPrint API running on http://localhost:4000');
+  await app.listen(4000, '0.0.0.0');
+  console.log('BizPrint API running on http://0.0.0.0:4000');
 }
 bootstrap();
