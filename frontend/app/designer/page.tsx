@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
+import { useRoleGuard } from '@/lib/use-role-guard'
 
 const API = 'http://localhost:4000'
 
@@ -46,6 +47,7 @@ type FilterType = 'all' | 'pending' | 'paid' | 'in_production' | 'completed'
 
 export default function DesignerDashboard() {
   const router = useRouter()
+  const { user: guardUser, loading: authLoading } = useRoleGuard(['designer', 'admin'])
   const [user, setUser]         = useState<User | null>(null)
   const [orders, setOrders]     = useState<Order[]>([])
   const [loading, setLoading]   = useState(true)
@@ -56,6 +58,7 @@ export default function DesignerDashboard() {
   const fileRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
+    if (authLoading) return
     const ud = localStorage.getItem('user')
     const tk = tok()
     if (!ud || !tk) { router.push('/login'); return }

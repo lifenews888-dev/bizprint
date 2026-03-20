@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { useRoleGuard } from '@/lib/use-role-guard'
 
 const API = 'http://localhost:4000'
 const BASE_URL = 'http://localhost:3000'
@@ -70,6 +71,7 @@ function QRCode({ code }: { code: string }) {
 
 export default function SalesDashboard() {
   const router = useRouter()
+  const { user: guardUser, loading: authLoading } = useRoleGuard(['sales', 'admin'])
   const [user, setUser]         = useState<User | null>(null)
   const [referral, setReferral] = useState<ReferralData | null>(null)
   const [orders, setOrders]     = useState<Order[]>([])
@@ -77,6 +79,7 @@ export default function SalesDashboard() {
   const [copied, setCopied]     = useState(false)
 
   useEffect(() => {
+    if (authLoading) return
     const ud = localStorage.getItem('user')
     const tk = tok()
     if (!ud || !tk) { router.push('/login'); return }

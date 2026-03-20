@@ -1,6 +1,10 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import DashboardLayout from '@/components/layouts/DashboardLayout'
+import KpiCard from '@/components/dashboard/KpiCard'
+import { useRoleGuard } from '@/lib/use-role-guard'
+import { COURIER_MENU } from '@/config/sidebar-config'
 
 const API = 'http://localhost:4000'
 
@@ -14,8 +18,6 @@ interface Order {
   notes?: string
   customer?: { full_name: string; email: string }
 }
-
-interface User { id: string; email: string; full_name: string; role: string }
 
 const ST_MN: Record<string, string> = {
   pending: '\u0425\u04af\u043b\u044d\u044d\u0433\u0434\u044d\u0436 \u0431\u0430\u0439\u043d\u0430',
@@ -44,7 +46,7 @@ type FilterType = 'all' | 'completed' | 'shipped' | 'delivered'
 
 export default function CourierDashboard() {
   const router  = useRouter()
-  const [user, setUser]         = useState<User | null>(null)
+  const { user, loading: authLoading } = useRoleGuard(['courier', 'admin'])
   const [orders, setOrders]     = useState<Order[]>([])
   const [loading, setLoading]   = useState(true)
   const [filter, setFilter]     = useState<FilterType>('all')
@@ -52,12 +54,8 @@ export default function CourierDashboard() {
   const [toast, setToast]       = useState<{ msg: string; ok: boolean } | null>(null)
 
   useEffect(() => {
-    const ud = localStorage.getItem('user')
-    const tk = tok()
-    if (!ud || !tk) { router.push('/login'); return }
-    setUser(JSON.parse(ud))
-    fetchOrders()
-  }, [])
+    if (!authLoading && user) fetchOrders()
+  }, [authLoading, user])
 
   async function fetchOrders() {
     setLoading(true)
@@ -102,50 +100,27 @@ export default function CourierDashboard() {
 
   const s: React.CSSProperties = { background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 8, padding: '8px 12px', color: 'var(--text)', fontSize: 13, outline: 'none' }
 
-  return (
-    <div style={{ minHeight: '100vh', background: 'var(--bg)', fontFamily: "'Segoe UI',system-ui,sans-serif", color: 'var(--text)' }}>
+  if (authLoading) return <div style={{ minHeight: '100vh', background: 'var(--bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text2)' }}>Ачааллаж байна...</div>
 
+  return (
+    <DashboardLayout navGroups={COURIER_MENU} user={user || undefined}>
       {toast && (
         <div style={{ position: 'fixed', top: 20, right: 20, zIndex: 9999, background: toast.ok ? '#1D9E75' : '#e24b4a', color: '#fff', padding: '12px 20px', borderRadius: 10, fontSize: 14, fontWeight: 600, boxShadow: '0 4px 24px rgba(0,0,0,0.3)' }}>
           {toast.msg}
         </div>
       )}
 
-      {/* Topbar */}
-      <div style={{ background: 'var(--surface)', borderBottom: '1px solid var(--border)', padding: '0 32px', height: 54, display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 10 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <span style={{ fontSize: 16, fontWeight: 700 }}><span style={{ color: '#FF6B00' }}>Biz</span>Print</span>
-          <span style={{ fontSize: 11, background: 'rgba(16,185,129,0.1)', color: '#1D9E75', border: '1px solid rgba(16,185,129,0.3)', borderRadius: 20, padding: '2px 10px' }}>Courier</span>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <span style={{ fontSize: 13, color: 'var(--text2)' }}>{user?.full_name}</span>
-          <button onClick={() => router.push('/dashboard/wallet')} style={{ ...s, cursor: 'pointer', fontSize: 12 }}>💳 Хэтэвч</button>
-          <button onClick={() => { localStorage.clear(); router.push('/') }} style={{ ...s, cursor: 'pointer', fontSize: 12 }}>Гарах</button>
-        </div>
+      <div style={{ marginBottom: 24 }}>
+        <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>Хүргэлтийн удирдлага</h1>
+        <p style={{ color: 'var(--text2)', fontSize: 13, margin: '4px 0 0' }}>Захиалга, маршрут, статус хяналт</p>
       </div>
 
-      <div style={{ padding: '28px 32px', maxWidth: 1200, margin: '0 auto' }}>
-
-        <div style={{ marginBottom: 24 }}>
-          <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>Courier Dashboard</h1>
-          <p style={{ color: 'var(--text2)', fontSize: 13, margin: '4px 0 0' }}>Хүргэлтийн захиалга, маршрут, статус хяналт</p>
-        </div>
-
-        {/* Stats */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14, marginBottom: 24 }}>
-          {[
-            { label: 'Авах захиалга',   val: stats.toPickup,   color: '#F59E0B', icon: '📦' },
-            { label: 'Хүргэж байна',    val: stats.delivering, color: '#3B82F6', icon: '🚚' },
-            { label: 'Хүргэсэн',        val: stats.delivered,  color: '#1D9E75', icon: '🏠' },
-            { label: 'Нийт захиалга',   val: stats.total,      color: '#FF6B00', icon: '📋' },
-          ].map(item => (
-            <div key={item.label} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: '16px 18px', borderTop: '3px solid ' + item.color }}>
-              <div style={{ fontSize: 24, marginBottom: 6 }}>{item.icon}</div>
-              <div style={{ fontSize: 24, fontWeight: 700, color: item.color }}>{item.val}</div>
-              <div style={{ fontSize: 12, color: 'var(--text2)', marginTop: 4 }}>{item.label}</div>
-            </div>
-          ))}
-        </div>
+      <KpiCard items={[
+        { label: 'Авах захиалга', value: stats.toPickup, color: 'orange', icon: '📦' },
+        { label: 'Хүргэж байна', value: stats.delivering, color: 'blue', icon: '🚚' },
+        { label: 'Хүргэсэн', value: stats.delivered, color: 'green', icon: '🏠' },
+        { label: 'Нийт', value: stats.total, color: 'purple', icon: '📋' },
+      ]} />
 
         {/* Delivery flow banner */}
         <div style={{ background: 'rgba(16,185,129,0.06)', border: '1px solid rgba(16,185,129,0.2)', borderRadius: 10, padding: '12px 18px', marginBottom: 20, display: 'flex', alignItems: 'center', gap: 16 }}>
@@ -290,7 +265,6 @@ export default function CourierDashboard() {
             </div>
           )}
         </div>
-      </div>
-    </div>
+    </DashboardLayout>
   )
 }
