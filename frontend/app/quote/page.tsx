@@ -74,7 +74,7 @@ export default function QuotePage() {
   const [prices, setPrices] = useState(DEFAULT_PRICES);
   useEffect(() => {
     fetch(`${API}/pricing-config/public`).then(r => r.ok ? r.json() : null)
-      .then(d => { if (d) setPrices(d); })
+      .then(d => { if (d && typeof d === 'object') setPrices({ ...DEFAULT_PRICES, ...d }); })
       .catch(() => {});
   }, []);
 
@@ -132,7 +132,8 @@ export default function QuotePage() {
     let base = 0;
 
     if (signProd === 'tovgor') {
-      const unit = prices.tovgor[tovgorSize] || 35000;
+      const tovgorPrices = (prices.tovgor && typeof prices.tovgor === 'object') ? prices.tovgor : DEFAULT_PRICES.tovgor;
+      const unit = (tovgorPrices as Record<number, number>)[tovgorSize] || 35000;
       base = unit * tovgorQty;
       lines.push({ label: `Товгор ${tovgorSize}см × ${tovgorQty}ш`, amount: base });
     } else if (signProd === 'nerj') {
