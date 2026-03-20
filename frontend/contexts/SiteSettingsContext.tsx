@@ -1,6 +1,7 @@
 'use client'
 
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react'
+import { createContext, useContext, useEffect, useState, useCallback, ReactNode } from 'react'
+import { io, Socket } from 'socket.io-client'
 
 const API = 'http://localhost:4000'
 
@@ -94,12 +95,14 @@ interface SiteSettingsContextType {
   settings: Record<string, any>
   megaMenu: any[]
   loading: boolean
+  refetch: () => void
 }
 
 const SiteSettingsContext = createContext<SiteSettingsContextType>({
   settings: DEFAULT_SETTINGS,
   megaMenu: DEFAULT_MEGA_MENU,
   loading: true,
+  refetch: () => {},
 })
 
 export function SiteSettingsProvider({ children }: { children: ReactNode }) {
@@ -107,18 +110,51 @@ export function SiteSettingsProvider({ children }: { children: ReactNode }) {
   const [megaMenu, setMegaMenu] = useState<any[]>(DEFAULT_MEGA_MENU)
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
+  const fetchSettings = useCallback(() => {
     Promise.all([
       fetch(`${API}/cms/settings/public`).then(r => r.ok ? r.json() : null).catch(() => null),
       fetch(`${API}/cms/mega-menu/public`).then(r => r.ok ? r.json() : null).catch(() => null),
     ]).then(([s, m]) => {
-      if (s && typeof s === 'object') setSettings({ ...DEFAULT_SETTINGS, ...s })
+      if (s && typeof s === 'object') setSettings(prev => ({ ...prev, ...s }))
       if (Array.isArray(m) && m.length > 0) setMegaMenu(m)
     }).finally(() => setLoading(false))
   }, [])
 
+  useEffect(() => {
+    // Initial fetch
+    fetchSettings()
+
+    // Socket.IO real-time updates from /cms namespace
+    let socket: Socket | null = null
+    try {
+      socket = io(`${API}/cms`, { transports: ['websocket'], reconnection: true, reconnectionDelay: 3000 })
+
+      socket.on('settings_updated', ({ key, value }: { key: string; value: any }) => {
+        setSettings(prev => ({ ...prev, [key]: value }))
+      })
+
+      socket.on('settings_bulk_updated', ({ settings: updated }: { settings: Record<string, any> }) => {
+        setSettings(prev => ({ ...prev, ...updated }))
+      })
+
+      socket.on('menu_updated', ({ menu }: { menu: any[] }) => {
+        if (Array.isArray(menu) && menu.length > 0) setMegaMenu(menu)
+      })
+    } catch {
+      // Socket.IO not available, fallback to polling only
+    }
+
+    // Fallback polling every 60 seconds
+    const interval = setInterval(fetchSettings, 60000)
+
+    return () => {
+      if (socket) socket.disconnect()
+      clearInterval(interval)
+    }
+  }, [fetchSettings])
+
   return (
-    <SiteSettingsContext.Provider value={{ settings, megaMenu, loading }}>
+    <SiteSettingsContext.Provider value={{ settings, megaMenu, loading, refetch: fetchSettings }}>
       {children}
     </SiteSettingsContext.Provider>
   )

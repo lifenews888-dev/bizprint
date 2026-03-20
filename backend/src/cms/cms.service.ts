@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm'
 import { Repository, In } from 'typeorm'
 import { SiteSettings } from './entities/site-settings.entity'
 import { MegaMenu } from './entities/mega-menu.entity'
+import { CmsGateway } from './cms.gateway'
 
 @Injectable()
 export class CmsService {
@@ -11,6 +12,7 @@ export class CmsService {
     private readonly settingsRepo: Repository<SiteSettings>,
     @InjectRepository(MegaMenu)
     private readonly menuRepo: Repository<MegaMenu>,
+    private readonly gateway: CmsGateway,
   ) {}
 
   // ─── Settings ────────────────────────────────────────────
@@ -47,14 +49,18 @@ export class CmsService {
     if (setting) {
       setting.value = value
       if (updatedBy) setting.updated_by = updatedBy
-      return this.settingsRepo.save(setting)
+      const saved = await this.settingsRepo.save(setting)
+      this.gateway.notifySettingsUpdate(key, value)
+      return saved
     }
     setting = this.settingsRepo.create({
       key,
       value,
       updated_by: updatedBy ?? null,
     })
-    return this.settingsRepo.save(setting)
+    const saved = await this.settingsRepo.save(setting)
+    this.gateway.notifySettingsUpdate(key, value)
+    return saved
   }
 
   async bulkUpdateSettings(
@@ -62,9 +68,13 @@ export class CmsService {
     updatedBy?: string,
   ): Promise<SiteSettings[]> {
     const results: SiteSettings[] = []
+    const updatedMap: Record<string, any> = {}
     for (const item of items) {
+      // updateSetting already emits per-key; we also emit bulk at the end
       results.push(await this.updateSetting(item.key, item.value, updatedBy))
+      updatedMap[item.key] = item.value
     }
+    this.gateway.notifyBulkSettingsUpdate(updatedMap)
     return results
   }
 
@@ -83,7 +93,9 @@ export class CmsService {
 
   async createMenuItem(data: Partial<MegaMenu>): Promise<MegaMenu> {
     const item = this.menuRepo.create(data)
-    return this.menuRepo.save(item)
+    const saved = await this.menuRepo.save(item)
+    await this.emitMenuUpdate()
+    return saved
   }
 
   async updateMenuItem(
@@ -91,11 +103,14 @@ export class CmsService {
     data: Partial<MegaMenu>,
   ): Promise<MegaMenu> {
     await this.menuRepo.update(id, data)
-    return this.menuRepo.findOneByOrFail({ id })
+    const updated = await this.menuRepo.findOneByOrFail({ id })
+    await this.emitMenuUpdate()
+    return updated
   }
 
   async deleteMenuItem(id: string): Promise<void> {
     await this.menuRepo.delete(id)
+    await this.emitMenuUpdate()
   }
 
   async reorderMenuItems(
@@ -104,6 +119,12 @@ export class CmsService {
     for (const item of items) {
       await this.menuRepo.update(item.id, { sort_order: item.sort_order })
     }
+    await this.emitMenuUpdate()
+  }
+
+  private async emitMenuUpdate(): Promise<void> {
+    const menu = await this.findPublicMenuItems()
+    this.gateway.notifyMenuUpdate(menu)
   }
 
   // ─── Seed ────────────────────────────────────────────────
