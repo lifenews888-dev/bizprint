@@ -1,36 +1,26 @@
 'use client'
-import { useState, useEffect } from 'react'
-
-const API = 'http://localhost:4000'
+import { useState } from 'react'
+import { useSiteSettings } from '@/contexts/SiteSettingsContext'
 
 export default function AnnouncementBar() {
-  const [text, setText] = useState('')
-  const [visible, setVisible] = useState(false)
+  const { settings } = useSiteSettings()
+  const [dismissed, setDismissed] = useState(false)
 
-  useEffect(() => {
-    fetch(`${API}/settings/public`)
-      .then(r => r.json())
-      .then(data => {
-        const m: Record<string, string> = {}
-        if (Array.isArray(data)) data.forEach((s: any) => { m[s.key] = s.value })
-        else if (data && typeof data === 'object') Object.assign(m, data)
-        const msg = m['announcement_text'] || m['announcementText']
-        if (msg) { setText(msg); setVisible(true) }
-      })
-      .catch(() => {})
-  }, [])
+  const active = settings.header_announcement_active === true
+  const text = settings.header_announcement || ''
+  const color = settings.header_announcement_color || '#FF6B35'
 
-  if (!visible) return null
+  if (!active || !text || dismissed) return null
 
   return (
     <div style={{
-      background: 'linear-gradient(90deg, #FF6B00, #e05500)',
+      background: `linear-gradient(90deg, ${color}, ${color}dd)`,
       color: '#fff', textAlign: 'center', padding: '8px 40px 8px 16px',
       fontSize: '13px', fontWeight: 500, position: 'relative',
       fontFamily: "'DM Sans','Segoe UI',system-ui,sans-serif",
     }}>
       {text}
-      <button onClick={() => setVisible(false)} style={{
+      <button onClick={() => setDismissed(true)} style={{
         position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)',
         background: 'none', border: 'none', color: 'rgba(255,255,255,0.7)',
         cursor: 'pointer', fontSize: '18px', lineHeight: 1,

@@ -240,6 +240,47 @@ export class CmsService {
       { key: 'cta_subtitle', value: 'Үнэгүй бүртгүүлж, хэдхэн минутанд үнэ аваарай', group: 'homepage', label: 'CTA дэд гарчиг' },
       { key: 'cta_button_text', value: 'Үнийн санал авах', group: 'homepage', label: 'CTA товчний текст' },
       { key: 'cta_button_url', value: '/quote', group: 'homepage', label: 'CTA товчний URL' },
+      { key: 'features_subtitle', value: 'Хэвлэлийн салбарын бүх оролцогчдыг нэгтгэсэн иж бүрэн экосистем', group: 'homepage', label: 'Онцлог дэд гарчиг' },
+
+      // Social design section
+      { key: 'social_design_active', value: true, group: 'homepage', label: 'Сошиал дизайн хэсэг идэвхтэй' },
+      { key: 'social_design_title', value: 'Сошиал медиа дизайн үйлчилгээ', group: 'homepage', label: 'Сошиал дизайн гарчиг' },
+      { key: 'social_design_subtitle', value: 'Facebook, Instagram постер, story, reels cover — мэргэжлийн дизайнер таны брэндэд тохирсон контент бэлтгэнэ.', group: 'homepage', label: 'Сошиал дизайн тайлбар' },
+      {
+        key: 'social_design_items', group: 'homepage', label: 'Сошиал дизайн үнүүд',
+        value: [
+          { label: 'FB/IG Постер', price: '15,000₮~', color: '#FF6B00', icon: '📱' },
+          { label: 'Story дизайн', price: '10,000₮~', color: '#8B5CF6', icon: '📸' },
+          { label: 'Нэрийн хуудас', price: '25,000₮~', color: '#10B981', icon: '💼' },
+          { label: 'Сарын багц', price: '200,000₮~', color: '#3B82F6', icon: '📅' },
+        ],
+      },
+
+      // Combo section
+      { key: 'combo_active', value: true, group: 'homepage', label: 'Combo хэсэг идэвхтэй' },
+      { key: 'combo_title', value: 'Print + Social Combo', group: 'homepage', label: 'Combo гарчиг' },
+      { key: 'combo_subtitle', value: 'Хэвлэл + сошиал дизайныг хамт захиалвал 15-20% хямд', group: 'homepage', label: 'Combo тайлбар' },
+      {
+        key: 'combo_items', group: 'homepage', label: 'Combo багцууд',
+        value: [
+          { title: 'Starter combo', items: ['Нэрийн хуудас 100ш хэвлэл', 'FB/IG постер 1ш', 'Story дизайн 1ш'], price: '45,000', save: '12,000', color: '#FF6B00' },
+          { title: 'Business combo', items: ['Нэрийн хуудас + Флаер хэвлэл', 'Social media постер 5ш', 'Story + Reels cover 3ш', 'Brand guideline'], price: '180,000', save: '55,000', color: '#8B5CF6', popular: true },
+          { title: 'Monthly Pro', items: ['Сар бүрийн 20 пост дизайн', 'Story 10ш / Reels cover 5ш', 'Content calendar', 'Хэвлэл 20% хямдрал'], price: '350,000', save: '100,000+', color: '#10B981' },
+        ],
+      },
+
+      // How it works section
+      { key: 'how_it_works_active', value: true, group: 'homepage', label: 'Хэрхэн ажилладаг хэсэг идэвхтэй' },
+      { key: 'how_it_works_title', value: 'Хэрхэн ажилладаг вэ?', group: 'homepage', label: 'Хэрхэн ажилладаг гарчиг' },
+      {
+        key: 'how_it_works_steps', group: 'homepage', label: 'Хэрхэн ажилладаг алхмууд',
+        value: [
+          { step: '01', title: 'Үйлчилгээ сонгох', desc: 'Постер, story, нэрийн хуудас эсвэл combo багц', color: '#FF6B00' },
+          { step: '02', title: 'Мэдээлэл өгөх', desc: 'Лого, текст, зураг, brand color-оо оруулна', color: '#8B5CF6' },
+          { step: '03', title: 'Дизайнер ажиллана', desc: 'Мэргэжлийн дизайнер 24 цагт бэлтгэнэ', color: '#3B82F6' },
+          { step: '04', title: 'Хүлээн авах', desc: 'Файл татах + хэвлэл захиалах боломж', color: '#10B981' },
+        ],
+      },
     ]
 
     for (const s of settings) {
