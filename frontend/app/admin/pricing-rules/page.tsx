@@ -1,321 +1,855 @@
-﻿'use client'
+'use client'
+
 import { useState, useEffect } from 'react'
 
-const API = 'http://localhost:4000'
-const F = "'Segoe UI',system-ui,sans-serif"
+// ─── Types ────────────────────────────────────────────────────────────────────
 
 interface PricingRule {
-  id: string
-  product_id?: string | null
-  category_id?: string | null
+  id: number
+  product_id?: number | null
+  category_id?: number | null
   attribute_key: string
   attribute_value: string
   price_multiplier?: number | null
   price_addition?: number | null
   price_override?: number | null
   min_quantity?: number | null
+  label?: string
   is_active: boolean
+  product?: { id: number; name: string }
+  category?: { id: number; name: string }
 }
-interface Product { id: string; name: string; name_mn: string }
-interface Category { id: string; name: string; name_mn: string; slug: string }
+
+interface Product {
+  id: number
+  name: string
+  category_id?: number
+}
+
+interface Category {
+  id: number
+  name: string
+  icon?: string
+  parent_id?: number | null
+}
+
+type TargetType = 'product' | 'category'
+type ModalMode = 'add' | 'edit' | null
+type FilterScope = 'all' | 'product' | 'category'
+
+// ─── Constants ────────────────────────────────────────────────────────────────
+
+const API = 'http://localhost:4000'
 
 const CALC_TYPES = [
-  { k: 'multiplier', l: 'Үржигдэхүүн',     desc: 'Үндсэн үнийг үржүүлнэ',    ex: 'x1.5 +50%',   color: '#3B82F6', icon: 'x' },
-  { k: 'addition',   l: 'Нэмэгдэл',         desc: 'Үндсэн үнэд нэмнэ',        ex: '+5,000T',      color: '#10B981', icon: '+' },
-  { k: 'override',   l: 'Тогтмол үнэ',      desc: 'Бүрэн солих үнэ',          ex: '=50,000T',     color: '#8B5CF6', icon: '=' },
-  { k: 'min_qty',    l: 'Хамгийн бага тоо', desc: 'Захиалгын доод хэмжээ',    ex: '>=100',        color: '#F59E0B', icon: '>' },
-]
+  {
+    key: 'price_multiplier',
+    label: 'Үржигдэхүүн',
+    desc: 'Үндсэн үнийг үржүүлнэ',
+    example: '×1.5 → 150%',
+    color: '#3B82F6',
+    icon: '×',
+    unit: 'x',
+  },
+  {
+    key: 'price_addition',
+    label: 'Нэмэгдэл',
+    desc: 'Үндсэн үнэд нэмнэ',
+    example: '+5,000₮',
+    color: '#10B981',
+    icon: '+',
+    unit: '₮',
+  },
+  {
+    key: 'price_override',
+    label: 'Тогтмол үнэ',
+    desc: 'Бүрэн солих үнэ',
+    example: '= 50,000₮',
+    color: '#8B5CF6',
+    icon: '=',
+    unit: '₮',
+  },
+  {
+    key: 'min_quantity',
+    label: 'Хамгийн бага тоо',
+    desc: 'Захиалгын доод хэмжээ',
+    example: '≥ 100ш',
+    color: '#F59E0B',
+    icon: '≥',
+    unit: 'ш',
+  },
+] as const
 
-function authH() {
-  const t = localStorage.getItem('access_token') || localStorage.getItem('token') || ''
-  return { 'Content-Type': 'application/json', Authorization: 'Bearer ' + t }
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function getToken() {
+  if (typeof window === 'undefined') return ''
+  return localStorage.getItem('access_token') || ''
 }
 
-function formatVal(r: PricingRule) {
-  if (r.price_multiplier != null) return 'x' + r.price_multiplier + ' (+' + Math.round(Number(r.price_multiplier) * 100) + '%)'
-  if (r.price_addition != null)   return '+' + Number(r.price_addition).toLocaleString() + 'T'
-  if (r.price_override != null)   return '=' + Number(r.price_override).toLocaleString() + 'T'
-  if (r.min_quantity != null)     return '>=' + r.min_quantity + 'ш'
-  return '-'
+function authHeaders() {
+  return { 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}` }
 }
 
-function getCalcType(r: PricingRule) {
-  if (r.price_multiplier != null) return 'multiplier'
-  if (r.price_addition != null)   return 'addition'
-  if (r.price_override != null)   return 'override'
-  if (r.min_quantity != null)     return 'min_qty'
-  return 'multiplier'
+function formatValue(rule: PricingRule): string {
+  if (rule.price_multiplier != null) return `×${rule.price_multiplier}`
+  if (rule.price_addition != null)   return `+${rule.price_addition.toLocaleString()}₮`
+  if (rule.price_override != null)   return `=${rule.price_override.toLocaleString()}₮`
+  if (rule.min_quantity != null)     return `≥${rule.min_quantity}ш`
+  return '—'
 }
+
+function getCalcType(rule: PricingRule): string {
+  if (rule.price_multiplier != null) return 'price_multiplier'
+  if (rule.price_addition != null)   return 'price_addition'
+  if (rule.price_override != null)   return 'price_override'
+  if (rule.min_quantity != null)     return 'min_quantity'
+  return ''
+}
+
+// ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function AdminPricingRulesPage() {
-  const [rules, setRules] = useState<PricingRule[]>([])
-  const [products, setProducts] = useState<Product[]>([])
+  const [rules, setRules]         = useState<PricingRule[]>([])
+  const [products, setProducts]   = useState<Product[]>([])
   const [categories, setCategories] = useState<Category[]>([])
-  const [loading, setLoading] = useState(true)
-  const [modal, setModal] = useState(false)
-  const [editing, setEditing] = useState<PricingRule | null>(null)
-  const [filterScope, setFilterScope] = useState('all')
-  const [form, setForm] = useState({
-    target: 'product', product_id: '', category_id: '',
-    attribute_key: '', attribute_value: '',
-    calc_type: 'multiplier', calc_value: '', is_active: true,
-  })
+  const [loading, setLoading]     = useState(true)
+  const [filterScope, setFilterScope] = useState<FilterScope>('all')
+  const [filterTargetId, setFilterTargetId] = useState<number | null>(null)
+  const [search, setSearch]       = useState('')
 
-  useEffect(() => { loadAll() }, [])
+  const [modal, setModal]         = useState<ModalMode>(null)
+  const [editRule, setEditRule]   = useState<Partial<PricingRule>>({})
+  const [targetType, setTargetType] = useState<TargetType>('product')
+  const [calcType, setCalcType]   = useState<string>('price_multiplier')
+  const [calcValue, setCalcValue] = useState<string>('')
 
-  async function loadAll() {
+  const [toast, setToast]         = useState<{ msg: string; type: 'ok' | 'err' } | null>(null)
+  const [stats, setStats]         = useState({ total: 0, active: 0, product: 0, category: 0 })
+
+  useEffect(() => { fetchAll() }, [])
+
+  // ── Fetch ──
+  async function fetchAll() {
     setLoading(true)
-    const [r, p, c] = await Promise.all([
-      fetch(API + '/pricing-rules', { headers: authH() }).then(x => x.json()),
-      fetch(API + '/products', { headers: authH() }).then(x => x.json()),
-      fetch(API + '/categories', { headers: authH() }).then(x => x.json()),
-    ])
-    setRules(Array.isArray(r) ? r : [])
-    setProducts(Array.isArray(p) ? p : [])
-    setCategories(Array.isArray(c) ? c : [])
+    try {
+      const [rulesRes, prodsRes, catsRes] = await Promise.all([
+        fetch(`${API}/pricing-rules`, { headers: authHeaders() }),
+        fetch(`${API}/products`,      { headers: authHeaders() }),
+        fetch(`${API}/categories`,    { headers: authHeaders() }),
+      ])
+      const r: PricingRule[] = rulesRes.ok ? await rulesRes.json() : []
+      const p: Product[]     = prodsRes.ok ? await prodsRes.json() : []
+      const c: Category[]    = catsRes.ok  ? await catsRes.json()  : []
+      setRules(r)
+      setProducts(p)
+      setCategories(c)
+      setStats({
+        total:    r.length,
+        active:   r.filter(x => x.is_active).length,
+        product:  r.filter(x => x.product_id).length,
+        category: r.filter(x => x.category_id).length,
+      })
+    } catch {}
     setLoading(false)
   }
 
-  function openNew() {
-    setEditing(null)
-    setForm({ target: 'product', product_id: '', category_id: '', attribute_key: '', attribute_value: '', calc_type: 'multiplier', calc_value: '', is_active: true })
-    setModal(true)
+  // ── Toast ──
+  function showToast(msg: string, type: 'ok' | 'err' = 'ok') {
+    setToast({ msg, type })
+    setTimeout(() => setToast(null), 3200)
   }
 
-  function openEdit(r: PricingRule) {
-    setEditing(r)
-    const ct = getCalcType(r)
-    const val = ct === 'multiplier' ? r.price_multiplier : ct === 'addition' ? r.price_addition : ct === 'override' ? r.price_override : r.min_quantity
-    setForm({
-      target: r.product_id ? 'product' : 'category',
-      product_id: r.product_id || '', category_id: r.category_id || '',
-      attribute_key: r.attribute_key, attribute_value: r.attribute_value,
-      calc_type: ct, calc_value: val != null ? String(val) : '', is_active: r.is_active,
-    })
-    setModal(true)
+  // ── Open modal ──
+  function openAdd() {
+    setEditRule({ is_active: true })
+    setTargetType('product')
+    setCalcType('price_multiplier')
+    setCalcValue('')
+    setModal('add')
   }
 
-  async function save() {
-    const num = Number(form.calc_value)
-    const body: any = {
-      attribute_key: form.attribute_key, attribute_value: form.attribute_value, is_active: form.is_active,
-      product_id: form.target === 'product' ? (form.product_id || null) : null,
-      category_id: form.target === 'category' ? (form.category_id || null) : null,
-      price_multiplier: form.calc_type === 'multiplier' ? num : null,
-      price_addition:   form.calc_type === 'addition'   ? num : null,
-      price_override:   form.calc_type === 'override'   ? num : null,
-      min_quantity:     form.calc_type === 'min_qty'    ? Math.round(num) : null,
+  function openEdit(rule: PricingRule) {
+    setEditRule(rule)
+    setTargetType(rule.product_id ? 'product' : 'category')
+    setCalcType(getCalcType(rule))
+    const ct = getCalcType(rule)
+    const v = ct === 'price_multiplier' ? rule.price_multiplier
+            : ct === 'price_addition'   ? rule.price_addition
+            : ct === 'price_override'   ? rule.price_override
+            : rule.min_quantity
+    setCalcValue(v != null ? String(v) : '')
+    setModal('edit')
+  }
+
+  // ── Save ──
+  async function saveRule() {
+    if (!editRule.attribute_key?.trim()) { showToast('Attribute key оруулна уу', 'err'); return }
+    if (!calcValue)                       { showToast('Утга оруулна уу', 'err'); return }
+
+    const body: Partial<PricingRule> = {
+      product_id:       targetType === 'product'  ? (editRule.product_id  || null) : null,
+      category_id:      targetType === 'category' ? (editRule.category_id || null) : null,
+      attribute_key:    editRule.attribute_key,
+      attribute_value:  editRule.attribute_value || '',
+      label:            editRule.label,
+      is_active:        editRule.is_active ?? true,
+      price_multiplier: null,
+      price_addition:   null,
+      price_override:   null,
+      min_quantity:     null,
     }
-    if (editing) {
-      await fetch(API + '/pricing-rules/' + editing.id, { method: 'PATCH', headers: authH(), body: JSON.stringify(body) })
-    } else {
-      await fetch(API + '/pricing-rules', { method: 'POST', headers: authH(), body: JSON.stringify(body) })
-    }
-    setModal(false)
-    loadAll()
+    const num = parseFloat(calcValue)
+    if (isNaN(num)) { showToast('Тоо оруулна уу', 'err'); return }
+    if (calcType === 'price_multiplier') body.price_multiplier = num
+    if (calcType === 'price_addition')   body.price_addition   = num
+    if (calcType === 'price_override')   body.price_override   = num
+    if (calcType === 'min_quantity')     body.min_quantity      = Math.round(num)
+
+    const isEdit = modal === 'edit'
+    const url    = isEdit ? `${API}/pricing-rules/${editRule.id}` : `${API}/pricing-rules`
+    const method = isEdit ? 'PATCH' : 'POST'
+    try {
+      const res = await fetch(url, { method, headers: authHeaders(), body: JSON.stringify(body) })
+      if (!res.ok) throw new Error()
+      showToast(isEdit ? 'Дүрэм шинэчлэгдлээ' : 'Дүрэм нэмэгдлээ')
+      setModal(null)
+      fetchAll()
+    } catch { showToast('Алдаа гарлаа', 'err') }
   }
 
-  async function remove(id: string) {
-    if (!confirm('Устгах уу?')) return
-    await fetch(API + '/pricing-rules/' + id, { method: 'DELETE', headers: authH() })
-    loadAll()
+  // ── Toggle active ──
+  async function toggleActive(rule: PricingRule) {
+    try {
+      await fetch(`${API}/pricing-rules/${rule.id}`, {
+        method: 'PATCH',
+        headers: authHeaders(),
+        body: JSON.stringify({ is_active: !rule.is_active }),
+      })
+      fetchAll()
+    } catch {}
   }
 
-  async function toggle(r: PricingRule) {
-    await fetch(API + '/pricing-rules/' + r.id, { method: 'PATCH', headers: authH(), body: JSON.stringify({ is_active: !r.is_active }) })
-    loadAll()
+  // ── Delete ──
+  async function deleteRule(id: number) {
+    if (!confirm('Дүрэм устгах уу?')) return
+    try {
+      const res = await fetch(`${API}/pricing-rules/${id}`, { method: 'DELETE', headers: authHeaders() })
+      if (!res.ok) throw new Error()
+      showToast('Устгагдлаа')
+      fetchAll()
+    } catch { showToast('Устгах боломжгүй', 'err') }
   }
 
+  // ── Filter ──
   const filtered = rules.filter(r => {
-    if (filterScope === 'product') return !!r.product_id
-    if (filterScope === 'category') return !!r.category_id
+    if (filterScope === 'product'  && !r.product_id)  return false
+    if (filterScope === 'category' && !r.category_id) return false
+    if (filterTargetId) {
+      if (filterScope === 'product'  && r.product_id  !== filterTargetId) return false
+      if (filterScope === 'category' && r.category_id !== filterTargetId) return false
+    }
+    if (search) {
+      const s = search.toLowerCase()
+      const prodName = products.find(p => p.id === r.product_id)?.name  || ''
+      const catName  = categories.find(c => c.id === r.category_id)?.name || ''
+      return (
+        r.attribute_key.toLowerCase().includes(s)   ||
+        r.attribute_value.toLowerCase().includes(s)  ||
+        (r.label || '').toLowerCase().includes(s)    ||
+        prodName.toLowerCase().includes(s)           ||
+        catName.toLowerCase().includes(s)
+      )
+    }
     return true
   })
 
-  const ct = CALC_TYPES.find(c => c.k === form.calc_type)
+  const rootCats = categories.filter(c => !c.parent_id)
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // RENDER
+  // ─────────────────────────────────────────────────────────────────────────────
 
   return (
-    <div style={{ padding: '28px 32px', fontFamily: F, color: 'var(--text)' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24, paddingBottom: 20, borderBottom: '1px solid var(--border)' }}>
-        <div>
-          <h1 style={{ fontSize: 22, fontWeight: 600, margin: 0 }}>Унийн дурмуд</h1>
-          <p style={{ fontSize: 13, color: 'var(--text3)', margin: '5px 0 0' }}>Бутээгдэхуун болон ангилалд attribute-аар унэ тохируулах</p>
+    <div style={{ padding: '28px 32px', color: 'var(--text)', fontFamily: "'DM Sans', 'Segoe UI', system-ui" }}>
+
+      {/* Toast */}
+      {toast && (
+        <div style={{
+          position: 'fixed', top: 24, right: 24, zIndex: 9999,
+          background: toast.type === 'ok' ? '#10B981' : '#EF4444',
+          color: '#fff', padding: '12px 20px', borderRadius: 10,
+          fontSize: 14, fontWeight: 600, boxShadow: '0 4px 24px rgba(0,0,0,0.3)',
+        }}>
+          {toast.type === 'ok' ? '✓ ' : '✕ '}{toast.msg}
         </div>
-        <button onClick={openNew} style={{ background: 'var(--orange)', color: '#fff', border: 'none', borderRadius: 8, padding: '8px 16px', fontSize: 13, fontWeight: 500, cursor: 'pointer' }}>+ Дурэм нэмэх</button>
+      )}
+
+      {/* ── Header ── */}
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 28 }}>
+        <div>
+          <h1 style={{ fontSize: 24, fontWeight: 700, margin: 0 }}>Үнийн дүрмүүд</h1>
+          <p style={{ color: 'var(--text2)', fontSize: 14, margin: '4px 0 0' }}>
+            Бүтээгдэхүүн болон ангилалд attribute-аар үнэ тохируулах
+          </p>
+        </div>
+        <button onClick={openAdd} style={{
+          background: '#FF6B35', color: '#fff', border: 'none',
+          padding: '10px 22px', borderRadius: 8, fontWeight: 700,
+          fontSize: 14, cursor: 'pointer',
+        }}>
+          + Дүрэм нэмэх
+        </button>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 10, marginBottom: 20 }}>
+      {/* ── Stat cards ── */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 28 }}>
         {[
-          { label: 'Нийт дурэм', value: rules.length, color: 'var(--orange)' },
-          { label: 'Идэвхтэй', value: rules.filter(r => r.is_active).length, color: '#1D9E75' },
-          { label: 'Бутэгдэхуунд', value: rules.filter(r => r.product_id).length, color: '#378ADD' },
-          { label: 'Ангилалд', value: rules.filter(r => r.category_id).length, color: '#8B5CF6' },
-        ].map(c => (
-          <div key={c.label} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: 16, borderLeft: '3px solid ' + c.color }}>
-            <div style={{ fontSize: 24, fontWeight: 600, color: c.color }}>{c.value}</div>
-            <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 4 }}>{c.label}</div>
+          { label: 'Нийт дүрэм',     value: stats.total,    color: '#FF6B35', icon: '📋' },
+          { label: 'Идэвхтэй',        value: stats.active,   color: '#10B981', icon: '✓'  },
+          { label: 'Бүтээгдэхүүнд',   value: stats.product,  color: '#3B82F6', icon: '📦' },
+          { label: 'Ангилалд',         value: stats.category, color: '#8B5CF6', icon: '🗂️' },
+        ].map(s => (
+          <div key={s.label} style={{
+            background: 'var(--surface)', border: '1px solid var(--border)',
+            borderRadius: 12, padding: '18px 20px',
+            borderLeft: `3px solid ${s.color}`,
+          }}>
+            <div style={{ fontSize: 22, fontWeight: 700, color: s.color }}>{s.value}</div>
+            <div style={{ fontSize: 13, color: 'var(--text2)', marginTop: 3 }}>{s.label}</div>
           </div>
         ))}
       </div>
 
-      <div style={{ display: 'flex', gap: 6, marginBottom: 16 }}>
-        {[{ k: 'all', l: 'Бугд' }, { k: 'product', l: 'Бутээгдэхуун' }, { k: 'category', l: 'Ангилал' }].map(s => (
-          <button key={s.k} onClick={() => setFilterScope(s.k)}
-            style={{ padding: '6px 14px', borderRadius: 7, border: '1px solid', fontSize: 12, cursor: 'pointer', background: filterScope === s.k ? 'var(--orange)' : 'transparent', color: filterScope === s.k ? '#fff' : 'var(--text3)', borderColor: filterScope === s.k ? 'var(--orange)' : 'var(--border)' }}>
-            {s.l}
-          </button>
-        ))}
-      </div>
-
-      <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' as any }}>
-        {CALC_TYPES.map(ct => (
-          <div key={ct.k} style={{ display: 'flex', alignItems: 'center', gap: 6, background: ct.color + '14', border: '1px solid ' + ct.color + '44', borderRadius: 20, padding: '4px 12px', fontSize: 12, color: ct.color, fontWeight: 600 }}>
-            <span style={{ width: 18, height: 18, borderRadius: '50%', background: ct.color, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700 }}>{ct.icon}</span>
-            {ct.l} <span style={{ opacity: 0.7, fontWeight: 400 }}>-- {ct.ex}</span>
-          </div>
-        ))}
-      </div>
-
-      <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '1.8fr 1fr 1fr 1fr 1fr 0.5fr 0.8fr', padding: '10px 20px', borderBottom: '1px solid var(--border)', gap: 12 }}>
-          {['Хамаарал', 'Attribute key', 'Attribute утга', 'Тооцооллын тoрoл', 'Утга', 'Идэвх', 'Yйлдэл'].map(h => (
-            <div key={h} style={{ fontSize: 11, color: 'var(--text4)', textTransform: 'uppercase' as any, fontWeight: 500 }}>{h}</div>
+      {/* ── Filter bar ── */}
+      <div style={{
+        display: 'flex', gap: 12, alignItems: 'center',
+        marginBottom: 20, flexWrap: 'wrap',
+      }}>
+        {/* Scope tabs */}
+        <div style={{
+          display: 'flex', background: 'var(--surface2)',
+          border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden',
+        }}>
+          {(['all', 'product', 'category'] as FilterScope[]).map(s => (
+            <button key={s}
+              onClick={() => { setFilterScope(s); setFilterTargetId(null) }}
+              style={{
+                background: filterScope === s ? '#FF6B35' : 'transparent',
+                color: filterScope === s ? '#fff' : 'var(--text2)',
+                border: 'none', padding: '8px 16px', cursor: 'pointer',
+                fontSize: 13, fontWeight: 600,
+              }}
+            >
+              {s === 'all' ? 'Бүгд' : s === 'product' ? '📦 Бүтээгдэхүүн' : '🗂️ Ангилал'}
+            </button>
           ))}
         </div>
-        {loading ? <div style={{ padding: 48, textAlign: 'center' as any, color: 'var(--text4)' }}>Уншиж байна...</div>
-          : filtered.length === 0 ? (
-            <div style={{ padding: 56, textAlign: 'center' as any, color: 'var(--text4)' }}>
-              <div style={{ fontWeight: 600, marginBottom: 4 }}>Дурэм олдсонгуй</div>
-              <div style={{ fontSize: 13 }}>+ Дурэм нэмэх товч дарж эхлэнэ уу</div>
-            </div>
-          ) : filtered.map((r, i) => {
-            const prod = products.find(p => p.id === r.product_id)
-            const cat = categories.find(c => c.id === r.category_id)
-            const ctype = CALC_TYPES.find(c => c.k === getCalcType(r))
-            return (
-              <div key={r.id} style={{ display: 'grid', gridTemplateColumns: '1.8fr 1fr 1fr 1fr 1fr 0.5fr 0.8fr', padding: '12px 20px', borderBottom: i < filtered.length - 1 ? '1px solid var(--border)' : 'none', gap: 12, alignItems: 'center', opacity: r.is_active ? 1 : 0.5 }}
-                onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface2)')}
-                onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
-                <div>
-                  {prod && <><div style={{ fontSize: 11, color: '#378ADD', fontWeight: 600 }}>Бутээгдэхуун</div><div style={{ fontSize: 13 }}>{prod.name_mn || prod.name}</div></>}
-                  {cat && <><div style={{ fontSize: 11, color: '#8B5CF6', fontWeight: 600 }}>Ангилал</div><div style={{ fontSize: 13 }}>{cat.name_mn || cat.name}</div></>}
-                  {!prod && !cat && <span style={{ fontSize: 12, color: 'var(--text4)' }}>-</span>}
-                </div>
-                <code style={{ fontSize: 12, background: 'var(--surface2)', padding: '2px 7px', borderRadius: 5, border: '1px solid var(--border)' }}>{r.attribute_key}</code>
-                <div style={{ fontSize: 12, background: 'var(--surface2)', padding: '2px 8px', borderRadius: 5, display: 'inline-block' }}>{r.attribute_value || '-'}</div>
-                <div style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: (ctype?.color || '#888') + '15', color: ctype?.color, borderRadius: 6, padding: '3px 9px', fontSize: 12, fontWeight: 600 }}>
-                  <span style={{ width: 16, height: 16, borderRadius: '50%', background: ctype?.color, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10 }}>{ctype?.icon}</span>
-                  {ctype?.l}
-                </div>
-                <div style={{ fontSize: 14, fontWeight: 700, color: ctype?.color }}>{formatVal(r)}</div>
-                <button onClick={() => toggle(r)} style={{ width: 40, height: 22, borderRadius: 11, border: 'none', background: r.is_active ? '#1D9E75' : 'var(--border)', cursor: 'pointer', position: 'relative' as any }}>
-                  <span style={{ position: 'absolute' as any, top: 2, left: r.is_active ? 20 : 2, width: 18, height: 18, borderRadius: '50%', background: '#fff', transition: 'left 0.2s' }} />
-                </button>
-                <div style={{ display: 'flex', gap: 6 }}>
-                  <button onClick={() => openEdit(r)} style={{ fontSize: 11, padding: '4px 8px', borderRadius: 6, border: '1px solid #378ADD', background: 'transparent', color: '#378ADD', cursor: 'pointer' }}>Засах</button>
-                  <button onClick={() => remove(r.id)} style={{ fontSize: 11, padding: '4px 8px', borderRadius: 6, border: '1px solid #e24b4a', background: 'transparent', color: '#e24b4a', cursor: 'pointer' }}>Устгах</button>
-                </div>
-              </div>
-            )
-          })}
+
+        {/* Target selector */}
+        {filterScope !== 'all' && (
+          <select
+            value={filterTargetId || ''}
+            onChange={e => setFilterTargetId(e.target.value ? Number(e.target.value) : null)}
+            style={{
+              background: 'var(--surface2)', border: '1px solid var(--border)',
+              borderRadius: 8, padding: '8px 12px', color: 'var(--text)', fontSize: 13,
+            }}
+          >
+            <option value="">— Бүгдийг харах —</option>
+            {filterScope === 'product'
+              ? products.map(p => <option key={p.id} value={p.id}>{p.name}</option>)
+              : rootCats.map(c => <option key={c.id} value={c.id}>{c.icon || '📦'} {c.name}</option>)
+            }
+          </select>
+        )}
+
+        {/* Search */}
+        <input
+          placeholder="🔍 Хайх..."
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          style={{
+            background: 'var(--surface2)', border: '1px solid var(--border)',
+            borderRadius: 8, padding: '8px 14px', color: 'var(--text)',
+            fontSize: 13, width: 220, outline: 'none', marginLeft: 'auto',
+          }}
+        />
+        <span style={{ fontSize: 13, color: 'var(--text2)' }}>
+          {filtered.length} дүрэм
+        </span>
       </div>
 
-      {modal && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <div style={{ background: 'var(--surface)', borderRadius: 16, padding: 32, width: 580, maxHeight: '92vh', overflowY: 'auto' as any, border: '1px solid var(--border)' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-              <h2 style={{ margin: 0, fontSize: 18, fontWeight: 600 }}>{editing ? 'Дурэм засах' : 'Шинэ дурэм нэмэх'}</h2>
-              <button onClick={() => setModal(false)} style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: 'var(--text3)' }}>x</button>
-            </div>
+      {/* ── Calc type legend ── */}
+      <div style={{ display: 'flex', gap: 10, marginBottom: 20, flexWrap: 'wrap' }}>
+        {CALC_TYPES.map(ct => (
+          <div key={ct.key} style={{
+            display: 'flex', alignItems: 'center', gap: 6,
+            background: `${ct.color}14`,
+            border: `1px solid ${ct.color}44`,
+            borderRadius: 20, padding: '4px 12px',
+            fontSize: 12, color: ct.color, fontWeight: 600,
+          }}>
+            <span style={{
+              width: 18, height: 18, borderRadius: '50%',
+              background: ct.color, color: '#fff',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: 11, fontWeight: 700, flexShrink: 0,
+            }}>{ct.icon}</span>
+            {ct.label}
+            <span style={{ color: `${ct.color}99`, fontWeight: 400 }}>— {ct.example}</span>
+          </div>
+        ))}
+      </div>
 
-            <div style={{ marginBottom: 18 }}>
-              <label style={{ fontSize: 11, color: 'var(--text3)', display: 'block', marginBottom: 8, fontWeight: 700, textTransform: 'uppercase' as any }}>1. Хаана хамааруулах вэ?</label>
-              <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
-                {[{ k: 'product', l: 'Бутэгдэхуун', d: 'Тодорхой нэг бутэгдэхуунд' }, { k: 'category', l: 'Ангилал', d: 'Ангилалын бух бутэгдэхуунд' }].map(t => (
-                  <button key={t.k} onClick={() => setForm({ ...form, target: t.k })}
-                    style={{ flex: 1, padding: '12px', borderRadius: 10, border: form.target === t.k ? '2px solid var(--orange)' : '1px solid var(--border)', background: form.target === t.k ? 'var(--orange-06)' : 'var(--surface2)', cursor: 'pointer', textAlign: 'left' as any }}>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: form.target === t.k ? 'var(--orange)' : 'var(--text)' }}>{t.l}</div>
-                    <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 3 }}>{t.d}</div>
-                  </button>
-                ))}
-              </div>
-              <select value={form.target === 'product' ? form.product_id : form.category_id}
-                onChange={e => setForm({ ...form, [form.target === 'product' ? 'product_id' : 'category_id']: e.target.value })}
-                style={{ width: '100%', padding: '9px 12px', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 13, color: 'var(--text)', outline: 'none' }}>
-                <option value="">-- {form.target === 'product' ? 'Бутэгдэхуун' : 'Ангилал'} сонгох --</option>
-                {form.target === 'product'
-                  ? products.map(p => <option key={p.id} value={p.id}>{p.name_mn || p.name}</option>)
-                  : categories.map(c => <option key={c.id} value={c.id}>{c.name_mn || c.name}</option>)
-                }
-              </select>
-            </div>
+      {/* ── Table ── */}
+      {loading ? (
+        <div style={{ padding: 60, textAlign: 'center', color: 'var(--text2)' }}>Уншиж байна...</div>
+      ) : (
+        <div style={{
+          background: 'var(--surface)', border: '1px solid var(--border)',
+          borderRadius: 12, overflow: 'hidden',
+        }}>
+          {/* Header */}
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: '200px 160px 160px 130px 90px 80px 100px',
+            padding: '10px 20px',
+            background: 'var(--surface2)', borderBottom: '1px solid var(--border)',
+            fontSize: 11, fontWeight: 700, color: 'var(--text2)',
+            textTransform: 'uppercase', letterSpacing: '0.07em',
+          }}>
+            <span>Хамаарал</span>
+            <span>Attribute key</span>
+            <span>Attribute утга</span>
+            <span>Тооцооллын төрөл</span>
+            <span>Утга</span>
+            <span>Идэвхтэй</span>
+            <span style={{ textAlign: 'right' }}>Үйлдэл</span>
+          </div>
 
-            <div style={{ marginBottom: 18 }}>
-              <label style={{ fontSize: 11, color: 'var(--text3)', display: 'block', marginBottom: 8, fontWeight: 700, textTransform: 'uppercase' as any }}>2. Ямар attribute-ийн хувьд?</label>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                <div>
-                  <label style={{ fontSize: 12, color: 'var(--text3)', display: 'block', marginBottom: 4 }}>Attribute key *</label>
-                  <input value={form.attribute_key} onChange={e => setForm({ ...form, attribute_key: e.target.value })} placeholder="finish, side, paper_weight..."
-                    style={{ width: '100%', padding: '9px 12px', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 13, color: 'var(--text)', outline: 'none', boxSizing: 'border-box' as any }} />
-                </div>
-                <div>
-                  <label style={{ fontSize: 12, color: 'var(--text3)', display: 'block', marginBottom: 4 }}>Attribute утга *</label>
-                  <input value={form.attribute_value} onChange={e => setForm({ ...form, attribute_value: e.target.value })} placeholder="Мат ламинат, Хоёр тал..."
-                    style={{ width: '100%', padding: '9px 12px', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 13, color: 'var(--text)', outline: 'none', boxSizing: 'border-box' as any }} />
-                </div>
-              </div>
+          {filtered.length === 0 ? (
+            <div style={{ padding: 56, textAlign: 'center', color: 'var(--text2)' }}>
+              <div style={{ fontSize: 36, marginBottom: 10 }}>📋</div>
+              <div style={{ fontWeight: 600 }}>Дүрэм олдсонгүй</div>
+              <div style={{ fontSize: 13, marginTop: 6 }}>+ Дүрэм нэмэх товч дарж эхэлнэ үү</div>
             </div>
+          ) : (
+            filtered.map((rule, i) => {
+              const ct = CALC_TYPES.find(c => c.key === getCalcType(rule))
+              const prodName = products.find(p => p.id === rule.product_id)?.name
+              const catName  = categories.find(c => c.id === rule.category_id)?.name
+              const catIcon  = categories.find(c => c.id === rule.category_id)?.icon
 
-            <div style={{ marginBottom: 18 }}>
-              <label style={{ fontSize: 11, color: 'var(--text3)', display: 'block', marginBottom: 8, fontWeight: 700, textTransform: 'uppercase' as any }}>3. Тооцооллын тoрoл</label>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                {CALC_TYPES.map(t => (
-                  <button key={t.k} onClick={() => setForm({ ...form, calc_type: t.k, calc_value: '' })}
-                    style={{ padding: '12px 14px', borderRadius: 10, cursor: 'pointer', border: form.calc_type === t.k ? '2px solid ' + t.color : '1px solid var(--border)', background: form.calc_type === t.k ? t.color + '10' : 'var(--surface2)', textAlign: 'left' as any }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 4 }}>
-                      <span style={{ width: 22, height: 22, borderRadius: '50%', background: form.calc_type === t.k ? t.color : 'var(--border)', color: form.calc_type === t.k ? '#fff' : 'var(--text3)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, fontWeight: 700 }}>{t.icon}</span>
-                      <span style={{ fontWeight: 600, fontSize: 13, color: form.calc_type === t.k ? t.color : 'var(--text)' }}>{t.l}</span>
-                    </div>
-                    <div style={{ fontSize: 11, color: 'var(--text3)', paddingLeft: 29 }}>{t.desc} -- {t.ex}</div>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div style={{ marginBottom: 20 }}>
-              <label style={{ fontSize: 11, color: 'var(--text3)', display: 'block', marginBottom: 8, fontWeight: 700, textTransform: 'uppercase' as any }}>4. Утга</label>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <div style={{ position: 'relative' as any, flex: 1 }}>
-                  <input type="number" value={form.calc_value} onChange={e => setForm({ ...form, calc_value: e.target.value })}
-                    placeholder={form.calc_type === 'multiplier' ? '0.20' : form.calc_type === 'min_qty' ? '100' : '5000'}
-                    step={form.calc_type === 'multiplier' ? '0.01' : '1'}
-                    style={{ width: '100%', padding: '9px 40px 9px 12px', background: 'var(--surface2)', border: '2px solid ' + (ct?.color || 'var(--border)'), borderRadius: 8, fontSize: 14, color: 'var(--text)', outline: 'none', boxSizing: 'border-box' as any }} />
-                  <span style={{ position: 'absolute' as any, right: 12, top: '50%', transform: 'translateY(-50%)', color: ct?.color, fontWeight: 700 }}>{ct?.icon}</span>
-                </div>
-                {form.calc_value && (
-                  <div style={{ background: (ct?.color || '#888') + '15', border: '1px solid ' + (ct?.color || '#888') + '44', borderRadius: 8, padding: '10px 16px', fontSize: 16, fontWeight: 800, color: ct?.color, minWidth: 100, textAlign: 'center' as any }}>
-                    {form.calc_type === 'multiplier' ? 'x' + (1 + Number(form.calc_value)) + ' (+' + Math.round(Number(form.calc_value) * 100) + '%)'
-                      : form.calc_type === 'addition'  ? '+' + Number(form.calc_value).toLocaleString() + 'T'
-                      : form.calc_type === 'override'  ? '=' + Number(form.calc_value).toLocaleString() + 'T'
-                      : '>=' + form.calc_value + 'ш'}
+              return (
+                <div key={rule.id} style={{
+                  display: 'grid',
+                  gridTemplateColumns: '200px 160px 160px 130px 90px 80px 100px',
+                  padding: '13px 20px',
+                  borderBottom: i < filtered.length - 1 ? '1px solid var(--border)' : 'none',
+                  alignItems: 'center',
+                  opacity: rule.is_active ? 1 : 0.5,
+                  transition: 'opacity 0.2s',
+                }}>
+                  {/* Хамаарал */}
+                  <div>
+                    {prodName ? (
+                      <div>
+                        <div style={{
+                          display: 'inline-flex', alignItems: 'center', gap: 5,
+                          background: 'rgba(59,130,246,0.12)', color: '#3B82F6',
+                          borderRadius: 6, padding: '2px 8px', fontSize: 12, fontWeight: 600,
+                        }}>
+                          📦 Бүтээгдэхүүн
+                        </div>
+                        <div style={{ fontSize: 13, marginTop: 4, color: 'var(--text)' }}>{prodName}</div>
+                      </div>
+                    ) : catName ? (
+                      <div>
+                        <div style={{
+                          display: 'inline-flex', alignItems: 'center', gap: 5,
+                          background: 'rgba(139,92,246,0.12)', color: '#8B5CF6',
+                          borderRadius: 6, padding: '2px 8px', fontSize: 12, fontWeight: 600,
+                        }}>
+                          {catIcon || '🗂️'} Ангилал
+                        </div>
+                        <div style={{ fontSize: 13, marginTop: 4, color: 'var(--text)' }}>{catName}</div>
+                      </div>
+                    ) : (
+                      <span style={{ color: 'var(--text3)', fontSize: 12 }}>Бүх бүтээгдэхүүн</span>
+                    )}
                   </div>
-                )}
+
+                  {/* Attribute key */}
+                  <div>
+                    <code style={{
+                      background: 'var(--surface2)', border: '1px solid var(--border)',
+                      borderRadius: 5, padding: '2px 7px', fontSize: 12,
+                      color: 'var(--text)',
+                    }}>
+                      {rule.attribute_key}
+                    </code>
+                    {rule.label && (
+                      <div style={{ fontSize: 11, color: 'var(--text2)', marginTop: 3 }}>{rule.label}</div>
+                    )}
+                  </div>
+
+                  {/* Attribute value */}
+                  <div>
+                    {rule.attribute_value ? (
+                      <span style={{
+                        background: 'var(--surface2)', border: '1px solid var(--border)',
+                        borderRadius: 5, padding: '2px 8px', fontSize: 12,
+                      }}>
+                        {rule.attribute_value}
+                      </span>
+                    ) : (
+                      <span style={{ color: 'var(--text3)', fontSize: 12 }}>Бүх утга</span>
+                    )}
+                  </div>
+
+                  {/* Calc type badge */}
+                  {ct ? (
+                    <div style={{
+                      display: 'inline-flex', alignItems: 'center', gap: 5,
+                      background: `${ct.color}15`, color: ct.color,
+                      borderRadius: 6, padding: '3px 9px', fontSize: 12, fontWeight: 600,
+                      width: 'fit-content',
+                    }}>
+                      <span style={{
+                        width: 16, height: 16, borderRadius: '50%',
+                        background: ct.color, color: '#fff',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        fontSize: 10, fontWeight: 700,
+                      }}>{ct.icon}</span>
+                      {ct.label}
+                    </div>
+                  ) : <span>—</span>}
+
+                  {/* Value */}
+                  <span style={{
+                    fontWeight: 700, fontSize: 15,
+                    color: ct?.color || 'var(--text)',
+                  }}>
+                    {formatValue(rule)}
+                  </span>
+
+                  {/* Toggle */}
+                  <div>
+                    <button
+                      onClick={() => toggleActive(rule)}
+                      style={{
+                        width: 40, height: 22, borderRadius: 11, border: 'none',
+                        background: rule.is_active ? '#10B981' : 'var(--border2)',
+                        cursor: 'pointer', position: 'relative', transition: 'background 0.2s',
+                      }}
+                    >
+                      <span style={{
+                        position: 'absolute', top: 2,
+                        left: rule.is_active ? 20 : 2,
+                        width: 18, height: 18, borderRadius: '50%', background: '#fff',
+                        transition: 'left 0.2s',
+                      }} />
+                    </button>
+                  </div>
+
+                  {/* Actions */}
+                  <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
+                    <ActionBtn icon="✏️" onClick={() => openEdit(rule)} />
+                    <ActionBtn icon="🗑️" danger onClick={() => deleteRule(rule.id)} />
+                  </div>
+                </div>
+              )
+            })
+          )}
+        </div>
+      )}
+
+      {/* ═══════════════════════════════════════════════════════ */}
+      {/* MODAL                                                   */}
+      {/* ═══════════════════════════════════════════════════════ */}
+      {modal && (
+        <div style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.72)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000,
+        }}>
+          <div style={{
+            background: 'var(--surface)', border: '1px solid var(--border)',
+            borderRadius: 16, padding: 32, width: 580,
+            maxHeight: '88vh', overflowY: 'auto',
+            boxShadow: '0 24px 80px rgba(0,0,0,0.5)',
+          }}>
+            {/* Modal header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+              <div>
+                <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>
+                  {modal === 'add' ? '+ Үнийн дүрэм нэмэх' : 'Дүрэм засах'}
+                </h2>
+                <p style={{ margin: '4px 0 0', color: 'var(--text2)', fontSize: 13 }}>
+                  Attribute утгатай тохирох үнийн нөхцөл тодорхойлно
+                </p>
               </div>
-              {form.calc_type === 'multiplier' && <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 6 }}>0.20 оруулбал +20% нэмэгдэнэ</div>}
+              <button onClick={() => setModal(null)} style={{
+                background: 'none', border: 'none', cursor: 'pointer',
+                color: 'var(--text2)', fontSize: 22, lineHeight: 1,
+              }}>×</button>
             </div>
 
+            {/* ── Section 1: Target ── */}
+            <SectionTitle>1. Хаана хамааруулах вэ?</SectionTitle>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 16 }}>
+              {(['product', 'category'] as TargetType[]).map(t => (
+                <button key={t}
+                  onClick={() => setTargetType(t)}
+                  style={{
+                    padding: '12px 16px', borderRadius: 10, cursor: 'pointer',
+                    border: targetType === t ? '2px solid #FF6B35' : '1px solid var(--border)',
+                    background: targetType === t ? 'rgba(255,107,53,0.08)' : 'var(--surface2)',
+                    color: targetType === t ? '#FF6B35' : 'var(--text)',
+                    fontWeight: 600, fontSize: 14, textAlign: 'left',
+                  }}
+                >
+                  <div>{t === 'product' ? '📦 Бүтээгдэхүүн' : '🗂️ Ангилал'}</div>
+                  <div style={{ fontSize: 11, fontWeight: 400, color: targetType === t ? '#FF6B35aa' : 'var(--text2)', marginTop: 3 }}>
+                    {t === 'product' ? 'Тодорхой нэг бүтээгдэхүүнд' : 'Ангилалын бүх бүтээгдэхүүнд'}
+                  </div>
+                </button>
+              ))}
+            </div>
+
+            {targetType === 'product' ? (
+              <>
+                <Label>Бүтээгдэхүүн сонгох</Label>
+                <select
+                  value={editRule.product_id || ''}
+                  onChange={e => setEditRule({ ...editRule, product_id: e.target.value ? Number(e.target.value) : null })}
+                  style={inputStyle}
+                >
+                  <option value="">— Бүтээгдэхүүн сонгох —</option>
+                  {products.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                </select>
+              </>
+            ) : (
+              <>
+                <Label>Ангилал сонгох</Label>
+                <select
+                  value={editRule.category_id || ''}
+                  onChange={e => setEditRule({ ...editRule, category_id: e.target.value ? Number(e.target.value) : null })}
+                  style={inputStyle}
+                >
+                  <option value="">— Ангилал сонгох —</option>
+                  {rootCats.map(c => (
+                    <optgroup key={c.id} label={`${c.icon || ''} ${c.name}`}>
+                      <option value={c.id}>{c.icon || '📦'} {c.name} (үндсэн)</option>
+                      {categories.filter(s => s.parent_id === c.id).map(s => (
+                        <option key={s.id} value={s.id}>　└ {s.name}</option>
+                      ))}
+                    </optgroup>
+                  ))}
+                </select>
+              </>
+            )}
+
+            {/* ── Section 2: Attribute ── */}
+            <SectionTitle>2. Ямар attribute-ийн хувьд?</SectionTitle>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              <div>
+                <Label>Attribute key *</Label>
+                <input
+                  value={editRule.attribute_key || ''}
+                  onChange={e => setEditRule({ ...editRule, attribute_key: e.target.value })}
+                  placeholder="Жишээ: paper_type"
+                  style={inputStyle}
+                />
+              </div>
+              <div>
+                <Label>Attribute утга (хоосон = бүх утга)</Label>
+                <input
+                  value={editRule.attribute_value || ''}
+                  onChange={e => setEditRule({ ...editRule, attribute_value: e.target.value })}
+                  placeholder="Жишээ: glossy"
+                  style={inputStyle}
+                />
+              </div>
+            </div>
+
+            <Label>Нэр / тайлбар (заавал биш)</Label>
+            <input
+              value={editRule.label || ''}
+              onChange={e => setEditRule({ ...editRule, label: e.target.value })}
+              placeholder="Жишээ: Glossy нэмэлт үнэ"
+              style={inputStyle}
+            />
+
+            {/* ── Section 3: Calc type ── */}
+            <SectionTitle>3. Тооцооллын төрөл</SectionTitle>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 16 }}>
+              {CALC_TYPES.map(ct => (
+                <button key={ct.key}
+                  onClick={() => { setCalcType(ct.key); setCalcValue('') }}
+                  style={{
+                    padding: '12px 14px', borderRadius: 10, cursor: 'pointer',
+                    border: calcType === ct.key ? `2px solid ${ct.color}` : '1px solid var(--border)',
+                    background: calcType === ct.key ? `${ct.color}12` : 'var(--surface2)',
+                    textAlign: 'left',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+                    <span style={{
+                      width: 22, height: 22, borderRadius: '50%',
+                      background: calcType === ct.key ? ct.color : 'var(--border)',
+                      color: calcType === ct.key ? '#fff' : 'var(--text2)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontSize: 12, fontWeight: 700,
+                    }}>{ct.icon}</span>
+                    <span style={{
+                      fontWeight: 600, fontSize: 13,
+                      color: calcType === ct.key ? ct.color : 'var(--text)',
+                    }}>{ct.label}</span>
+                  </div>
+                  <div style={{ fontSize: 11, color: 'var(--text2)', marginTop: 5, paddingLeft: 29 }}>
+                    {ct.desc} — <span style={{ color: calcType === ct.key ? ct.color : 'var(--text2)' }}>{ct.example}</span>
+                  </div>
+                </button>
+              ))}
+            </div>
+
+            {/* ── Section 4: Value ── */}
+            <SectionTitle>4. Утга</SectionTitle>
+            {(() => {
+              const ct = CALC_TYPES.find(c => c.key === calcType)
+              return (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
+                  <div style={{ position: 'relative', flex: 1 }}>
+                    <input
+                      type="number"
+                      value={calcValue}
+                      onChange={e => setCalcValue(e.target.value)}
+                      placeholder={
+                        calcType === 'price_multiplier' ? '1.5'
+                        : calcType === 'min_quantity'   ? '100'
+                        : '5000'
+                      }
+                      step={calcType === 'price_multiplier' ? '0.01' : '1'}
+                      style={{ ...inputStyle, margin: 0, paddingRight: 40 }}
+                    />
+                    <span style={{
+                      position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)',
+                      color: ct?.color || 'var(--text2)', fontWeight: 700, fontSize: 13,
+                    }}>
+                      {ct?.unit}
+                    </span>
+                  </div>
+                  {/* Live preview */}
+                  {calcValue && (
+                    <div style={{
+                      background: `${ct?.color || '#FF6B35'}15`,
+                      border: `1px solid ${ct?.color || '#FF6B35'}44`,
+                      borderRadius: 8, padding: '10px 16px',
+                      fontSize: 18, fontWeight: 800, color: ct?.color || '#FF6B35',
+                      minWidth: 100, textAlign: 'center',
+                    }}>
+                      {calcType === 'price_multiplier' ? `×${calcValue}`
+                       : calcType === 'price_addition' ? `+${Number(calcValue).toLocaleString()}₮`
+                       : calcType === 'price_override' ? `=${Number(calcValue).toLocaleString()}₮`
+                       : `≥${calcValue}ш`}
+                    </div>
+                  )}
+                </div>
+              )
+            })()}
+
+            {/* Active toggle */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 24 }}>
-              <input type="checkbox" id="active" checked={form.is_active} onChange={e => setForm({ ...form, is_active: e.target.checked })} />
-              <label htmlFor="active" style={{ fontSize: 13 }}>Идэвхтэй байх</label>
+              <button
+                onClick={() => setEditRule({ ...editRule, is_active: !editRule.is_active })}
+                style={{
+                  width: 44, height: 24, borderRadius: 12, border: 'none',
+                  background: editRule.is_active ? '#10B981' : 'var(--border2)',
+                  cursor: 'pointer', position: 'relative', transition: 'background 0.2s',
+                }}
+              >
+                <span style={{
+                  position: 'absolute', top: 3,
+                  left: editRule.is_active ? 22 : 2,
+                  width: 18, height: 18, borderRadius: '50%', background: '#fff',
+                  transition: 'left 0.2s',
+                }} />
+              </button>
+              <span style={{ fontSize: 14 }}>Дүрэм идэвхтэй байх</span>
             </div>
 
+            {/* Buttons */}
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-              <button onClick={() => setModal(false)} style={{ padding: '9px 20px', borderRadius: 8, border: '1px solid var(--border)', background: 'transparent', color: 'var(--text)', cursor: 'pointer', fontSize: 13 }}>Цуцлах</button>
-              <button onClick={save} style={{ padding: '9px 20px', borderRadius: 8, border: 'none', background: 'var(--orange)', color: '#fff', cursor: 'pointer', fontSize: 13, fontWeight: 500 }}>Хадгалах</button>
+              <button onClick={() => setModal(null)} style={cancelBtnStyle}>Болих</button>
+              <button onClick={saveRule} style={saveBtnStyle}>
+                {modal === 'add' ? '+ Нэмэх' : '✓ Хадгалах'}
+              </button>
             </div>
           </div>
         </div>
       )}
+
+      <style>{"@keyframes fadeIn{from{opacity:0}to{opacity:1}}"}</style>
     </div>
   )
+}
+
+// ─── Sub-components ───────────────────────────────────────────────────────────
+
+function SectionTitle({ children }: { children: React.ReactNode }) {
+  return (
+    <div style={{
+      fontSize: 11, fontWeight: 700, color: 'var(--text2)',
+      textTransform: 'uppercase', letterSpacing: '0.08em',
+      borderBottom: '1px solid var(--border)', paddingBottom: 8, marginBottom: 14,
+      marginTop: 4,
+    }}>
+      {children}
+    </div>
+  )
+}
+
+function Label({ children }: { children: React.ReactNode }) {
+  return (
+    <div style={{
+      fontSize: 12, fontWeight: 600, color: 'var(--text2)',
+      marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.06em',
+    }}>
+      {children}
+    </div>
+  )
+}
+
+function ActionBtn({ icon, onClick, danger }: { icon: string; onClick: () => void; danger?: boolean }) {
+  return (
+    <button onClick={onClick} style={{
+      background: 'var(--surface2)', border: '1px solid var(--border)',
+      borderRadius: 6, padding: '5px 8px', cursor: 'pointer', fontSize: 14, lineHeight: 1,
+    }}
+      onMouseEnter={e => (e.currentTarget.style.borderColor = danger ? '#EF4444' : '#FF6B35')}
+      onMouseLeave={e => (e.currentTarget.style.borderColor = 'var(--border)')}
+    >
+      {icon}
+    </button>
+  )
+}
+
+// ─── Shared styles ────────────────────────────────────────────────────────────
+
+const inputStyle: React.CSSProperties = {
+  width: '100%', background: 'var(--surface2)', border: '1px solid var(--border)',
+  borderRadius: 8, padding: '10px 12px', color: 'var(--text)', fontSize: 14,
+  outline: 'none', marginBottom: 14, boxSizing: 'border-box',
+}
+
+const saveBtnStyle: React.CSSProperties = {
+  background: '#FF6B35', color: '#fff', border: 'none',
+  padding: '11px 24px', borderRadius: 8, fontWeight: 700, fontSize: 14, cursor: 'pointer',
+}
+
+const cancelBtnStyle: React.CSSProperties = {
+  background: 'var(--surface2)', color: 'var(--text)',
+  border: '1px solid var(--border)', padding: '11px 20px',
+  borderRadius: 8, fontWeight: 600, fontSize: 14, cursor: 'pointer',
 }

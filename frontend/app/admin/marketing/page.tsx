@@ -1,154 +1,139 @@
-﻿'use client'
+'use client'
 import { useState, useEffect } from 'react'
 
 const API = 'http://localhost:4000'
-const F = "'Segoe UI',system-ui,sans-serif"
-
-function authH() {
-  const t = localStorage.getItem('access_token') || localStorage.getItem('token') || ''
-  return { 'Content-Type': 'application/json', Authorization: 'Bearer ' + t }
-}
-
-const SOCIAL_FIELDS = [
-  { key: 'social_facebook',  label: 'Facebook',  icon: '📘', placeholder: 'https://facebook.com/bizprint' },
-  { key: 'social_instagram', label: 'Instagram', icon: '📷', placeholder: 'https://instagram.com/bizprint' },
-  { key: 'social_twitter',   label: 'Twitter/X', icon: '🐦', placeholder: 'https://twitter.com/bizprint' },
-  { key: 'social_youtube',   label: 'YouTube',   icon: '▶️', placeholder: 'https://youtube.com/@bizprint' },
-  { key: 'social_tiktok',    label: 'TikTok',    icon: '🎵', placeholder: 'https://tiktok.com/@bizprint' },
-  { key: 'social_facebook_page_id', label: 'Facebook Page ID', icon: '📘', placeholder: '123456789012345' },
-  { key: 'social_whatsapp',  label: 'WhatsApp',  icon: '💬', placeholder: '97699XXXXXX' },
-  { key: 'social_phone',     label: 'Утас',      icon: '📞', placeholder: '+97699XXXXXX' },
-  { key: 'social_email',     label: 'Имэйл',     icon: '✉️', placeholder: 'info@bizprint.mn' },
-]
-
-const NOTIF_FIELDS = [
-  { key: 'notif_admin_email',       label: 'Тайлан хүлээн авах admin имэйл', placeholder: 'admin@bizprint.mn' },
-  { key: 'notif_daily_report_time', label: 'Өдрийн тайлан илгээх цаг',       placeholder: '18:00' },
-  { key: 'notif_quote_valid_hours', label: 'Үнийн санал дуусах сануулга (цаг)', placeholder: '24' },
-]
-
-const MARKETING_FIELDS = [
-  { key: 'mega_cta_title',   label: 'Mega Menu CTA гарчиг',   placeholder: 'AI-аар үнэ тооцоол' },
-  { key: 'mega_cta_desc',    label: 'Mega Menu CTA тайлбар',  placeholder: 'PDF upload хийхэд автоматаар үнэ гарна' },
-  { key: 'mega_cta_button',  label: 'Mega Menu CTA товч',     placeholder: 'Эхлэх →' },
-  { key: 'mega_cta_url',     label: 'Mega Menu CTA URL',      placeholder: '/quote' },
-  { key: 'marketing_banner_active', label: 'Announcement bar идэвхтэй', placeholder: 'true' },
-  { key: 'marketing_banner_text',       label: 'Announcement bar текст',    placeholder: '🎉 Шинэ хэрэглэгчдэд 10% хямдрал!' },
-  { key: 'marketing_social_proof_text', label: 'Social proof текст',         placeholder: 'Өнөөдөр 12 хэрэглэгч захиалга өглөө' },
-  { key: 'marketing_referral_discount', label: 'Referral хямдрал (%)',       placeholder: '10' },
-  { key: 'marketing_loyalty_rate',      label: 'Loyalty: 1000₮ = ? оноо',   placeholder: '1' },
-  { key: 'marketing_loyalty_value',     label: 'Loyalty: 1 оноо = ? ₮',     placeholder: '10' },
-  { key: 'marketing_facebook_pixel',    label: 'Facebook Pixel ID',          placeholder: '123456789' },
-  { key: 'marketing_google_analytics',  label: 'Google Analytics ID',        placeholder: 'G-XXXXXXXXXX' },
-]
+const getHeaders = () => ({ 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token')}` })
 
 export default function AdminMarketingPage() {
-  const [settings, setSettings] = useState<Record<string,string>>({})
+  const [orders, setOrders] = useState<any[]>([])
+  const [banners, setBanners] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
-  const [saved, setSaved] = useState(false)
-  const [tab, setTab] = useState<'social'|'notif'|'marketing'>('social')
+  const [campaigns, setCampaigns] = useState<any[]>([])
+  const [editing, setEditing] = useState<any>(null)
+  const [form, setForm] = useState({ name: '', type: 'discount', code: '', discount_percent: 0, start_date: '', end_date: '', is_active: true, description: '' })
 
-  useEffect(() => { load() }, [])
+  useEffect(() => {
+    Promise.all([
+      fetch(`${API}/orders`, { headers: getHeaders() }).then(r => r.json()).catch(() => []),
+      fetch(`${API}/banners`, { headers: getHeaders() }).then(r => r.json()).catch(() => []),
+      fetch(`${API}/marketing/campaigns`, { headers: getHeaders() }).then(r => r.json()).catch(() => []),
+    ]).then(([o, b, c]) => {
+      setOrders(Array.isArray(o) ? o : [])
+      setBanners(Array.isArray(b) ? b : [])
+      setCampaigns(Array.isArray(c) ? c : [])
+    }).finally(() => setLoading(false))
+  }, [])
 
-  async function load() {
-    setLoading(true)
-    const data = await fetch(`${API}/settings`, { headers: authH() }).then(r => r.json()).catch(() => [])
-    const map: Record<string,string> = {}
-    if (Array.isArray(data)) data.forEach((s: any) => { map[s.key] = s.value })
-    setSettings(map)
-    setLoading(false)
+  const reset = () => { setEditing(null); setForm({ name: '', type: 'discount', code: '', discount_percent: 0, start_date: '', end_date: '', is_active: true, description: '' }) }
+  const save = async () => {
+    const method = editing?.id ? 'PATCH' : 'POST'
+    const url = editing?.id ? `${API}/marketing/campaigns/${editing.id}` : `${API}/marketing/campaigns`
+    try { await fetch(url, { method, headers: getHeaders(), body: JSON.stringify(form) }) } catch {}
+    reset()
+    const c = await fetch(`${API}/marketing/campaigns`, { headers: getHeaders() }).then(r => r.json()).catch(() => [])
+    setCampaigns(Array.isArray(c) ? c : [])
+  }
+  const del = async (id: string) => {
+    if (!confirm('Устгах уу?')) return
+    try { await fetch(`${API}/marketing/campaigns/${id}`, { method: 'DELETE', headers: getHeaders() }) } catch {}
+    setCampaigns(prev => prev.filter(c => c.id !== id))
   }
 
-  async function save() {
-    setSaving(true)
-    await fetch(`${API}/settings/bulk`, { method: 'POST', headers: authH(), body: JSON.stringify(settings) })
-    setSaved(true)
-    setTimeout(() => setSaved(false), 2000)
-    setSaving(false)
-  }
+  const totalRevenue = orders.reduce((s, o) => s + Number(o.total_price || 0), 0)
+  const thisMonth = orders.filter(o => { const d = new Date(o.created_at); const now = new Date(); return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear() })
+  const lastMonth = orders.filter(o => { const d = new Date(o.created_at); const now = new Date(); const lm = new Date(now.getFullYear(), now.getMonth() - 1); return d.getMonth() === lm.getMonth() && d.getFullYear() === lm.getFullYear() })
+  const growth = lastMonth.length > 0 ? (((thisMonth.length - lastMonth.length) / lastMonth.length) * 100).toFixed(1) : '—'
 
-  const set = (k: string, v: string) => setSettings(p => ({ ...p, [k]: v }))
-
-  const inp: React.CSSProperties = {
-    width: '100%', padding: '10px 12px', background: 'var(--surface2)',
-    border: '1px solid var(--border)', borderRadius: 8, fontSize: 13,
-    color: 'var(--text)', outline: 'none', boxSizing: 'border-box',
-  }
-
-  const fields = tab === 'social' ? SOCIAL_FIELDS : tab === 'notif' ? NOTIF_FIELDS : MARKETING_FIELDS
+  const inp: React.CSSProperties = { width: '100%', padding: '10px 14px', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 13, color: 'var(--text)', outline: 'none' }
 
   return (
-    <div style={{ padding: '28px 32px', fontFamily: F, color: 'var(--text)' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24, paddingBottom: 20, borderBottom: '1px solid var(--border)' }}>
+    <div style={{ padding: 24, fontFamily: "'DM Sans','Segoe UI',system-ui,sans-serif" }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
         <div>
-          <h1 style={{ fontSize: 22, fontWeight: 600, margin: 0 }}>Маркетинг тохиргоо</h1>
-          <p style={{ fontSize: 13, color: 'var(--text3)', margin: '5px 0 0' }}>Сошиал хуудас, мэдэгдэл, маркетинг хөшүүрэг</p>
+          <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>Маркетинг</h1>
+          <p style={{ color: 'var(--text2)', fontSize: 13, margin: '4px 0 0' }}>Кампанит ажил, хямдрал, сурталчилгаа</p>
         </div>
-        <button onClick={save} disabled={saving}
-          style={{ background: saved ? '#1D9E75' : 'var(--orange)', color: '#fff', border: 'none', borderRadius: 8, padding: '10px 20px', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
-          {saved ? '✓ Хадгалагдлаа' : saving ? 'Хадгалж байна...' : 'Хадгалах'}
-        </button>
+        <button onClick={() => { reset(); setEditing({}) }} style={{ padding: '10px 20px', background: '#FF6B00', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>+ Шинэ кампани</button>
       </div>
 
-      <div style={{ display: 'flex', gap: 8, marginBottom: 24 }}>
+      {/* Overview */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 12, marginBottom: 24 }} className="grid-4">
         {[
-          { k: 'social', l: '📱 Сошиал' },
-          { k: 'notif',  l: '🔔 Мэдэгдэл' },
-          { k: 'marketing', l: '📣 Маркетинг' },
-        ].map(t => (
-          <button key={t.k} onClick={() => setTab(t.k as any)}
-            style={{ padding: '10px 20px', borderRadius: 10, border: tab === t.k ? '2px solid var(--orange)' : '1px solid var(--border)', background: tab === t.k ? 'var(--orange-06)' : 'var(--surface2)', color: tab === t.k ? 'var(--orange)' : 'var(--text)', cursor: 'pointer', fontSize: 13, fontWeight: tab === t.k ? 600 : 400 }}>
-            {t.l}
-          </button>
+          { label: 'Нийт орлого', value: `₮${totalRevenue.toLocaleString()}`, color: '#10B981' },
+          { label: 'Энэ сарын захиалга', value: thisMonth.length.toString(), color: '#FF6B00' },
+          { label: 'Өсөлт (сар/сар)', value: growth === '—' ? '—' : `${growth}%`, color: Number(growth) >= 0 ? '#10B981' : '#EF4444' },
+          { label: 'Идэвхтэй баннер', value: banners.filter(b => b.isActive !== false).length.toString(), color: '#3B82F6' },
+          { label: 'Кампани', value: campaigns.length.toString(), color: '#8B5CF6' },
+        ].map(s => (
+          <div key={s.label} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: '16px 18px', borderTop: `3px solid ${s.color}` }}>
+            <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 6 }}>{s.label}</div>
+            <div style={{ fontSize: 22, fontWeight: 700, color: s.color }}>{loading ? '...' : s.value}</div>
+          </div>
         ))}
       </div>
 
-      {loading ? (
-        <div style={{ padding: 40, textAlign: 'center' as any, color: 'var(--text3)' }}>Уншиж байна...</div>
-      ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-          {fields.map((f: any) => (
-            <div key={f.key} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: 20 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-                <span style={{ fontSize: 20 }}>{f.icon || '⚙️'}</span>
-                <label style={{ fontSize: 13, fontWeight: 600 }}>{f.label}</label>
-              </div>
-              {f.key === 'marketing_banner_active' ? (
-                <button onClick={() => set(f.key, settings[f.key] === 'true' ? 'false' : 'true')}
-                  style={{ width: 44, height: 24, borderRadius: 12, border: 'none', background: settings[f.key] === 'true' ? 'var(--orange)' : 'var(--border)', cursor: 'pointer', position: 'relative' as any }}>
-                  <span style={{ position: 'absolute' as any, top: 3, left: settings[f.key] === 'true' ? 22 : 2, width: 18, height: 18, borderRadius: '50%', background: '#fff', transition: 'left 0.2s' }} />
-                </button>
-              ) : (
-                <input value={settings[f.key] || ''} onChange={e => set(f.key, e.target.value)}
-                  placeholder={f.placeholder} style={inp} />
-              )}
+      {/* Campaign Form */}
+      {editing !== null && (
+        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, padding: 24, marginBottom: 24 }}>
+          <h3 style={{ fontSize: 16, fontWeight: 600, margin: '0 0 16px' }}>{editing?.id ? 'Кампани засах' : 'Шинэ кампани'}</h3>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 14 }} className="form-row">
+            <div><label style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 6, display: 'block' }}>Кампаний нэр</label><input value={form.name} onChange={e => setForm({...form, name: e.target.value})} style={inp} placeholder="Шинэ жилийн хямдрал" /></div>
+            <div><label style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 6, display: 'block' }}>Төрөл</label>
+              <select value={form.type} onChange={e => setForm({...form, type: e.target.value})} style={inp}>
+                <option value="discount">Хямдрал</option><option value="coupon">Купон код</option><option value="banner">Баннер</option><option value="email">И-мэйл</option>
+              </select>
             </div>
-          ))}
-        </div>
-      )}
-
-      {tab === 'marketing' && (
-        <div style={{ marginTop: 24 }}>
-          <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8 }}>Announcement bar урьдчилан харах:</div>
-          <div style={{ background: 'var(--orange)', color: '#fff', textAlign: 'center' as any, padding: 10, borderRadius: 8, fontSize: 14, fontWeight: 600 }}>
-            {settings['marketing_banner_text'] || 'Энд текст харагдана...'}
+            <div><label style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 6, display: 'block' }}>Купон код</label><input value={form.code} onChange={e => setForm({...form, code: e.target.value.toUpperCase()})} style={inp} placeholder="NEWYEAR2026" /></div>
+            <div><label style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 6, display: 'block' }}>Хямдрал %</label><input type="number" value={form.discount_percent} onChange={e => setForm({...form, discount_percent: +e.target.value})} style={inp} /></div>
+            <div><label style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 6, display: 'block' }}>Эхлэх огноо</label><input type="date" value={form.start_date} onChange={e => setForm({...form, start_date: e.target.value})} style={inp} /></div>
+            <div><label style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 6, display: 'block' }}>Дуусах огноо</label><input type="date" value={form.end_date} onChange={e => setForm({...form, end_date: e.target.value})} style={inp} /></div>
+            <div style={{ gridColumn: 'span 2' }}><label style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 6, display: 'block' }}>Тайлбар</label><input value={form.description} onChange={e => setForm({...form, description: e.target.value})} style={inp} /></div>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13, paddingTop: 20 }}><input type="checkbox" checked={form.is_active} onChange={e => setForm({...form, is_active: e.target.checked})} />Идэвхтэй</label>
+          </div>
+          <div style={{ display: 'flex', gap: 10, marginTop: 18 }}>
+            <button onClick={save} style={{ padding: '10px 24px', background: '#FF6B00', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>Хадгалах</button>
+            <button onClick={reset} style={{ padding: '10px 24px', background: 'var(--surface2)', color: 'var(--text2)', border: '1px solid var(--border)', borderRadius: 8, cursor: 'pointer', fontSize: 13 }}>Болих</button>
           </div>
         </div>
       )}
 
-      {tab === 'social' && (
-        <div style={{ marginTop: 24, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: 20 }}>
-          <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 12 }}>Урьдчилан харах:</div>
-          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' as any }}>
-            {SOCIAL_FIELDS.filter(f => settings[f.key]).map(f => (
-              <div key={f.key} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 13 }}>
-                <span>{f.icon}</span><span>{f.label}</span>
-              </div>
-            ))}
-          </div>
+      {/* Campaign List */}
+      <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden' }}>
+        <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--border)' }}>
+          <h3 style={{ fontSize: 15, fontWeight: 600, margin: 0 }}>Кампанит ажлууд</h3>
         </div>
-      )}
+        {campaigns.length === 0 ? (
+          <div style={{ padding: 32, textAlign: 'center', color: 'var(--text2)', fontSize: 13 }}>
+            {loading ? 'Уншиж байна...' : 'Кампани бүртгэгдээгүй. Backend-д /marketing/campaigns endpoint байгаа эсэхийг шалгана уу.'}
+          </div>
+        ) : (
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+            <thead><tr style={{ background: 'var(--surface2)' }}>{['Нэр', 'Төрөл', 'Код', 'Хямдрал', 'Хугацаа', 'Төлөв', 'Үйлдэл'].map(h => <th key={h} style={{ padding: '10px 16px', textAlign: 'left', color: 'var(--text2)', fontWeight: 500, fontSize: 12 }}>{h}</th>)}</tr></thead>
+            <tbody>
+              {campaigns.map(c => (
+                <tr key={c.id} style={{ borderTop: '1px solid var(--border)' }}>
+                  <td style={{ padding: '10px 16px', fontWeight: 500 }}>{c.name}</td>
+                  <td style={{ padding: '10px 16px' }}><span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 6, background: 'rgba(139,92,246,0.1)', color: '#8B5CF6' }}>{c.type}</span></td>
+                  <td style={{ padding: '10px 16px', fontFamily: 'monospace', color: '#FF6B00', fontWeight: 600 }}>{c.code || '—'}</td>
+                  <td style={{ padding: '10px 16px', color: 'var(--text2)' }}>{c.discount_percent ? `${c.discount_percent}%` : '—'}</td>
+                  <td style={{ padding: '10px 16px', color: 'var(--text2)', fontSize: 12 }}>{c.start_date || '—'} ~ {c.end_date || '—'}</td>
+                  <td style={{ padding: '10px 16px' }}><span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 99, background: c.is_active ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)', color: c.is_active ? '#10B981' : '#EF4444', fontWeight: 600 }}>{c.is_active ? 'On' : 'Off'}</span></td>
+                  <td style={{ padding: '10px 16px' }}><div style={{ display: 'flex', gap: 6 }}>
+                    <button onClick={() => { setEditing(c); setForm({ name: c.name||'', type: c.type||'discount', code: c.code||'', discount_percent: c.discount_percent||0, start_date: c.start_date||'', end_date: c.end_date||'', is_active: c.is_active!==false, description: c.description||'' }) }} style={{ padding: '5px 12px', background: 'rgba(59,130,246,0.1)', color: '#3B82F6', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 12 }}>Засах</button>
+                    <button onClick={() => del(c.id)} style={{ padding: '5px 12px', background: 'rgba(239,68,68,0.1)', color: '#EF4444', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 12 }}>Устгах</button>
+                  </div></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      {/* Quick links */}
+      <div style={{ marginTop: 20, display: 'flex', gap: 10 }}>
+        <a href="/admin/banners" style={{ padding: '10px 18px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8, textDecoration: 'none', color: 'var(--text)', fontSize: 13 }}>🖼️ Баннер удирдлага →</a>
+        <a href="/admin/settings" style={{ padding: '10px 18px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8, textDecoration: 'none', color: 'var(--text)', fontSize: 13 }}>⚙️ Тохиргоо →</a>
+      </div>
     </div>
   )
 }

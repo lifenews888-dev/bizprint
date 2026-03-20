@@ -89,7 +89,7 @@ export default function CourierDashboard() {
     } catch { showToast('\u0410\u043b\u0434\u0430\u0430 \u0433\u0430\u0440\u043b\u0430\u0430', false) }
   }
 
-  // Courier- & ђ completed  
+  // Courier-т харагдах захиалгууд: completed болон дараахь
   const courierOrders = orders.filter(o => ['completed', 'shipped', 'delivered'].includes(o.status))
   const filtered = courierOrders.filter(o => filter === 'all' || o.status === filter)
 
@@ -114,13 +114,13 @@ export default function CourierDashboard() {
       {/* Topbar */}
       <div style={{ background: 'var(--surface)', borderBottom: '1px solid var(--border)', padding: '0 32px', height: 54, display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 10 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <span style={{ fontSize: 16, fontWeight: 700 }}><span style={{ color: 'var(--orange)' }}>Biz</span>Print</span>
+          <span style={{ fontSize: 16, fontWeight: 700 }}><span style={{ color: '#FF6B00' }}>Biz</span>Print</span>
           <span style={{ fontSize: 11, background: 'rgba(16,185,129,0.1)', color: '#1D9E75', border: '1px solid rgba(16,185,129,0.3)', borderRadius: 20, padding: '2px 10px' }}>Courier</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <span style={{ fontSize: 13, color: 'var(--text2)' }}>{user?.full_name}</span>
-          <button onClick={() => router.push('/dashboard/wallet')} style={{ ...s, cursor: 'pointer', fontSize: 12 }}> tton>
-          <button onClick={() => { localStorage.clear(); router.push('/') }} style={{ ...s, cursor: 'pointer', fontSize: 12 }}></button>
+          <button onClick={() => router.push('/dashboard/wallet')} style={{ ...s, cursor: 'pointer', fontSize: 12 }}>💳 Хэтэвч</button>
+          <button onClick={() => { localStorage.clear(); router.push('/') }} style={{ ...s, cursor: 'pointer', fontSize: 12 }}>Гарах</button>
         </div>
       </div>
 
@@ -128,16 +128,16 @@ export default function CourierDashboard() {
 
         <div style={{ marginBottom: 24 }}>
           <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>Courier Dashboard</h1>
-          <p style={{ color: 'var(--text2)', fontSize: 13, margin: '4px 0 0' }}>э , Ѭђ, с &я</p>
+          <p style={{ color: 'var(--text2)', fontSize: 13, margin: '4px 0 0' }}>Хүргэлтийн захиалга, маршрут, статус хяналт</p>
         </div>
 
         {/* Stats */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14, marginBottom: 24 }}>
           {[
-            { label: ' ',   val: stats.toPickup,   color: '#F59E0B', icon: ' },
-            { label: 'э     val: stats.delivering, color: '#3B82F6', icon: ' },
-            { label: 'эсэ        val: stats.delivered,  color: '#1D9E75', icon: '' },
-            { label: ' ',   val: stats.total,      color: 'var(--orange)', icon: ' },
+            { label: 'Авах захиалга',   val: stats.toPickup,   color: '#F59E0B', icon: '📦' },
+            { label: 'Хүргэж байна',    val: stats.delivering, color: '#3B82F6', icon: '🚚' },
+            { label: 'Хүргэсэн',        val: stats.delivered,  color: '#1D9E75', icon: '🏠' },
+            { label: 'Нийт захиалга',   val: stats.total,      color: '#FF6B00', icon: '📋' },
           ].map(item => (
             <div key={item.label} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: '16px 18px', borderTop: '3px solid ' + item.color }}>
               <div style={{ fontSize: 24, marginBottom: 6 }}>{item.icon}</div>
@@ -150,11 +150,11 @@ export default function CourierDashboard() {
         {/* Delivery flow banner */}
         <div style={{ background: 'rgba(16,185,129,0.06)', border: '1px solid rgba(16,185,129,0.2)', borderRadius: 10, padding: '12px 18px', marginBottom: 20, display: 'flex', alignItems: 'center', gap: 16 }}>
           {[
-            { label: 'ҮэѬээс ', icon: '', color: '#F59E0B' },
-            { label: ' ', icon: '', color: 'var(--text3)' },
-            { label: 'э  icon: ' color: '#3B82F6' },
-            { label: ' ', icon: '', color: 'var(--text3)' },
-            { label: 'эсэ icon: '', color: '#1D9E75' },
+            { label: 'Үйлдвэрээс авах', icon: '🏭', color: '#F59E0B' },
+            { label: '→', icon: '', color: 'var(--text3)' },
+            { label: 'Хүргэж байна', icon: '🚚', color: '#3B82F6' },
+            { label: '→', icon: '', color: 'var(--text3)' },
+            { label: 'Хүргэсэн', icon: '🏠', color: '#1D9E75' },
           ].map((s, i) => (
             <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: s.icon === '' ? 16 : 13, color: s.color, fontWeight: s.icon === '' ? 400 : 600 }}>
               {s.icon && <span>{s.icon}</span>}
@@ -170,10 +170,10 @@ export default function CourierDashboard() {
             {/* Tabs */}
             <div style={{ display: 'flex', borderBottom: '1px solid var(--border)', padding: '0 4px' }}>
               {([
-                { key: 'all',       label: 'ү (' + courierOrders.length + ')' },
-                { key: 'completed', label: '  (' + stats.toPickup + ')' },
-                { key: 'shipped',   label: ' э  (' + stats.delivering + ')' },
-                { key: 'delivered', label: 'S эсэ },
+                { key: 'all',       label: 'Бүгд (' + courierOrders.length + ')' },
+                { key: 'completed', label: '📦 Авах (' + stats.toPickup + ')' },
+                { key: 'shipped',   label: '🚚 Хүргэж байна (' + stats.delivering + ')' },
+                { key: 'delivered', label: '✓ Хүргэсэн' },
               ] as { key: FilterType; label: string }[]).map(f => (
                 <button key={f.key} onClick={() => setFilter(f.key)}
                   style={{ background: 'none', border: 'none', padding: '12px 14px', fontSize: 13, fontWeight: 600, cursor: 'pointer', color: filter === f.key ? '#1D9E75' : 'var(--text2)', borderBottom: filter === f.key ? '2px solid #1D9E75' : '2px solid transparent', marginBottom: -1, whiteSpace: 'nowrap' }}>
@@ -184,16 +184,16 @@ export default function CourierDashboard() {
 
             {/* Table header */}
             <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr 0.7fr 0.8fr 1fr', padding: '10px 20px', background: 'var(--surface2)', borderBottom: '1px solid var(--border)', fontSize: 11, fontWeight: 700, color: 'var(--text2)', textTransform: 'uppercase', letterSpacing: '0.07em' }}>
-              <span>ID</span><span>үээүү><span>span><span>ү><span>>
+              <span>ID</span><span>Бүтээгдэхүүн</span><span>Тоо</span><span>Дүн</span><span>Төлөв</span>
             </div>
 
             {loading ? (
-              <div style={{ padding: 48, textAlign: 'center', color: 'var(--text2)' }}> iv>
+              <div style={{ padding: 48, textAlign: 'center', color: 'var(--text2)' }}>Уншиж байна...</div>
             ) : filtered.length === 0 ? (
               <div style={{ padding: 48, textAlign: 'center', color: 'var(--text2)' }}>
-                <div style={{ fontSize: 32, marginBottom: 8 }}>iv>
-                <div style={{ fontWeight: 600 }}>э  div>
-                <div style={{ fontSize: 13, marginTop: 6, color: 'var(--text3)' }}>ҮэѬ &э  э &</div>
+                <div style={{ fontSize: 32, marginBottom: 8 }}>🚚</div>
+                <div style={{ fontWeight: 600 }}>Хүргэлтийн захиалга байхгүй</div>
+                <div style={{ fontSize: 13, marginTop: 6, color: 'var(--text3)' }}>Үйлдвэрт хэвлэгдэж дуусахад энд харагдана</div>
               </div>
             ) : filtered.map((o, i) => (
               <div key={o.id}
@@ -202,9 +202,9 @@ export default function CourierDashboard() {
                 onMouseEnter={e => { if (selected?.id !== o.id) e.currentTarget.style.background = 'var(--surface2)' }}
                 onMouseLeave={e => { if (selected?.id !== o.id) e.currentTarget.style.background = 'transparent' }}>
                 <code style={{ fontSize: 11, color: 'var(--text2)' }}>{o.id.slice(0, 10)}...</code>
-                <span style={{ fontSize: 12 }}>{o.product_type || '"'}</span>
-                <span>{o.quantity} </span>
-                <span style={{ fontWeight: 600, color: 'var(--orange)' }}>{Number(o.total_price).toLocaleString()}</span>
+                <span style={{ fontSize: 12 }}>{o.product_type || '—'}</span>
+                <span>{o.quantity} ш</span>
+                <span style={{ fontWeight: 600, color: '#FF6B00' }}>{Number(o.total_price).toLocaleString()}₮</span>
                 <span style={{ background: (ST_CLR[o.status] || '#888') + '20', color: ST_CLR[o.status] || '#888', borderRadius: 20, padding: '3px 10px', fontSize: 11, fontWeight: 600, width: 'fit-content' }}>
                   {ST_MN[o.status] || o.status}
                 </span>
@@ -216,8 +216,8 @@ export default function CourierDashboard() {
           {selected && (
             <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: 24, height: 'fit-content', position: 'sticky', top: 74 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-                <div style={{ fontWeight: 700, fontSize: 15 }}>э эѬэ</div>
-                <button onClick={() => setSelected(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text2)', fontSize: 20 }}></button>
+                <div style={{ fontWeight: 700, fontSize: 15 }}>Хүргэлтийн дэлгэрэнгүй</div>
+                <button onClick={() => setSelected(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text2)', fontSize: 20 }}>×</button>
               </div>
 
               {/* Info */}
@@ -225,9 +225,9 @@ export default function CourierDashboard() {
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                   {[
                     { label: 'ID', val: selected.id.slice(0, 12) + '...' },
-                    { label: ' val: selected.quantity + ' ' },
-                    { label: 'ү val: Number(selected.total_price).toLocaleString() + '' },
-                    { label: '~', val: new Date(selected.created_at).toLocaleDateString('mn-MN') },
+                    { label: 'Тоо', val: selected.quantity + ' ш' },
+                    { label: 'Дүн', val: Number(selected.total_price).toLocaleString() + '₮' },
+                    { label: 'Огноо', val: new Date(selected.created_at).toLocaleDateString('mn-MN') },
                   ].map(item => (
                     <div key={item.label}>
                       <div style={{ fontSize: 11, color: 'var(--text2)', marginBottom: 2 }}>{item.label}</div>
@@ -237,7 +237,7 @@ export default function CourierDashboard() {
                 </div>
                 {selected.customer && (
                   <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--border)' }}>
-                    <div style={{ fontSize: 11, color: 'var(--text2)', marginBottom: 2 }}>!</div>
+                    <div style={{ fontSize: 11, color: 'var(--text2)', marginBottom: 2 }}>Хэрэглэгч</div>
                     <div style={{ fontSize: 13, fontWeight: 500 }}>{selected.customer.full_name}</div>
                     <div style={{ fontSize: 12, color: 'var(--text2)' }}>{selected.customer.email}</div>
                   </div>
@@ -246,7 +246,7 @@ export default function CourierDashboard() {
 
               {/* Delivery workflow */}
               <div style={{ marginBottom: 16 }}>
-                <div style={{ fontSize: 11, color: 'var(--text2)', marginBottom: 8, textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.07em' }}>э яv>
+                <div style={{ fontSize: 11, color: 'var(--text2)', marginBottom: 8, textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.07em' }}>Хүргэлтийн явц</div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                   {WORKFLOW.map((step, i) => {
                     const curIdx = WORKFLOW.findIndex(w => w.status === selected.status)
@@ -255,7 +255,7 @@ export default function CourierDashboard() {
                     return (
                       <div key={step.status} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', borderRadius: 8, background: isCur ? 'rgba(16,185,129,0.08)' : 'transparent', border: isCur ? '1px solid rgba(16,185,129,0.3)' : '1px solid transparent' }}>
                         <div style={{ width: 22, height: 22, borderRadius: '50%', background: isDone ? '#1D9E75' : 'var(--border)', color: isDone ? '#fff' : 'var(--text3)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, flexShrink: 0 }}>
-                          {isDone ? 'S' : i + 1}
+                          {isDone ? '✓' : i + 1}
                         </div>
                         <span style={{ fontSize: 13, fontWeight: isCur ? 600 : 400, color: isCur ? '#1D9E75' : isDone ? 'var(--text)' : 'var(--text2)' }}>
                           {step.icon} {step.label}
@@ -268,22 +268,22 @@ export default function CourierDashboard() {
 
               {/* Actions */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                <div style={{ fontSize: 11, color: 'var(--text2)', marginBottom: 2, textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.07em' }}>Ү
+                <div style={{ fontSize: 11, color: 'var(--text2)', marginBottom: 2, textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.07em' }}>Үйлдэл</div>
                 {selected.status === 'completed' && (
                   <button onClick={() => updateStatus(selected, 'shipped')}
                     style={{ padding: '10px', background: '#3B82F6', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 700, fontSize: 13 }}>
-                     э 
+                    🚚 Хүргэлтэнд гаргах
                   </button>
                 )}
                 {selected.status === 'shipped' && (
                   <button onClick={() => updateStatus(selected, 'delivered')}
                     style={{ padding: '10px', background: '#1D9E75', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 700, fontSize: 13 }}>
-                     эсэ  э
+                    🏠 Хүргэсэн гэж тэмдэглэх
                   </button>
                 )}
                 {selected.status === 'delivered' && (
                   <div style={{ padding: '10px', background: 'rgba(16,185,129,0.1)', border: '1px solid #1D9E75', borderRadius: 8, textAlign: 'center', fontSize: 13, fontWeight: 600, color: '#1D9E75' }}>
-                    S  &үѬсэ
+                    ✓ Амжилттай хүргэгдсэн
                   </div>
                 )}
               </div>

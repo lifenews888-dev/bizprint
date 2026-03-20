@@ -1,110 +1,117 @@
-﻿'use client'
-import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
+'use client'
+import { useState, useEffect } from 'react'
 
-interface Machine { id: string; name: string; type: string; vendor: { name: string }; max_sheet_size: string; speed_per_hour: number; setup_cost: number; status: string }
+const API = 'http://localhost:4000'
+const getHeaders = () => ({ 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token')}` })
 
-const STATUS: Record<string,{label:string;color:string;bg:string}> = {
-  active:      {label:'Идэвхтэй',  color:'#1D9E75',bg:'rgba(29,158,117,0.1)'},
-  inactive:    {label:'Идэвхгүй', color:'#e24b4a',bg:'rgba(226,75,74,0.1)'},
-  maintenance: {label:'Засвартай',color:'#F59E0B',bg:'rgba(245,158,11,0.1)'},
-}
-
-const TYPES: Record<string,{label:string;color:string}> = {
-  offset:       {label:'Offset',       color:'#378ADD'},
-  digital:      {label:'Digital',      color:'#7F77DD'},
-  large_format: {label:'Large Format', color:'#1D9E75'},
-  screen:       {label:'Screen',       color:'#F59E0B'},
+const STATUS_CLR: Record<string, { label: string; color: string }> = {
+  available: { label: 'Бэлэн', color: '#10B981' },
+  busy: { label: 'Ачаалалтай', color: '#F59E0B' },
+  maintenance: { label: 'Засвартай', color: '#EF4444' },
+  offline: { label: 'Офлайн', color: '#888' },
 }
 
 export default function AdminMachinesPage() {
-  const router = useRouter()
-  const [machines, setMachines] = useState<Machine[]>([])
+  const [items, setItems] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
-  const [search, setSearch] = useState('')
-  const [filter, setFilter] = useState('all')
-  const [error, setError] = useState('')
-  const F = "'Segoe UI',system-ui,sans-serif"
+  const [editing, setEditing] = useState<any>(null)
+  const [form, setForm] = useState({ name: '', type: '', speed_per_hour: 0, sheet_width_mm: 0, sheet_height_mm: 0, hour_rate: 0, factory_id: '', status: 'available' })
 
-  useEffect(() => {
-    const token = localStorage.getItem('access_token')
-    if (!token) { router.push('/login'); return }
-    fetch('http://localhost:4000/admin/machines', { headers: { Authorization: 'Bearer ' + token } })
-      .then(r => r.json())
-      .then(d => { setMachines(Array.isArray(d) ? d : []); setLoading(false) })
-      .catch(() => { setError('Сервертэй холбогдож чадсангүй'); setLoading(false) })
-  }, [])
+  const load = () => { fetch(`${API}/machines`, { headers: getHeaders() }).then(r => r.json()).then(d => setItems(Array.isArray(d) ? d : [])).catch(() => {}).finally(() => setLoading(false)) }
+  useEffect(load, [])
 
-  const filtered = machines.filter(m => {
-    const ms = m.name?.toLowerCase().includes(search.toLowerCase()) || m.vendor?.name?.toLowerCase().includes(search.toLowerCase())
-    const mf = filter === 'all' || m.type === filter
-    return ms && mf
-  })
+  const reset = () => { setEditing(null); setForm({ name: '', type: '', speed_per_hour: 0, sheet_width_mm: 0, sheet_height_mm: 0, hour_rate: 0, factory_id: '', status: 'available' }) }
+  const save = async () => {
+    const method = editing?.id ? 'PATCH' : 'POST'
+    const url = editing?.id ? `${API}/machines/${editing.id}` : `${API}/machines`
+    await fetch(url, { method, headers: getHeaders(), body: JSON.stringify(form) })
+    reset(); load()
+  }
+  const del = async (id: number) => { if (!confirm('Устгах уу?')) return; await fetch(`${API}/machines/${id}`, { method: 'DELETE', headers: getHeaders() }); load() }
+  const edit = (m: any) => { setEditing(m); setForm({ name: m.name || '', type: m.type || '', speed_per_hour: m.speed_per_hour || 0, sheet_width_mm: m.sheet_width_mm || 0, sheet_height_mm: m.sheet_height_mm || 0, hour_rate: m.hour_rate || 0, factory_id: m.factory_id || '', status: m.status || 'available' }) }
+
+  const inp: React.CSSProperties = { width: '100%', padding: '10px 14px', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 13, color: 'var(--text)', outline: 'none' }
+
+  const totalMachines = items.length
+  const available = items.filter(m => m.status === 'available').length
+  const busy = items.filter(m => m.status === 'busy').length
 
   return (
-    <div style={{padding:'28px 32px',fontFamily:F,color:'var(--text)'}}>
-      <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',marginBottom:'24px',paddingBottom:'20px',borderBottom:'1px solid var(--border)'}}>
+    <div style={{ padding: 24, fontFamily: "'DM Sans','Segoe UI',system-ui,sans-serif" }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
         <div>
-          <h1 style={{fontSize:'22px',fontWeight:600,margin:0,letterSpacing:'-0.4px'}}>Машинууд</h1>
-          <p style={{fontSize:'13px',color:'var(--text3)',margin:'5px 0 0'}}>Нийт {machines.length} тоног төхөөрөмж</p>
+          <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>Тоног төхөөрөмж</h1>
+          <p style={{ color: 'var(--text2)', fontSize: 13, margin: '4px 0 0' }}>Хэвлэлийн машин, принтер удирдлага</p>
         </div>
-        <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Нэр, vendor-аар хайх..."
-          style={{background:'var(--surface2)',border:'1px solid var(--border)',borderRadius:'8px',padding:'8px 14px',fontSize:'13px',color:'var(--text)',outline:'none',width:'240px',fontFamily:F}}
-          onFocus={e=>(e.target.style.borderColor='var(--orange)')} onBlur={e=>(e.target.style.borderColor='var(--border)')}/>
+        <button onClick={() => { reset(); setEditing({}) }} style={{ padding: '10px 20px', background: '#FF6B00', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>+ Шинэ машин</button>
       </div>
 
-      <div style={{display:'grid',gridTemplateColumns:'repeat(4,1fr)',gap:'10px',marginBottom:'20px'}}>
+      {/* Stats */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 12, marginBottom: 20 }}>
         {[
-          {label:'Нийт машин', value:machines.length,                                      color:'#1D9E75'},
-          {label:'Идэвхтэй',   value:machines.filter(m=>m.status==='active').length,       color:'#378ADD'},
-          {label:'Засвартай',  value:machines.filter(m=>m.status==='maintenance').length,  color:'#F59E0B'},
-          {label:'Идэвхгүй',  value:machines.filter(m=>m.status==='inactive').length,     color:'#e24b4a'},
-        ].map(c=>(
-          <div key={c.label} style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:'12px',padding:'16px',position:'relative',overflow:'hidden'}}>
-            <div style={{position:'absolute',top:0,left:0,right:0,height:'2px',background:c.color,opacity:.5}}/>
-            <div style={{fontSize:'11px',color:'var(--text3)',textTransform:'uppercase',letterSpacing:'0.07em',marginBottom:'8px'}}>{c.label}</div>
-            <div style={{fontSize:'26px',fontWeight:600,color:c.color,letterSpacing:'-1px'}}>{c.value}</div>
+          { label: 'Нийт', value: totalMachines, color: '#FF6B00' },
+          { label: 'Бэлэн', value: available, color: '#10B981' },
+          { label: 'Ачаалалтай', value: busy, color: '#F59E0B' },
+          { label: 'Засвартай', value: items.filter(m => m.status === 'maintenance').length, color: '#EF4444' },
+        ].map(s => (
+          <div key={s.label} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: '14px 16px', borderTop: `3px solid ${s.color}` }}>
+            <div style={{ fontSize: 22, fontWeight: 700, color: s.color }}>{s.value}</div>
+            <div style={{ fontSize: 12, color: 'var(--text2)', marginTop: 2 }}>{s.label}</div>
           </div>
         ))}
       </div>
 
-      <div style={{display:'flex',gap:'6px',marginBottom:'16px'}}>
-        {['all','offset','digital','large_format','screen'].map(t=>(
-          <button key={t} onClick={()=>setFilter(t)}
-            style={{padding:'6px 14px',borderRadius:'7px',border:'1px solid',fontSize:'12px',cursor:'pointer',fontFamily:F,fontWeight:filter===t?500:400,
-              background:filter===t?(t==='all'?'var(--orange)':TYPES[t]?.color+'22'||'transparent'):'transparent',
-              color:filter===t?(t==='all'?'#fff':TYPES[t]?.color||'#fff'):'var(--text3)',
-              borderColor:filter===t?(t==='all'?'var(--orange)':TYPES[t]?.color||'var(--orange)'):'var(--border)'}}>
-            {t==='all'?'Бүгд':TYPES[t]?.label||t}
-            {t!=='all'&&<span style={{marginLeft:'6px',opacity:.7}}>({machines.filter(m=>m.type===t).length})</span>}
-          </button>
-        ))}
-      </div>
-
-      {error&&<div style={{background:'rgba(226,75,74,0.1)',border:'1px solid rgba(226,75,74,0.2)',borderRadius:'8px',padding:'12px 16px',fontSize:'13px',color:'#e24b4a',marginBottom:'16px'}}>{error}</div>}
-
-      <div style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:'12px',overflow:'hidden'}}>
-        <div style={{display:'grid',gridTemplateColumns:'0.4fr 1.2fr 0.8fr 1fr 0.8fr 0.7fr 0.8fr',padding:'12px 20px',borderBottom:'1px solid var(--border)',gap:'16px'}}>
-          {['#','Нэр','Төрөл','Vendor','Хэмжээ','Хурд','Төлөв'].map(h=>(
-            <div key={h} style={{fontSize:'11px',color:'var(--text4)',textTransform:'uppercase',letterSpacing:'0.06em',fontWeight:500}}>{h}</div>
-          ))}
+      {/* Form */}
+      {editing !== null && (
+        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, padding: 24, marginBottom: 24 }}>
+          <h3 style={{ fontSize: 16, fontWeight: 600, margin: '0 0 16px' }}>{editing?.id ? 'Машин засах' : 'Шинэ машин'}</h3>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 14 }} className="form-row">
+            <div><label style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 6, display: 'block' }}>Нэр</label><input value={form.name} onChange={e => setForm({...form, name: e.target.value})} style={inp} placeholder="Epson L1300" /></div>
+            <div><label style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 6, display: 'block' }}>Төрөл</label><input value={form.type} onChange={e => setForm({...form, type: e.target.value})} style={inp} placeholder="Inkjet / Offset / Digital" /></div>
+            <div><label style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 6, display: 'block' }}>Төлөв</label>
+              <select value={form.status} onChange={e => setForm({...form, status: e.target.value})} style={inp}>
+                <option value="available">Бэлэн</option><option value="busy">Ачаалалтай</option><option value="maintenance">Засвартай</option><option value="offline">Офлайн</option>
+              </select>
+            </div>
+            <div><label style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 6, display: 'block' }}>Хурд (хуудас/цаг)</label><input type="number" value={form.speed_per_hour} onChange={e => setForm({...form, speed_per_hour: +e.target.value})} style={inp} /></div>
+            <div><label style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 6, display: 'block' }}>Хуудас өргөн (мм)</label><input type="number" value={form.sheet_width_mm} onChange={e => setForm({...form, sheet_width_mm: +e.target.value})} style={inp} /></div>
+            <div><label style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 6, display: 'block' }}>Хуудас өндөр (мм)</label><input type="number" value={form.sheet_height_mm} onChange={e => setForm({...form, sheet_height_mm: +e.target.value})} style={inp} /></div>
+            <div><label style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 6, display: 'block' }}>Цагийн төлбөр (₮)</label><input type="number" value={form.hour_rate} onChange={e => setForm({...form, hour_rate: +e.target.value})} style={inp} /></div>
+            <div><label style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 6, display: 'block' }}>Үйлдвэр ID</label><input value={form.factory_id} onChange={e => setForm({...form, factory_id: e.target.value})} style={inp} /></div>
+          </div>
+          <div style={{ display: 'flex', gap: 10, marginTop: 18 }}>
+            <button onClick={save} style={{ padding: '10px 24px', background: '#FF6B00', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>Хадгалах</button>
+            <button onClick={reset} style={{ padding: '10px 24px', background: 'var(--surface2)', color: 'var(--text2)', border: '1px solid var(--border)', borderRadius: 8, cursor: 'pointer', fontSize: 13 }}>Болих</button>
+          </div>
         </div>
-        {loading?<div style={{padding:'48px',textAlign:'center',color:'var(--text4)',fontSize:'13px'}}>Уншиж байна...</div>
-        :filtered.length===0?<div style={{padding:'48px',textAlign:'center',color:'var(--text4)',fontSize:'13px'}}>Машин олдсонгүй</div>
-        :filtered.map((m,i)=>(
-          <div key={m.id}
-            style={{display:'grid',gridTemplateColumns:'0.4fr 1.2fr 0.8fr 1fr 0.8fr 0.7fr 0.8fr',padding:'14px 20px',borderBottom:i<filtered.length-1?'1px solid var(--border)':'none',gap:'16px',alignItems:'center',transition:'background .15s'}}
-            onMouseEnter={e=>(e.currentTarget.style.background='var(--surface2)')}
-            onMouseLeave={e=>(e.currentTarget.style.background='transparent')}>
-            <div style={{fontSize:'12px',color:'var(--text4)'}}>{i+1}</div>
-            <div style={{fontSize:'13px',fontWeight:500,color:'var(--text)'}}>{m.name||'—'}</div>
-            <div><span style={{fontSize:'11px',fontWeight:500,padding:'3px 8px',borderRadius:'5px',background:(TYPES[m.type]?.color||'#888')+'18',color:TYPES[m.type]?.color||'var(--text2)'}}>{TYPES[m.type]?.label||m.type||'—'}</span></div>
-            <div style={{fontSize:'13px',color:'var(--text2)'}}>{m.vendor?.name||'—'}</div>
-            <div style={{fontSize:'12px',color:'var(--text3)'}}>{m.max_sheet_size||'—'}</div>
-            <div style={{fontSize:'13px',color:'var(--text2)'}}>{m.speed_per_hour?.toLocaleString()||'—'}</div>
-            <div><span style={{fontSize:'11px',fontWeight:500,padding:'4px 10px',borderRadius:'6px',background:STATUS[m.status]?.bg||'rgba(255,255,255,0.05)',color:STATUS[m.status]?.color||'var(--text2)'}}>{STATUS[m.status]?.label||m.status||'—'}</span></div>
-          </div>
-        ))}
+      )}
+
+      {/* Table */}
+      <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden' }} className="table-scroll">
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+          <thead><tr style={{ background: 'var(--surface2)' }}>{['Нэр', 'Төрөл', 'Хурд', 'Хэмжээ (мм)', 'Цагийн төлбөр', 'Төлөв', 'Үйлдэл'].map(h => <th key={h} style={{ padding: '10px 16px', textAlign: 'left', color: 'var(--text2)', fontWeight: 500, whiteSpace: 'nowrap' }}>{h}</th>)}</tr></thead>
+          <tbody>
+            {loading ? <tr><td colSpan={7} style={{ padding: 32, textAlign: 'center', color: 'var(--text2)' }}>Уншиж байна...</td></tr>
+            : items.length === 0 ? <tr><td colSpan={7} style={{ padding: 32, textAlign: 'center', color: 'var(--text2)' }}>Машин бүртгэгдээгүй</td></tr>
+            : items.map(m => {
+              const st = STATUS_CLR[m.status] || { label: m.status, color: '#888' }
+              return (
+                <tr key={m.id} style={{ borderTop: '1px solid var(--border)' }}>
+                  <td style={{ padding: '10px 16px', fontWeight: 500 }}>{m.name || '—'}</td>
+                  <td style={{ padding: '10px 16px' }}><span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 6, background: 'rgba(59,130,246,0.1)', color: '#3B82F6' }}>{m.type || '—'}</span></td>
+                  <td style={{ padding: '10px 16px', color: 'var(--text2)' }}>{m.speed_per_hour ? `${m.speed_per_hour} хуудас/цаг` : '—'}</td>
+                  <td style={{ padding: '10px 16px', color: 'var(--text2)' }}>{m.sheet_width_mm && m.sheet_height_mm ? `${m.sheet_width_mm}×${m.sheet_height_mm}` : '—'}</td>
+                  <td style={{ padding: '10px 16px', color: '#FF6B00', fontWeight: 600 }}>₮{Number(m.hour_rate || 0).toLocaleString()}</td>
+                  <td style={{ padding: '10px 16px' }}><span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 99, background: st.color + '15', color: st.color, fontWeight: 600 }}>{st.label}</span></td>
+                  <td style={{ padding: '10px 16px' }}><div style={{ display: 'flex', gap: 6 }}>
+                    <button onClick={() => edit(m)} style={{ padding: '5px 12px', background: 'rgba(59,130,246,0.1)', color: '#3B82F6', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 12 }}>Засах</button>
+                    <button onClick={() => del(m.id)} style={{ padding: '5px 12px', background: 'rgba(239,68,68,0.1)', color: '#EF4444', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 12 }}>Устгах</button>
+                  </div></td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
       </div>
     </div>
   )

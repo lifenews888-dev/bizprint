@@ -1,11 +1,11 @@
-﻿'use client'
+'use client'
 import { useState, useRef, useEffect } from 'react'
 import { useChat } from '@/hooks/useChat'
 
 interface Props { userId: string; userName: string; role: string }
 const API = 'http://localhost:4000'
 const ROLES: Record<string, { color: string; bg: string; label: string }> = {
-  admin:    { color: 'var(--orange)', bg: 'var(--orange-12)',  label: 'Admin'    },
+  admin:    { color: '#FF6B00', bg: 'rgba(255,107,0,0.12)',  label: 'Admin'    },
   designer: { color: '#8B5CF6', bg: 'rgba(139,92,246,0.12)', label: 'Designer' },
   courier:  { color: '#10B981', bg: 'rgba(16,185,129,0.12)', label: 'Courier'  },
   customer: { color: '#3B82F6', bg: 'rgba(59,130,246,0.12)', label: 'Customer' },
@@ -100,7 +100,7 @@ export default function ChatBox({ userId, userName, role }: Props) {
       const ext = name.split('.').pop()?.toUpperCase() || 'FILE'
       return (
         <a href={url} target="_blank" rel="noreferrer" style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', background: isMe ? 'rgba(255,255,255,0.15)' : 'var(--surface2)', borderRadius: 10, textDecoration: 'none', border: isMe ? 'none' : '1px solid var(--border)', minWidth: 160 }}>
-          <div style={{ width: 34, height: 34, borderRadius: 8, background: 'var(--orange-15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 800, color: 'var(--orange)', flexShrink: 0 }}>{ext}</div>
+          <div style={{ width: 34, height: 34, borderRadius: 8, background: 'rgba(255,107,0,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 800, color: '#FF6B00', flexShrink: 0 }}>{ext}</div>
           <div>
             <div style={{ fontSize: 12, fontWeight: 600, color: isMe ? '#fff' : 'var(--text)', maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</div>
             <div style={{ fontSize: 10, color: isMe ? 'rgba(255,255,255,0.6)' : 'var(--text3)' }}>Download</div>
@@ -109,13 +109,13 @@ export default function ChatBox({ userId, userName, role }: Props) {
       )
     }
     return (
-      <div style={{ padding: '10px 14px', background: isMe ? 'linear-gradient(135deg,var(--orange),#FF8C42)' : 'var(--surface2)', color: isMe ? '#fff' : 'var(--text)', borderRadius: isMe ? '18px 18px 4px 18px' : '18px 18px 18px 4px', fontSize: 14, lineHeight: 1.6, border: isMe ? 'none' : '1px solid var(--border)', boxShadow: isMe ? '0 2px 12px var(--orange-20)' : 'none', wordBreak: 'break-word', whiteSpace: 'pre-wrap', maxWidth: 260 }}>
+      <div style={{ padding: '10px 14px', background: isMe ? 'linear-gradient(135deg,#FF6B00,#FF8C42)' : 'var(--surface2)', color: isMe ? '#fff' : 'var(--text)', borderRadius: isMe ? '18px 18px 4px 18px' : '18px 18px 18px 4px', fontSize: 14, lineHeight: 1.6, border: isMe ? 'none' : '1px solid var(--border)', boxShadow: isMe ? '0 2px 12px rgba(255,107,0,0.2)' : 'none', wordBreak: 'break-word', whiteSpace: 'pre-wrap', maxWidth: 260 }}>
         {content}
       </div>
     )
   }
 
-  const headerIcon = view === 'chat' ? (otherName[0] || '?').toUpperCase() : view === 'new' ? '+' : 'ðŸ’¬'
+  const headerIcon = view === 'chat' ? (otherName[0] || '?').toUpperCase() : view === 'new' ? '+' : '💬'
   const headerTitle = view === 'chat' ? otherName : view === 'new' ? 'New Chat' : 'BizPrint Chat'
 
   return (
@@ -139,10 +139,10 @@ export default function ChatBox({ userId, userName, role }: Props) {
           onDragOver={e => { e.preventDefault(); if (view === 'chat') setDragOver(true) }}
           onDragLeave={() => setDragOver(false)}
           onDrop={e => { e.preventDefault(); setDragOver(false); const f = e.dataTransfer.files?.[0]; if (f) sendFile(f) }}
-          style={{ position: 'absolute', bottom: 70, right: 0, width: 380, height: 560, background: dragOver ? 'var(--orange-04)' : 'var(--surface)', border: dragOver ? '2px dashed var(--orange)' : '1px solid var(--border)', borderRadius: 20, boxShadow: '0 24px 64px rgba(0,0,0,0.25)', display: 'flex', flexDirection: 'column', overflow: 'hidden', animation: 'slideUp 0.25s cubic-bezier(0.34,1.56,0.64,1)' }}>
+          style={{ position: 'absolute', bottom: 70, right: 0, width: 380, height: 560, background: dragOver ? 'rgba(255,107,0,0.04)' : 'var(--surface)', border: dragOver ? '2px dashed #FF6B00' : '1px solid var(--border)', borderRadius: 20, boxShadow: '0 24px 64px rgba(0,0,0,0.25)', display: 'flex', flexDirection: 'column', overflow: 'hidden', animation: 'slideUp 0.25s cubic-bezier(0.34,1.56,0.64,1)' }}>
 
           {/* Header */}
-          <div style={{ padding: '13px 14px', background: 'linear-gradient(135deg,var(--orange),#FF8C42)', display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+          <div style={{ padding: '13px 14px', background: 'linear-gradient(135deg,#FF6B00,#FF8C42)', display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
             <div style={{ width: 34, height: 34, borderRadius: '50%', background: 'rgba(255,255,255,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, fontWeight: 700, color: '#fff', flexShrink: 0 }}>
               {headerIcon}
             </div>
@@ -155,9 +155,9 @@ export default function ChatBox({ userId, userName, role }: Props) {
             </div>
             <div style={{ display: 'flex', gap: 5 }}>
               {(view === 'chat' || view === 'new') && (
-                <button onClick={() => setView('list')} style={{ width: 28, height: 28, borderRadius: 7, background: 'rgba(255,255,255,0.2)', border: 'none', cursor: 'pointer', color: '#fff', fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>â†</button>
+                <button onClick={() => setView('list')} style={{ width: 28, height: 28, borderRadius: 7, background: 'rgba(255,255,255,0.2)', border: 'none', cursor: 'pointer', color: '#fff', fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>←</button>
               )}
-              <button onClick={() => setView('closed')} style={{ width: 28, height: 28, borderRadius: 7, background: 'rgba(255,255,255,0.2)', border: 'none', cursor: 'pointer', color: '#fff', fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>âœ•</button>
+              <button onClick={() => setView('closed')} style={{ width: 28, height: 28, borderRadius: 7, background: 'rgba(255,255,255,0.2)', border: 'none', cursor: 'pointer', color: '#fff', fontSize: 14, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
             </div>
           </div>
 
@@ -170,7 +170,7 @@ export default function ChatBox({ userId, userName, role }: Props) {
                 return (
                   <div key={t.role} onClick={() => startChatWith(t.role, t.label)}
                     style={{ padding: '13px 14px', background: 'var(--surface2)', borderRadius: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 12, border: '1px solid var(--border)', transition: 'all 0.15s' }}
-                    onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--orange)'; e.currentTarget.style.background = 'var(--orange-04)' }}
+                    onMouseEnter={e => { e.currentTarget.style.borderColor = '#FF6B00'; e.currentTarget.style.background = 'rgba(255,107,0,0.04)' }}
                     onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.background = 'var(--surface2)' }}>
                     <div style={{ width: 42, height: 42, borderRadius: '50%', background: cfg.bg, border: `2px solid ${cfg.color}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, flexShrink: 0 }}>
                       {t.label[0]}
@@ -179,7 +179,7 @@ export default function ChatBox({ userId, userName, role }: Props) {
                       <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--text)' }}>{t.label}</div>
                       <div style={{ fontSize: 12, color: 'var(--text3)' }}>{t.desc}</div>
                     </div>
-                    <div style={{ marginLeft: 'auto', color: 'var(--text3)' }}>â†’</div>
+                    <div style={{ marginLeft: 'auto', color: 'var(--text3)' }}>→</div>
                   </div>
                 )
               })}
@@ -191,10 +191,10 @@ export default function ChatBox({ userId, userName, role }: Props) {
             <div style={{ flex: 1, overflowY: 'auto' }}>
               {rooms.length === 0 ? (
                 <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 32, textAlign: 'center' }}>
-                  <div style={{ fontSize: 44, marginBottom: 12 }}>ðŸ’¬</div>
+                  <div style={{ fontSize: 44, marginBottom: 12 }}>💬</div>
                   <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--text)', marginBottom: 8 }}>Hello!</div>
                   <div style={{ fontSize: 13, color: 'var(--text3)', marginBottom: 20, lineHeight: 1.6 }}>Chat with Admin, Designer, or Vendor</div>
-                  <button onClick={() => setView('new')} style={{ background: 'linear-gradient(135deg,var(--orange),#FF8C42)', border: 'none', borderRadius: 12, padding: '11px 22px', color: '#fff', cursor: 'pointer', fontWeight: 700, fontSize: 14, width: '100%' }}>
+                  <button onClick={() => setView('new')} style={{ background: 'linear-gradient(135deg,#FF6B00,#FF8C42)', border: 'none', borderRadius: 12, padding: '11px 22px', color: '#fff', cursor: 'pointer', fontWeight: 700, fontSize: 14, width: '100%' }}>
                     Start Chat
                   </button>
                 </div>
@@ -203,13 +203,13 @@ export default function ChatBox({ userId, userName, role }: Props) {
                   {rooms.map(room => {
                     const other = room.participant_names.find((n: string) => n !== userName) || 'Support'
                     const initials = other.split(/[\s@]/).filter(Boolean).map((w: string) => w[0]).join('').toUpperCase().slice(0, 2)
-                    const lastMsg = room.last_message?.startsWith('[IMAGE]') ? 'ðŸ“· Image' : room.last_message?.startsWith('[FILE]') ? 'ðŸ“Ž File' : room.last_message || ''
+                    const lastMsg = room.last_message?.startsWith('[IMAGE]') ? '📷 Image' : room.last_message?.startsWith('[FILE]') ? '📎 File' : room.last_message || ''
                     return (
                       <div key={room.room_id} onClick={() => { joinRoom(room.room_id); setView('chat') }}
                         style={{ padding: '11px 13px', cursor: 'pointer', display: 'flex', gap: 10, alignItems: 'center', borderBottom: '1px solid var(--border)', transition: 'background 0.12s' }}
-                        onMouseEnter={e => (e.currentTarget.style.background = 'var(--orange-04)')}
+                        onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,107,0,0.04)')}
                         onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
-                        <div style={{ width: 38, height: 38, borderRadius: '50%', background: 'var(--orange-10)', border: '2px solid var(--orange)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 13, color: 'var(--orange)', flexShrink: 0 }}>{initials}</div>
+                        <div style={{ width: 38, height: 38, borderRadius: '50%', background: 'rgba(255,107,0,0.1)', border: '2px solid #FF6B00', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 13, color: '#FF6B00', flexShrink: 0 }}>{initials}</div>
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 2 }}>
                             <div style={{ fontWeight: 600, fontSize: 13, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{other}</div>
@@ -217,7 +217,7 @@ export default function ChatBox({ userId, userName, role }: Props) {
                           </div>
                           <div style={{ fontSize: 11, color: 'var(--text3)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{lastMsg}</div>
                         </div>
-                        {room.unread_count > 0 && <div style={{ width: 18, height: 18, borderRadius: '50%', background: 'var(--orange)', color: '#fff', fontSize: 10, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{room.unread_count}</div>}
+                        {room.unread_count > 0 && <div style={{ width: 18, height: 18, borderRadius: '50%', background: '#FF6B00', color: '#fff', fontSize: 10, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{room.unread_count}</div>}
                       </div>
                     )
                   })}
@@ -237,7 +237,7 @@ export default function ChatBox({ userId, userName, role }: Props) {
               <div style={{ flex: 1, overflowY: 'auto', padding: '12px 12px 6px', display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {msgs.length === 0 && (
                   <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', padding: 20 }}>
-                    <div style={{ fontSize: 34, marginBottom: 10 }}>ðŸ‘‹</div>
+                    <div style={{ fontSize: 34, marginBottom: 10 }}>👋</div>
                     <div style={{ fontWeight: 600, fontSize: 14, color: 'var(--text)', marginBottom: 6 }}>Hello!</div>
                     <div style={{ fontSize: 12, color: 'var(--text3)' }}>Write your message below</div>
                   </div>
@@ -250,16 +250,16 @@ export default function ChatBox({ userId, userName, role }: Props) {
                   const showTime = !next || next.sender_id !== msg.sender_id
                   return (
                     <div key={msg.id}>
-                      {showName && <div style={{ fontSize: 10, fontWeight: 700, color: 'var(--orange)', marginBottom: 3, marginLeft: 38 }}>{msg.sender_name}</div>}
+                      {showName && <div style={{ fontSize: 10, fontWeight: 700, color: '#FF6B00', marginBottom: 3, marginLeft: 38 }}>{msg.sender_name}</div>}
                       <div style={{ display: 'flex', gap: 7, alignItems: 'flex-end', justifyContent: isMe ? 'flex-end' : 'flex-start' }}>
                         {!isMe && (
-                          <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'var(--orange-10)', border: '1.5px solid var(--orange)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, color: 'var(--orange)', flexShrink: 0, alignSelf: 'flex-end' }}>
+                          <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'rgba(255,107,0,0.1)', border: '1.5px solid #FF6B00', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, color: '#FF6B00', flexShrink: 0, alignSelf: 'flex-end' }}>
                             {(msg.sender_name || 'U')[0].toUpperCase()}
                           </div>
                         )}
                         <div style={{ maxWidth: '76%' }}>
                           {renderMsg(msg.message, isMe)}
-                          {showTime && <div style={{ fontSize: 10, color: 'var(--text3)', marginTop: 3, textAlign: isMe ? 'right' : 'left' }}>{ftime(msg.created_at)}{isMe && <span style={{ marginLeft: 4, color: '#10B981' }}>âœ“âœ“</span>}</div>}
+                          {showTime && <div style={{ fontSize: 10, color: 'var(--text3)', marginTop: 3, textAlign: isMe ? 'right' : 'left' }}>{ftime(msg.created_at)}{isMe && <span style={{ marginLeft: 4, color: '#10B981' }}>✓✓</span>}</div>}
                         </div>
                         {isMe && <div style={{ width: 28, height: 28, borderRadius: '50%', background: myCfg.bg, border: `1.5px solid ${myCfg.color}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, color: myCfg.color, flexShrink: 0, alignSelf: 'flex-end' }}>{userName[0]?.toUpperCase()}</div>}
                       </div>
@@ -268,8 +268,8 @@ export default function ChatBox({ userId, userName, role }: Props) {
                 })}
                 {uploading && (
                   <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                    <div style={{ padding: '8px 12px', background: 'var(--orange-08)', borderRadius: 10, fontSize: 12, color: 'var(--orange)', display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <div style={{ width: 12, height: 12, borderRadius: '50%', border: '2px solid var(--orange)', borderTopColor: 'transparent', animation: 'spin 0.8s linear infinite' }} />
+                    <div style={{ padding: '8px 12px', background: 'rgba(255,107,0,0.08)', borderRadius: 10, fontSize: 12, color: '#FF6B00', display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <div style={{ width: 12, height: 12, borderRadius: '50%', border: '2px solid #FF6B00', borderTopColor: 'transparent', animation: 'spin 0.8s linear infinite' }} />
                       Uploading...
                     </div>
                   </div>
@@ -283,21 +283,21 @@ export default function ChatBox({ userId, userName, role }: Props) {
                 <div style={{ display: 'flex', gap: 6, alignItems: 'flex-end', background: 'var(--surface2)', border: '1.5px solid var(--border)', borderRadius: 14, padding: '6px 6px 6px 11px' }}>
                   <button onClick={() => fileRef.current?.click()}
                     style={{ width: 30, height: 30, borderRadius: 8, border: 'none', background: 'transparent', cursor: 'pointer', color: 'var(--text3)', fontSize: 15, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, transition: 'all 0.15s' }}
-                    onMouseEnter={e => { e.currentTarget.style.color = 'var(--orange)'; e.currentTarget.style.background = 'var(--orange-08)' }}
+                    onMouseEnter={e => { e.currentTarget.style.color = '#FF6B00'; e.currentTarget.style.background = 'rgba(255,107,0,0.08)' }}
                     onMouseLeave={e => { e.currentTarget.style.color = 'var(--text3)'; e.currentTarget.style.background = 'transparent' }}>
-                    ðŸ“Ž
+                    📎
                   </button>
                   <textarea ref={taRef} value={text} onChange={e => setText(e.target.value)} onKeyDown={onKey}
                     rows={Math.min(text.split('\n').length, 4) || 1}
                     placeholder="Type a message..."
                     style={{ flex: 1, background: 'transparent', border: 'none', color: 'var(--text)', fontSize: 13, outline: 'none', resize: 'none', padding: '3px 0', lineHeight: 1.5, fontFamily: 'inherit', minHeight: 24, maxHeight: 90 }} />
                   <button onClick={send} disabled={!text.trim()}
-                    style={{ width: 32, height: 32, borderRadius: 9, border: 'none', flexShrink: 0, cursor: text.trim() ? 'pointer' : 'default', background: text.trim() ? 'var(--orange)' : 'var(--border)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s', boxShadow: text.trim() ? '0 3px 10px var(--orange-40)' : 'none' }}>
+                    style={{ width: 32, height: 32, borderRadius: 9, border: 'none', flexShrink: 0, cursor: text.trim() ? 'pointer' : 'default', background: text.trim() ? '#FF6B00' : 'var(--border)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'all 0.2s', boxShadow: text.trim() ? '0 3px 10px rgba(255,107,0,0.4)' : 'none' }}>
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
                   </button>
                 </div>
                 <div style={{ fontSize: 10, color: 'var(--text3)', marginTop: 4, display: 'flex', justifyContent: 'space-between' }}>
-                  <span>ðŸ“Ž Drag & drop or click to attach</span>
+                  <span>📎 Drag & drop or click to attach</span>
                   <span>Enter to send</span>
                 </div>
               </div>
@@ -313,7 +313,7 @@ export default function ChatBox({ userId, userName, role }: Props) {
           else if (rooms.length === 1) { joinRoom(rooms[0].room_id); setView('chat') }
           else setView('list')
         } else { setView('closed') }
-      }} style={{ width: 54, height: 54, borderRadius: '50%', background: view !== 'closed' ? 'var(--surface)' : 'linear-gradient(135deg,var(--orange),#FF8C42)', border: view !== 'closed' ? '2px solid var(--border)' : 'none', cursor: 'pointer', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: view !== 'closed' ? '0 4px 16px rgba(0,0,0,0.15)' : '0 6px 24px var(--orange-40)', transition: 'all 0.3s cubic-bezier(0.34,1.56,0.64,1)' }}>
+      }} style={{ width: 54, height: 54, borderRadius: '50%', background: view !== 'closed' ? 'var(--surface)' : 'linear-gradient(135deg,#FF6B00,#FF8C42)', border: view !== 'closed' ? '2px solid var(--border)' : 'none', cursor: 'pointer', position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: view !== 'closed' ? '0 4px 16px rgba(0,0,0,0.15)' : '0 6px 24px rgba(255,107,0,0.45)', transition: 'all 0.3s cubic-bezier(0.34,1.56,0.64,1)' }}>
         {view !== 'closed'
           ? <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--text2)" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
           : <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>

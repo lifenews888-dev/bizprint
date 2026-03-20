@@ -1,4 +1,13 @@
-﻿import { Controller, Post, Body, Get, Param, Patch, UseGuards, Request } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Body,
+  Get,
+  Param,
+  Patch,
+  UseGuards,
+  Request,
+} from '@nestjs/common';
 import { OrdersService } from './order.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
@@ -13,8 +22,15 @@ export class OrdersController {
 
   @Post('from-quote')
   @UseGuards(JwtAuthGuard)
-  createFromQuote(@Body() body: { quote_id: string; payment_method?: string }, @Request() req: any) {
-    return this.ordersService.createFromQuote(body.quote_id, req.user.id, body.payment_method)
+  createFromQuote(
+    @Body() body: { quote_id: string; payment_method?: string },
+    @Request() req: any,
+  ) {
+    return this.ordersService.createFromQuote(
+      body.quote_id,
+      req.user.id,
+      body.payment_method,
+    );
   }
 
   @Get()
@@ -34,8 +50,25 @@ export class OrdersController {
 
   @Patch(':id/status')
   @UseGuards(JwtAuthGuard)
-  updateStatus(@Param('id') id: string, @Body() body: { status: string }) {
-    return this.ordersService.updateStatus(id, body.status);
+  updateStatus(@Param('id') id: string, @Body() body: any) {
+    return this.ordersService.updateOrder(id, body);
+  }
+
+  @Patch(':id/revert')
+  @UseGuards(JwtAuthGuard)
+  revertStatus(
+    @Param('id') id: string,
+    @Body() body: { reason: string; target_stage?: string },
+    @Request() req: any,
+  ) {
+    const user =
+      req.user?.name || req.user?.email || 'Admin';
+    return this.ordersService.revertStatus(
+      id,
+      body.reason,
+      user,
+      body.target_stage,
+    );
   }
 
   @Patch(':id/cancel')

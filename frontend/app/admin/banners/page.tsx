@@ -1,258 +1,174 @@
-﻿'use client'
-import { useEffect, useState, useRef } from 'react'
-import { useRouter } from 'next/navigation'
+'use client'
+import { useState, useEffect } from 'react'
 
 const API = 'http://localhost:4000'
+const F = "'DM Sans','Segoe UI',system-ui,sans-serif"
+
+function getHeaders() {
+  return { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token')}` }
+}
 
 export default function AdminBannersPage() {
-  const router = useRouter()
-  const [banners, setBanners] = useState<any[]>([])
+  const [items, setItems] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
-  const [showAdd, setShowAdd] = useState(false)
-  const [editBanner, setEditBanner] = useState<any>(null)
-  const [form, setForm] = useState({title:'',subtitle:'',imageUrl:'',link:'',order:0})
+  const [editing, setEditing] = useState<any>(null)
+  const [form, setForm] = useState({ title: '', description: '', imageUrl: '', link: '', buttonText: '', isActive: true, order: 0 })
   const [uploading, setUploading] = useState(false)
-  const [saving, setSaving] = useState(false)
-  const fileRef = useRef<HTMLInputElement>(null)
-  const editFileRef = useRef<HTMLInputElement>(null)
-  const F = "'Segoe UI',system-ui,sans-serif"
 
-  const token = () => localStorage.getItem('access_token')||''
-  const hdrs = () => ({'Content-Type':'application/json',Authorization:'Bearer '+token()})
+  const load = () => {
+    fetch(`${API}/banners`, { headers: getHeaders() }).then(r => r.json()).then(d => {
+      setItems(Array.isArray(d) ? d : [])
+    }).catch(() => {}).finally(() => setLoading(false))
+  }
+  useEffect(load, [])
 
-  useEffect(()=>{
-    if(!token()){router.push('/login');return}
-    load()
-  },[])
+  const reset = () => { setEditing(null); setForm({ title: '', description: '', imageUrl: '', link: '', buttonText: '', isActive: true, order: 0 }) }
 
-  const load = ()=>{
-    fetch(API+'/banners',{headers:hdrs()}).then(r=>r.json())
-      .then(d=>{setBanners(Array.isArray(d)?d:[]);setLoading(false)})
-      .catch(()=>setLoading(false))
+  const save = async () => {
+    const method = editing ? 'PATCH' : 'POST'
+    const url = editing ? `${API}/banners/${editing.id}` : `${API}/banners`
+    await fetch(url, { method, headers: getHeaders(), body: JSON.stringify(form) })
+    reset(); load()
   }
 
-  const uploadFile = async(file: File, cb: (url:string)=>void)=>{
+  const del = async (id: string) => {
+    if (!confirm('Устгах уу?')) return
+    await fetch(`${API}/banners/${id}`, { method: 'DELETE', headers: getHeaders() })
+    load()
+  }
+
+  const edit = (item: any) => {
+    setEditing(item)
+    setForm({ title: item.title || '', description: item.description || '', imageUrl: item.imageUrl || '', link: item.link || '', buttonText: item.buttonText || '', isActive: item.isActive !== false, order: item.order || 0 })
+  }
+
+  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
     setUploading(true)
     const fd = new FormData()
     fd.append('file', file)
     try {
-      const res = await fetch(API+'/upload/file',{method:'POST',headers:{Authorization:'Bearer '+token()},body:fd})
+      const res = await fetch(`${API}/upload/file`, {
+        method: 'POST',
+        headers: { Authorization: 'Bearer ' + localStorage.getItem('token') },
+        body: fd,
+      })
       const data = await res.json()
-      cb(data.url || data.path || data.filename || '')
-    } catch(e){ alert('Upload амжилтгүй') }
+      const rawUrl = data.url || data.path || data.fileUrl
+      const filename = data.filename || data.file_name || data.name
+      let fullUrl = ''
+      if (rawUrl) fullUrl = rawUrl.startsWith('http') ? rawUrl : `${API}/${rawUrl}`
+      else if (filename) {
+        const clean = filename.replace('uploads/', '')
+        fullUrl = filename.startsWith('http') ? filename : `${API}/uploads/${clean}`
+      }
+      if (fullUrl) setForm(f => ({ ...f, imageUrl: fullUrl }))
+    } catch {}
     setUploading(false)
   }
 
-  const addBanner = async()=>{
-    setSaving(true)
-    await fetch(API+'/banners',{method:'POST',headers:hdrs(),body:JSON.stringify({...form,isActive:true})})
-    setForm({title:'',subtitle:'',imageUrl:'',link:'',order:0})
-    setShowAdd(false);setSaving(false);load()
-  }
+  const inp: React.CSSProperties = { width: '100%', padding: '10px 14px', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '13px', color: 'var(--text)', outline: 'none', fontFamily: F }
 
-  const updateBanner = async()=>{
-    if(!editBanner) return
-    setSaving(true)
-    await fetch(API+'/banners/'+editBanner.id,{method:'PATCH',headers:hdrs(),body:JSON.stringify(editBanner)})
-    setEditBanner(null);setSaving(false);load()
-  }
-
-  const toggleBanner = async(id:number,val:boolean)=>{
-    await fetch(API+'/banners/'+id,{method:'PATCH',headers:hdrs(),body:JSON.stringify({isActive:val})})
-    setBanners(p=>p.map(b=>b.id===id?{...b,isActive:val}:b))
-  }
-
-  const delBanner = async(id:number)=>{
-    if(!confirm('Устгах уу?'))return
-    await fetch(API+'/banners/'+id,{method:'DELETE',headers:hdrs()})
-    setBanners(p=>p.filter(b=>b.id!==id))
-  }
-
-  const inp:React.CSSProperties={width:'100%',background:'var(--surface2)',border:'1px solid var(--border)',borderRadius:8,padding:'9px 12px',fontSize:13,color:'var(--text)',outline:'none',fontFamily:F,boxSizing:'border-box'}
-
-  const ImageUploadField = ({value, onChange}:{value:string,onChange:(v:string)=>void}) => (
-    <div>
-      <div style={{display:'flex',gap:8,marginBottom:8}}>
-        <input type="text" value={value} placeholder="https://... эсвэл файл upload хийнэ үү"
-          onChange={e=>onChange(e.target.value)} style={{...inp,flex:1}}/>
-        <button onClick={()=>fileRef.current?.click()}
-          style={{padding:'9px 14px',background:'var(--orange-10)',border:'1px solid var(--orange-25)',color:'var(--orange)',borderRadius:8,cursor:'pointer',fontSize:12,fontWeight:500,fontFamily:F,whiteSpace:'nowrap',flexShrink:0}}>
-          {uploading?'Uploading...':'📁 Файл сонгох'}
-        </button>
-      </div>
-      <input ref={fileRef} type="file" accept="image/*" style={{display:'none'}}
-        onChange={e=>{const f=e.target.files?.[0];if(f) uploadFile(f,onChange)}}/>
-      {value&&(
-        <div style={{marginTop:8,borderRadius:8,overflow:'hidden',border:'1px solid var(--border)',height:120,position:'relative'}}>
-          <img src={value} alt="preview" style={{width:'100%',height:'100%',objectFit:'cover'}}
-            onError={e=>(e.currentTarget.style.display='none')}/>
-          <div style={{position:'absolute',top:6,right:6}}>
-            <button onClick={()=>onChange('')} style={{background:'rgba(0,0,0,0.6)',border:'none',color:'#fff',borderRadius:5,padding:'3px 8px',fontSize:11,cursor:'pointer'}}>✕</button>
-          </div>
-        </div>
-      )}
-    </div>
-  )
-
-  return(
-    <div style={{padding:'28px 32px',fontFamily:F,color:'var(--text)'}}>
-
-      {/* HEADER */}
-      <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',marginBottom:24,paddingBottom:20,borderBottom:'1px solid var(--border)'}}>
+  return (
+    <div style={{ padding: 24, fontFamily: F }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
         <div>
-          <h1 style={{fontSize:22,fontWeight:600,margin:0,letterSpacing:'-0.4px'}}>Баннерууд</h1>
-          <p style={{fontSize:13,color:'var(--text3)',margin:'5px 0 0'}}>Нийт {banners.length} · Идэвхтэй: {banners.filter(b=>b.isActive).length}</p>
+          <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>Баннер удирдлага</h1>
+          <p style={{ color: 'var(--text2)', fontSize: 13, margin: '4px 0 0' }}>Нүүр хуудасны слайдер баннерууд</p>
         </div>
-        <button onClick={()=>{setShowAdd(!showAdd);setEditBanner(null)}}
-          style={{background:'var(--orange)',color:'#fff',border:'none',borderRadius:8,padding:'8px 18px',fontSize:13,fontWeight:500,cursor:'pointer',fontFamily:F}}>
-          + Баннер нэмэх
-        </button>
+        <button onClick={() => { reset(); setEditing({}) }} style={{ padding: '10px 20px', background: '#FF6B00', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>+ Шинэ баннер</button>
       </div>
 
-      {/* ADD FORM */}
-      {showAdd&&(
-        <div style={{background:'var(--surface)',border:'1px solid var(--orange-20)',borderRadius:12,padding:24,marginBottom:20}}>
-          <div style={{fontSize:15,fontWeight:600,marginBottom:16,display:'flex',alignItems:'center',gap:8}}>
-            🖼️ Шинэ баннер нэмэх
-          </div>
-          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:12}}>
+      {/* Form */}
+      {editing !== null && (
+        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, padding: 24, marginBottom: 24 }}>
+          <h3 style={{ fontSize: 16, fontWeight: 600, margin: '0 0 16px' }}>{editing?.id ? 'Баннер засах' : 'Шинэ баннер'}</h3>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }} className="form-row">
             <div>
-              <label style={{fontSize:11,color:'var(--text4)',display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.06em'}}>Гарчиг *</label>
-              <input value={form.title} onChange={e=>setForm(p=>({...p,title:e.target.value}))} placeholder="Баннерын гарчиг" style={inp}/>
+              <label style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 6, display: 'block' }}>Гарчиг</label>
+              <input value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} style={inp} placeholder="Баннер гарчиг" />
             </div>
             <div>
-              <label style={{fontSize:11,color:'var(--text4)',display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.06em'}}>Дэд гарчиг</label>
-              <input value={form.subtitle} onChange={e=>setForm(p=>({...p,subtitle:e.target.value}))} placeholder="Дэд гарчиг" style={inp}/>
+              <label style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 6, display: 'block' }}>Товч текст</label>
+              <input value={form.buttonText} onChange={e => setForm({ ...form, buttonText: e.target.value })} style={inp} placeholder="Дэлгэрэнгүй" />
             </div>
-          </div>
-          <div style={{marginBottom:12}}>
-            <label style={{fontSize:11,color:'var(--text4)',display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.06em'}}>Зургийн URL *</label>
-            <ImageUploadField value={form.imageUrl} onChange={v=>setForm(p=>({...p,imageUrl:v}))}/>
-          </div>
-          <div style={{display:'grid',gridTemplateColumns:'1fr 80px',gap:12,marginBottom:16}}>
-            <div>
-              <label style={{fontSize:11,color:'var(--text4)',display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.06em'}}>Холбоос URL</label>
-              <input value={form.link} onChange={e=>setForm(p=>({...p,link:e.target.value}))} placeholder="/products" style={inp}/>
+            <div style={{ gridColumn: 'span 2' }}>
+              <label style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 6, display: 'block' }}>Тайлбар</label>
+              <textarea value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} style={{ ...inp, minHeight: 60, resize: 'vertical' }} placeholder="Богино тайлбар" />
             </div>
             <div>
-              <label style={{fontSize:11,color:'var(--text4)',display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.06em'}}>Эрэмбэ</label>
-              <input type="number" value={form.order} onChange={e=>setForm(p=>({...p,order:+e.target.value}))} style={inp}/>
+              <label style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 6, display: 'block' }}>Зураг</label>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <input value={form.imageUrl} onChange={e => setForm({ ...form, imageUrl: e.target.value })} style={{ ...inp, flex: 1 }} placeholder="Зургийн URL" />
+                <label style={{ padding: '10px 16px', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 8, cursor: 'pointer', fontSize: 12, fontWeight: 500, whiteSpace: 'nowrap', display: 'flex', alignItems: 'center', color: uploading ? 'var(--text3)' : '#FF6B00' }}>
+                  {uploading ? '...' : '📤 Upload'}
+                  <input type="file" accept="image/*" onChange={handleUpload} style={{ display: 'none' }} />
+                </label>
+              </div>
+              {form.imageUrl && <img src={form.imageUrl} alt="" style={{ height: 60, borderRadius: 6, marginTop: 8, objectFit: 'cover' }} />}
+            </div>
+            <div>
+              <label style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 6, display: 'block' }}>Линк</label>
+              <input value={form.link} onChange={e => setForm({ ...form, link: e.target.value })} style={inp} placeholder="/quote" />
+            </div>
+            <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 13 }}>
+                <input type="checkbox" checked={form.isActive} onChange={e => setForm({ ...form, isActive: e.target.checked })} />
+                Идэвхтэй
+              </label>
+              <div>
+                <label style={{ fontSize: 12, color: 'var(--text2)' }}>Дараалал</label>
+                <input type="number" value={form.order} onChange={e => setForm({ ...form, order: +e.target.value })} style={{ ...inp, width: 70, marginLeft: 6 }} />
+              </div>
             </div>
           </div>
-          <div style={{display:'flex',gap:8}}>
-            <button onClick={addBanner} disabled={saving||!form.title}
-              style={{background:'var(--orange)',color:'#fff',border:'none',borderRadius:8,padding:'9px 20px',fontSize:13,fontWeight:500,cursor:'pointer',fontFamily:F,opacity:(saving||!form.title)?0.6:1}}>
-              {saving?'Хадгалж байна...':'Нэмэх'}
-            </button>
-            <button onClick={()=>setShowAdd(false)} style={{background:'transparent',border:'1px solid var(--border)',color:'var(--text3)',borderRadius:8,padding:'9px 16px',fontSize:13,cursor:'pointer',fontFamily:F}}>Болих</button>
+          <div style={{ display: 'flex', gap: 10, marginTop: 18 }}>
+            <button onClick={save} style={{ padding: '10px 24px', background: '#FF6B00', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>Хадгалах</button>
+            <button onClick={reset} style={{ padding: '10px 24px', background: 'var(--surface2)', color: 'var(--text2)', border: '1px solid var(--border)', borderRadius: 8, cursor: 'pointer', fontSize: 13 }}>Болих</button>
           </div>
         </div>
       )}
 
-      {/* EDIT MODAL */}
-      {editBanner&&(
-        <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.5)',zIndex:100,display:'flex',alignItems:'center',justifyContent:'center',padding:20}}>
-          <div style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:16,padding:28,width:'100%',maxWidth:560,maxHeight:'90vh',overflowY:'auto'}}>
-            <div style={{fontSize:15,fontWeight:600,marginBottom:20}}>✏️ Баннер засах</div>
-            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:12}}>
-              <div>
-                <label style={{fontSize:11,color:'var(--text4)',display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.06em'}}>Гарчиг</label>
-                <input value={editBanner.title||''} onChange={e=>setEditBanner((p:any)=>({...p,title:e.target.value}))} style={inp}/>
-              </div>
-              <div>
-                <label style={{fontSize:11,color:'var(--text4)',display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.06em'}}>Дэд гарчиг</label>
-                <input value={editBanner.subtitle||''} onChange={e=>setEditBanner((p:any)=>({...p,subtitle:e.target.value}))} style={inp}/>
-              </div>
-            </div>
-            <div style={{marginBottom:12}}>
-              <label style={{fontSize:11,color:'var(--text4)',display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.06em'}}>Зургийн URL</label>
-              <div style={{display:'flex',gap:8,marginBottom:8}}>
-                <input value={editBanner.imageUrl||''} onChange={e=>setEditBanner((p:any)=>({...p,imageUrl:e.target.value}))} placeholder="https://..." style={{...inp,flex:1}}/>
-                <button onClick={()=>editFileRef.current?.click()}
-                  style={{padding:'9px 14px',background:'var(--orange-10)',border:'1px solid var(--orange-25)',color:'var(--orange)',borderRadius:8,cursor:'pointer',fontSize:12,fontFamily:F,whiteSpace:'nowrap',flexShrink:0}}>
-                  {uploading?'Uploading...':'📁 Upload'}
-                </button>
-              </div>
-              <input ref={editFileRef} type="file" accept="image/*" style={{display:'none'}}
-                onChange={e=>{const f=e.target.files?.[0];if(f) uploadFile(f,(url)=>setEditBanner((p:any)=>({...p,imageUrl:url})))}}/>
-              {editBanner.imageUrl&&(
-                <div style={{borderRadius:8,overflow:'hidden',border:'1px solid var(--border)',height:140}}>
-                  <img src={editBanner.imageUrl} alt="" style={{width:'100%',height:'100%',objectFit:'cover'}}/>
-                </div>
-              )}
-            </div>
-            <div style={{display:'grid',gridTemplateColumns:'1fr 80px',gap:12,marginBottom:16}}>
-              <div>
-                <label style={{fontSize:11,color:'var(--text4)',display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.06em'}}>Холбоос URL</label>
-                <input value={editBanner.link||''} onChange={e=>setEditBanner((p:any)=>({...p,link:e.target.value}))} style={inp}/>
-              </div>
-              <div>
-                <label style={{fontSize:11,color:'var(--text4)',display:'block',marginBottom:5,textTransform:'uppercase',letterSpacing:'0.06em'}}>Эрэмбэ</label>
-                <input type="number" value={editBanner.order||0} onChange={e=>setEditBanner((p:any)=>({...p,order:+e.target.value}))} style={inp}/>
-              </div>
-            </div>
-            <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:16}}>
-              <span style={{fontSize:13,color:'var(--text3)'}}>Идэвхтэй:</span>
-              <div onClick={()=>setEditBanner((p:any)=>({...p,isActive:!p.isActive}))}
-                style={{width:38,height:22,borderRadius:11,background:editBanner.isActive?'var(--orange)':'var(--border2)',cursor:'pointer',position:'relative',transition:'background .2s'}}>
-                <div style={{position:'absolute',top:3,left:editBanner.isActive?17:3,width:16,height:16,borderRadius:'50%',background:'#fff',transition:'left .2s'}}/>
-              </div>
-              <span style={{fontSize:12,color:editBanner.isActive?'#1D9E75':'var(--text4)'}}>{editBanner.isActive?'Идэвхтэй':'Идэвхгүй'}</span>
-            </div>
-            <div style={{display:'flex',gap:8}}>
-              <button onClick={updateBanner} disabled={saving}
-                style={{background:'var(--orange)',color:'#fff',border:'none',borderRadius:8,padding:'9px 20px',fontSize:13,fontWeight:500,cursor:'pointer',fontFamily:F}}>
-                {saving?'Хадгалж байна...':'💾 Хадгалах'}
-              </button>
-              <button onClick={()=>setEditBanner(null)} style={{background:'transparent',border:'1px solid var(--border)',color:'var(--text3)',borderRadius:8,padding:'9px 16px',fontSize:13,cursor:'pointer',fontFamily:F}}>Болих</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* LIST */}
-      {loading?<div style={{padding:48,textAlign:'center',color:'var(--text4)',fontSize:13}}>Уншиж байна...</div>
-      :banners.length===0?<div style={{padding:48,textAlign:'center',color:'var(--text4)',fontSize:13,background:'var(--surface)',border:'1px solid var(--border)',borderRadius:12}}>Баннер байхгүй</div>
-      :(
-        <div style={{display:'flex',flexDirection:'column',gap:8}}>
-          {banners.map((b,i)=>(
-            <div key={b.id}
-              style={{background:'var(--surface)',border:'1px solid var(--border)',borderRadius:12,padding:'14px 18px',display:'flex',alignItems:'center',gap:14,transition:'background .15s'}}
-              onMouseEnter={e=>(e.currentTarget.style.background='var(--surface2)')}
-              onMouseLeave={e=>(e.currentTarget.style.background='var(--surface)')}>
-              <div style={{fontSize:12,color:'var(--text4)',width:18,flexShrink:0}}>#{i+1}</div>
-              {b.imageUrl?(
-                <img src={b.imageUrl} alt={b.title} style={{width:96,height:56,objectFit:'cover',borderRadius:8,border:'1px solid var(--border)',flexShrink:0}}
-                  onError={e=>{e.currentTarget.style.display='none'}}/>
-              ):(
-                <div style={{width:96,height:56,background:'var(--surface2)',borderRadius:8,display:'flex',alignItems:'center',justifyContent:'center',border:'1px solid var(--border)',flexShrink:0,fontSize:20}}>🖼️</div>
-              )}
-              <div style={{flex:1,minWidth:0}}>
-                <div style={{fontSize:13,fontWeight:600,color:'var(--text)',marginBottom:2}}>{b.title||'Гарчиггүй'}</div>
-                <div style={{fontSize:12,color:'var(--text3)',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{b.subtitle||'—'}</div>
-                {b.link&&<div style={{fontSize:11,color:'var(--orange)',marginTop:2}}>{b.link}</div>}
-              </div>
-              <div style={{display:'flex',alignItems:'center',gap:10,flexShrink:0}}>
-                <div style={{display:'flex',alignItems:'center',gap:7}}>
-                  <span style={{fontSize:12,color:b.isActive?'#1D9E75':'var(--text4)'}}>{b.isActive?'Идэвхтэй':'Идэвхгүй'}</span>
-                  <div onClick={()=>toggleBanner(b.id,!b.isActive)}
-                    style={{width:38,height:22,borderRadius:11,background:b.isActive?'var(--orange)':'var(--border2)',cursor:'pointer',position:'relative',transition:'background .2s'}}>
-                    <div style={{position:'absolute',top:3,left:b.isActive?17:3,width:16,height:16,borderRadius:'50%',background:'#fff',transition:'left .2s'}}/>
+      {/* Table */}
+      <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden' }} className="table-scroll">
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+          <thead>
+            <tr style={{ background: 'var(--surface2)' }}>
+              {['Зураг', 'Гарчиг', 'Линк', 'Төлөв', 'Дараалал', 'Үйлдэл'].map(h => (
+                <th key={h} style={{ padding: '10px 16px', textAlign: 'left', color: 'var(--text2)', fontWeight: 500, whiteSpace: 'nowrap' }}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {loading ? (
+              <tr><td colSpan={6} style={{ padding: 32, textAlign: 'center', color: 'var(--text2)' }}>Уншиж байна...</td></tr>
+            ) : items.length === 0 ? (
+              <tr><td colSpan={6} style={{ padding: 32, textAlign: 'center', color: 'var(--text2)' }}>Баннер байхгүй</td></tr>
+            ) : items.map(item => (
+              <tr key={item.id} style={{ borderTop: '1px solid var(--border)' }}>
+                <td style={{ padding: '10px 16px' }}>
+                  {item.imageUrl ? <img src={item.imageUrl} alt="" style={{ width: 80, height: 40, objectFit: 'cover', borderRadius: 6 }} /> : <span style={{ color: 'var(--text3)' }}>—</span>}
+                </td>
+                <td style={{ padding: '10px 16px', fontWeight: 500 }}>{item.title || '—'}</td>
+                <td style={{ padding: '10px 16px', color: 'var(--text2)' }}>{item.link || '—'}</td>
+                <td style={{ padding: '10px 16px' }}>
+                  <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 99, background: item.isActive !== false ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)', color: item.isActive !== false ? '#10B981' : '#EF4444', fontWeight: 600 }}>
+                    {item.isActive !== false ? 'Идэвхтэй' : 'Идэвхгүй'}
+                  </span>
+                </td>
+                <td style={{ padding: '10px 16px', color: 'var(--text2)' }}>{item.order || 0}</td>
+                <td style={{ padding: '10px 16px' }}>
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    <button onClick={() => edit(item)} style={{ padding: '5px 12px', background: 'rgba(59,130,246,0.1)', color: '#3B82F6', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 12, fontWeight: 500 }}>Засах</button>
+                    <button onClick={() => del(item.id)} style={{ padding: '5px 12px', background: 'rgba(239,68,68,0.1)', color: '#EF4444', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 12, fontWeight: 500 }}>Устгах</button>
                   </div>
-                </div>
-                <button onClick={()=>{setEditBanner({...b});setShowAdd(false)}}
-                  style={{background:'rgba(55,138,221,0.1)',border:'1px solid rgba(55,138,221,0.2)',color:'#378ADD',borderRadius:7,padding:'5px 12px',fontSize:12,cursor:'pointer',fontFamily:F}}>
-                  ✏️ Засах
-                </button>
-                <button onClick={()=>delBanner(b.id)}
-                  style={{background:'rgba(226,75,74,0.08)',border:'1px solid rgba(226,75,74,0.15)',color:'#e24b4a',borderRadius:7,padding:'5px 12px',fontSize:12,cursor:'pointer',fontFamily:F}}>
-                  🗑️ Устгах
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   )
 }

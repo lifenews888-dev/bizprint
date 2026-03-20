@@ -1,317 +1,355 @@
-﻿'use client'
-import { useState, useEffect } from 'react'
+'use client'
+import { useEffect, useState, useRef } from 'react'
+import { useRouter } from 'next/navigation'
 
 const API = 'http://localhost:4000'
-const F = "'Segoe UI',system-ui,sans-serif"
 
-const CATS = ['Визит карт','Флаер','Постер','Баннер','Брошур','Стикер','Сошиал медиа','Бусад']
-
-function authH() {
-  const t = localStorage.getItem('access_token') || ''
-  return { 'Content-Type': 'application/json', Authorization: 'Bearer ' + t }
+interface Order {
+  id: string
+  quantity: number
+  total_price: number
+  status: string
+  product_type?: string
+  created_at: string
+  file_url?: string
+  notes?: string
+  customer?: { full_name: string; email: string }
+  options?: Record<string, string>
 }
 
-const STATUS_INFO: Record<string,{c:string;bg:string;l:string;icon:string}> = {
-  pending:  { c:'#F59E0B', bg:'rgba(245,158,11,0.1)',  l:'Хянагдаж байна', icon:'⏳' },
-  approved: { c:'#10B981', bg:'rgba(16,185,129,0.1)',  l:'Зөвшөөрөгдсөн',  icon:'✅' },
-  rejected: { c:'#EF4444', bg:'rgba(239,68,68,0.1)',   l:'Татгалзсан',      icon:'❌' },
+interface User { id: string; email: string; full_name: string; role: string }
+
+const ST_MN: Record<string, string> = {
+  pending: '\u0425\u04af\u043b\u044d\u044d\u0433\u0434\u044d\u0436 \u0431\u0430\u0439\u043d\u0430',
+  paid: '\u0422\u04e9\u043b\u04e9\u0433\u0434\u0441\u04e9\u043d',
+  in_production: '\u0425\u044d\u0432\u043b\u044d\u0436 \u0431\u0430\u0439\u043d\u0430',
+  completed: '\u0414\u0443\u0443\u0441\u0441\u0430\u043d',
+  shipped: '\u0425\u04af\u0440\u0433\u044d\u0433\u0434\u0441\u044d\u043d',
+  cancelled: '\u0426\u0443\u0446\u043b\u0430\u0433\u0434\u0441\u0430\u043d',
+}
+const ST_CLR: Record<string, string> = {
+  pending: '#F59E0B', paid: '#378ADD', in_production: '#8B5CF6',
+  completed: '#10B981', shipped: '#1D9E75', cancelled: '#e24b4a',
 }
 
-export default function DesignerPage() {
-  const [user, setUser] = useState<any>(null)
-  const [templates, setTemplates] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
-  const [tab, setTab] = useState<'templates'|'upload'|'stats'>('templates')
-  const [form, setForm] = useState({ title:'', title_mn:'', description:'', category:'Визит карт', price:0, royalty_rate:15, width_mm:90, height_mm:50, tags:'' })
-  const [thumbFile, setThumbFile] = useState<File|null>(null)
-  const [thumbPreview, setThumbPreview] = useState('')
-  const [designFile, setDesignFile] = useState<File|null>(null)
-  const [saving, setSaving] = useState(false)
-  const [msg, setMsg] = useState('')
+const WORKFLOW = [
+  { status: 'pending',       label: '\u0425\u04af\u043b\u044d\u044d\u0433\u0434\u044d\u0436 \u0431\u0430\u0439\u043d\u0430', icon: '\u23f3' },
+  { status: 'paid',          label: '\u0422\u04e9\u043b\u04e9\u0433\u0434\u0441\u04e9\u043d',        icon: '\ud83d\udcb3' },
+  { status: 'in_production', label: '\u0425\u044d\u0432\u043b\u044d\u0436 \u0431\u0430\u0439\u043d\u0430',   icon: '\ud83d\udda8\ufe0f' },
+  { status: 'completed',     label: '\u0414\u0443\u0443\u0441\u0441\u0430\u043d',         icon: '\u2705' },
+]
+
+function tok() { return localStorage.getItem('access_token') || '' }
+function hdrs() { return { Authorization: 'Bearer ' + tok() } }
+
+type FilterType = 'all' | 'pending' | 'paid' | 'in_production' | 'completed'
+
+export default function DesignerDashboard() {
+  const router = useRouter()
+  const [user, setUser]         = useState<User | null>(null)
+  const [orders, setOrders]     = useState<Order[]>([])
+  const [loading, setLoading]   = useState(true)
+  const [filter, setFilter]     = useState<FilterType>('all')
+  const [selected, setSelected] = useState<Order | null>(null)
+  const [uploading, setUploading] = useState(false)
+  const [toast, setToast]       = useState<{ msg: string; ok: boolean } | null>(null)
+  const fileRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
-    const token = localStorage.getItem('access_token')
-    if (!token) { window.location.href = '/login'; return }
-    fetch(API+'/auth/me', { headers: authH() }).then(r=>r.json()).then(u => {
-      setUser(u)
-      loadTemplates(u.id)
-    }).catch(() => { window.location.href = '/login' })
+    const ud = localStorage.getItem('user')
+    const tk = tok()
+    if (!ud || !tk) { router.push('/login'); return }
+    setUser(JSON.parse(ud))
+    fetchOrders()
   }, [])
 
-  async function loadTemplates(userId: string) {
+  async function fetchOrders() {
     setLoading(true)
-    const data = await fetch(API+'/templates/designer/'+userId, { headers: authH() }).then(r=>r.json()).catch(()=>[])
-    setTemplates(Array.isArray(data) ? data : [])
+    try {
+      const r = await fetch(API + '/admin/orders', { headers: hdrs() })
+      setOrders(r.ok ? await r.json() : [])
+    } catch {}
     setLoading(false)
   }
 
-  function handleThumb(e: React.ChangeEvent<HTMLInputElement>) {
-    const f = e.target.files?.[0]
-    if (!f) return
-    setThumbFile(f)
-    setThumbPreview(URL.createObjectURL(f))
+  function showToast(msg: string, ok = true) {
+    setToast({ msg, ok })
+    setTimeout(() => setToast(null), 3000)
   }
 
-  async function uploadFile(file: File): Promise<string> {
-    const fd = new FormData()
-    fd.append('file', file)
-    const token = localStorage.getItem('access_token') || ''
-    const res = await fetch(API+'/upload/file', { method:'POST', headers:{ Authorization:'Bearer '+token }, body:fd })
-    const data = await res.json()
-    return data.url || data.filename || ''
-  }
-
-  async function submit() {
-    if (!form.title || !form.category) { setMsg('Гарчиг болон ангилал заавал оруулна уу'); return }
-    setSaving(true)
-    setMsg('')
+  async function updateStatus(order: Order, status: string) {
     try {
-      let thumbnail_url = ''
-      let file_url = ''
-      if (thumbFile) thumbnail_url = await uploadFile(thumbFile)
-      if (designFile) file_url = await uploadFile(designFile)
-      const body = {
-        ...form,
-        thumbnail_url,
-        file_url,
-        designer_id: user.id,
-        designer_name: user.name || user.email,
-        price: Number(form.price),
-        royalty_rate: Number(form.royalty_rate),
-        width_mm: Number(form.width_mm),
-        height_mm: Number(form.height_mm),
-        tags: form.tags ? form.tags.split(',').map((t:string) => t.trim()) : [],
-      }
-      await fetch(API+'/templates', { method:'POST', headers:authH(), body:JSON.stringify(body) })
-      setMsg('✅ Загвар амжилттай илгээгдлээ! Admin хянасны дараа нийтлэгдэнэ.')
-      setForm({ title:'', title_mn:'', description:'', category:'Визит карт', price:0, royalty_rate:15, width_mm:90, height_mm:50, tags:'' })
-      setThumbFile(null); setThumbPreview(''); setDesignFile(null)
-      loadTemplates(user.id)
-      setTab('templates')
-    } catch { setMsg('❌ Алдаа гарлаа. Дахин оролдоно уу.') }
-    setSaving(false)
+      const r = await fetch(API + '/orders/' + order.id, {
+        method: 'PATCH',
+        headers: { ...hdrs(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status }),
+      })
+      if (r.ok) {
+        showToast('\u0422\u04e9\u043b\u04e9\u0432 \u0448\u0438\u043d\u044d\u0447\u043b\u044d\u0433\u0434\u043b\u044d\u044d \u2713')
+        const updated = { ...order, status }
+        setOrders(prev => prev.map(o => o.id === order.id ? updated : o))
+        setSelected(updated)
+      } else showToast('\u0410\u043b\u0434\u0430\u0430 \u0433\u0430\u0440\u043b\u0430\u0430', false)
+    } catch { showToast('\u0410\u043b\u0434\u0430\u0430 \u0433\u0430\u0440\u043b\u0430\u0430', false) }
   }
 
-  const totalEarning = templates.filter(t=>t.status==='approved').reduce((s,t) => s + Number(t.price) * Number(t.use_count) * (Number(t.royalty_rate)/100), 0)
+  async function uploadFile(order: Order, file: File) {
+    setUploading(true)
+    try {
+      const fd = new FormData()
+      fd.append('file', file)
+      const r = await fetch(API + '/upload/file', { method: 'POST', headers: hdrs(), body: fd })
+      if (!r.ok) throw new Error()
+      const { url } = await r.json()
+      const r2 = await fetch(API + '/orders/' + order.id, {
+        method: 'PATCH',
+        headers: { ...hdrs(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ file_url: url }),
+      })
+      if (r2.ok) {
+        showToast('\u0424\u0430\u0439\u043b \u0430\u043c\u062c\u0438\u043b\u0442\u0430\u0439 \u0438\u043b\u044d\u0433\u0434\u043b\u044d\u044d \u2713')
+        const updated = { ...order, file_url: url }
+        setOrders(prev => prev.map(o => o.id === order.id ? updated : o))
+        setSelected(updated)
+      } else throw new Error()
+    } catch { showToast('\u0424\u0430\u0439\u043b \u0438\u043b\u044d\u0433\u044d\u0445 \u0430\u043b\u0434\u0430\u0430', false) }
+    setUploading(false)
+  }
 
-  const inp: React.CSSProperties = { width:'100%', padding:'10px 12px', background:'#F8F8F6', border:'1px solid #E5E5E0', borderRadius:8, fontSize:14, color:'#0F0F0F', outline:'none', boxSizing:'border-box' }
+  const filtered = orders.filter(o => filter === 'all' || o.status === filter)
+  const stats = {
+    total: orders.length,
+    pending: orders.filter(o => o.status === 'pending').length,
+    inProd: orders.filter(o => o.status === 'in_production').length,
+    done: orders.filter(o => o.status === 'completed').length,
+  }
+
+  const s: React.CSSProperties = { background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 8, padding: '8px 12px', color: 'var(--text)', fontSize: 13, outline: 'none' }
 
   return (
-    <div style={{ minHeight:'100vh', background:'#FAFAF8', fontFamily:F }}>
-      {/* Header */}
-      <div style={{ background:'#0F0F0F', padding:'0 32px', height:64, display:'flex', alignItems:'center', justifyContent:'space-between', position:'sticky', top:0, zIndex:100 }}>
-        <div style={{ display:'flex', alignItems:'center', gap:12 }}>
-          <a href="/" style={{ display:'flex', alignItems:'center', gap:8, textDecoration:'none' }}>
-            <div style={{ width:32, height:32, background:'#FF6B35', borderRadius:8, display:'flex', alignItems:'center', justifyContent:'center' }}>
-              <svg width="16" height="16" fill="none" viewBox="0 0 18 18"><rect x="2" y="2" width="6" height="6" rx="1.5" fill="white"/><rect x="10" y="2" width="6" height="6" rx="1.5" fill="white" opacity=".5"/><rect x="2" y="10" width="6" height="6" rx="1.5" fill="white" opacity=".5"/><rect x="10" y="10" width="6" height="6" rx="1.5" fill="white"/></svg>
-            </div>
-            <span style={{ fontSize:16, fontWeight:700, color:'#fff' }}>Biz<span style={{ color:'#FF6B35' }}>Print</span></span>
-          </a>
-          <span style={{ color:'#444', fontSize:14 }}>/</span>
-          <span style={{ color:'#FF6B35', fontSize:14, fontWeight:600 }}>Дизайнер портал</span>
+    <div style={{ minHeight: '100vh', background: 'var(--bg)', fontFamily: "'Segoe UI',system-ui,sans-serif", color: 'var(--text)' }}>
+
+      {toast && (
+        <div style={{ position: 'fixed', top: 20, right: 20, zIndex: 9999, background: toast.ok ? '#1D9E75' : '#e24b4a', color: '#fff', padding: '12px 20px', borderRadius: 10, fontSize: 14, fontWeight: 600, boxShadow: '0 4px 24px rgba(0,0,0,0.3)' }}>
+          {toast.msg}
         </div>
-        <div style={{ display:'flex', alignItems:'center', gap:12 }}>
-          {user && <span style={{ color:'#888', fontSize:13 }}>👤 {user.name||user.email}</span>}
-          <a href="/dashboard" style={{ color:'#fff', fontSize:13, textDecoration:'none', padding:'7px 16px', borderRadius:8, border:'1px solid #333' }}>Dashboard</a>
+      )}
+
+      {/* Topbar */}
+      <div style={{ background: 'var(--surface)', borderBottom: '1px solid var(--border)', padding: '0 32px', height: 54, display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 10 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <span style={{ fontSize: 16, fontWeight: 700 }}><span style={{ color: '#FF6B00' }}>Biz</span>Print</span>
+          <span style={{ fontSize: 11, background: 'rgba(139,92,246,0.1)', color: '#8B5CF6', border: '1px solid rgba(139,92,246,0.3)', borderRadius: 20, padding: '2px 10px' }}>Designer</span>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <span style={{ fontSize: 13, color: 'var(--text2)' }}>{user?.full_name}</span>
+          <button onClick={() => router.push('/dashboard/wallet')} style={{ ...s, cursor: 'pointer', fontSize: 12 }}>💳 Хэтэвч</button>
+          <button onClick={() => { localStorage.clear(); router.push('/') }} style={{ ...s, cursor: 'pointer', fontSize: 12 }}>Гарах</button>
         </div>
       </div>
 
-      <div style={{ maxWidth:1100, margin:'0 auto', padding:'32px 24px' }}>
-        {/* Stats cards */}
-        <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:12, marginBottom:28 }}>
+      <div style={{ padding: '28px 32px', maxWidth: 1300, margin: '0 auto' }}>
+
+        <div style={{ marginBottom: 24 }}>
+          <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>Designer Dashboard</h1>
+          <p style={{ color: 'var(--text2)', fontSize: 13, margin: '4px 0 0' }}>Захиалгын дизайн, файл дамжуулалт, workflow</p>
+        </div>
+
+        {/* Stats */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14, marginBottom: 24 }}>
           {[
-            { l:'Нийт загвар',      v:templates.length,                                          c:'#FF6B35', icon:'🎨' },
-            { l:'Зөвшөөрөгдсөн',   v:templates.filter(t=>t.status==='approved').length,          c:'#10B981', icon:'✅' },
-            { l:'Хянагдаж байна',  v:templates.filter(t=>t.status==='pending').length,           c:'#F59E0B', icon:'⏳' },
-            { l:'Нийт орлого',     v:totalEarning.toLocaleString()+'₮',                          c:'#8B5CF6', icon:'💰' },
-          ].map(s => (
-            <div key={s.l} style={{ background:'#fff', borderRadius:14, padding:'18px 20px', border:'1px solid #EBEBEB', borderLeft:'3px solid '+s.c }}>
-              <div style={{ fontSize:22, marginBottom:6 }}>{s.icon}</div>
-              <div style={{ fontSize:22, fontWeight:700, color:s.c }}>{s.v}</div>
-              <div style={{ fontSize:12, color:'#888', marginTop:3 }}>{s.l}</div>
+            { label: 'Нийт захиалга',   val: stats.total,   color: '#8B5CF6' },
+            { label: 'Хүлээгдэж байна', val: stats.pending, color: '#F59E0B' },
+            { label: 'Хэвлэж байна',    val: stats.inProd,  color: '#3B82F6' },
+            { label: 'Дууссан',         val: stats.done,    color: '#10B981' },
+          ].map(item => (
+            <div key={item.label} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: '16px 18px', borderTop: '3px solid ' + item.color }}>
+              <div style={{ fontSize: 24, fontWeight: 700, color: item.color }}>{item.val}</div>
+              <div style={{ fontSize: 12, color: 'var(--text2)', marginTop: 4 }}>{item.label}</div>
             </div>
           ))}
         </div>
 
-        {/* Tabs */}
-        <div style={{ display:'flex', gap:8, marginBottom:24, borderBottom:'1px solid #EBEBEB', paddingBottom:0 }}>
-          {[
-            { k:'templates', l:'🎨 Миний загварууд' },
-            { k:'upload',    l:'+ Загвар нэмэх' },
-          ].map(t => (
-            <button key={t.k} onClick={() => setTab(t.k as any)}
-              style={{ padding:'10px 20px', border:'none', borderBottom:tab===t.k?'2px solid #FF6B35':'2px solid transparent', background:'transparent', color:tab===t.k?'#FF6B35':'#666', cursor:'pointer', fontSize:14, fontWeight:tab===t.k?600:400, marginBottom:-1 }}>
-              {t.l}
-            </button>
-          ))}
-        </div>
-
-        {/* Templates list */}
-        {tab === 'templates' && (
-          loading ? (
-            <div style={{ padding:48, textAlign:'center' as any, color:'#888' }}>Уншиж байна...</div>
-          ) : templates.length === 0 ? (
-            <div style={{ padding:64, textAlign:'center' as any, background:'#fff', borderRadius:16, border:'1px solid #EBEBEB' }}>
-              <div style={{ fontSize:64, marginBottom:16 }}>🎨</div>
-              <div style={{ fontSize:20, fontWeight:700, marginBottom:8 }}>Загвар байхгүй байна</div>
-              <div style={{ fontSize:14, color:'#888', marginBottom:24 }}>Анхны загвараа оруулаад орлого олж эхэл</div>
-              <button onClick={() => setTab('upload')} style={{ padding:'12px 28px', background:'#FF6B35', color:'#fff', border:'none', borderRadius:10, fontSize:14, fontWeight:700, cursor:'pointer' }}>
-                + Загвар нэмэх
-              </button>
-            </div>
-          ) : (
-            <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill,minmax(260px,1fr))', gap:16 }}>
-              {templates.map(t => {
-                const st = STATUS_INFO[t.status] || STATUS_INFO.pending
-                return (
-                  <div key={t.id} style={{ background:'#fff', borderRadius:14, overflow:'hidden', border:'1px solid #EBEBEB', boxShadow:'0 2px 8px rgba(0,0,0,0.04)' }}>
-                    <div style={{ height:160, background:'linear-gradient(135deg,rgba(255,107,53,0.08),rgba(255,107,53,0.03))', display:'flex', alignItems:'center', justifyContent:'center', position:'relative' }}>
-                      {t.thumbnail_url ? (
-                        <img src={t.thumbnail_url.startsWith('http')?t.thumbnail_url:`${API}/uploads/${t.thumbnail_url}`} alt={t.title}
-                          style={{ width:'100%', height:'100%', objectFit:'cover' }} />
-                      ) : (
-                        <div style={{ fontSize:48 }}>🖼️</div>
-                      )}
-                      <div style={{ position:'absolute', top:10, left:10 }}>
-                        <span style={{ fontSize:11, fontWeight:600, padding:'3px 8px', borderRadius:20, background:st.bg, color:st.c }}>{st.icon} {st.l}</span>
-                      </div>
-                    </div>
-                    <div style={{ padding:'14px 16px' }}>
-                      <div style={{ fontSize:14, fontWeight:600, marginBottom:4 }}>{t.title_mn||t.title}</div>
-                      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:10 }}>
-                        <span style={{ fontSize:12, color:'#888' }}>{t.category}</span>
-                        <span style={{ fontSize:14, fontWeight:700, color:'#FF6B35' }}>{Number(t.price).toLocaleString()}₮</span>
-                      </div>
-                      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:8 }}>
-                        <div style={{ background:'#F8F8F6', borderRadius:8, padding:'8px 10px', textAlign:'center' as any }}>
-                          <div style={{ fontSize:16, fontWeight:700, color:'#10B981' }}>{t.use_count}</div>
-                          <div style={{ fontSize:10, color:'#888' }}>Ашиглалт</div>
-                        </div>
-                        <div style={{ background:'#F8F8F6', borderRadius:8, padding:'8px 10px', textAlign:'center' as any }}>
-                          <div style={{ fontSize:16, fontWeight:700, color:'#8B5CF6' }}>{(Number(t.price)*Number(t.use_count)*(Number(t.royalty_rate)/100)).toLocaleString()}₮</div>
-                          <div style={{ fontSize:10, color:'#888' }}>Орлого</div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          )
-        )}
-
-        {/* Upload form */}
-        {tab === 'upload' && (
-          <div style={{ background:'#fff', borderRadius:16, border:'1px solid #EBEBEB', padding:32, maxWidth:680 }}>
-            <h2 style={{ margin:'0 0 24px', fontSize:18, fontWeight:700 }}>Шинэ загвар нэмэх</h2>
-
-            {msg && (
-              <div style={{ padding:'12px 16px', borderRadius:8, background:msg.includes('❌')?'rgba(239,68,68,0.08)':'rgba(16,185,129,0.08)', color:msg.includes('❌')?'#EF4444':'#10B981', marginBottom:20, fontSize:13 }}>
-                {msg}
-              </div>
-            )}
-
-            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:14, marginBottom:14 }}>
-              <div>
-                <label style={{ fontSize:12, fontWeight:600, color:'#666', display:'block', marginBottom:6, textTransform:'uppercase' as any }}>Монгол нэр *</label>
-                <input value={form.title_mn} onChange={e=>setForm(f=>({...f,title_mn:e.target.value}))} placeholder="Визит карт загвар" style={inp} />
-              </div>
-              <div>
-                <label style={{ fontSize:12, fontWeight:600, color:'#666', display:'block', marginBottom:6, textTransform:'uppercase' as any }}>Англи нэр</label>
-                <input value={form.title} onChange={e=>setForm(f=>({...f,title:e.target.value}))} placeholder="Business Card Template" style={inp} />
-              </div>
-            </div>
-
-            <div style={{ marginBottom:14 }}>
-              <label style={{ fontSize:12, fontWeight:600, color:'#666', display:'block', marginBottom:6, textTransform:'uppercase' as any }}>Ангилал *</label>
-              <div style={{ display:'flex', gap:8, flexWrap:'wrap' as any }}>
-                {CATS.map(c => (
-                  <button key={c} onClick={() => setForm(f=>({...f,category:c}))}
-                    style={{ padding:'7px 14px', borderRadius:20, border:form.category===c?'2px solid #FF6B35':'1px solid #E5E5E0', background:form.category===c?'rgba(255,107,53,0.06)':'transparent', color:form.category===c?'#FF6B35':'#666', cursor:'pointer', fontSize:13, fontWeight:form.category===c?600:400 }}>
-                    {c}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:14, marginBottom:14 }}>
-              <div>
-                <label style={{ fontSize:12, fontWeight:600, color:'#666', display:'block', marginBottom:6, textTransform:'uppercase' as any }}>Үнэ (₮)</label>
-                <input type="number" value={form.price} onChange={e=>setForm(f=>({...f,price:Number(e.target.value)}))} style={inp} />
-              </div>
-              <div>
-                <label style={{ fontSize:12, fontWeight:600, color:'#666', display:'block', marginBottom:6, textTransform:'uppercase' as any }}>Royalty %</label>
-                <input type="number" value={form.royalty_rate} onChange={e=>setForm(f=>({...f,royalty_rate:Number(e.target.value)}))} style={inp} />
-              </div>
-              <div>
-                <label style={{ fontSize:12, fontWeight:600, color:'#666', display:'block', marginBottom:6, textTransform:'uppercase' as any }}>Хэмжээ (мм)</label>
-                <div style={{ display:'flex', gap:6 }}>
-                  <input type="number" value={form.width_mm} onChange={e=>setForm(f=>({...f,width_mm:Number(e.target.value)}))} placeholder="W" style={{...inp,textAlign:'center' as any}} />
-                  <span style={{ lineHeight:'40px', color:'#888' }}>×</span>
-                  <input type="number" value={form.height_mm} onChange={e=>setForm(f=>({...f,height_mm:Number(e.target.value)}))} placeholder="H" style={{...inp,textAlign:'center' as any}} />
-                </div>
-              </div>
-            </div>
-
-            <div style={{ marginBottom:14 }}>
-              <label style={{ fontSize:12, fontWeight:600, color:'#666', display:'block', marginBottom:6, textTransform:'uppercase' as any }}>Тайлбар</label>
-              <textarea value={form.description} onChange={e=>setForm(f=>({...f,description:e.target.value}))} rows={3} placeholder="Загварын тухай дэлгэрэнгүй тайлбар..."
-                style={{...inp, resize:'vertical' as any}} />
-            </div>
-
-            <div style={{ marginBottom:14 }}>
-              <label style={{ fontSize:12, fontWeight:600, color:'#666', display:'block', marginBottom:6, textTransform:'uppercase' as any }}>Таг (таслалаар)</label>
-              <input value={form.tags} onChange={e=>setForm(f=>({...f,tags:e.target.value}))} placeholder="минимал, орчин үе, бизнес" style={inp} />
-            </div>
-
-            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:14, marginBottom:24 }}>
-              <div>
-                <label style={{ fontSize:12, fontWeight:600, color:'#666', display:'block', marginBottom:6, textTransform:'uppercase' as any }}>Thumbnail зураг *</label>
-                <label style={{ display:'block', border:'2px dashed #E5E5E0', borderRadius:10, padding:'20px', textAlign:'center' as any, cursor:'pointer', background:thumbPreview?'transparent':'#FAFAF8' }}>
-                  {thumbPreview ? (
-                    <img src={thumbPreview} alt="thumb" style={{ maxHeight:100, maxWidth:'100%', borderRadius:6 }} />
-                  ) : (
-                    <div>
-                      <div style={{ fontSize:28, marginBottom:8 }}>🖼️</div>
-                      <div style={{ fontSize:13, color:'#888' }}>Зураг сонгох</div>
-                    </div>
-                  )}
-                  <input type="file" accept="image/*" onChange={handleThumb} style={{ display:'none' }} />
-                </label>
-              </div>
-              <div>
-                <label style={{ fontSize:12, fontWeight:600, color:'#666', display:'block', marginBottom:6, textTransform:'uppercase' as any }}>Дизайн файл</label>
-                <label style={{ display:'block', border:'2px dashed #E5E5E0', borderRadius:10, padding:'20px', textAlign:'center' as any, cursor:'pointer', background:'#FAFAF8' }}>
-                  <div style={{ fontSize:28, marginBottom:8 }}>📁</div>
-                  <div style={{ fontSize:13, color:designFile?'#10B981':'#888' }}>
-                    {designFile ? designFile.name : 'PDF, AI, PSD файл'}
-                  </div>
-                  <input type="file" accept=".pdf,.ai,.psd,.png,.jpg" onChange={e=>setDesignFile(e.target.files?.[0]||null)} style={{ display:'none' }} />
-                </label>
-              </div>
-            </div>
-
-            {/* Royalty calculation preview */}
-            {form.price > 0 && (
-              <div style={{ background:'rgba(139,92,246,0.06)', border:'1px solid rgba(139,92,246,0.2)', borderRadius:10, padding:'14px 16px', marginBottom:20 }}>
-                <div style={{ fontSize:13, fontWeight:600, color:'#8B5CF6', marginBottom:8 }}>💰 Орлогын тооцоо</div>
-                <div style={{ display:'flex', gap:16, fontSize:13 }}>
-                  <div>Нэг ашиглалтаас: <b style={{color:'#8B5CF6'}}>{(Number(form.price)*Number(form.royalty_rate)/100).toLocaleString()}₮</b></div>
-                  <div>10 ашиглалтаас: <b style={{color:'#8B5CF6'}}>{(Number(form.price)*Number(form.royalty_rate)/100*10).toLocaleString()}₮</b></div>
-                </div>
-              </div>
-            )}
-
-            <button onClick={submit} disabled={saving}
-              style={{ width:'100%', padding:'14px', background:saving?'#ccc':'#FF6B35', color:'#fff', border:'none', borderRadius:10, fontSize:15, fontWeight:700, cursor:saving?'not-allowed':'pointer' }}>
-              {saving ? 'Илгээж байна...' : '🚀 Загвар илгээх'}
-            </button>
-
-            <p style={{ fontSize:12, color:'#888', textAlign:'center' as any, marginTop:12 }}>
-              Загвар admin-ийн зөвшөөрлийн дараа нийтлэгдэнэ. Royalty {form.royalty_rate}% автоматаар таны wallet-д орно.
-            </p>
+        {/* File transfer info banner */}
+        <div style={{ background: 'rgba(139,92,246,0.06)', border: '1px solid rgba(139,92,246,0.2)', borderRadius: 10, padding: '12px 18px', marginBottom: 20, display: 'flex', alignItems: 'center', gap: 12 }}>
+          <span style={{ fontSize: 20 }}>📁</span>
+          <div style={{ fontSize: 13, color: 'var(--text)' }}>
+            <strong>Файл дамжуулалтын workflow:</strong> Хэрэглэгч → файл upload → Дизайнер засварлана → Үйлдвэрт илгээнэ
           </div>
-        )}
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: selected ? '1fr 420px' : '1fr', gap: 20 }}>
+
+          {/* Orders table */}
+          <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
+            {/* Filter tabs */}
+            <div style={{ display: 'flex', borderBottom: '1px solid var(--border)', padding: '0 4px', overflowX: 'auto' }}>
+              {([
+                { key: 'all', label: 'Бүгд (' + orders.length + ')' },
+                { key: 'pending', label: 'Хүлээгдэж байна' },
+                { key: 'paid', label: 'Төлөгдсөн' },
+                { key: 'in_production', label: 'Хэвлэж байна' },
+                { key: 'completed', label: 'Дууссан' },
+              ] as { key: FilterType; label: string }[]).map(f => (
+                <button key={f.key} onClick={() => setFilter(f.key)}
+                  style={{ background: 'none', border: 'none', padding: '12px 14px', fontSize: 13, fontWeight: 600, cursor: 'pointer', color: filter === f.key ? '#8B5CF6' : 'var(--text2)', borderBottom: filter === f.key ? '2px solid #8B5CF6' : '2px solid transparent', marginBottom: -1, whiteSpace: 'nowrap' }}>
+                  {f.label}
+                </button>
+              ))}
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr 0.7fr 0.8fr 1fr 60px', padding: '10px 20px', background: 'var(--surface2)', borderBottom: '1px solid var(--border)', fontSize: 11, fontWeight: 700, color: 'var(--text2)', textTransform: 'uppercase', letterSpacing: '0.07em' }}>
+              <span>ID</span><span>Бүтээгдэхүүн</span><span>Тоо</span><span>Дүн</span><span>Төлөв</span><span>Файл</span>
+            </div>
+
+            {loading ? (
+              <div style={{ padding: 48, textAlign: 'center', color: 'var(--text2)' }}>Уншиж байна...</div>
+            ) : filtered.length === 0 ? (
+              <div style={{ padding: 48, textAlign: 'center', color: 'var(--text2)' }}>
+                <div style={{ fontSize: 32, marginBottom: 8 }}>🎨</div>
+                <div style={{ fontWeight: 600 }}>Захиалга байхгүй байна</div>
+              </div>
+            ) : filtered.map((o, i) => (
+              <div key={o.id}
+                onClick={() => setSelected(selected?.id === o.id ? null : o)}
+                style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.8fr 0.7fr 0.8fr 1fr 60px', padding: '12px 20px', borderBottom: i < filtered.length - 1 ? '1px solid var(--border)' : 'none', alignItems: 'center', fontSize: 13, cursor: 'pointer', background: selected?.id === o.id ? 'rgba(139,92,246,0.06)' : 'transparent' }}
+                onMouseEnter={e => { if (selected?.id !== o.id) e.currentTarget.style.background = 'var(--surface2)' }}
+                onMouseLeave={e => { if (selected?.id !== o.id) e.currentTarget.style.background = 'transparent' }}>
+                <code style={{ fontSize: 11, color: 'var(--text2)' }}>{o.id.slice(0, 10)}...</code>
+                <span style={{ fontSize: 12 }}>{o.product_type || '—'}</span>
+                <span>{o.quantity} ш</span>
+                <span style={{ fontWeight: 600, color: '#FF6B00' }}>{Number(o.total_price).toLocaleString()}₮</span>
+                <span style={{ background: (ST_CLR[o.status] || '#888') + '20', color: ST_CLR[o.status] || '#888', borderRadius: 20, padding: '3px 10px', fontSize: 11, fontWeight: 600, width: 'fit-content' }}>
+                  {ST_MN[o.status] || o.status}
+                </span>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  {o.file_url ? (
+                    <span style={{ fontSize: 16 }} title="Файл байна">📎</span>
+                  ) : (
+                    <span style={{ fontSize: 14, color: 'var(--text3)' }}>—</span>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Detail panel */}
+          {selected && (
+            <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: 24, height: 'fit-content', position: 'sticky', top: 74 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+                <div style={{ fontWeight: 700, fontSize: 15 }}>Захиалгын дэлгэрэнгүй</div>
+                <button onClick={() => setSelected(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text2)', fontSize: 20 }}>×</button>
+              </div>
+
+              {/* Info */}
+              <div style={{ background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 8, padding: '12px 14px', marginBottom: 16 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                  {[
+                    { label: 'ID', val: selected.id.slice(0, 12) + '...' },
+                    { label: 'Тоо', val: selected.quantity + ' ш' },
+                    { label: 'Дүн', val: Number(selected.total_price).toLocaleString() + '₮' },
+                    { label: 'Огноо', val: new Date(selected.created_at).toLocaleDateString('mn-MN') },
+                  ].map(item => (
+                    <div key={item.label}>
+                      <div style={{ fontSize: 11, color: 'var(--text2)', marginBottom: 2 }}>{item.label}</div>
+                      <div style={{ fontSize: 13, fontWeight: 500 }}>{item.val}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Workflow */}
+              <div style={{ marginBottom: 16 }}>
+                <div style={{ fontSize: 11, color: 'var(--text2)', marginBottom: 8, textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.07em' }}>Workflow</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  {WORKFLOW.map((step, i) => {
+                    const curIdx = WORKFLOW.findIndex(w => w.status === selected.status)
+                    const isDone = i <= curIdx
+                    const isCur = step.status === selected.status
+                    return (
+                      <div key={step.status} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px', borderRadius: 8, background: isCur ? 'rgba(139,92,246,0.08)' : 'transparent', border: isCur ? '1px solid rgba(139,92,246,0.3)' : '1px solid transparent' }}>
+                        <div style={{ width: 22, height: 22, borderRadius: '50%', background: isDone ? '#8B5CF6' : 'var(--border)', color: isDone ? '#fff' : 'var(--text3)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, flexShrink: 0 }}>
+                          {isDone ? '✓' : i + 1}
+                        </div>
+                        <span style={{ fontSize: 13, fontWeight: isCur ? 600 : 400, color: isCur ? '#8B5CF6' : isDone ? 'var(--text)' : 'var(--text2)' }}>
+                          {step.icon} {step.label}
+                        </span>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+
+              {/* File section */}
+              <div style={{ marginBottom: 16 }}>
+                <div style={{ fontSize: 11, color: 'var(--text2)', marginBottom: 8, textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.07em' }}>📁 Файл дамжуулалт</div>
+
+                {/* Customer file */}
+                <div style={{ background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 8, padding: '10px 12px', marginBottom: 8 }}>
+                  <div style={{ fontSize: 11, color: 'var(--text2)', marginBottom: 6 }}>Хэрэглэгчийн файл</div>
+                  {selected.file_url ? (
+                    <a href={API + '/' + selected.file_url} target="_blank" rel="noreferrer"
+                      style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#378ADD', fontSize: 13, textDecoration: 'none' }}>
+                      <span>📎</span>
+                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {selected.file_url.split('/').pop()}
+                      </span>
+                      <span style={{ marginLeft: 'auto', fontSize: 11, background: 'rgba(55,138,221,0.1)', border: '1px solid rgba(55,138,221,0.3)', borderRadius: 5, padding: '2px 7px' }}>Татах</span>
+                    </a>
+                  ) : (
+                    <div style={{ fontSize: 12, color: 'var(--text3)', fontStyle: 'italic' }}>Хэрэглэгч файл оруулаагүй байна</div>
+                  )}
+                </div>
+
+                {/* Upload designer file */}
+                <div style={{ background: 'var(--surface2)', border: '1px dashed var(--border)', borderRadius: 8, padding: '12px', textAlign: 'center' }}>
+                  <div style={{ fontSize: 11, color: 'var(--text2)', marginBottom: 8 }}>Дизайнерын боловсруулсан файл үйлдвэрт илгээх</div>
+                  <input ref={fileRef} type="file" accept=".pdf,.ai,.psd,.eps,.png,.jpg" style={{ display: 'none' }}
+                    onChange={e => { if (e.target.files?.[0]) uploadFile(selected, e.target.files[0]) }} />
+                  <button onClick={() => fileRef.current?.click()} disabled={uploading}
+                    style={{ padding: '8px 18px', background: uploading ? 'var(--border)' : '#8B5CF6', color: '#fff', border: 'none', borderRadius: 8, cursor: uploading ? 'not-allowed' : 'pointer', fontSize: 13, fontWeight: 600 }}>
+                    {uploading ? 'Илгээж байна...' : '📤 Файл илгээх'}
+                  </button>
+                  <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 6 }}>PDF, AI, PSD, EPS, PNG, JPG</div>
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <div style={{ fontSize: 11, color: 'var(--text2)', marginBottom: 2, textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.07em' }}>Төлөв өөрчлөх</div>
+                {selected.status === 'pending' && (
+                  <button onClick={() => updateStatus(selected, 'in_production')}
+                    style={{ padding: '10px', background: '#3B82F6', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 700, fontSize: 13 }}>
+                    🖨️ Хэвлэлд оруулах
+                  </button>
+                )}
+                {selected.status === 'paid' && (
+                  <button onClick={() => updateStatus(selected, 'in_production')}
+                    style={{ padding: '10px', background: '#8B5CF6', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 700, fontSize: 13 }}>
+                    🖨️ Хэвлэлд оруулах
+                  </button>
+                )}
+                {selected.status === 'in_production' && (
+                  <button onClick={() => updateStatus(selected, 'completed')}
+                    style={{ padding: '10px', background: '#10B981', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 700, fontSize: 13 }}>
+                    ✅ Дууссан гэж тэмдэглэх
+                  </button>
+                )}
+                {selected.status === 'completed' && (
+                  <div style={{ padding: '10px', background: 'rgba(16,185,129,0.1)', border: '1px solid #10B981', borderRadius: 8, textAlign: 'center', fontSize: 13, fontWeight: 600, color: '#10B981' }}>
+                    ✓ Захиалга дууссан
+                  </div>
+                )}
+                {!['completed', 'cancelled'].includes(selected.status) && (
+                  <button onClick={() => updateStatus(selected, 'cancelled')}
+                    style={{ padding: '10px', background: 'rgba(226,75,74,0.08)', color: '#e24b4a', border: '1px solid rgba(226,75,74,0.3)', borderRadius: 8, cursor: 'pointer', fontWeight: 600, fontSize: 13 }}>
+                    ✕ Цуцлах
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   )

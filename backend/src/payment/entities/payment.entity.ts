@@ -29,6 +29,9 @@ export class Payment {
   @Column({ nullable: true })
   transaction_id: string;
 
+  @Column({ nullable: true, type: 'text' })
+  qr_image: string;
+
   @Column({ nullable: true })
   paid_at: Date;
 

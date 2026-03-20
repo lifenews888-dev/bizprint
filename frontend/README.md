@@ -1,36 +1,129 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# BizPrint — Frontend Бүтэц (Бүрэн)
 
-## Getting Started
+## 📁 Файлын бүтэц
 
-First, run the development server:
+```
+app/
+├── layout.tsx              ← Root layout (MegaNav, Footer, ChatWidget, AnnouncementBar)
+├── page.tsx                ← Нүүр хуудас (Баннер слайдер, Features, CTA)
+├── globals.css             ← CSS variables, responsive utilities
+│
+├── login/page.tsx          ← Нэвтрэх
+├── register/page.tsx       ← Бүртгүүлэх
+├── shop/page.tsx           ← Дэлгүүр (бүтээгдэхүүний жагсаалт)
+├── cart/page.tsx           ← Сагс
+├── checkout/page.tsx       ← Захиалга баталгаажуулах
+├── quote/page.tsx          ← AI Үнийн санал
+├── order/page.tsx          ← Захиалгын төлөв
+├── partner/page.tsx        ← Партнер бүртгэл
+├── factory/page.tsx        ← Үйлдвэрүүд
+├── designer/page.tsx       ← Дизайнер dashboard
+├── courier/page.tsx        ← Курьер dashboard
+├── sales/page.tsx          ← Борлуулалт dashboard
+│
+├── admin/
+│   ├── layout.tsx          ← Admin sidebar layout (бүх admin хуудсуудыг wrap хийнэ)
+│   ├── page.tsx            ← Admin Dashboard (stats, quick links, orders)
+│   ├── banners/page.tsx    ← Баннер CRUD + зураг upload
+│   ├── pages/page.tsx      ← Статик хуудас CRUD
+│   ├── menus/page.tsx      ← Цэс CRUD
+│   ├── categories/page.tsx ← Ангилал CRUD
+│   ├── settings/page.tsx   ← Тохиргоо (key-value)
+│   ├── orders/page.tsx     ← Захиалга удирдлага + status update
+│   ├── users/page.tsx      ← Хэрэглэгч CRUD + role
+│   ├── products/page.tsx   ← Бүтээгдэхүүн CRUD
+│   ├── vendors/page.tsx    ← Vendor CRUD
+│   ├── commission/page.tsx ← Комисс удирдлага
+│   ├── chat/page.tsx       ← Админ чат
+│   ├── wallet-requests/    ← Wallet хүсэлтүүд
+│   ├── pricing-rules/      ← Үнийн дүрэм
+│   ├── workflow/page.tsx   ← Үйлдвэрлэл + хүргэлт
+│   ├── machines/page.tsx   ← Тоног төхөөрөмж
+│   ├── marketing/page.tsx  ← Маркетинг
+│   └── reports/page.tsx    ← Тайлан
+│
+├── dashboard/
+│   ├── page.tsx            ← Хэрэглэгчийн dashboard
+│   ├── vendor/page.tsx     ← Vendor dashboard
+│   ├── delivery/page.tsx   ← Хүргэлт tracking
+│   ├── factory/page.tsx    ← Үйлдвэрийн dashboard
+│   ├── orders/page.tsx     ← Миний захиалгууд
+│   └── customer/
+│       ├── wallet/page.tsx ← Хэтэвч
+│       └── quotes/page.tsx ← Миний үнийн санал
+│
+└── vendor/store/page.tsx   ← Vendor дэлгүүр
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+components/
+├── nav/MegaNav.tsx         ← Mega навигаци
+├── layouts/DashboardLayout.tsx ← Dashboard sidebar layout
+├── AnnouncementBar.tsx     ← Зарлалын мөр
+├── Footer.tsx              ← Footer
+├── ChatWidget.tsx          ← Floating чат
+├── ChatBox.tsx             ← Чат бүрэн
+├── NotificationBell.tsx    ← Мэдэгдэл
+├── ThemeToggle.tsx         ← Dark/Light toggle
+└── DeliveryTab.tsx         ← Хүргэлтийн tab
+
+hooks/
+└── useChat.ts              ← WebSocket чат hook
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## 🔧 Суулгах заавар
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### 1. Файлуудыг хуулах
+frontend фолдер дотор энэ ZIP-ийн файлуудыг хуулна:
+- `app/` фолдерыг бүтнээр солино
+- `components/` фолдерыг бүтнээр солино
+- `hooks/` фолдерыг бүтнээр солино
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### 2. Backend ажиллуулах
+```powershell
+cd C:\Users\User\projects\bizprint\backend
+npm run start:dev
+```
 
-## Learn More
+### 3. Frontend ажиллуулах
+```powershell
+cd C:\Users\User\projects\bizprint\frontend
+npm run dev
+```
 
-To learn more about Next.js, take a look at the following resources:
+### 4. Нэвтрэх
+```
+Email: test@bizprint.mn
+Password: Test1234!
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## 🎨 Дизайн систем
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- Брэнд өнгө: `#FF6B00` (orange)
+- Dark theme: `--bg: #0A0A0A`, `--surface: #0F0F0F`
+- Light theme: `--bg: #F5F5F0`, `--surface: #FFFFFF`
+- Font: DM Sans, Segoe UI, system-ui
 
-## Deploy on Vercel
+## 📌 API Endpoints (Backend)
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+| Endpoint | Тайлбар |
+|----------|---------|
+| POST /auth/login | Нэвтрэх |
+| POST /auth/register | Бүртгүүлэх |
+| GET/POST/PATCH/DELETE /banners | Баннер CRUD |
+| GET/POST/PATCH/DELETE /pages | Хуудас CRUD |
+| GET/POST/PATCH/DELETE /menus | Цэс CRUD |
+| GET/POST/PATCH/DELETE /categories | Ангилал CRUD |
+| GET/POST/PATCH/DELETE /settings | Тохиргоо CRUD |
+| GET /settings/public | Public тохиргоо |
+| GET/POST/PATCH/DELETE /products | Бүтээгдэхүүн CRUD |
+| GET/POST/PATCH/DELETE /orders | Захиалга CRUD |
+| GET /admin/users | Хэрэглэгч жагсаалт |
+| GET /admin/vendors | Vendor жагсаалт |
+| POST /upload/file | Файл upload |
+| GET /production-jobs | Үйлдвэрлэлийн ажлууд |
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## ⚠️ Анхааруулга
+
+- `imageUrl` (camelCase) ашиглана, `image_url` биш
+- `isActive` (camelCase) ашиглана, `is_active` биш
+- Token авах: `localStorage.getItem('token')`
+- Banner upload: FormData ашиглан /upload/file руу POST хийнэ

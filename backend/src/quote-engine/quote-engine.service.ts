@@ -29,23 +29,31 @@ export class QuoteEngineService {
     const binding   = input.binding   || 'none'
 
     const size = this.detectSize(width_mm, height_mm)
-    const imposition = this.getImposition(size)
-    const sheets_per_copy = Math.ceil(pages / (sides === 'double' ? 2 : 1))
-    const total_sheets = Math.ceil(quantity * sheets_per_copy / imposition)
 
-    const machine = await this.selectMachine(quantity, size)
-    const machine_name  = machine ? machine.name : 'Digital Press'
-    const machine_speed = machine ? machine.speed_per_hour : 3000
-    const hour_rate     = machine ? machine.hour_rate : 50000
+    const sheets_per_copy = Math.ceil(pages / (sides === 'double' ? 2 : 1))
+
+    const machineSelection = await this.selectBestMachine({
+      quantity,
+      width_mm,
+      height_mm,
+      color_mode,
+    })
+
+    const imposition = machineSelection.bestFit ?? 1
+    const total_sheets = Math.ceil((quantity * sheets_per_copy) / imposition)
+
+    const machine_name  = machineSelection.machine?.name ?? 'Digital Press'
+    const machine_speed = machineSelection.machine?.speed_per_hour ?? 3000
+    const hour_rate     = machineSelection.machine?.hour_rate ?? 50000
 
     const print_hours = total_sheets / machine_speed
     const color_rate  = color_mode === 'color' ? 1.0 : 0.4
 
-    const paper_cost    = Math.round(total_sheets * this.getPaperPrice(paper_gsm))
-    const print_cost    = Math.round(print_hours * hour_rate * color_rate)
+    const paper_cost     = Math.round(total_sheets * this.getPaperPrice(paper_gsm))
+    const print_cost     = Math.round(print_hours * hour_rate * color_rate)
     const finishing_cost = this.getFinishingCost(finishing, quantity)
-    const binding_cost  = this.getBindingCost(binding, quantity)
-    const setup_cost    = quantity < 500 ? 50000 : quantity < 2000 ? 30000 : 0
+    const binding_cost   = this.getBindingCost(binding, quantity)
+    const setup_cost     = quantity < 500 ? 50000 : quantity < 2000 ? 30000 : 0
 
     const subtotal    = paper_cost + print_cost + finishing_cost + binding_cost + setup_cost
     const overhead    = Math.round(subtotal * 0.10)
@@ -56,9 +64,14 @@ export class QuoteEngineService {
     return {
       quantity, pages, size, width_mm, height_mm,
       color_mode, sides, paper_gsm, finishing, binding,
-      sheets_per_copy, total_sheets, imposition,
+      sheets_per_copy, total_sheets,
+      imposition_per_sheet: imposition,
+      rotated: machineSelection.rotated,
       machine: machine_name,
       machine_speed,
+      machine_sheet: machineSelection.machine
+        ? { w: machineSelection.machine.sheet_width_mm, h: machineSelection.machine.sheet_height_mm }
+        : null,
       print_hours: Math.round(print_hours * 100) / 100,
       paper_cost, print_cost, finishing_cost, binding_cost,
       setup_cost, subtotal, overhead, margin,
@@ -82,11 +95,23 @@ export class QuoteEngineService {
     return 'Custom'
   }
 
-  getImposition(size: string) {
-    const map: Record<string, number> = {
-      'A5': 2, 'A4': 1, 'A3': 1, 'BusinessCard': 8, 'Custom': 1,
+  /**
+   * Compute best fit (imposition) per machine with 90° rotation option.
+   */
+  private computeSheetFit(machine: Machine, width: number, height: number) {
+    const fitNormal =
+      Math.floor(machine.sheet_width_mm / width) *
+      Math.floor(machine.sheet_height_mm / height)
+
+    const fitRotated =
+      Math.floor(machine.sheet_width_mm / height) *
+      Math.floor(machine.sheet_height_mm / width)
+
+    if (fitRotated > fitNormal) {
+      return { fit: Math.max(fitRotated, 1), rotated: true }
     }
-    return map[size] || 1
+
+    return { fit: Math.max(fitNormal, 1), rotated: false }
   }
 
   getPaperPrice(gsm: number) {
@@ -116,12 +141,48 @@ export class QuoteEngineService {
     return Math.round((rates[binding] || 0) * quantity)
   }
 
-  async selectMachine(quantity: number, size: string) {
+  /**
+   * Select the lowest-cost machine + imposition given size & quantity.
+   */
+  async selectBestMachine(params: {
+    quantity: number
+    width_mm: number
+    height_mm: number
+    color_mode: string
+  }) {
     const machines = await this.machineRepo.find()
-    if (!machines.length) return null
-    if (size === 'Custom') return machines.find(m => m.type === 'large_format') || machines[0]
-    if (quantity <= 500)   return machines.find(m => m.type === 'digital') || machines[0]
-    if (quantity <= 5000)  return machines.find(m => m.type === 'production_digital') || machines.find(m => m.type === 'digital') || machines[0]
-    return machines.find(m => m.type === 'offset') || machines[0]
+    if (!machines.length) {
+      return { machine: null, bestFit: 1, rotated: false }
+    }
+
+    const { quantity, width_mm, height_mm, color_mode } = params
+    const colorMultiplier = color_mode === 'color' ? 1.0 : 0.4
+
+    let best: {
+      machine: Machine
+      cost: number
+      fit: number
+      rotated: boolean
+    } | null = null
+
+    for (const machine of machines) {
+      const fitResult = this.computeSheetFit(machine, width_mm, height_mm)
+      const fit = fitResult.fit || 1
+      if (fit <= 0) continue
+
+      const total_sheets = Math.ceil(quantity / fit)
+      const hours = total_sheets / machine.speed_per_hour
+      const cost = hours * machine.hour_rate * colorMultiplier
+
+      if (!best || cost < best.cost) {
+        best = { machine, cost, fit, rotated: fitResult.rotated }
+      }
+    }
+
+    if (!best) {
+      return { machine: null, bestFit: 1, rotated: false }
+    }
+
+    return { machine: best.machine, bestFit: best.fit, rotated: best.rotated }
   }
 }

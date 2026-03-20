@@ -1,4 +1,4 @@
-﻿@import "tailwindcss";
+@import "tailwindcss";
 
 :root {
   --orange: #FF6B00;
@@ -218,11 +218,4 @@ body {
 @media print {
   .no-print { display: none !important; }
   body { background: white !important; color: black !important; }
-}
-
-/* Mobile hamburger */
-.show-mobile { display: none; }
-@media (max-width: 768px) {
-  .show-mobile { display: flex !important; }
-  .admin-main { margin-left: 0 !important; }
 }

@@ -1,4 +1,4 @@
-﻿import { Module } from '@nestjs/common'
+import { Module } from '@nestjs/common'
 import { ChatModule } from './chat/chat.module'
 import { ConfigModule } from '@nestjs/config'
 import { TypeOrmModule } from '@nestjs/typeorm'
@@ -30,7 +30,6 @@ import { QuoteFromFileModule } from './ai/quote-from-file/quote-from-file.module
 import { FullQuoteModule } from './ai/full-quote/full-quote.module'
 import { OrdersModule } from './orders/order.module'
 import { CartModule } from './cart/cart.module'
-import { QuoteModule } from './quote/quote.module'
 import { PaymentModule } from './payment/payment.module'
 import { ProductionModule } from './production/production.module'
 import { VendorDashboardModule } from './vendor-dashboard/vendor-dashboard.module'
@@ -40,18 +39,21 @@ import { UploadModule } from './upload/upload.module'
 import { QuoteEngineModule } from './quote-engine/quote-engine.module'
 import { FactoriesModule } from './factories/factories.module'
 import { ProductionJobsModule } from './production-jobs/production-jobs.module'
-import { ProductionSchedulerModule } from './production-scheduler/production-scheduler.module'
 import { MailModule } from './mail/mail.module'
 import { SettingsModule } from './settings/settings.module'
-import { PricingRulesModule } from './pricing-rules/pricing-rules.module'
 import { PaperTypesModule } from './paper-types/paper-types.module'
-import { DesignRequestsModule } from './design-requests/design-requests.module';
-import { DeliveryModule } from './delivery/delivery.module';
-import { TemplatesModule } from './templates/templates.module';
+import { DesignRequestsModule } from './design-requests/design-requests.module'
+import { DeliveryModule } from './delivery/delivery.module'
+import { TemplatesModule } from './templates/templates.module'
 import { QuotesV2Module } from './quotes-v2/quotes-v2.module'
 import { BannersModule } from './banners/banners.module'
 import { PagesModule } from './pages/pages.module'
 import { MenusModule } from './menus/menus.module'
+import { FilesModule } from './files/files.module'
+import { AuditTrailModule } from './audit-trail/audit-trail.module'
+import { PricingCatalogController } from './pricing-catalog/pricing-catalog.controller'
+import { PricingCatalogService } from './pricing-catalog/pricing-catalog.service'
+import { NotificationModule } from './notifications/notification.module'
 
 @Module({
   imports: [
@@ -89,7 +91,6 @@ import { MenusModule } from './menus/menus.module'
     PrintCostModule,
     ImpositionModule,
     PaymentModule,
-    ProductionSchedulerModule,
     PrintQuoteModule,
     AutoQuoteModule,
     PrintEngineModule,
@@ -98,7 +99,6 @@ import { MenusModule } from './menus/menus.module'
     FullQuoteModule,
     OrdersModule,
     CartModule,
-    QuoteModule,
     ProductionModule,
     VendorDashboardModule,
     CustomerDashboardModule,
@@ -109,7 +109,6 @@ import { MenusModule } from './menus/menus.module'
     ProductionJobsModule,
     MailModule,
     SettingsModule,
-    PricingRulesModule,
     PaperTypesModule,
     DesignRequestsModule,
     DeliveryModule,
@@ -118,6 +117,11 @@ import { MenusModule } from './menus/menus.module'
     BannersModule,
     PagesModule,
     MenusModule,
+    FilesModule,
+    AuditTrailModule,
+    NotificationModule,
   ],
+  controllers: [PricingCatalogController],
+  providers: [PricingCatalogService],
 })
 export class AppModule {}

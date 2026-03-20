@@ -246,7 +246,7 @@ export default function VendorStorePage() {
           textAlign: 'center', padding: 60,
           border: '2px dashed var(--border)', borderRadius: 16, color: 'var(--text2)',
         }}>
-          <div style={{ fontSize: 40, marginBottom: 12 }}>=</div>
+          <div style={{ fontSize: 40, marginBottom: 12 }}>📦</div>
           <div style={{ fontWeight: 600, marginBottom: 8 }}>No products yet</div>
           <div style={{ fontSize: 14 }}>Click Add Product to get started</div>
         </div>
@@ -263,7 +263,7 @@ export default function VendorStorePage() {
               }}>
                 {p.thumbnail_url
                   ? <img src={imgSrc(p.thumbnail_url)} alt={p.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                  : <span style={{ fontSize: 40 }}>=</span>
+                  : <span style={{ fontSize: 40 }}>🖼</span>
                 }
               </div>
               <div style={{ padding: 16 }}>

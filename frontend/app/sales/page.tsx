@@ -106,7 +106,7 @@ export default function SalesDashboard() {
 
   if (loading) return (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: 'var(--bg)', color: 'var(--text2)' }}>
-       
+      Уншиж байна...
     </div>
   )
 
@@ -116,14 +116,14 @@ export default function SalesDashboard() {
       {/* Topbar */}
       <div style={{ background: 'var(--surface)', borderBottom: '1px solid var(--border)', padding: '0 32px', height: 54, display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 10 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <span style={{ fontSize: 16, fontWeight: 700 }}><span style={{ color: 'var(--orange)' }}>Biz</span>Print</span>
-          <span style={{ fontSize: 11, background: 'var(--orange-10)', color: 'var(--orange)', border: '1px solid var(--orange-30)', borderRadius: 20, padding: '2px 10px' }}>Sales</span>
+          <span style={{ fontSize: 16, fontWeight: 700 }}><span style={{ color: '#FF6B00' }}>Biz</span>Print</span>
+          <span style={{ fontSize: 11, background: 'rgba(255,107,0,0.1)', color: '#FF6B00', border: '1px solid rgba(255,107,0,0.3)', borderRadius: 20, padding: '2px 10px' }}>Sales</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <span style={{ fontSize: 13, color: 'var(--text2)' }}>{user?.full_name}</span>
           <button onClick={() => { localStorage.clear(); router.push('/') }}
             style={{ ...inp, cursor: 'pointer', fontSize: 12 }}>
-            
+            Гарах
           </button>
         </div>
       </div>
@@ -133,16 +133,16 @@ export default function SalesDashboard() {
         {/* Title */}
         <div style={{ marginBottom: 24 }}>
           <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>Sales Dashboard</h1>
-          <p style={{ color: 'var(--text2)', fontSize: 13, margin: '4px 0 0' }}>Referral , сс,  &я</p>
+          <p style={{ color: 'var(--text2)', fontSize: 13, margin: '4px 0 0' }}>Referral линк, комисс, захиалгын хяналт</p>
         </div>
 
         {/* Stats */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 14, marginBottom: 24 }}>
           {[
-            { label: ' ',  val: orders.length,                        color: 'var(--orange)' },
-            { label: 'ђђсс        val: orders.filter(o=>o.status==='completed').length, color: '#10B981' },
-            { label: '     val: totalRev.toLocaleString()+'',         color: '#378ADD' },
-            { label: 'aс ('+(referral?.commission_rate||10)+'%)', val: commission.toLocaleString()+'', color: '#8B5CF6' },
+            { label: 'Нийт захиалга',  val: orders.length,                        color: '#FF6B00' },
+            { label: 'Дууссан',        val: orders.filter(o=>o.status==='completed').length, color: '#10B981' },
+            { label: 'Нийт орлого',    val: totalRev.toLocaleString()+'₮',         color: '#378ADD' },
+            { label: 'Комисс ('+(referral?.commission_rate||10)+'%)', val: commission.toLocaleString()+'₮', color: '#8B5CF6' },
           ].map(s => (
             <div key={s.label} style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:12, padding:'18px 20px', borderTop:'3px solid '+s.color }}>
               <div style={{ fontSize:22, fontWeight:700, color:s.color }}>{s.val}</div>
@@ -155,36 +155,36 @@ export default function SalesDashboard() {
 
           {/* Referral card */}
           <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:12, padding:24 }}>
-            <div style={{ fontWeight:700, fontSize:15, marginBottom:4 }}> Referral </div>
-            <div style={{ fontSize:12, color:'var(--text2)', marginBottom:20 }}> ээѬ сэ &эѬэ!  сс </div>
+            <div style={{ fontWeight:700, fontSize:15, marginBottom:4 }}>Таны Referral линк</div>
+            <div style={{ fontSize:12, color:'var(--text2)', marginBottom:20 }}>Энэ линкээр бүртгүүлсэн хэрэглэгч бүрт комисс авна</div>
 
             {referral ? (
               <>
                 {/* Code */}
                 <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:16 }}>
-                  <div style={{ background:'var(--orange-08)', border:'1px solid var(--orange-30)', borderRadius:8, padding:'10px 18px' }}>
-                    <div style={{ fontSize:11, color:'var(--text2)', marginBottom:2 }}> div>
-                    <div style={{ fontSize:24, fontWeight:800, letterSpacing:4, color:'var(--orange)', fontFamily:'monospace' }}>{referral.code}</div>
+                  <div style={{ background:'rgba(255,107,0,0.08)', border:'1px solid rgba(255,107,0,0.3)', borderRadius:8, padding:'10px 18px' }}>
+                    <div style={{ fontSize:11, color:'var(--text2)', marginBottom:2 }}>Таны код</div>
+                    <div style={{ fontSize:24, fontWeight:800, letterSpacing:4, color:'#FF6B00', fontFamily:'monospace' }}>{referral.code}</div>
                   </div>
                   <div style={{ background:referral.is_active?'rgba(16,185,129,0.1)':'var(--surface2)', border:'1px solid', borderColor:referral.is_active?'#10B981':'var(--border)', borderRadius:20, padding:'4px 12px', fontSize:12, fontWeight:600, color:referral.is_active?'#10B981':'var(--text2)' }}>
-                    {referral.is_active ? ' э : '9 
+                    {referral.is_active ? '● Идэвхтэй' : '○ Идэвхгүй'}
                   </div>
                 </div>
 
                 {/* Link */}
                 <div style={{ background:'var(--surface2)', border:'1px solid var(--border)', borderRadius:8, padding:'10px 14px', marginBottom:12, display:'flex', alignItems:'center', gap:8 }}>
-                  <div style={{ flex:1, fontSize:12, fontFamily:'monospace', color:'var(--orange)', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{refLink}</div>
+                  <div style={{ flex:1, fontSize:12, fontFamily:'monospace', color:'#FF6B00', overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{refLink}</div>
                   <button onClick={copyLink}
-                    style={{ background:copied?'#10B981':'var(--orange)', color:'#fff', border:'none', borderRadius:6, padding:'6px 14px', cursor:'pointer', fontSize:12, fontWeight:600, flexShrink:0, transition:'background 0.2s' }}>
-                    {copied ? 'S  : '
+                    style={{ background:copied?'#10B981':'#FF6B00', color:'#fff', border:'none', borderRadius:6, padding:'6px 14px', cursor:'pointer', fontSize:12, fontWeight:600, flexShrink:0, transition:'background 0.2s' }}>
+                    {copied ? '✓ Хуулагдлаа' : 'Хуулах'}
                   </button>
                 </div>
 
                 {/* Share */}
                 <div style={{ display:'flex', gap:8, marginBottom:16 }}>
                   {[
-                    { label:' Facebook', color:'#1877F2', href:'https://facebook.com/sharer/sharer.php?u='+encodeURIComponent(refLink) },
-                    { label:'S0️ Email', color:'#6366F1', href:'mailto:?body='+encodeURIComponent(refLink) },
+                    { label:'📘 Facebook', color:'#1877F2', href:'https://facebook.com/sharer/sharer.php?u='+encodeURIComponent(refLink) },
+                    { label:'✉️ Email', color:'#6366F1', href:'mailto:?body='+encodeURIComponent(refLink) },
                   ].map(s=>(
                     <a key={s.label} href={s.href} target="_blank" rel="noreferrer"
                       style={{ flex:1, textAlign:'center', padding:'8px', background:s.color+'15', border:'1px solid '+s.color+'44', borderRadius:8, fontSize:12, fontWeight:600, color:s.color, textDecoration:'none' }}>
@@ -196,36 +196,36 @@ export default function SalesDashboard() {
                 {/* Mini stats */}
                 <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
                   <div style={{ background:'var(--surface2)', border:'1px solid var(--border)', borderRadius:8, padding:'12px 14px', textAlign:'center' }}>
-                    <div style={{ fontSize:22, fontWeight:700, color:'var(--orange)' }}>{referral.referral_count}</div>
-                    <div style={{ fontSize:12, color:'var(--text2)', marginTop:2 }}>үѬсэ
+                    <div style={{ fontSize:22, fontWeight:700, color:'#FF6B00' }}>{referral.referral_count}</div>
+                    <div style={{ fontSize:12, color:'var(--text2)', marginTop:2 }}>Бүртгүүлсэн</div>
                   </div>
                   <div style={{ background:'var(--surface2)', border:'1px solid var(--border)', borderRadius:8, padding:'12px 14px', textAlign:'center' }}>
-                    <div style={{ fontSize:18, fontWeight:700, color:'#8B5CF6' }}>{Number(referral.total_commission).toLocaleString()}</div>
-                    <div style={{ fontSize:12, color:'var(--text2)', marginTop:2 }}> сс</div>
+                    <div style={{ fontSize:18, fontWeight:700, color:'#8B5CF6' }}>{Number(referral.total_commission).toLocaleString()}₮</div>
+                    <div style={{ fontSize:12, color:'var(--text2)', marginTop:2 }}>Нийт комисс</div>
                   </div>
                 </div>
               </>
             ) : (
               <div style={{ padding:24, textAlign:'center', color:'var(--text2)', background:'var(--surface2)', borderRadius:8 }}>
-                Referral э  
+                Referral мэдээлэл байхгүй байна
               </div>
             )}
           </div>
 
           {/* QR card */}
           <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:12, padding:24, display:'flex', flexDirection:'column', alignItems:'center' }}>
-            <div style={{ fontWeight:700, fontSize:15, marginBottom:6 }}>QR av>
-            <div style={{ fontSize:12, color:'var(--text2)', marginBottom:20, textAlign:'center' }}>! QR ђ v>
+            <div style={{ fontWeight:700, fontSize:15, marginBottom:6 }}>QR Код</div>
+            <div style={{ fontSize:12, color:'var(--text2)', marginBottom:20, textAlign:'center' }}>Хэрэглэгчид QR уншуулж бүртгүүлнэ</div>
             {referral ? (
               <>
                 <QRCode code={referral.code} />
                 <button onClick={()=>window.print()}
                   style={{ marginTop:16, padding:'9px 0', background:'var(--surface2)', border:'1px solid var(--border)', borderRadius:8, cursor:'pointer', fontSize:13, fontWeight:600, color:'var(--text)', width:'100%' }}>
-                   э&
+                  🖨️ Хэвлэх
                 </button>
               </>
             ) : (
-              <div style={{ color:'var(--text2)', fontSize:13 }}>"</div>
+              <div style={{ color:'var(--text2)', fontSize:13 }}>—</div>
             )}
           </div>
         </div>
@@ -233,25 +233,25 @@ export default function SalesDashboard() {
         {/* Orders */}
         <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:12, overflow:'hidden' }}>
           <div style={{ padding:'14px 20px', borderBottom:'1px solid var(--border)', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-            <span style={{ fontWeight:700, fontSize:15 }}>>
+            <span style={{ fontWeight:700, fontSize:15 }}>Захиалгууд</span>
             <button onClick={()=>router.push('/order')}
-              style={{ background:'var(--orange)', color:'#fff', border:'none', borderRadius:8, padding:'7px 16px', cursor:'pointer', fontSize:13, fontWeight:600 }}>
-              +  
+              style={{ background:'#FF6B00', color:'#fff', border:'none', borderRadius:8, padding:'7px 16px', cursor:'pointer', fontSize:13, fontWeight:600 }}>
+              + Шинэ захиалга
             </button>
           </div>
           <div style={{ display:'grid', gridTemplateColumns:'1fr 0.6fr 1fr 1fr 0.9fr', padding:'10px 20px', background:'var(--surface2)', borderBottom:'1px solid var(--border)', fontSize:11, fontWeight:700, color:'var(--text2)', textTransform:'uppercase', letterSpacing:'0.07em' }}>
-            <span>ID</span><span>span><span>ү><span>~</span><span>>
+            <span>ID</span><span>Тоо</span><span>Дүн</span><span>Огноо</span><span>Төлөв</span>
           </div>
           {orders.length === 0 ? (
             <div style={{ padding:48, textAlign:'center', color:'var(--text2)' }}>
-              <div style={{ fontSize:32, marginBottom:8 }}>iv>
-              <div style={{ fontWeight:600 }}>  
+              <div style={{ fontSize:32, marginBottom:8 }}>📦</div>
+              <div style={{ fontWeight:600 }}>Захиалга байхгүй байна</div>
             </div>
           ) : orders.slice(0,8).map((o,i)=>(
             <div key={o.id} style={{ display:'grid', gridTemplateColumns:'1fr 0.6fr 1fr 1fr 0.9fr', padding:'12px 20px', borderBottom:i<orders.length-1?'1px solid var(--border)':'none', alignItems:'center', fontSize:13 }}>
               <code style={{ fontSize:12, color:'var(--text2)' }}>{o.id.slice(0,10)}...</code>
-              <span>{o.quantity} </span>
-              <span style={{ fontWeight:600, color:'var(--orange)' }}>{Number(o.total_price).toLocaleString()}</span>
+              <span>{o.quantity} ш</span>
+              <span style={{ fontWeight:600, color:'#FF6B00' }}>{Number(o.total_price).toLocaleString()}₮</span>
               <span style={{ color:'var(--text2)' }}>{new Date(o.created_at).toLocaleDateString('mn-MN')}</span>
               <span style={{ background:(ST_CLR[o.status]||'#888')+'20', color:ST_CLR[o.status]||'#888', borderRadius:20, padding:'3px 10px', fontSize:11, fontWeight:600 }}>
                 {ST_MN[o.status]||o.status}

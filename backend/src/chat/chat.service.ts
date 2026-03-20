@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm'
 import { Repository } from 'typeorm'
 import { ChatMessage } from './chat-message.entity'
 import { ChatRoom } from './chat-room.entity'
+import { User } from '../users/user.entity'
 
 @Injectable()
 export class ChatService {
@@ -11,6 +12,8 @@ export class ChatService {
     private msgRepo: Repository<ChatMessage>,
     @InjectRepository(ChatRoom)
     private roomRepo: Repository<ChatRoom>,
+    @InjectRepository(User)
+    private userRepo: Repository<User>,
   ) {}
 
   async getOrCreateRoom(params: {
@@ -47,6 +50,13 @@ export class ChatService {
 
   async getAllRooms(): Promise<ChatRoom[]> {
     return this.roomRepo.find({ order: { last_message_at: 'DESC' } })
+  }
+
+  async getRoomsByOrder(orderId: string): Promise<ChatRoom[]> {
+    return this.roomRepo.find({
+      where: { order_id: orderId },
+      order: { last_message_at: 'DESC' },
+    })
   }
 
   async getMessages(room_id: string, limit = 50): Promise<ChatMessage[]> {
@@ -94,6 +104,10 @@ export class ChatService {
       count += c
     }
     return count
+  }
+
+  async listUsersByRole(role: string): Promise<User[]> {
+    return this.userRepo.find({ where: { role } })
   }
 
   async fixParticipantNames(): Promise<any> {

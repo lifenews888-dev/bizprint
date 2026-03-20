@@ -1,327 +1,278 @@
-'use client'
+'use client';
+import { useState, useEffect } from 'react';
 
-import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+const API = 'http://localhost:4000';
 
-interface Product {
-  id: string
-  name: string
-  name_mn: string
-  category: string
-  base_price: number
-  min_quantity: number
+interface Order {
+  id: string;
+  status: string;
+  payment_status: string;
+  product_name: string;
+  quantity: number;
+  total_price: number;
+  unit_price: number;
+  created_at: string;
+  updated_at: string;
+  customer_name: string;
+  invoice_no: string;
+  notes: string;
+  file_url: string;
 }
 
-export default function OrderPage() {
-  const router = useRouter()
-  const [products, setProducts] = useState<Product[]>([])
-  const [productId, setProductId] = useState('')
-  const [quantity, setQuantity] = useState(100)
-  const [finish, setFinish] = useState('')
-  const [side, setSide] = useState('')
-  const [delivery, setDelivery] = useState(false)
-  const [notes, setNotes] = useState('')
-  const [quote, setQuote] = useState<any>(null)
-  const [step, setStep] = useState(1)
-  const [loading, setLoading] = useState(false)
-  const [paymentResult, setPaymentResult] = useState<any>(null)
+const FLOW = [
+  { key: 'pending',       label: 'Order Placed',    icon: '📝', color: '#6b7280' },
+  { key: 'paid',          label: 'Payment Done',     icon: '💳', color: '#2563eb' },
+  { key: 'in_production', label: 'In Production',   icon: '⚙️',  color: '#d97706' },
+  { key: 'completed',     label: 'Production Done', icon: '✅', color: '#16a34a' },
+  { key: 'shipped',       label: 'Shipped',         icon: '📦', color: '#7c3aed' },
+  { key: 'delivered',     label: 'Delivered',       icon: '🏠', color: '#059669' },
+];
 
-  // $09; upload
-  const [file, setFile] = useState<File | null>(null)
-  const [uploadedFile, setUploadedFile] = useState<any>(null)
-  const [uploading, setUploading] = useState(false)
+const STATUS_INDEX: Record<string, number> = {
+  pending: 0, paid: 1, in_production: 2,
+  completed: 3, shipped: 4, delivered: 5, cancelled: -1,
+};
+
+const STATUS_COLOR: Record<string, { bg: string; color: string }> = {
+  pending:       { bg: '#f3f4f6', color: '#6b7280' },
+  paid:          { bg: '#dbeafe', color: '#2563eb' },
+  in_production: { bg: '#fef3c7', color: '#d97706' },
+  completed:     { bg: '#dcfce7', color: '#16a34a' },
+  shipped:       { bg: '#ede9fe', color: '#7c3aed' },
+  delivered:     { bg: '#d1fae5', color: '#059669' },
+  cancelled:     { bg: '#fee2e2', color: '#dc2626' },
+};
+
+export default function OrderStatusPage() {
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [selected, setSelected] = useState<Order | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [token, setToken] = useState<string | null>(null);
+  const [userId, setUserId] = useState<string | null>(null);
+  const [filter, setFilter] = useState('all');
 
   useEffect(() => {
-    const token = localStorage.getItem('token')
-    if (!token) { router.push('/login'); return }
-    fetch('http://localhost:4000/products').then(r => r.json()).then(setProducts)
-    const params = new URLSearchParams(window.location.search)
-    const pid = params.get('product_id')
-    if (pid) setProductId(pid)
-  }, [])
+    const t = localStorage.getItem('token');
+    setToken(t);
+    if (t) fetchMe(t);
+    else setLoading(false);
+  }, []);
 
-  const uploadFile = async (f: File) => {
-    setUploading(true)
-    const formData = new FormData()
-    formData.append('file', f)
-    const res = await fetch('http://localhost:4000/upload/file', {
-      method: 'POST',
-      body: formData,
-    })
-    const data = await res.json()
-    setUploadedFile(data)
-    setUploading(false)
+  async function fetchMe(t: string) {
+    try {
+      const res = await fetch(`${API}/auth/me`, { headers: { Authorization: `Bearer ${t}` } });
+      const data = await res.json();
+      setUserId(data.id);
+      fetchOrders(t, data.id);
+    } catch { setLoading(false); }
   }
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const f = e.target.files?.[0]
-    if (f) {
-      setFile(f)
-      uploadFile(f)
-    }
+  async function fetchOrders(t: string, uid: string) {
+    try {
+      const res = await fetch(`${API}/customer-dashboard/${uid}/orders`, {
+        headers: { Authorization: `Bearer ${t}` },
+      });
+      const data = await res.json();
+      const list = Array.isArray(data) ? data : [];
+      setOrders(list);
+      if (list.length > 0) setSelected(list[0]);
+    } catch {}
+    finally { setLoading(false); }
   }
 
-  const getQuote = async () => {
-    if (!productId) return
-    setLoading(true)
-    const res = await fetch('http://localhost:4000/pricing/quote', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        product_id: productId, quantity,
-        options: { ...(finish && { finish }), ...(side && { side }) },
-        delivery,
-      }),
-    })
-    const data = await res.json()
-    setQuote(data)
-    setStep(2)
-    setLoading(false)
-  }
+  const filtered = filter === 'all' ? orders : orders.filter(o => o.status === filter);
+  const currentStep = selected ? (STATUS_INDEX[selected.status] ?? 0) : 0;
+  const isCancelled = selected?.status === 'cancelled';
+  const sc = selected ? (STATUS_COLOR[selected.status] || STATUS_COLOR.pending) : STATUS_COLOR.pending;
 
-  const placeOrder = async () => {
-    setLoading(true)
-    const token = localStorage.getItem('token')
-    const user = JSON.parse(localStorage.getItem('user') || '{}')
-
-    const orderRes = await fetch('http://localhost:4000/orders', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify({
-        customer_id: user.id,
-        product_id: productId,
-        quantity,
-        total_price: quote.total,
-        options: { ...(finish && { finish }), ...(side && { side }) },
-        notes,
-        design_file_url: uploadedFile?.file_url || null,
-      }),
-    })
-    const order = await orderRes.json()
-
-    const payRes = await fetch('http://localhost:4000/payment/create', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        order_id: order.id,
-        customer_id: user.id,
-        amount: quote.total,
-      }),
-    })
-    const payment = await payRes.json()
-    setPaymentResult({ order, payment })
-    setStep(3)
-    setLoading(false)
-  }
+  if (!token) return (
+    <div style={{ padding: 40, textAlign: 'center', color: 'var(--text2)' }}>
+      Please login to view your orders.
+    </div>
+  );
 
   return (
-    <main className="min-h-screen bg-gray-950 text-white">
-      <nav className="border-b border-gray-800 px-8 py-4 flex items-center justify-between">
-        <a href="/" className="text-2xl font-bold text-orange-500">BizPrint</a>
-        <a href="/dashboard" className="text-gray-400 hover:text-white text-sm"> Dashboard</a>
-      </nav>
-
-      <div className="max-w-2xl mx-auto px-8 py-10">
-
-        {/* Steps */}
-        <div className="flex items-center gap-2 mb-10">
-          {['BMM34ME=', '=M 10B;0E', '";1@'].map((s, i) => (
-            <div key={s} className="flex items-center gap-2">
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold
-                ${step > i + 1 ? 'bg-green-500' : step === i + 1 ? 'bg-orange-500' : 'bg-gray-700'}`}>
-                {step > i + 1 ? '' : i + 1}
-              </div>
-              <span className={`text-sm ${step === i + 1 ? 'text-white' : 'text-gray-500'}`}>{s}</span>
-              {i < 2 && <div className="w-8 h-px bg-gray-700" />}
-            </div>
-          ))}
-        </div>
-
-        {/* Step 1 */}
-        {step === 1 && (
-          <div className="space-y-5">
-            <h1 className="text-2xl font-bold">0E80;3K= <M4MM;M;</h1>
-
-            <div>
-              <label className="block text-sm text-gray-400 mb-2">BMM34ME=</label>
-              <select value={productId} onChange={e => setProductId(e.target.value)}
-                className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-3 text-white">
-                <option value="">!>=3>=> CC...</option>
-                {products.map(p => (
-                  <option key={p.id} value={p.id}>{p.name_mn}</option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-sm text-gray-400 mb-2">
-                ">> H8@EM3: <span className="text-orange-400 font-semibold">{quantity}</span>
-              </label>
-              <input type="range" min={10} max={5000} step={10}
-                value={quantity} onChange={e => setQuantity(Number(e.target.value))}
-                className="w-full accent-orange-500" />
-              <div className="flex justify-between text-xs text-gray-500 mt-1">
-                <span>10</span><span>500</span><span>1000</span><span>5000</span>
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm text-gray-400 mb-2">00H 1>;>2A@CC;0;B</label>
-              <select value={finish} onChange={e => setFinish(e.target.value)}
-                className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-3 text-white">
-                <option value="">09E39</option>
-                <option value="matte_laminate">0BB ;0<8=0B (+20%)</option>
-                <option value="gloss_laminate">;>AA ;0<8=0B (+18%)</option>
-                <option value="soft_touch">O3:89 A5=A>@ (+35%)</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-sm text-gray-400 mb-2">%M2;ME B0;</label>
-              <select value={side} onChange={e => setSide(e.target.value)}
-                className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-3 text-white">
-                <option value="">M3 B0;</option>
-                <option value="double">%>Q@ B0; (+70%)</option>
-              </select>
-            </div>
-
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input type="checkbox" checked={delivery} onChange={e => setDelivery(e.target.checked)}
-                className="accent-orange-500 w-4 h-4" />
-              <span className="text-sm">%@3M;B EM@M3BM9 (+15,000)</span>
-            </label>
-
-            {/* Design D09; upload */}
-            <div>
-              <label className="block text-sm text-gray-400 mb-2">
-                8709= D09; <span className="text-gray-600">(70020; 18H  .pdf, .ai, .png, .jpg)</span>
-              </label>
-              <div className={`border-2 border-dashed rounded-xl p-6 text-center transition-all
-                ${uploadedFile ? 'border-green-500 bg-green-500/10' : 'border-gray-700 hover:border-orange-500'}`}>
-                {uploadedFile ? (
-                  <div>
-                    <div className="text-3xl mb-2"></div>
-                    <p className="text-green-400 font-semibold text-sm">{file?.name}</p>
-                    <p className="text-gray-400 text-xs mt-1">{uploadedFile.size_mb} MB</p>
-                    <button onClick={() => { setFile(null); setUploadedFile(null) }}
-                      className="mt-2 text-xs text-red-400 hover:underline">
-                      #AB30E
-                    </button>
-                  </div>
-                ) : uploading ? (
-                  <div>
-                    <div className="text-3xl mb-2"></div>
-                    <p className="text-gray-400 text-sm">$09; upload E896 109=0...</p>
-                  </div>
-                ) : (
-                  <label className="cursor-pointer">
-                    <div className="text-3xl mb-2">=</div>
-                    <p className="text-gray-400 text-sm">$09; A>=3>E MA2M; M=4 G8@ME</p>
-                    <p className="text-gray-600 text-xs mt-1">PDF, AI, PNG, JPG  max 50MB</p>
-                    <input type="file" className="hidden"
-                      accept=".pdf,.ai,.png,.jpg,.jpeg,.eps"
-                      onChange={handleFileChange} />
-                  </label>
-                )}
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm text-gray-400 mb-2">"09;10@ (70020; 18H)</label>
-              <textarea value={notes} onChange={e => setNotes(e.target.value)}
-                rows={3} placeholder="0E80;3K= B09;10@, BCA309 EAM;B..."
-                className="w-full bg-gray-900 border border-gray-700 rounded-lg px-4 py-3 text-white resize-none" />
-            </div>
-
-            <button onClick={getQuote} disabled={!productId || loading || uploading}
-              className="w-full py-4 bg-orange-500 rounded-xl font-semibold text-lg hover:bg-orange-600 disabled:opacity-50">
-              {loading ? '">>F>>;6 109=0...' : uploading ? '$09; upload E896 109=0...' : '@3M;6;;ME '}
-            </button>
-          </div>
-        )}
-
-        {/* Step 2 */}
-        {step === 2 && quote && (
-          <div className="space-y-5">
-            <h1 className="text-2xl font-bold">=89= A0=0; 10B;0E</h1>
-            <div className="bg-gray-900 rounded-xl p-6 space-y-3">
-              <h2 className="text-lg font-semibold text-orange-400">{quote.product_name}</h2>
-              {[
-                { label: '">> H8@EM3', value: `${quote.quantity} H8@EM3` },
-                { label: 'M36 =M', value: `${Number(quote.unit_price).toLocaleString()}` },
-                { label: '89B 4=', value: `${Number(quote.subtotal).toLocaleString()}` },
-                { label: ';0BD>@< H8<B3M;', value: `${Number(quote.platform_margin).toLocaleString()}` },
-                { label: '%@3M;B', value: `${Number(quote.delivery_fee).toLocaleString()}` },
-              ].map(row => (
-                <div key={row.label} className="flex justify-between text-sm border-b border-gray-800 pb-2">
-                  <span className="text-gray-400">{row.label}</span>
-                  <span>{row.value}</span>
-                </div>
-              ))}
-              {uploadedFile && (
-                <div className="flex justify-between text-sm border-b border-gray-800 pb-2">
-                  <span className="text-gray-400">8709= D09;</span>
-                  <span className="text-green-400"> {file?.name}</span>
-                </div>
-              )}
-              <div className="flex justify-between font-bold text-xl pt-2">
-                <span>89B B;E</span>
-                <span className="text-orange-400">{Number(quote.total).toLocaleString()}</span>
-              </div>
-            </div>
-            <div className="flex gap-3">
-              <button onClick={() => setStep(1)}
-                className="flex-1 py-3 border border-gray-600 rounded-xl hover:border-orange-500">
-                 CF0E
-              </button>
-              <button onClick={placeOrder} disabled={loading}
-                className="flex-1 py-3 bg-orange-500 rounded-xl font-semibold hover:bg-orange-600 disabled:opacity-50">
-                {loading ? '0E80;6 109=0...' : '0E80;30 3E '}
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Step 3 */}
-        {step === 3 && paymentResult && (
-          <div className="space-y-5 text-center">
-            <div className="text-6xl"><</div>
-            <h1 className="text-2xl font-bold">0E80;30 0<68;BB09!</h1>
-            <div className="bg-gray-900 rounded-xl p-6 text-left space-y-3">
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-400">0E80;3K= 4C300@</span>
-                <span className="font-mono text-xs">{paymentResult.order.id.slice(0, 16)}...</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-400">Invoice :>4</span>
-                <span className="text-orange-400 font-semibold">{paymentResult.payment.invoice_code}</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-400">";E 4=</span>
-                <span className="font-bold text-lg">{Number(paymentResult.payment.amount).toLocaleString()}</span>
-              </div>
-              {uploadedFile && (
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-400">8709= D09;</span>
-                  <span className="text-green-400"> %;MM= 02;00</span>
-                </div>
-              )}
-              <div className="bg-orange-500/10 border border-orange-500/30 rounded-lg p-4 mt-4">
-                <p className="text-orange-400 text-sm font-semibold mb-1">QPay QR :>4</p>
-                <p className="text-xs text-gray-400">{paymentResult.payment.qr_text}</p>
-                <a href={paymentResult.payment.qpay_url} target="_blank"
-                  className="mt-2 block text-center py-2 bg-orange-500 rounded-lg text-sm font-semibold hover:bg-orange-600">
-                  QPay-MM@ B;E
-                </a>
-              </div>
-            </div>
-            <a href="/dashboard"
-              className="block py-3 border border-gray-600 rounded-xl hover:border-orange-500">
-              Dashboard @CC 1CF0E
-            </a>
-          </div>
-        )}
+    <div style={{ padding: '24px', maxWidth: 1100, margin: '0 auto' }}>
+      <div style={{ marginBottom: 20 }}>
+        <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--text)', margin: 0 }}>My Orders</h1>
+        <p style={{ color: 'var(--text2)', margin: '4px 0 0', fontSize: 14 }}>Track your order status in real-time</p>
       </div>
-    </main>
-  )
+
+      {/* Filter tabs */}
+      <div style={{ display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap' }}>
+        {['all', 'pending', 'paid', 'in_production', 'completed', 'delivered', 'cancelled'].map(f => (
+          <button key={f} onClick={() => setFilter(f)} style={{
+            padding: '5px 12px', borderRadius: 99, border: '1px solid var(--border)',
+            background: filter === f ? 'var(--orange)' : 'var(--surface)',
+            color: filter === f ? '#fff' : 'var(--text2)',
+            cursor: 'pointer', fontSize: 12, fontWeight: 500,
+          }}>
+            {f === 'all' ? 'All' : f.replace('_', ' ')}
+            {f === 'all' ? ` (${orders.length})` : ` (${orders.filter(o => o.status === f).length})`}
+          </button>
+        ))}
+      </div>
+
+      {loading ? (
+        <div style={{ textAlign: 'center', padding: 40, color: 'var(--text2)' }}>Loading...</div>
+      ) : orders.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: 60, border: '2px dashed var(--border)', borderRadius: 16, color: 'var(--text2)' }}>
+          <div style={{ fontSize: 40, marginBottom: 12 }}>📭</div>
+          <div style={{ fontWeight: 600 }}>No orders yet</div>
+        </div>
+      ) : (
+        <div style={{ display: 'grid', gridTemplateColumns: '320px 1fr', gap: 20 }}>
+
+          {/* Order list */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {filtered.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: 20, color: 'var(--text2)', fontSize: 13 }}>No orders in this status</div>
+            ) : filtered.map(o => {
+              const s = STATUS_COLOR[o.status] || STATUS_COLOR.pending;
+              return (
+                <div key={o.id} onClick={() => setSelected(o)} style={{
+                  padding: '14px 16px', borderRadius: 12,
+                  border: `2px solid ${selected?.id === o.id ? 'var(--orange)' : 'var(--border)'}`,
+                  background: selected?.id === o.id ? 'rgba(255,107,0,0.04)' : 'var(--surface)',
+                  cursor: 'pointer', transition: 'all 0.15s',
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: selected?.id === o.id ? 'var(--orange)' : 'var(--text)' }}>
+                      #{o.id.slice(0, 8).toUpperCase()}
+                    </div>
+                    <span style={{
+                      fontSize: 11, padding: '2px 8px', borderRadius: 99,
+                      background: s.bg, color: s.color, fontWeight: 600,
+                    }}>
+                      {o.status.replace('_', ' ')}
+                    </span>
+                  </div>
+                  <div style={{ fontSize: 13, color: 'var(--text)', marginTop: 6, fontWeight: 500 }}>
+                    {o.product_name || 'Product'}
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6 }}>
+                    <span style={{ fontSize: 12, color: 'var(--text2)' }}>Qty: {o.quantity}</span>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--orange)' }}>
+                      T{Number(o.total_price).toLocaleString()}
+                    </span>
+                  </div>
+                  <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 4 }}>
+                    {new Date(o.created_at).toLocaleDateString()}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Order detail */}
+          {selected && (
+            <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: 24 }}>
+
+              {/* Header */}
+              <div style={{
+                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                marginBottom: 24, padding: '14px 18px', borderRadius: 12,
+                background: isCancelled ? '#fee2e2' : sc.bg,
+              }}>
+                <div>
+                  <div style={{ fontSize: 12, color: 'var(--text2)' }}>Order #{selected.id.slice(0, 8).toUpperCase()}</div>
+                  <div style={{ fontSize: 20, fontWeight: 700, color: isCancelled ? '#dc2626' : sc.color, marginTop: 2 }}>
+                    {isCancelled ? 'Cancelled' : FLOW[currentStep]?.label}
+                  </div>
+                </div>
+                <div style={{ fontSize: 32 }}>{isCancelled ? '❌' : FLOW[currentStep]?.icon}</div>
+              </div>
+
+              {/* Timeline */}
+              {!isCancelled && (
+                <div style={{ marginBottom: 24 }}>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text2)', marginBottom: 14, textTransform: 'uppercase' }}>
+                    Order Progress
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 0 }}>
+                    {FLOW.map((step, i) => {
+                      const done = i <= currentStep;
+                      const active = i === currentStep;
+                      return (
+                        <div key={step.key} style={{ display: 'flex', alignItems: 'center', flex: i < FLOW.length - 1 ? 1 : 0 }}>
+                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+                            <div style={{
+                              width: 32, height: 32, borderRadius: '50%',
+                              background: done ? step.color : 'var(--surface2)',
+                              border: `2px solid ${done ? step.color : 'var(--border)'}`,
+                              display: 'flex', alignItems: 'center', justifyContent: 'center',
+                              fontSize: done ? 14 : 12,
+                              boxShadow: active ? `0 0 0 4px ${step.color}30` : 'none',
+                              transition: 'all 0.2s', flexShrink: 0,
+                            }}>
+                              {done ? (active ? step.icon : '✓') : <span style={{ color: 'var(--text3)', fontSize: 11 }}>{i + 1}</span>}
+                            </div>
+                            <div style={{
+                              fontSize: 10, fontWeight: active ? 700 : 400,
+                              color: done ? step.color : 'var(--text3)',
+                              textAlign: 'center', whiteSpace: 'nowrap',
+                            }}>
+                              {step.label}
+                            </div>
+                          </div>
+                          {i < FLOW.length - 1 && (
+                            <div style={{
+                              flex: 1, height: 2, marginBottom: 22,
+                              background: i < currentStep ? step.color : 'var(--border)',
+                              transition: 'background 0.3s',
+                            }} />
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Order info */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
+                {[
+                  { label: 'Product', value: selected.product_name || '-' },
+                  { label: 'Quantity', value: selected.quantity },
+                  { label: 'Unit Price', value: `T${Number(selected.unit_price || 0).toLocaleString()}` },
+                  { label: 'Total', value: `T${Number(selected.total_price).toLocaleString()}` },
+                  { label: 'Payment', value: selected.payment_status || 'pending' },
+                  { label: 'Invoice', value: selected.invoice_no || '-' },
+                  { label: 'Ordered', value: new Date(selected.created_at).toLocaleDateString() },
+                  { label: 'Updated', value: new Date(selected.updated_at).toLocaleDateString() },
+                ].map(item => (
+                  <div key={item.label} style={{
+                    padding: '10px 14px', background: 'var(--surface2)', borderRadius: 10,
+                  }}>
+                    <div style={{ fontSize: 11, color: 'var(--text2)', fontWeight: 600, textTransform: 'uppercase', marginBottom: 4 }}>
+                      {item.label}
+                    </div>
+                    <div style={{ fontSize: 13, color: 'var(--text)', fontWeight: 500 }}>{item.value}</div>
+                  </div>
+                ))}
+              </div>
+
+              {selected.notes && (
+                <div style={{ padding: '10px 14px', background: 'var(--surface2)', borderRadius: 10, marginBottom: 12 }}>
+                  <div style={{ fontSize: 11, color: 'var(--text2)', fontWeight: 600, textTransform: 'uppercase', marginBottom: 4 }}>Notes</div>
+                  <div style={{ fontSize: 13, color: 'var(--text)' }}>{selected.notes}</div>
+                </div>
+              )}
+
+              {selected.file_url && (
+                <a href={selected.file_url} target="_blank" rel="noreferrer" style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 6,
+                  padding: '8px 14px', borderRadius: 8,
+                  border: '1px solid var(--border)', color: 'var(--orange)',
+                  textDecoration: 'none', fontSize: 13, fontWeight: 500,
+                }}>
+                  📎 View File
+                </a>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
 }

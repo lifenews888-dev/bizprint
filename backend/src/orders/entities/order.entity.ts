@@ -104,6 +104,12 @@ export class Order {
   @Column({ nullable: true })
   file_url: string;
 
+  @Column({ nullable: true })
+  assigned_to: string;
+
+  @Column({ nullable: true })
+  deadline: Date;
+
   @CreateDateColumn()
   created_at: Date;
 

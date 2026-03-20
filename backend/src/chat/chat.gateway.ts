@@ -4,6 +4,7 @@
 } from '@nestjs/websockets'
 import { Server, Socket } from 'socket.io'
 import { ChatService } from './chat.service'
+import { NotificationService } from '../notifications/notification.service'
 
 @WebSocketGateway({ cors: { origin: '*' }, namespace: '/chat' })
 export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
@@ -12,7 +13,10 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   private connectedUsers = new Map<string, string>()
 
-  constructor(private chatService: ChatService) {}
+  constructor(
+    private chatService: ChatService,
+    private notificationService: NotificationService,
+  ) {}
 
   handleConnection(client: Socket) {
     console.log('Chat client connected:', client.id)
@@ -30,6 +34,9 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   ) {
     this.connectedUsers.set(client.id, data.userId)
     client.join('user-' + data.userId)
+    if (data.role === 'admin') {
+      client.join('admin-notify')
+    }
     const rooms = await this.chatService.getRoomsForUser(data.userId)
     for (const room of rooms) {
       client.join(room.room_id)
@@ -61,6 +68,24 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   ) {
     const saved = await this.chatService.saveMessage(data)
     this.server.to(data.room_id).emit('new_message', saved)
+    // notify admins
+    this.server.to('admin-notify').emit('notify', {
+      type: 'chat',
+      room_id: data.room_id,
+      sender_id: data.sender_id,
+      sender_name: data.sender_name,
+      message: data.message,
+      file_url: data.file_url,
+      created_at: saved.created_at,
+    })
+    // persist notification for admin user
+    await this.notificationService.create({
+      user_id: 'admin',
+      type: 'chat',
+      title: `Шинэ чат: ${data.sender_name || data.sender_id}`,
+      message: data.message,
+      data: { room_id: data.room_id, sender_id: data.sender_id, file_url: data.file_url },
+    })
   }
 
   @SubscribeMessage('create_room')

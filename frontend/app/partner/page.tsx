@@ -8,7 +8,7 @@ const F = "'Segoe UI',system-ui,sans-serif"
 const PARTNERS = [
   {
     key: 'vendor',
-    icon: '<',
+    icon: '🏭',
     title: 'Factory / Vendor',
     desc: 'Print factory or service provider',
     perks: ['Receive orders directly', 'Track machine workload', 'Get paid to your wallet'],
@@ -16,7 +16,7 @@ const PARTNERS = [
   },
   {
     key: 'designer',
-    icon: '<',
+    icon: '🎨',
     title: 'Designer',
     desc: 'Professional graphic designer',
     perks: ['Get design jobs', 'Earn per approved design', 'Build your portfolio'],
@@ -24,7 +24,7 @@ const PARTNERS = [
   },
   {
     key: 'courier',
-    icon: '=',
+    icon: '🚚',
     title: 'Delivery / Courier',
     desc: 'Delivery driver or courier service',
     perks: ['Flexible schedule', 'Earn per delivery', 'Real-time route tracking'],
@@ -32,7 +32,7 @@ const PARTNERS = [
   },
   {
     key: 'sales',
-    icon: '=',
+    icon: '💼',
     title: 'Sales / Referral',
     desc: 'Sales agent or referral partner',
     perks: ['Earn commission per order', 'Use referral QR code', 'Track your earnings'],
@@ -75,7 +75,7 @@ export default function PartnerPage() {
   if (submitted) return (
     <div style={{ minHeight: '100vh', background: '#0A0A0A', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: F, padding: 24 }}>
       <div style={{ textAlign: 'center', maxWidth: 420 }}>
-        <div style={{ fontSize: 64, marginBottom: 24 }}></div>
+        <div style={{ fontSize: 64, marginBottom: 24 }}>✅</div>
         <h2 style={{ fontSize: 28, fontWeight: 700, color: '#F1F5F9', margin: '0 0 12px' }}>Application Submitted!</h2>
         <p style={{ color: '#888', fontSize: 15, lineHeight: 1.7, margin: '0 0 32px' }}>
           We will review your application and contact you within 1-2 business days.

@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 import { useState, useEffect } from 'react';
 
 const API = 'http://localhost:4000';
@@ -150,7 +150,7 @@ export default function DeliveryTrackingPage() {
                 <div key={o.id} onClick={() => selectOrder(o.id)} style={{
                   padding: '12px 14px', borderRadius: 10,
                   border: `2px solid ${selectedOrder === o.id ? 'var(--orange)' : 'var(--border)'}`,
-                  background: selectedOrder === o.id ? 'var(--orange-06)' : 'var(--surface)',
+                  background: selectedOrder === o.id ? 'rgba(255,107,0,0.06)' : 'var(--surface)',
                   cursor: 'pointer', transition: 'all 0.15s',
                 }}>
                   <div style={{ fontSize: 12, fontWeight: 600, color: selectedOrder === o.id ? 'var(--orange)' : 'var(--text)' }}>
@@ -194,7 +194,7 @@ export default function DeliveryTrackingPage() {
                 <div style={{
                   display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 28,
                   padding: '14px 18px', borderRadius: 12,
-                  background: isFailed ? '#fee2e2' : delivery.status === 'delivered' ? '#dcfce7' : 'var(--orange-08)',
+                  background: isFailed ? '#fee2e2' : delivery.status === 'delivered' ? '#dcfce7' : 'rgba(255,107,0,0.08)',
                 }}>
                   <div>
                     <div style={{ fontSize: 13, color: 'var(--text2)' }}>Current Status</div>
@@ -227,7 +227,7 @@ export default function DeliveryTrackingPage() {
                                 border: `2px solid ${done ? 'var(--orange)' : 'var(--border)'}`,
                                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                                 fontSize: 12, color: done ? '#fff' : 'var(--text3)',
-                                boxShadow: active ? '0 0 0 4px var(--orange-20)' : 'none',
+                                boxShadow: active ? '0 0 0 4px rgba(255,107,0,0.2)' : 'none',
                                 transition: 'all 0.2s',
                               }}>
                                 {done ? '✓' : i + 1}

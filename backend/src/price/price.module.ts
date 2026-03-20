@@ -3,8 +3,6 @@ import { TypeOrmModule } from '@nestjs/typeorm'
 
 import { PriceService } from './price.service'
 import { PriceController } from './price.controller'
-import { PaperTypeController } from './paper-type.controller'
-import { PrintSizeController } from './print-size.controller'
 
 import { PaperType } from './paper-type.entity'
 import { PrintSize } from './print-size.entity'
@@ -22,8 +20,6 @@ import { Machine } from '../machines/machine.entity'
   ],
   controllers: [
     PriceController,
-    PaperTypeController,
-    PrintSizeController
   ],
   providers: [
     PriceService
