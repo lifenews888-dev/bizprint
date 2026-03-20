@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, Logger } from '@nestjs/common'
+import { Injectable, NotFoundException, Logger, Inject, forwardRef } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
 import { Repository } from 'typeorm'
 import { Delivery, DeliveryStatus } from './delivery.entity'
@@ -6,6 +6,7 @@ import { MailService } from '../mail/mail.service'
 import { WalletService } from '../wallet/wallet.service'
 import { SettingsService } from '../settings/settings.service'
 import { WebhookService } from './webhook.service'
+import { DeliveryGateway } from './delivery.gateway'
 
 const DEFAULT_COURIER_FEE = 5000
 const DEFAULT_TAX_PERCENT = 10
@@ -21,6 +22,8 @@ export class DeliveryService {
     private walletService: WalletService,
     private settingsService: SettingsService,
     private webhookService: WebhookService,
+    @Inject(forwardRef(() => DeliveryGateway))
+    private deliveryGateway: DeliveryGateway,
   ) {}
 
   findAll() {
@@ -74,6 +77,9 @@ export class DeliveryService {
     const previousStatus = delivery.status
     delivery.status = status
     await this.repo.save(delivery)
+
+    // Real-time notification via Socket.IO
+    this.deliveryGateway.notifyStatusChange(id, status, { previousStatus, updatedAt: new Date().toISOString() })
 
     // Trigger webhook for status change
     this.webhookService.trigger('status_changed', {

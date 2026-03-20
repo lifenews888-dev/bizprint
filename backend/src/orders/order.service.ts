@@ -4,6 +4,8 @@ import { Repository } from 'typeorm';
 import { Order, OrderStatus } from './entities/order.entity';
 import { AuditTrail } from '../audit-trail/audit-trail.entity';
 import { MailService } from '../mail/mail.service';
+import { OrdersGateway } from './orders.gateway';
+import { NotificationService } from '../notifications/notification.service';
 
 // Workflow stage дараалал (index-ээр буцаана)
 const WORKFLOW_STAGES = [
@@ -26,6 +28,8 @@ export class OrdersService {
     @InjectRepository(AuditTrail)
     private auditRepo: Repository<AuditTrail>,
     private mailService: MailService,
+    private ordersGateway: OrdersGateway,
+    private notificationService: NotificationService,
   ) {}
 
   async createOrder(data: any) {
@@ -98,7 +102,35 @@ export class OrdersService {
 
   async updateStatus(id: string, status: string) {
     await this.ordersRepo.update(id, { status });
-    return this.getOrderById(id);
+    const order = await this.getOrderById(id);
+
+    // Real-time notification via Socket.IO
+    this.ordersGateway.notifyStatusChange(id, status, {});
+
+    // Push notification for key statuses
+    const customerId = (order as any).customer_id || (order as any).user_id;
+    if (customerId) {
+      const statusMessages: Record<string, string> = {
+        'delivering': 'Таны захиалга хүргэгдэж байна 🚚',
+        'DISPATCHED': 'Таны захиалга илгээгдлээ 📦',
+        'DELIVERED': 'Захиалга хүргэгдлээ. Үнэлгээ өгнө үү ⭐',
+        'completed': 'Захиалга амжилттай дууслаа ✅',
+        'ready': 'Захиалга бэлэн боллоо 🎉',
+      };
+      if (statusMessages[status]) {
+        try {
+          await this.notificationService.create({
+            user_id: customerId,
+            type: 'ORDER' as any,
+            title: 'Захиалгын мэдэгдэл',
+            message: statusMessages[status],
+            data: { order_id: id, status },
+          });
+        } catch {}
+      }
+    }
+
+    return order;
   }
 
   async updateOrder(id: string, data: any) {

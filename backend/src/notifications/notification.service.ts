@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm'
 import { Repository } from 'typeorm'
 import { Notification, NotificationType } from './notification.entity'
 import { PushToken } from './push-token.entity'
+import { NotificationsGateway } from './notifications.gateway'
 
 @Injectable()
 export class NotificationService {
@@ -11,6 +12,7 @@ export class NotificationService {
     private repo: Repository<Notification>,
     @InjectRepository(PushToken)
     private pushTokenRepo: Repository<PushToken>,
+    private notificationsGateway: NotificationsGateway,
   ) {}
 
   async create(params: {
@@ -21,7 +23,18 @@ export class NotificationService {
     data?: any
   }) {
     const n = this.repo.create(params)
-    return this.repo.save(n)
+    const saved = await this.repo.save(n)
+
+    // Real-time push via Socket.IO
+    this.notificationsGateway.notifyUser(params.user_id, {
+      id: saved.id,
+      type: saved.type,
+      title: saved.title,
+      message: saved.message,
+      created_at: saved.created_at,
+    })
+
+    return saved
   }
 
   findForUser(user_id: string, limit = 50) {
