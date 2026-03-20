@@ -15,6 +15,12 @@ async function bootstrap() {
     credentials: true,
   });
 
+  // Request logger — бүх хүсэлтийг лог хийнэ
+  app.use((req: any, _res: any, next: any) => {
+    console.log(`[${new Date().toLocaleTimeString()}] ${req.method} ${req.url} from ${req.ip}`);
+    next();
+  });
+
   app.useStaticAssets(join(__dirname, '..', 'uploads'), {
     prefix: '/uploads/',
   });
