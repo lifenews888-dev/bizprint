@@ -254,20 +254,70 @@ export class PricingEngineService {
   }
 
   // Competitor CRUD
-  async findAllCompetitorPrices() {
-    return this.compRepo.find({ order: { competitor_name: 'ASC', product_code: 'ASC' } })
+  async findAllCompetitorPrices(filters?: { product_type?: string; product_subtype?: string; is_active?: boolean }) {
+    const qb = this.compRepo.createQueryBuilder('cp').orderBy('cp.factory_name', 'ASC').addOrderBy('cp.product_type', 'ASC')
+    if (filters?.product_type) qb.andWhere('cp.product_type = :pt', { pt: filters.product_type })
+    if (filters?.product_subtype) qb.andWhere('cp.product_subtype = :ps', { ps: filters.product_subtype })
+    if (filters?.is_active !== undefined) qb.andWhere('cp.is_active = :active', { active: filters.is_active })
+    return qb.getMany()
   }
 
   async saveCompetitorPrice(data: Partial<CompetitorPrice>) {
-    // Upsert by competitor_name + product_code
-    const existing = await this.compRepo.findOne({
-      where: { competitor_name: data.competitor_name, product_code: data.product_code },
-    })
-    if (existing) {
-      await this.compRepo.update(existing.id, data)
-      return this.compRepo.findOne({ where: { id: existing.id } })
-    }
+    // Backward compat: map old fields to new
+    if (data.competitor_name && !data.factory_name) (data as any).factory_name = data.competitor_name
+    if (data.price && !data.unit_price) (data as any).unit_price = data.price
     return this.compRepo.save(this.compRepo.create(data))
+  }
+
+  async updateCompetitorPrice(id: string, data: Partial<CompetitorPrice>) {
+    await this.compRepo.update(id, data)
+    return this.compRepo.findOne({ where: { id } })
+  }
+
+  async deleteCompetitorPrice(id: string) {
+    await this.compRepo.delete(id)
+    return { deleted: true }
+  }
+
+  async getMarketAnalysis(params: { product_type: string; product_subtype?: string; size?: string; gsm?: number; quantity?: number }) {
+    const qb = this.compRepo.createQueryBuilder('cp')
+      .where('cp.is_active = true')
+      .andWhere('cp.product_type = :pt', { pt: params.product_type })
+
+    if (params.product_subtype) qb.andWhere('cp.product_subtype = :ps', { ps: params.product_subtype })
+    if (params.size) qb.andWhere('cp.size = :sz', { sz: params.size })
+    if (params.gsm) qb.andWhere('(cp.gsm = :gsm OR cp.gsm IS NULL)', { gsm: params.gsm })
+    if (params.quantity) {
+      qb.andWhere('(cp.quantity_min <= :qty)', { qty: params.quantity })
+      qb.andWhere('(cp.quantity_max >= :qty OR cp.quantity_max IS NULL)', { qty: params.quantity })
+    }
+
+    const prices = await qb.getMany()
+    if (prices.length === 0) return { has_data: false, sample_count: 0 }
+
+    const unitPrices = prices.map(p => Number(p.unit_price))
+    const avg = unitPrices.reduce((a, b) => a + b, 0) / unitPrices.length
+    const min = Math.min(...unitPrices)
+    const max = Math.max(...unitPrices)
+
+    const factories = [...new Set(prices.map(p => p.factory_name))]
+
+    return {
+      has_data: true,
+      market_avg_unit_price: Math.round(avg),
+      market_min_unit_price: Math.round(min),
+      market_max_unit_price: Math.round(max),
+      sample_count: prices.length,
+      factories,
+      entries: prices.map(p => ({
+        factory: p.factory_name,
+        unit_price: Number(p.unit_price),
+        size: p.size,
+        gsm: p.gsm,
+        qty_range: `${p.quantity_min}-${p.quantity_max || '∞'}`,
+        date: p.date_collected,
+      })),
+    }
   }
 
   // Seed rules and tiers
@@ -302,16 +352,26 @@ export class PricingEngineService {
     ]
     for (const r of rules) await this.ruleRepo.save(this.ruleRepo.create(r as any))
 
-    // Seed competitor prices
+    // Seed competitor prices (expanded)
     const competitors = [
-      { competitor_name: 'Гангар', product_code: 'TOVGOR', price: 40000 },
-      { competitor_name: 'Гангар', product_code: 'OFFSET_A4', price: 180 },
-      { competitor_name: 'Омо гүн', product_code: 'TOVGOR', price: 38000 },
-      { competitor_name: 'Омо гүн', product_code: 'OFFSET_A4', price: 160 },
-      { competitor_name: 'Өрсөлдөгч 3', product_code: 'TOVGOR', price: 42000 },
-      { competitor_name: 'Өрсөлдөгч 3', product_code: 'WIDE_FORMAT', price: 9000 },
+      // Offset
+      { factory_name: 'Гангар принт', product_type: 'offset', product_subtype: 'Нэрийн хуудас', size: 'BC', gsm: 300, quantity_min: 100, quantity_max: 500, unit_price: 180, date_collected: new Date() },
+      { factory_name: 'Гангар принт', product_type: 'offset', product_subtype: 'Флаер', size: 'A4', gsm: 130, quantity_min: 100, quantity_max: 1000, unit_price: 160, date_collected: new Date() },
+      { factory_name: 'Гангар принт', product_type: 'offset', product_subtype: 'Флаер', size: 'A5', gsm: 130, quantity_min: 100, quantity_max: 1000, unit_price: 95, date_collected: new Date() },
+      { factory_name: 'Омо гүн', product_type: 'offset', product_subtype: 'Нэрийн хуудас', size: 'BC', gsm: 300, quantity_min: 100, quantity_max: 500, unit_price: 160, date_collected: new Date() },
+      { factory_name: 'Омо гүн', product_type: 'offset', product_subtype: 'Флаер', size: 'A4', gsm: 130, quantity_min: 100, quantity_max: 1000, unit_price: 145, date_collected: new Date() },
+      { factory_name: 'Адмон принт', product_type: 'offset', product_subtype: 'Флаер', size: 'A4', gsm: 150, quantity_min: 500, quantity_max: 5000, unit_price: 120, date_collected: new Date() },
+      { factory_name: 'Адмон принт', product_type: 'offset', product_subtype: 'Боршур', size: 'A4', gsm: 170, quantity_min: 100, quantity_max: 1000, unit_price: 350, date_collected: new Date() },
+      // Wide
+      { factory_name: 'Гангар принт', product_type: 'wide', product_subtype: 'banner', size: null, quantity_min: 1, unit_price: 9000, date_collected: new Date() },
+      { factory_name: 'Скай реклам', product_type: 'wide', product_subtype: 'banner', size: null, quantity_min: 1, unit_price: 8500, date_collected: new Date() },
+      { factory_name: 'Скай реклам', product_type: 'wide', product_subtype: 'sticker', size: null, quantity_min: 1, unit_price: 13000, date_collected: new Date() },
+      // Sign
+      { factory_name: 'Гангар реклам', product_type: 'sign', product_subtype: 'tovgor', size: '30cm', quantity_min: 1, unit_price: 40000, date_collected: new Date() },
+      { factory_name: 'Омо гүн', product_type: 'sign', product_subtype: 'tovgor', size: '30cm', quantity_min: 1, unit_price: 38000, date_collected: new Date() },
+      { factory_name: 'Өрсөлдөгч 3', product_type: 'sign', product_subtype: 'tovgor', size: '30cm', quantity_min: 1, unit_price: 42000, date_collected: new Date() },
     ]
-    for (const c of competitors) await this.compRepo.save(this.compRepo.create(c))
+    for (const c of competitors) await this.compRepo.save(this.compRepo.create(c as any))
 
     return { message: 'Pricing engine seeded successfully' }
   }

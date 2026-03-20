@@ -33,10 +33,22 @@ interface PricingTier {
 
 interface CompetitorPrice {
   id: string
-  competitor_name: string
-  product_code: string
-  price: number
+  factory_name: string
+  product_type: string
+  product_subtype: string | null
+  size: string | null
+  gsm: number | null
+  quantity_min: number
+  quantity_max: number | null
+  unit_price: number
+  total_price: number | null
+  date_collected: string | null
   notes: string | null
+  is_active: boolean
+  // backward compat
+  competitor_name?: string
+  product_code?: string
+  price?: number
   updated_at: string
 }
 
@@ -88,6 +100,20 @@ const EFFECT_TYPES = [
 ]
 
 const COMPETITOR_NAMES = ['Гангар', 'Омо гүн', 'Өрсөлдөгч 3', 'Өрсөлдөгч 4', 'Өрсөлдөгч 5']
+const COMP_PRODUCT_TYPES = [
+  { value: 'offset', label: 'Офсет хэвлэл' },
+  { value: 'wide', label: 'Өргөн хэвлэл' },
+  { value: 'sign', label: 'Хаяг реклам' },
+]
+const COMP_SUBTYPES: Record<string, string[]> = {
+  offset: ['Нэрийн хуудас', 'Флаер', 'Боршур', 'Постер', 'Ном', 'Каталог', 'Клендар', 'Меню'],
+  wide: ['banner', 'sticker', 'flag', 'canvas'],
+  sign: ['tovgor', 'nerj', 'd3', 'sambar', 'pvc', 'epoxy', 'font', 'tmr'],
+}
+const COMP_SIZES: Record<string, string[]> = {
+  offset: ['A6', 'A5', 'A4', 'A3', 'BC'],
+  sign: ['20cm', '30cm', '40cm', '50cm', '60cm', '70cm', '80cm', '90cm', '100cm'],
+}
 
 const PRODUCT_CODES = [
   'BANNER_VINYL',
@@ -836,21 +862,26 @@ function SimulationTab() {
 function CompetitorTab() {
   const [competitors, setCompetitors] = useState<CompetitorPrice[]>([])
   const [loading, setLoading] = useState(true)
-  const [activeComp, setActiveComp] = useState(COMPETITOR_NAMES[0])
-  const [newCode, setNewCode] = useState('')
-  const [newPrice, setNewPrice] = useState('')
+  const [filterType, setFilterType] = useState('offset')
   const [saving, setSaving] = useState(false)
-  const [tiers, setTiers] = useState<PricingTier[]>([])
+
+  // Form state
+  const [fFactory, setFFactory] = useState('')
+  const [fType, setFType] = useState('offset')
+  const [fSubtype, setFSubtype] = useState('')
+  const [fSize, setFSize] = useState('')
+  const [fGsm, setFGsm] = useState('')
+  const [fQtyMin, setFQtyMin] = useState('1')
+  const [fQtyMax, setFQtyMax] = useState('')
+  const [fUnitPrice, setFUnitPrice] = useState('')
+  const [fTotalPrice, setFTotalPrice] = useState('')
+  const [fNotes, setFNotes] = useState('')
 
   const loadData = useCallback(async () => {
     try {
       setLoading(true)
-      const [comps, tierData] = await Promise.all([
-        apiFetch<CompetitorPrice[]>('/pricing-engine/competitors'),
-        apiFetch<PricingTier[]>('/pricing-engine/tiers'),
-      ])
+      const comps = await apiFetch<CompetitorPrice[]>('/pricing-engine/competitors')
       setCompetitors(comps)
-      setTiers(tierData)
     } catch (e) {
       console.error('Failed to load competitor data', e)
     } finally {
@@ -858,24 +889,30 @@ function CompetitorTab() {
     }
   }, [])
 
-  useEffect(() => {
-    loadData()
-  }, [loadData])
+  useEffect(() => { loadData() }, [loadData])
 
   const savePrice = async () => {
-    if (!newCode || !newPrice) return
+    if (!fFactory || !fUnitPrice) return
     setSaving(true)
     try {
       await apiFetch('/pricing-engine/competitors', {
         method: 'POST',
         body: JSON.stringify({
-          competitor_name: activeComp,
-          product_code: newCode,
-          price: parseFloat(newPrice),
+          factory_name: fFactory,
+          product_type: fType,
+          product_subtype: fSubtype || null,
+          size: fSize || null,
+          gsm: fGsm ? Number(fGsm) : null,
+          quantity_min: Number(fQtyMin) || 1,
+          quantity_max: fQtyMax ? Number(fQtyMax) : null,
+          unit_price: parseFloat(fUnitPrice),
+          total_price: fTotalPrice ? parseFloat(fTotalPrice) : null,
+          notes: fNotes || null,
+          date_collected: new Date().toISOString().split('T')[0],
+          is_active: true,
         }),
       })
-      setNewCode('')
-      setNewPrice('')
+      setFFactory(''); setFSubtype(''); setFSize(''); setFGsm(''); setFQtyMin('1'); setFQtyMax(''); setFUnitPrice(''); setFTotalPrice(''); setFNotes('')
       loadData()
     } catch (e) {
       console.error('Failed to save competitor price', e)
@@ -884,30 +921,39 @@ function CompetitorTab() {
     }
   }
 
-  const compPrices = competitors.filter(c => c.competitor_name === activeComp)
-
-  // Build comparison data: group by product_code
-  const allProductCodes = [...new Set(competitors.map(c => c.product_code))].sort()
-  const comparisonData = allProductCodes.map(code => {
-    const prices = competitors.filter(c => c.product_code === code).map(c => Number(c.price))
-    const marketMin = prices.length > 0 ? Math.min(...prices) : 0
-    const marketAvg = prices.length > 0 ? Math.round(prices.reduce((a, b) => a + b, 0) / prices.length) : 0
-
-    // Find our tier prices (B2B and RETAIL)
-    const b2bTier = tiers.find(t => t.code === 'B2B')
-    const retailTier = tiers.find(t => t.code === 'RETAIL')
-    const b2bMargin = b2bTier ? Number(b2bTier.margin_rate) : 0.2
-    const retailMargin = retailTier ? Number(retailTier.margin_rate) : 0.45
-
-    // Approximate: we don't have base prices, so compare against market
-    const position = (ourPrice: number) => {
-      if (marketAvg === 0) return { label: '-', color: 'var(--text3)', bg: 'var(--surface2)' }
-      if (ourPrice < marketAvg * 0.95) return { label: 'Хямд', color: '#065F46', bg: '#D1FAE5' }
-      if (ourPrice > marketAvg * 1.05) return { label: 'Үнэтэй', color: '#991B1B', bg: '#FEE2E2' }
-      return { label: 'Дундаж', color: '#92400E', bg: '#FEF3C7' }
+  const deletePrice = async (id: string) => {
+    try {
+      await apiFetch(`/pricing-engine/competitors/${id}`, { method: 'DELETE' })
+      loadData()
+    } catch (e) {
+      console.error('Failed to delete', e)
     }
+  }
 
-    return { code, marketMin, marketAvg, b2bMargin, retailMargin, position }
+  const toggleActive = async (cp: CompetitorPrice) => {
+    try {
+      await apiFetch(`/pricing-engine/competitors/${cp.id}`, {
+        method: 'PUT',
+        body: JSON.stringify({ is_active: !cp.is_active }),
+      })
+      loadData()
+    } catch (e) {
+      console.error('Failed to toggle', e)
+    }
+  }
+
+  const filtered = competitors.filter(c => c.product_type === filterType)
+  const factories = [...new Set(competitors.map(c => c.factory_name).filter(Boolean))]
+
+  // Group by subtype for summary
+  const subtypeGroups = [...new Set(filtered.map(c => c.product_subtype).filter(Boolean))]
+  const summaryRows = subtypeGroups.map(sub => {
+    const items = filtered.filter(c => c.product_subtype === sub && c.is_active)
+    const prices = items.map(c => Number(c.unit_price))
+    const avg = prices.length > 0 ? Math.round(prices.reduce((a, b) => a + b, 0) / prices.length) : 0
+    const min = prices.length > 0 ? Math.min(...prices) : 0
+    const max = prices.length > 0 ? Math.max(...prices) : 0
+    return { subtype: sub, count: items.length, avg, min, max }
   })
 
   if (loading) return <div style={{ textAlign: 'center', padding: 40, color: 'var(--text3)' }}>Ачаалж байна...</div>
@@ -916,128 +962,144 @@ function CompetitorTab() {
     <div>
       <h2 style={{ fontSize: 18, fontWeight: 600, marginBottom: 16, color: 'var(--text)' }}>Өрсөлдөгчийн үнэ</h2>
 
-      {/* Competitor sub-tabs */}
+      {/* Type filter tabs */}
       <div style={{ display: 'flex', gap: 0, borderBottom: '2px solid var(--border)', marginBottom: 20 }}>
-        {COMPETITOR_NAMES.map(name => (
-          <button
-            key={name}
-            onClick={() => setActiveComp(name)}
-            style={{
-              padding: '8px 16px',
-              cursor: 'pointer',
-              border: 'none',
-              background: 'none',
-              fontFamily: FONT,
-              fontSize: 13,
-              fontWeight: activeComp === name ? 600 : 400,
-              color: activeComp === name ? '#FF6B00' : 'var(--text3)',
-              borderBottom: activeComp === name ? '2px solid #FF6B00' : '2px solid transparent',
-              marginBottom: -2,
-            }}
-          >
-            {name}
-          </button>
+        {COMP_PRODUCT_TYPES.map(t => (
+          <button key={t.value} onClick={() => setFilterType(t.value)} style={{
+            padding: '8px 16px', cursor: 'pointer', border: 'none', background: 'none', fontFamily: FONT, fontSize: 13,
+            fontWeight: filterType === t.value ? 600 : 400, color: filterType === t.value ? '#FF6B00' : 'var(--text3)',
+            borderBottom: filterType === t.value ? '2px solid #FF6B00' : '2px solid transparent', marginBottom: -2,
+          }}>{t.label}</button>
         ))}
       </div>
 
+      {/* Summary cards */}
+      {summaryRows.length > 0 && (
+        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 20 }}>
+          {summaryRows.map(row => (
+            <div key={row.subtype} style={{ ...s.card, flex: '1 1 200px', minWidth: 180 }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', marginBottom: 8 }}>{row.subtype}</div>
+              <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 2 }}>Дундаж: <b style={{ color: '#FF6B00' }}>{fmt(row.avg)}₮</b></div>
+              <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 2 }}>Хамгийн бага: {fmt(row.min)}₮</div>
+              <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 2 }}>Хамгийн их: {fmt(row.max)}₮</div>
+              <div style={{ fontSize: 11, color: 'var(--text3)' }}>{row.count} мэдээлэл</div>
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* Add price form */}
       <div style={{ ...s.card, marginBottom: 20 }}>
-        <h3 style={{ fontSize: 14, fontWeight: 600, marginBottom: 12, color: 'var(--text)' }}>
-          {activeComp} - үнэ нэмэх
-        </h3>
-        <div style={{ display: 'flex', gap: 12, alignItems: 'flex-end' }}>
-          <div style={{ flex: 1 }}>
-            <label style={s.label}>Бүтээгдэхүүн код</label>
-            <select style={s.select} value={newCode} onChange={e => setNewCode(e.target.value)}>
-              <option value="">Сонгох...</option>
-              {PRODUCT_CODES.map(c => (
-                <option key={c} value={c}>{c}</option>
-              ))}
+        <h3 style={{ fontSize: 14, fontWeight: 600, marginBottom: 12, color: 'var(--text)' }}>Шинэ үнийн мэдээлэл нэмэх</h3>
+        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 12 }}>
+          <div style={{ flex: '1 1 180px' }}>
+            <label style={s.label}>Үйлдвэрийн нэр *</label>
+            <input style={s.input} value={fFactory} onChange={e => setFFactory(e.target.value)} placeholder="Гангар принт" list="factory-list" />
+            <datalist id="factory-list">{factories.map(f => <option key={f} value={f} />)}</datalist>
+          </div>
+          <div style={{ flex: '1 1 150px' }}>
+            <label style={s.label}>Төрөл</label>
+            <select style={s.select} value={fType} onChange={e => { setFType(e.target.value); setFSubtype(''); setFSize('') }}>
+              {COMP_PRODUCT_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
             </select>
           </div>
-          <div style={{ flex: 1 }}>
-            <label style={s.label}>Үнэ (₮)</label>
-            <input style={s.input} type="number" value={newPrice} onChange={e => setNewPrice(e.target.value)} placeholder="15000" />
+          <div style={{ flex: '1 1 150px' }}>
+            <label style={s.label}>Дэд ангилал</label>
+            <select style={s.select} value={fSubtype} onChange={e => setFSubtype(e.target.value)}>
+              <option value="">Сонгох...</option>
+              {(COMP_SUBTYPES[fType] || []).map(st => <option key={st} value={st}>{st}</option>)}
+            </select>
+          </div>
+          {COMP_SIZES[fType] && (
+            <div style={{ flex: '1 1 120px' }}>
+              <label style={s.label}>Хэмжээ</label>
+              <select style={s.select} value={fSize} onChange={e => setFSize(e.target.value)}>
+                <option value="">Бүгд</option>
+                {COMP_SIZES[fType].map(sz => <option key={sz} value={sz}>{sz}</option>)}
+              </select>
+            </div>
+          )}
+          {fType === 'offset' && (
+            <div style={{ flex: '1 1 100px' }}>
+              <label style={s.label}>GSM</label>
+              <input style={s.input} type="number" value={fGsm} onChange={e => setFGsm(e.target.value)} placeholder="130" />
+            </div>
+          )}
+        </div>
+        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'flex-end' }}>
+          <div style={{ flex: '1 1 100px' }}>
+            <label style={s.label}>Тоо (мин)</label>
+            <input style={s.input} type="number" value={fQtyMin} onChange={e => setFQtyMin(e.target.value)} />
+          </div>
+          <div style={{ flex: '1 1 100px' }}>
+            <label style={s.label}>Тоо (макс)</label>
+            <input style={s.input} type="number" value={fQtyMax} onChange={e => setFQtyMax(e.target.value)} placeholder="∞" />
+          </div>
+          <div style={{ flex: '1 1 130px' }}>
+            <label style={s.label}>Нэгж үнэ (₮) *</label>
+            <input style={s.input} type="number" value={fUnitPrice} onChange={e => setFUnitPrice(e.target.value)} placeholder="15000" />
+          </div>
+          <div style={{ flex: '1 1 130px' }}>
+            <label style={s.label}>Нийт үнэ (₮)</label>
+            <input style={s.input} type="number" value={fTotalPrice} onChange={e => setFTotalPrice(e.target.value)} placeholder="" />
+          </div>
+          <div style={{ flex: '2 1 200px' }}>
+            <label style={s.label}>Тэмдэглэл</label>
+            <input style={s.input} value={fNotes} onChange={e => setFNotes(e.target.value)} placeholder="Нэмэлт мэдээлэл" />
           </div>
           <button style={s.btnPrimary} onClick={savePrice} disabled={saving}>
-            {saving ? 'Хадгалж...' : 'Хадгалах'}
+            {saving ? 'Хадгалж...' : 'Нэмэх'}
           </button>
         </div>
       </div>
 
-      {/* Current competitor prices */}
-      {compPrices.length > 0 && (
-        <div style={{ ...s.card, padding: 0, overflow: 'auto', marginBottom: 20 }}>
+      {/* Table */}
+      {filtered.length > 0 ? (
+        <div style={{ ...s.card, padding: 0, overflow: 'auto' }}>
           <table style={s.table}>
             <thead>
               <tr>
+                <th style={s.th}>Үйлдвэр</th>
                 <th style={s.th}>Бүтээгдэхүүн</th>
-                <th style={{ ...s.th, textAlign: 'right' }}>Үнэ</th>
-                <th style={s.th}>Шинэчилсэн</th>
+                <th style={s.th}>Хэмжээ</th>
+                <th style={s.th}>GSM</th>
+                <th style={s.th}>Тоо хэмжээ</th>
+                <th style={{ ...s.th, textAlign: 'right' }}>Нэгж үнэ</th>
+                <th style={s.th}>Огноо</th>
+                <th style={s.th}>Идэвхтэй</th>
+                <th style={s.th}></th>
               </tr>
             </thead>
             <tbody>
-              {compPrices.map(cp => (
-                <tr key={cp.id}>
-                  <td style={s.td}>
-                    <span style={s.badge('var(--surface2)', 'var(--text2)')}>{cp.product_code}</span>
+              {filtered.map(cp => (
+                <tr key={cp.id} style={{ opacity: cp.is_active ? 1 : 0.5 }}>
+                  <td style={s.td}><span style={{ fontWeight: 600 }}>{cp.factory_name}</span></td>
+                  <td style={s.td}><span style={s.badge('var(--surface2)', 'var(--text2)')}>{cp.product_subtype || '-'}</span></td>
+                  <td style={s.td}>{cp.size || '-'}</td>
+                  <td style={s.td}>{cp.gsm || '-'}</td>
+                  <td style={s.td}>{cp.quantity_min}{cp.quantity_max ? `-${cp.quantity_max}` : '+'}</td>
+                  <td style={{ ...s.td, textAlign: 'right', fontWeight: 600 }}>{fmt(Number(cp.unit_price))}₮</td>
+                  <td style={{ ...s.td, fontSize: 12, color: 'var(--text3)' }}>
+                    {cp.date_collected ? new Date(cp.date_collected).toLocaleDateString('mn-MN') : '-'}
                   </td>
-                  <td style={{ ...s.td, textAlign: 'right', fontWeight: 600 }}>{fmt(Number(cp.price))}₮</td>
-                  <td style={{ ...s.td, fontSize: 12, color: 'var(--text4)' }}>
-                    {new Date(cp.updated_at).toLocaleDateString('mn-MN')}
+                  <td style={s.td}>
+                    <button onClick={() => toggleActive(cp)} style={{
+                      border: 'none', background: cp.is_active ? '#22c55e' : 'var(--surface3)', color: '#fff',
+                      borderRadius: 12, padding: '2px 10px', fontSize: 11, cursor: 'pointer', fontWeight: 600,
+                    }}>{cp.is_active ? 'Тийм' : 'Үгүй'}</button>
+                  </td>
+                  <td style={s.td}>
+                    <button onClick={() => deletePrice(cp.id)} style={{
+                      border: 'none', background: 'rgba(239,68,68,0.1)', color: '#ef4444',
+                      borderRadius: 6, padding: '4px 8px', fontSize: 11, cursor: 'pointer', fontWeight: 600,
+                    }}>Устгах</button>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
-      )}
-
-      {/* Comparison table */}
-      {comparisonData.length > 0 && (
-        <>
-          <h3 style={{ fontSize: 15, fontWeight: 600, marginBottom: 12, color: 'var(--text)' }}>Зах зээлийн харьцуулалт</h3>
-          <div style={{ ...s.card, padding: 0, overflow: 'auto' }}>
-            <table style={s.table}>
-              <thead>
-                <tr>
-                  <th style={s.th}>Бүтээгдэхүүн</th>
-                  <th style={{ ...s.th, textAlign: 'right' }}>Зах зээл MIN</th>
-                  <th style={{ ...s.th, textAlign: 'right' }}>Зах зээл AVG</th>
-                  <th style={{ ...s.th, textAlign: 'right' }}>Бидний B2B</th>
-                  <th style={{ ...s.th, textAlign: 'right' }}>Бидний Retail</th>
-                  <th style={{ ...s.th, textAlign: 'center' }}>Байр суурь</th>
-                </tr>
-              </thead>
-              <tbody>
-                {comparisonData.map(row => {
-                  // Estimate our prices from market avg for display
-                  // In reality these come from our pricing engine
-                  const estB2B = Math.round(row.marketAvg * (1 - (row.retailMargin - row.b2bMargin)))
-                  const estRetail = Math.round(row.marketAvg * 1.0)
-                  const pos = row.position(estRetail)
-                  return (
-                    <tr key={row.code}>
-                      <td style={s.td}>
-                        <span style={s.badge('var(--surface2)', 'var(--text2)')}>{row.code}</span>
-                      </td>
-                      <td style={{ ...s.td, textAlign: 'right' }}>{fmt(row.marketMin)}₮</td>
-                      <td style={{ ...s.td, textAlign: 'right' }}>{fmt(row.marketAvg)}₮</td>
-                      <td style={{ ...s.td, textAlign: 'right', fontWeight: 600 }}>{fmt(estB2B)}₮</td>
-                      <td style={{ ...s.td, textAlign: 'right', fontWeight: 600 }}>{fmt(estRetail)}₮</td>
-                      <td style={{ ...s.td, textAlign: 'center' }}>
-                        <span style={s.badge(pos.bg, pos.color)}>{pos.label}</span>
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          </div>
-        </>
-      )}
-
-      {competitors.length === 0 && (
+      ) : (
         <div style={{ ...s.card, textAlign: 'center', padding: 40, color: 'var(--text3)' }}>
           Өрсөлдөгчийн үнэ бүртгэгдээгүй байна
         </div>

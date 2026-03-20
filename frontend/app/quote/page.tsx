@@ -267,6 +267,34 @@ export default function QuotePage() {
     return { lines, total, unitPrice: unitQty > 0 ? total / unitQty : total };
   }, [tab, printSub, signCalc, offsetCalc, wideCalc]);
 
+  /* ─── MARKET ANALYSIS ─── */
+  interface MarketData { has_data: boolean; market_avg_unit_price?: number; market_min_unit_price?: number; market_max_unit_price?: number; sample_count?: number; factories?: string[] }
+  const [market, setMarket] = useState<MarketData | null>(null);
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      let params = '';
+      if (tab === 'sign') {
+        params = `product_type=sign&product_subtype=${signProd}`;
+      } else if (printSub === 'offset') {
+        params = `product_type=offset&product_subtype=${encodeURIComponent(offProduct)}&size=${offSize}&gsm=${offGsm}&quantity=${offQty}`;
+      } else {
+        params = `product_type=wide&product_subtype=${wideType}`;
+      }
+      fetch(`${API}/pricing-engine/market-analysis?${params}`)
+        .then(r => r.ok ? r.json() : null)
+        .then(d => setMarket(d))
+        .catch(() => setMarket(null));
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [tab, signProd, printSub, offProduct, offSize, offGsm, offQty, wideType]);
+
+  const marketComparison = useMemo(() => {
+    if (!market?.has_data || !market.market_avg_unit_price || !breakdown.unitPrice) return null;
+    const diff = Math.round(((breakdown.unitPrice - market.market_avg_unit_price) / market.market_avg_unit_price) * 100);
+    const position = diff < -5 ? 'cheap' : diff > 5 ? 'expensive' : 'average';
+    return { diff, position, avg: market.market_avg_unit_price, min: market.market_min_unit_price!, max: market.market_max_unit_price!, count: market.sample_count!, factories: market.factories || [] };
+  }, [market, breakdown.unitPrice]);
+
   /* ─── SUBMIT ─── */
   const handleSubmit = useCallback(async (e: FormEvent) => {
     e.preventDefault();
@@ -627,6 +655,33 @@ export default function QuotePage() {
                   </div>
                   <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 8 }}>НӨАТ ороогүй</div>
                 </div>
+
+                {/* Market comparison */}
+                {marketComparison && (
+                  <div style={{ marginTop: 16, padding: 14, borderRadius: 10, background: 'var(--surface2)', border: '1px solid var(--border)' }}>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text2)', marginBottom: 8 }}>Зах зээлийн харьцуулалт</div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 4 }}>
+                      <span style={{ color: 'var(--text2)' }}>Дундаж үнэ</span>
+                      <span style={{ fontWeight: 600 }}>{fmt(marketComparison.avg)}/ш</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 4 }}>
+                      <span style={{ color: 'var(--text2)' }}>Хамгийн бага</span>
+                      <span style={{ fontWeight: 600 }}>{fmt(marketComparison.min)}/ш</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 8 }}>
+                      <span style={{ color: 'var(--text2)' }}>Бидний үнэ</span>
+                      <span style={{ fontWeight: 700, color: '#FF6B00' }}>{fmt(breakdown.unitPrice)}/ш</span>
+                    </div>
+                    <div style={{
+                      display: 'inline-block', padding: '4px 12px', borderRadius: 20, fontSize: 13, fontWeight: 700,
+                      background: marketComparison.position === 'cheap' ? 'rgba(34,197,94,0.15)' : marketComparison.position === 'expensive' ? 'rgba(239,68,68,0.15)' : 'rgba(234,179,8,0.15)',
+                      color: marketComparison.position === 'cheap' ? '#22c55e' : marketComparison.position === 'expensive' ? '#ef4444' : '#eab308',
+                    }}>
+                      {marketComparison.position === 'cheap' ? `${Math.abs(marketComparison.diff)}% хямд` : marketComparison.position === 'expensive' ? `${marketComparison.diff}% үнэтэй` : 'Дундаж түвшинд'}
+                    </div>
+                    <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 6 }}>{marketComparison.count} үйлдвэрийн мэдээлэл</div>
+                  </div>
+                )}
               </>
             ) : (
               <div style={{ textAlign: 'center', padding: '32px 0', color: 'var(--text3)', fontSize: 14 }}>Параметр оруулна уу</div>
