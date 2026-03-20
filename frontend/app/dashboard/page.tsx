@@ -62,6 +62,32 @@ export default function DashboardPage() {
   const [quoteEmail, setQuoteEmail] = useState('')
   const [quoteEmailInput, setQuoteEmailInput] = useState('')
   const [quotesLoading, setQuotesLoading] = useState(false)
+  const [showTicket, setShowTicket] = useState(false)
+  const [ticketSubject, setTicketSubject] = useState('')
+  const [ticketMessage, setTicketMessage] = useState('')
+  const [ticketQuoteId, setTicketQuoteId] = useState('')
+  const [ticketSending, setTicketSending] = useState(false)
+  const [myTickets, setMyTickets] = useState<any[]>([])
+
+  const loadMyTickets = () => {
+    fetch(API + '/customer/support/my-tickets', { headers: getH() })
+      .then(r => r.json()).then(d => setMyTickets(Array.isArray(d) ? d : [])).catch(() => {})
+  }
+
+  const submitTicket = async () => {
+    if (!ticketSubject || !ticketMessage || ticketSending) return
+    setTicketSending(true)
+    try {
+      await fetch(API + '/customer/support', {
+        method: 'POST', headers: getH(),
+        body: JSON.stringify({ subject: ticketSubject, message: ticketMessage, quote_id: ticketQuoteId || undefined }),
+      })
+      show('Тикет амжилттай илгээгдлээ')
+      setShowTicket(false); setTicketSubject(''); setTicketMessage(''); setTicketQuoteId('')
+      loadMyTickets()
+    } catch { show('Алдаа гарлаа') }
+    finally { setTicketSending(false) }
+  }
 
   const show = (m: string) => { setToast(m); setTimeout(() => setToast(''), 2500) }
 
@@ -78,6 +104,8 @@ export default function DashboardPage() {
     ]).then(([o,q,p]) => {
       setOrders(Array.isArray(o)?o:[]); setQuotes(Array.isArray(q)?q:[]); setProducts(Array.isArray(p)?p:[])
     }).finally(() => setLoading(false))
+    // Load support tickets
+    fetch(API+'/customer/support/my-tickets', { headers: getH() }).then(r=>r.json()).then(d=>setMyTickets(Array.isArray(d)?d:[])).catch(()=>{})
   }, [])
 
   const toggleQ = (id: string) => setSelQ(p => { const n = new Set(p); n.has(id)?n.delete(id):n.add(id); return n })
@@ -220,7 +248,7 @@ export default function DashboardPage() {
         </div>
         <div style={{ flex:1, padding:'16px 12px', overflowY:'auto' }}>
           <div style={{ fontSize:10, fontWeight:600, color:'#57534E', letterSpacing:'0.12em', padding:'0 8px 8px', textTransform:'uppercase' }}>Удирдлага</div>
-          {[{key:'orders',label:'Захиалгууд',icon:'📦',count:orders.length},{key:'quotes',label:'Үнийн санал',icon:'💰',count:quotes.length},{key:'recommend',label:'Бүтээгдэхүүн',icon:'🏪',count:null},{key:'profile',label:'Профайл',icon:'👤',count:null}].map(n=>(<button key={n.key} onClick={()=>n.key==='profile'?setShowProfile(true):setSection(n.key)} style={{ width:'100%', display:'flex', alignItems:'center', gap:10, padding:'10px 12px', borderRadius:10, border:'none', background:section===n.key?'rgba(255,107,0,0.12)':'transparent', color:section===n.key?'#FF8C40':'#A8A29E', cursor:'pointer', fontSize:13, fontWeight:section===n.key?600:400, marginBottom:2, fontFamily:"'DM Sans',sans-serif" }}><span style={{ fontSize:16, width:20, textAlign:'center' }}>{n.icon}</span><span>{n.label}</span>{n.count!==null&&<span style={{ marginLeft:'auto', fontSize:11, background:section===n.key?'rgba(255,107,0,0.2)':'rgba(255,255,255,0.06)', padding:'1px 7px', borderRadius:99, fontWeight:600 }}>{n.count}</span>}</button>))}
+          {[{key:'orders',label:'Захиалгууд',icon:'📦',count:orders.length},{key:'quotes',label:'Үнийн санал',icon:'💰',count:quotes.length},{key:'tickets',label:'Асуулт/Тикет',icon:'🎫',count:myTickets.length},{key:'recommend',label:'Бүтээгдэхүүн',icon:'🏪',count:null},{key:'profile',label:'Профайл',icon:'👤',count:null}].map(n=>(<button key={n.key} onClick={()=>n.key==='profile'?setShowProfile(true):setSection(n.key)} style={{ width:'100%', display:'flex', alignItems:'center', gap:10, padding:'10px 12px', borderRadius:10, border:'none', background:section===n.key?'rgba(255,107,0,0.12)':'transparent', color:section===n.key?'#FF8C40':'#A8A29E', cursor:'pointer', fontSize:13, fontWeight:section===n.key?600:400, marginBottom:2, fontFamily:"'DM Sans',sans-serif" }}><span style={{ fontSize:16, width:20, textAlign:'center' }}>{n.icon}</span><span>{n.label}</span>{n.count!==null&&<span style={{ marginLeft:'auto', fontSize:11, background:section===n.key?'rgba(255,107,0,0.2)':'rgba(255,255,255,0.06)', padding:'1px 7px', borderRadius:99, fontWeight:600 }}>{n.count}</span>}</button>))}
           <div style={{ fontSize:10, fontWeight:600, color:'#57534E', letterSpacing:'0.12em', padding:'20px 8px 8px', textTransform:'uppercase' }}>Түргэн үйлдэл</div>
           {[{label:'Шинэ захиалга',icon:'➕',href:'/order'},{label:'Үнэ тооцоолох',icon:'🧮',href:'/quote'},{label:'Дэлгүүр',icon:'🛍️',href:'/shop'}].map(a=>(<button key={a.label} onClick={()=>router.push(a.href)} style={{ width:'100%', display:'flex', alignItems:'center', gap:10, padding:'9px 12px', borderRadius:10, border:'none', background:'transparent', color:'#78716C', cursor:'pointer', fontSize:13, fontFamily:"'DM Sans',sans-serif", marginBottom:2 }}><span style={{ fontSize:15, width:20, textAlign:'center' }}>{a.icon}</span><span>{a.label}</span></button>))}
         </div>
@@ -245,7 +273,7 @@ export default function DashboardPage() {
 
           {/* Tab bar */}
           <div style={{ display:'flex', gap:0, marginBottom:24, borderBottom:'2px solid #E7E5E4' }}>
-            {[{key:'orders',label:'Захиалгууд',count:orders.length},{key:'quotes',label:'Үнийн саналууд',count:quotes.length},{key:'recommend',label:'Бүтээгдэхүүн'}].map(t=>(<button key={t.key} onClick={()=>setSection(t.key)} style={{ padding:'12px 20px', border:'none', borderBottom:section===t.key?'2px solid #FF6B00':'2px solid transparent', marginBottom:'-2px', background:'none', fontSize:14, fontWeight:section===t.key?600:400, color:section===t.key?'#1C1917':'#A8A29E', cursor:'pointer', fontFamily:"'DM Sans',sans-serif" }}>{t.label}{t.count!==undefined&&<span style={{ marginLeft:6, fontSize:11, background:section===t.key?'#FF6B00':'#E7E5E4', color:section===t.key?'#fff':'#78716C', padding:'1px 7px', borderRadius:99 }}>{t.count}</span>}</button>))}
+            {[{key:'orders',label:'Захиалгууд',count:orders.length},{key:'quotes',label:'Үнийн саналууд',count:quotes.length},{key:'tickets',label:'Тикет',count:myTickets.length},{key:'recommend',label:'Бүтээгдэхүүн'}].map(t=>(<button key={t.key} onClick={()=>setSection(t.key)} style={{ padding:'12px 20px', border:'none', borderBottom:section===t.key?'2px solid #FF6B00':'2px solid transparent', marginBottom:'-2px', background:'none', fontSize:14, fontWeight:section===t.key?600:400, color:section===t.key?'#1C1917':'#A8A29E', cursor:'pointer', fontFamily:"'DM Sans',sans-serif" }}>{t.label}{t.count!==undefined&&<span style={{ marginLeft:6, fontSize:11, background:section===t.key?'#FF6B00':'#E7E5E4', color:section===t.key?'#fff':'#78716C', padding:'1px 7px', borderRadius:99 }}>{t.count}</span>}</button>))}
           </div>
 
           {/* ═══ ORDERS ═══ */}
@@ -348,7 +376,8 @@ export default function DashboardPage() {
                       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginTop:14, paddingTop:12, borderTop:'1px solid #F5F5F4' }}>
                         <div style={{ fontSize:12, fontFamily:"'DM Sans',sans-serif", color: (q.valid_until && new Date(q.valid_until) < new Date()) || q.status === 'expired' ? '#DC2626' : '#A8A29E' }}>{(q.valid_until && new Date(q.valid_until) < new Date()) || q.status === 'expired' ? 'Хугацаа дууссан' : `Хүчинтэй: ${validUntil} хүртэл`}</div>
                         <div style={{ display:'flex', gap:6 }}>
-                          <button onClick={e=>{e.stopPropagation(); router.push('/quote')}} style={{ background:'#fff', border:'1px solid #E7E5E4', borderRadius:99, padding:'5px 14px', fontSize:11, cursor:'pointer', fontFamily:"'DM Sans',sans-serif", color:'#78716C' }}>Дахин тооцоолох</button>
+                          <button onClick={e=>{e.stopPropagation(); router.push('/quote?product='+encodeURIComponent(q.product_name||''))}} style={{ background:'#fff', border:'1px solid #E7E5E4', borderRadius:99, padding:'5px 14px', fontSize:11, cursor:'pointer', fontFamily:"'DM Sans',sans-serif", color:'#78716C' }}>Дахин тооцоолох</button>
+                          <button onClick={e=>{e.stopPropagation(); setTicketQuoteId(q.id); setTicketSubject('Quote '+qNum+' асуулт'); setShowTicket(true)}} style={{ background:'#fff', border:'1px solid #E7E5E4', borderRadius:99, padding:'5px 14px', fontSize:11, cursor:'pointer', fontFamily:"'DM Sans',sans-serif", color:'#78716C' }}>Асуулт / Гомдол</button>
                           {canOrder && (
                             <button onClick={e=>{e.stopPropagation(); router.push('/checkout?quote_id='+q.id)}} style={{ background:'#FF6B35', color:'#fff', border:'none', borderRadius:99, padding:'5px 14px', fontSize:11, fontWeight:600, cursor:'pointer', fontFamily:"'DM Sans',sans-serif" }}>Захиалга болгох →</button>
                           )}
@@ -357,6 +386,27 @@ export default function DashboardPage() {
                     </div>
                   )
                 })}
+              </div>
+            )}
+          </div>)}
+
+          {/* ═══ TICKETS ═══ */}
+          {section==='tickets' && (<div>
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:20 }}>
+              <div><h2 style={{ fontSize:24, fontWeight:700, margin:'0 0 4px', letterSpacing:'-0.02em' }}>Тикетүүд</h2><p style={{ fontSize:13, color:'#A8A29E', margin:0, fontFamily:"'DM Sans',sans-serif" }}>Таны асуулт, санал хүсэлтүүд</p></div>
+              <button onClick={()=>setShowTicket(true)} style={{ background:'#FF6B00', color:'#fff', border:'none', padding:'9px 22px', borderRadius:99, fontSize:13, fontWeight:600, cursor:'pointer', fontFamily:"'DM Sans',sans-serif" }}>+ Шинэ тикет</button>
+            </div>
+            {myTickets.length===0?(<div style={{ border:'2px dashed #D6D3D1', borderRadius:16, padding:'60px 24px', textAlign:'center' }}><div style={{ fontSize:48, marginBottom:12 }}>🎫</div><div style={{ fontSize:20, fontWeight:600, marginBottom:6 }}>Тикет байхгүй</div><div style={{ fontSize:14, color:'#78716C' }}>Асуулт байвал тикет нээнэ үү</div></div>):(
+              <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+                {myTickets.map(t=>{const sc:Record<string,{l:string;c:string;b:string}>={OPEN:{l:'Нээлттэй',c:'#FF6B00',b:'#FFF7ED'},IN_PROGRESS:{l:'Шийдвэрлэж буй',c:'#2563EB',b:'#DBEAFE'},RESOLVED:{l:'Шийдсэн',c:'#059669',b:'#D1FAE5'},CLOSED:{l:'Хаагдсан',c:'#6B7280',b:'#F3F4F6'}};const s=sc[t.status]||{l:t.status,c:'#6B7280',b:'#F3F4F6'};return(
+                  <div key={t.id} style={{ background:'#fff', border:'1px solid #E7E5E4', borderRadius:14, padding:'18px 22px' }}>
+                    <div style={{ display:'flex', justifyContent:'space-between', alignItems:'start' }}>
+                      <div><div style={{ fontSize:12, color:'#A8A29E', fontFamily:"'DM Sans',sans-serif", marginBottom:4 }}>{t.ticket_number}</div><div style={{ fontSize:16, fontWeight:600, marginBottom:4 }}>{t.subject}</div><div style={{ fontSize:12, color:'#A8A29E', fontFamily:"'DM Sans',sans-serif" }}>{new Date(t.created_at).toLocaleDateString()}</div></div>
+                      <span style={{ fontSize:11, padding:'3px 10px', borderRadius:99, background:s.b, color:s.c, fontWeight:600, fontFamily:"'DM Sans',sans-serif" }}>{s.l}</span>
+                    </div>
+                    {t.messages && t.messages.length > 0 && (<div style={{ marginTop:12, paddingTop:12, borderTop:'1px solid #F5F5F4' }}>{t.messages.slice(-2).map((m:any,i:number)=>(<div key={i} style={{ fontSize:13, color:'#78716C', marginBottom:4 }}><span style={{ fontWeight:600, color:m.sender==='admin'?'#FF6B00':'#1C1917' }}>{m.sender}:</span> {m.content?.slice(0,100)}{m.content?.length>100?'...':''}</div>))}</div>)}
+                  </div>
+                )})}
               </div>
             )}
           </div>)}
@@ -424,6 +474,15 @@ export default function DashboardPage() {
             </div>
           )}
           <button onClick={handlePayment} disabled={payLoading} style={{ width:'100%', background:'#FF6B00', color:'#fff', border:'none', padding:'14px 0', borderRadius:99, fontSize:15, fontWeight:700, cursor:payLoading?'not-allowed':'pointer' }}>{payLoading?'Үүсгэж байна...':'Баталгаажуулах'}</button>
+        </div>
+      </div></div>)}
+
+      {showTicket && (<div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.4)', backdropFilter:'blur(4px)', zIndex:1002, display:'flex', alignItems:'center', justifyContent:'center' }} onClick={()=>setShowTicket(false)}><div style={{ background:'#fff', borderRadius:20, width:'100%', maxWidth:480, boxShadow:'0 24px 80px rgba(0,0,0,0.15)', padding:'28px 32px' }} onClick={e=>e.stopPropagation()}>
+        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:20 }}><div style={{ fontSize:20, fontWeight:700 }}>Тикет нээх</div><button onClick={()=>setShowTicket(false)} style={{ background:'#F5F5F4', border:'none', color:'#78716C', width:32, height:32, borderRadius:10, cursor:'pointer', fontSize:16, display:'flex', alignItems:'center', justifyContent:'center' }}>✕</button></div>
+        <div style={{ display:'flex', flexDirection:'column', gap:14, fontFamily:"'DM Sans',sans-serif" }}>
+          <div><label style={{ fontSize:12, fontWeight:600, color:'#78716C', display:'block', marginBottom:4 }}>Гарчиг *</label><input value={ticketSubject} onChange={e=>setTicketSubject(e.target.value)} placeholder="Асуултын гарчиг" style={{ width:'100%', padding:'10px 14px', borderRadius:10, border:'1px solid #E7E5E4', fontSize:14, outline:'none', background:'#FAFAF8', boxSizing:'border-box' }} /></div>
+          <div><label style={{ fontSize:12, fontWeight:600, color:'#78716C', display:'block', marginBottom:4 }}>Дэлгэрэнгүй *</label><textarea value={ticketMessage} onChange={e=>setTicketMessage(e.target.value)} placeholder="Асуулт, гомдол, санал хүсэлтээ бичнэ үү..." rows={4} style={{ width:'100%', padding:'10px 14px', borderRadius:10, border:'1px solid #E7E5E4', fontSize:14, outline:'none', background:'#FAFAF8', boxSizing:'border-box', resize:'vertical' }} /></div>
+          <button onClick={submitTicket} disabled={ticketSending || !ticketSubject || !ticketMessage} style={{ width:'100%', background:'#FF6B00', color:'#fff', border:'none', padding:'12px 0', borderRadius:99, fontSize:14, fontWeight:600, cursor:ticketSending?'not-allowed':'pointer', opacity:ticketSending||!ticketSubject||!ticketMessage?0.6:1 }}>{ticketSending?'Илгээж байна...':'Тикет илгээх'}</button>
         </div>
       </div></div>)}
 

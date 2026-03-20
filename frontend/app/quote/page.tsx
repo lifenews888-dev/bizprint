@@ -1,46 +1,79 @@
 'use client';
 
-import { useState, useMemo, FormEvent } from 'react';
+import { useState, useEffect, useRef, useCallback, FormEvent } from 'react';
 
-/* ───────── price tables ───────── */
+const API = 'http://localhost:4000';
+const FONT = "'DM Sans','Segoe UI',system-ui,sans-serif";
 
-const TOVGOR_PRICES: Record<number, number> = {
-  20: 35000, 30: 45000, 40: 60000, 50: 75000, 60: 95000,
-  70: 140000, 80: 180000, 90: 235000, 100: 290000, 110: 330000, 120: 360000,
-};
-const TOVGOR_M2_RATE = 280000;
+/* ───────── types ───────── */
 
-const NERJ_OPTIONS: Record<string, number> = { 'Асдаггүй': 850000, 'Асдаг LED': 1300000 };
-const THREE_D_OPTIONS: Record<string, number> = { 'Гэрэлгүй': 850000, 'Гэрэлтэй LED': 1250000 };
-const GERELT_OPTIONS: Record<string, number> = {
-  'Дотор 4см': 280000, 'Дотор 6см': 320000, 'Дотор 8см': 350000,
-  'Гадна булантай': 380000, 'Гадна сөхдөг': 450000,
-};
+interface Material {
+  code: string;
+  name_mn: string;
+  name_en?: string;
+  price_per_unit?: number;
+}
 
-const KRAN_OPTIONS: Record<string, number> = { '1цаг': 200000, '8цаг': 600000 };
+interface Size {
+  code: string;
+  name_mn: string;
+  width_m?: number;
+  height_m?: number;
+  is_custom?: boolean;
+}
 
-const PAPER_COSTS: Record<number, number> = { 80: 60, 120: 90, 150: 120, 200: 160, 300: 220 };
-const FINISHING_COSTS: Record<string, number> = { 'мат': 15, 'гянт': 12, 'UV': 20, 'soft_touch': 25 };
-const ORGON_TYPES: Record<string, number> = { 'баннер': 8000, 'стикер': 12000, 'туг': 18000, 'даавуу': 22000 };
-const PROMO_TYPES: Record<string, number> = { 'үзэг': 2500, 'дэвтэр': 8000, 'аяга': 12000, 'футболк': 18000 };
-const SHAGNAL_TYPES: Record<string, number> = { 'болор': 45000, 'модон': 35000, 'медаль': 12000, 'тэмдэг': 8000 };
+interface Finishing {
+  code: string;
+  name_mn: string;
+  price?: number;
+}
 
-const RUSH_OPTIONS = [
-  { label: 'Энгийн', pct: 0 },
-  { label: '48цаг', pct: 0.15 },
-  { label: '24цаг', pct: 0.30 },
-] as const;
+interface Addon {
+  code: string;
+  name_mn: string;
+  price?: number;
+}
 
-const PRICING_MODES = [
-  { label: 'B2B', mult: 1.20 },
-  { label: 'Retail', mult: 1.45 },
-] as const;
+interface Product {
+  code: string;
+  name_mn: string;
+  name_en?: string;
+  category: string;
+  subcategory?: string;
+  unit_type?: string;
+  materials: Material[];
+  sizes: Size[];
+  finishings?: Finishing[];
+  addons?: Addon[];
+}
 
-const SIGNAGE_SUBTYPES = [
-  'Товгор үсэг', 'Нерж үсэг', '3D үсэг', 'Гэрэлт самбар', 'PVC үсэг', 'Хөнгөн цагаан/Эпокси',
-] as const;
+interface CatalogProduct {
+  code: string;
+  name_mn: string;
+  name_en?: string;
+  category: string;
+  subcategory?: string;
+  unit_type?: string;
+  materials: Material[];
+  sizes: Size[];
+}
 
-const PRINT_SUBTYPES = ['Офсет хэвлэл', 'Өргөн хэвлэл', 'Промошн', 'Шагнал'] as const;
+interface PriceResult {
+  base_price: number;
+  final_price: number;
+  unit_price: number;
+  price_breakdown: { label: string; amount: number }[];
+  rules_applied: string[];
+  discounts: { label: string; amount: number }[];
+  surcharges: { label: string; amount: number }[];
+  finishing_cost: number;
+  addon_cost: number;
+  margin_amount: number;
+  vs_market_pct: number | null;
+  tactic_applied: boolean;
+  novat_note: string;
+  validity_hours: number;
+}
 
 /* ───────── helpers ───────── */
 
@@ -48,192 +81,213 @@ function fmt(n: number): string {
   return Math.round(n).toLocaleString('en-US') + '₮';
 }
 
-function qtyDiscount(qty: number): number {
-  if (qty >= 5000) return 0.20;
-  if (qty >= 1000) return 0.15;
-  if (qty >= 500) return 0.10;
-  if (qty >= 100) return 0.05;
-  return 0;
-}
+const CATEGORY_ORDER = ['Хаяг реклам', 'Хэвлэл', 'Промо', 'Шагнал'];
+const CATEGORY_ICONS: Record<string, string> = {
+  'Хаяг реклам': '\u{1F3E2}',
+  'Хэвлэл': '\u{1F4C4}',
+  'Промо': '\u{1F381}',
+  'Шагнал': '\u{1F3C6}',
+};
 
-function qtyDiscountLabel(qty: number): string | null {
-  const d = qtyDiscount(qty);
-  return d > 0 ? `-${d * 100}%` : null;
-}
+const RUSH_OPTIONS = [
+  { label: 'Энгийн', hours: 0 },
+  { label: '48цаг', hours: 48 },
+  { label: '24цаг', hours: 24 },
+] as const;
 
 /* ───────── component ───────── */
 
 export default function QuotePage() {
-  /* tabs */
-  const [tab, setTab] = useState<'signage' | 'print'>('signage');
+  /* catalog */
+  const [catalog, setCatalog] = useState<CatalogProduct[]>([]);
+  const [catalogLoading, setCatalogLoading] = useState(true);
 
-  /* signage state */
-  const [sigSub, setSigSub] = useState<string>(SIGNAGE_SUBTYPES[0]);
-  const [letterCount, setLetterCount] = useState(1);
-  const [letterSize, setLetterSize] = useState(20);
-  const [m2, setM2] = useState(1);
-  const [nerjOpt, setNerjOpt] = useState(Object.keys(NERJ_OPTIONS)[0]);
-  const [threeDOpt, setThreeDOpt] = useState(Object.keys(THREE_D_OPTIONS)[0]);
-  const [gereltOpt, setGereltOpt] = useState(Object.keys(GERELT_OPTIONS)[0]);
+  /* selected product */
+  const [selectedCode, setSelectedCode] = useState<string | null>(null);
+  const [product, setProduct] = useState<Product | null>(null);
+  const [productLoading, setProductLoading] = useState(false);
 
-  /* signage extras */
-  const [exRam, setExRam] = useState(false);
-  const [ramMeters, setRamMeters] = useState(1);
-  const [exRelay, setExRelay] = useState(false);
-  const [exPower, setExPower] = useState(false);
-  const [exKran, setExKran] = useState(false);
-  const [kranOpt, setKranOpt] = useState(Object.keys(KRAN_OPTIONS)[0]);
-
-  /* print state */
-  const [prtSub, setPrtSub] = useState<string>(PRINT_SUBTYPES[0]);
-  const [qty, setQty] = useState(100);
-  const [gsm, setGsm] = useState(80);
-  const [finishing, setFinishing] = useState('мат');
-  const [isColor, setIsColor] = useState(true);
-  const [orgonType, setOrgonType] = useState(Object.keys(ORGON_TYPES)[0]);
-  const [promoType, setPromoType] = useState(Object.keys(PROMO_TYPES)[0]);
-  const [shagnalType, setShagnalType] = useState(Object.keys(SHAGNAL_TYPES)[0]);
-  const [prtM2, setPrtM2] = useState(1);
-
-  /* common */
+  /* form params */
+  const [materialCode, setMaterialCode] = useState<string>('');
+  const [sizeCode, setSizeCode] = useState<string>('');
+  const [customWidth, setCustomWidth] = useState(1);
+  const [customHeight, setCustomHeight] = useState(1);
+  const [quantity, setQuantity] = useState(1);
+  const [finishingCodes, setFinishingCodes] = useState<string[]>([]);
+  const [addonCodes, setAddonCodes] = useState<string[]>([]);
   const [rushIdx, setRushIdx] = useState(0);
-  const [modeIdx, setModeIdx] = useState(0);
+  const [pricingTier, setPricingTier] = useState<'b2b' | 'retail'>('b2b');
 
-  /* form */
+  /* pricing result */
+  const [priceResult, setPriceResult] = useState<PriceResult | null>(null);
+  const [priceLoading, setPriceLoading] = useState(false);
+
+  /* submit form */
   const [showForm, setShowForm] = useState(false);
   const [formName, setFormName] = useState('');
   const [formEmail, setFormEmail] = useState('');
   const [formPhone, setFormPhone] = useState('');
-  const [formNotes, setFormNotes] = useState('');
   const [formCompany, setFormCompany] = useState('');
-  const [submitted, setSubmitted] = useState(false);
+  const [formNotes, setFormNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
   const [submitResult, setSubmitResult] = useState<{ quote_number: string } | null>(null);
 
-  /* ── signage calc ── */
-  const sigBase = useMemo(() => {
-    switch (sigSub) {
-      case 'Товгор үсэг': {
-        let perLetter: number;
-        if (letterSize <= 120 && TOVGOR_PRICES[letterSize]) {
-          perLetter = TOVGOR_PRICES[letterSize];
-        } else {
-          const areaCm2 = letterSize * letterSize;
-          perLetter = (areaCm2 / 10000) * TOVGOR_M2_RATE;
-        }
-        return perLetter * letterCount;
-      }
-      case 'Нерж үсэг': return (NERJ_OPTIONS[nerjOpt] ?? 850000) * m2;
-      case '3D үсэг': return (THREE_D_OPTIONS[threeDOpt] ?? 850000) * m2;
-      case 'Гэрэлт самбар': return (GERELT_OPTIONS[gereltOpt] ?? 280000) * m2;
-      case 'PVC үсэг': return 280000 * m2;
-      case 'Хөнгөн цагаан/Эпокси': return 650000 * m2;
-      default: return 0;
+  /* debounce ref */
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  /* ── fetch catalog on mount ── */
+  useEffect(() => {
+    setCatalogLoading(true);
+    fetch(`${API}/products/catalog`)
+      .then(r => r.json())
+      .then((data: CatalogProduct[]) => {
+        setCatalog(Array.isArray(data) ? data : []);
+      })
+      .catch(() => setCatalog([]))
+      .finally(() => setCatalogLoading(false));
+  }, []);
+
+  /* ── fetch product details when selected ── */
+  useEffect(() => {
+    if (!selectedCode) {
+      setProduct(null);
+      return;
     }
-  }, [sigSub, letterCount, letterSize, m2, nerjOpt, threeDOpt, gereltOpt]);
+    setProductLoading(true);
+    setPriceResult(null);
+    fetch(`${API}/products/catalog/${selectedCode}`)
+      .then(r => r.json())
+      .then((data: Product) => {
+        setProduct(data);
+        /* set defaults */
+        if (data.materials?.length) setMaterialCode(data.materials[0].code);
+        else setMaterialCode('');
+        if (data.sizes?.length) setSizeCode(data.sizes[0].code);
+        else setSizeCode('');
+        setCustomWidth(1);
+        setCustomHeight(1);
+        setQuantity(1);
+        setFinishingCodes([]);
+        setAddonCodes([]);
+        setRushIdx(0);
+      })
+      .catch(() => setProduct(null))
+      .finally(() => setProductLoading(false));
+  }, [selectedCode]);
 
-  const sigExtras = useMemo(() => {
-    let t = 0;
-    if (exRam) t += ramMeters * 6500;
-    if (exRelay) t += 30000;
-    if (exPower) t += 35000;
-    if (exKran) t += KRAN_OPTIONS[kranOpt] ?? 0;
-    return t;
-  }, [exRam, ramMeters, exRelay, exPower, exKran, kranOpt]);
+  /* ── calculate price (debounced) ── */
+  const calculate = useCallback(() => {
+    if (!product || !selectedCode) return;
 
-  /* ── print calc ── */
-  const prtCalc = useMemo(() => {
-    let base = 0;
-    let disc = 0;
-    switch (prtSub) {
-      case 'Офсет хэвлэл': {
-        const paperCost = (PAPER_COSTS[gsm] ?? 60) * qty;
-        const finCost = (FINISHING_COSTS[finishing] ?? 0) * qty;
-        const setup = isColor ? 30000 : 15000;
-        base = paperCost + finCost + setup;
-        disc = qtyDiscount(qty);
-        break;
-      }
-      case 'Өргөн хэвлэл': base = (ORGON_TYPES[orgonType] ?? 8000) * prtM2; break;
-      case 'Промошн': { base = (PROMO_TYPES[promoType] ?? 2500) * qty; disc = qtyDiscount(qty); break; }
-      case 'Шагнал': { base = (SHAGNAL_TYPES[shagnalType] ?? 45000) * qty; disc = qtyDiscount(qty); break; }
-    }
-    return { base, disc };
-  }, [prtSub, qty, gsm, finishing, isColor, orgonType, prtM2, promoType, shagnalType]);
+    const selectedSize = product.sizes?.find(s => s.code === sizeCode);
+    const isCustom = selectedSize?.is_custom;
+    const selectedMaterial = product.materials?.find(m => m.code === materialCode);
 
-  /* ── final totals ── */
-  const breakdown = useMemo(() => {
-    const rush = RUSH_OPTIONS[rushIdx];
-    const mode = PRICING_MODES[modeIdx];
+    /* build finishing_data and addon_data for the API */
+    const finishing_data = (product.finishings || [])
+      .filter(f => finishingCodes.includes(f.code))
+      .map(f => ({ code: f.code, name_mn: f.name_mn, price: f.price || 0 }));
+    const addon_data = (product.addons || [])
+      .filter(a => addonCodes.includes(a.code))
+      .map(a => ({ code: a.code, name_mn: a.name_mn, price: a.price || 0 }));
 
-    if (tab === 'signage') {
-      const sub = sigBase;
-      const extras = sigExtras;
-      const beforeRush = sub + extras;
-      const rushFee = beforeRush * rush.pct;
-      const afterRush = beforeRush + rushFee;
-      const total = afterRush * mode.mult;
-      return { base: sub, extras, rushFee, discount: 0, discPct: 0, margin: total - afterRush, total };
-    } else {
-      const sub = prtCalc.base;
-      const discAmt = sub * prtCalc.disc;
-      const afterDisc = sub - discAmt;
-      const rushFee = afterDisc * rush.pct;
-      const afterRush = afterDisc + rushFee;
-      const total = afterRush * mode.mult;
-      return { base: sub, extras: 0, rushFee, discount: discAmt, discPct: prtCalc.disc, margin: total - afterRush, total };
-    }
-  }, [tab, sigBase, sigExtras, prtCalc, rushIdx, modeIdx]);
+    const w = isCustom ? customWidth : (selectedSize?.width_m || 0);
+    const h = isCustom ? customHeight : (selectedSize?.height_m || 0);
+    const area = w && h ? w * h : undefined;
 
-  /* ── submit ── */
+    const body = {
+      product_code: selectedCode,
+      material_code: materialCode || undefined,
+      size_code: sizeCode || undefined,
+      custom_width_m: isCustom ? customWidth : undefined,
+      custom_height_m: isCustom ? customHeight : undefined,
+      quantity,
+      finishing_codes: finishingCodes.length ? finishingCodes : undefined,
+      addon_codes: addonCodes.length ? addonCodes : undefined,
+      rush_hours: RUSH_OPTIONS[rushIdx].hours,
+      pricing_tier: pricingTier,
+      apply_competitor_tactic: true,
+      base_price: selectedMaterial?.price_per_unit || 0,
+      material_cost: selectedMaterial?.price_per_unit || 0,
+      finishing_data: finishing_data.length ? finishing_data : undefined,
+      addon_data: addon_data.length ? addon_data : undefined,
+      area_m2: area,
+      unit_type: product.unit_type,
+    };
+
+    setPriceLoading(true);
+    fetch(`${API}/pricing-engine/calculate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+      .then(r => r.json())
+      .then((data: PriceResult) => setPriceResult(data))
+      .catch(() => setPriceResult(null))
+      .finally(() => setPriceLoading(false));
+  }, [product, selectedCode, materialCode, sizeCode, customWidth, customHeight, quantity, finishingCodes, addonCodes, rushIdx, pricingTier]);
+
+  /* debounce trigger */
+  useEffect(() => {
+    if (!product) return;
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(calculate, 500);
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, [calculate, product]);
+
+  /* ── toggle helpers ── */
+  function toggleFinishing(code: string) {
+    setFinishingCodes(prev =>
+      prev.includes(code) ? prev.filter(c => c !== code) : [...prev, code]
+    );
+  }
+  function toggleAddon(code: string) {
+    setAddonCodes(prev =>
+      prev.includes(code) ? prev.filter(c => c !== code) : [...prev, code]
+    );
+  }
+
+  /* ── submit quote ── */
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
-    if (!formName || !formEmail) return;
+    if (!formName || !formEmail || !priceResult || !product) return;
     setSubmitting(true);
     try {
-      const selectedSubtype = tab === 'signage' ? sigSub : prtSub;
-      const dims: Record<string, any> = tab === 'signage'
-        ? (sigSub === 'Товгор үсэг'
-          ? { letter_count: letterCount, letter_size_cm: letterSize }
-          : { m2 })
-        : (prtSub === 'Офсет хэвлэл'
-          ? { qty, gsm, finishing, is_color: isColor }
-          : prtSub === 'Өргөн хэвлэл'
-            ? { m2: prtM2, orgon_type: orgonType }
-            : { qty });
-
-      const extras = tab === 'signage' ? {
-        rele: exRelay,
-        tog: exPower,
-        ...(exKran ? { crane: kranOpt } : {}),
-      } : undefined;
-
       const body = {
         customer_name: formName,
         customer_email: formEmail,
-        customer_phone: formPhone,
+        customer_phone: formPhone || undefined,
         company_name: formCompany || undefined,
-        product_type: tab === 'signage' ? 'hadag' : 'khevlel',
-        product_subtype: selectedSubtype,
-        base_price: breakdown.base,
-        total_price: breakdown.total,
-        unit_price: breakdown.total,
-        discount_amount: breakdown.discount,
-        rush_fee: breakdown.rushFee,
-        rush_type: RUSH_OPTIONS[rushIdx].label,
-        pricing_mode: PRICING_MODES[modeIdx].label,
-        notes: formNotes,
-        breakdown,
-        extras,
-        dimensions: dims,
+        notes: formNotes || undefined,
+        product_code: selectedCode,
+        product_name: product.name_mn,
+        material_code: materialCode || undefined,
+        size_code: sizeCode || undefined,
+        custom_width_m: customWidth,
+        custom_height_m: customHeight,
+        quantity,
+        finishing_codes: finishingCodes.length ? finishingCodes : undefined,
+        addon_codes: addonCodes.length ? addonCodes : undefined,
+        rush_hours: RUSH_OPTIONS[rushIdx].hours,
+        pricing_tier: pricingTier,
+        base_price: priceResult.base_price,
+        total_price: priceResult.final_price,
+        unit_price: priceResult.unit_price,
+        discount_amount: priceResult.discounts?.reduce((s, d) => s + d.amount, 0) || 0,
+        finishing_cost: priceResult.finishing_cost,
+        addon_cost: priceResult.addon_cost,
+        price_breakdown: priceResult.price_breakdown,
       };
-      const res = await fetch('http://localhost:4000/quotes-v2', {
+      const res = await fetch(`${API}/quotes-v2`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       });
       const data = await res.json();
-      setSubmitResult({ quote_number: data.quote_number || '' });
+      setSubmitResult({ quote_number: data.quote_number || data.id || '' });
       setSubmitted(true);
     } catch {
       /* silent */
@@ -242,222 +296,211 @@ export default function QuotePage() {
     }
   }
 
-  /* ── styles ── */
-  const card: React.CSSProperties = {
-    background: 'var(--surface)', border: '1px solid var(--border)',
-    borderRadius: 12, padding: 24, marginBottom: 20,
-  };
-  const label: React.CSSProperties = { display: 'block', color: 'var(--text2)', fontSize: 13, marginBottom: 6, fontWeight: 500 };
-  const input: React.CSSProperties = {
-    width: '100%', padding: '10px 14px', borderRadius: 8, border: '1px solid var(--border)',
-    background: 'var(--bg)', color: 'var(--text)', fontSize: 15, fontFamily: 'inherit', boxSizing: 'border-box',
-  };
-  const select: React.CSSProperties = { ...input, appearance: 'auto' as const };
-  const btnPrimary: React.CSSProperties = {
-    background: '#FF6B35', color: '#fff', border: 'none', borderRadius: 8,
-    padding: '12px 28px', fontSize: 15, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit',
-  };
-  const pillGroup: React.CSSProperties = { display: 'flex', gap: 0, borderRadius: 8, overflow: 'hidden', border: '1px solid var(--border)' };
-  const pill = (active: boolean): React.CSSProperties => ({
-    flex: 1, padding: '10px 16px', fontSize: 14, fontWeight: 500, cursor: 'pointer',
-    background: active ? '#FF6B35' : 'var(--surface)', color: active ? '#fff' : 'var(--text)',
-    border: 'none', fontFamily: 'inherit', transition: 'background .15s',
+  /* ── group catalog by category ── */
+  const grouped = catalog.reduce<Record<string, CatalogProduct[]>>((acc, p) => {
+    const cat = p.category || 'Бусад';
+    if (!acc[cat]) acc[cat] = [];
+    acc[cat].push(p);
+    return acc;
+  }, {});
+
+  const sortedCategories = Object.keys(grouped).sort((a, b) => {
+    const ai = CATEGORY_ORDER.indexOf(a);
+    const bi = CATEGORY_ORDER.indexOf(b);
+    return (ai === -1 ? 999 : ai) - (bi === -1 ? 999 : bi);
   });
-  const checkbox: React.CSSProperties = { accentColor: '#FF6B35', marginRight: 8 };
-  const badgeStyle: React.CSSProperties = {
-    display: 'inline-block', background: '#FF6B35', color: '#fff', fontSize: 12,
-    fontWeight: 600, borderRadius: 6, padding: '2px 8px', marginLeft: 8,
+
+  /* ── styles ── */
+  const s = {
+    page: {
+      maxWidth: 1200,
+      margin: '0 auto',
+      padding: '32px 24px 64px',
+      fontFamily: FONT,
+      color: 'var(--text)',
+    } as React.CSSProperties,
+    h1: {
+      fontSize: 28,
+      fontWeight: 700,
+      marginBottom: 4,
+    } as React.CSSProperties,
+    subtitle: {
+      color: 'var(--text2)',
+      fontSize: 15,
+      marginBottom: 32,
+    } as React.CSSProperties,
+    twoCol: {
+      display: 'flex',
+      gap: 32,
+      alignItems: 'flex-start',
+    } as React.CSSProperties,
+    leftCol: {
+      flex: '1 1 60%',
+      minWidth: 0,
+    } as React.CSSProperties,
+    rightCol: {
+      flex: '0 0 38%',
+      position: 'sticky' as const,
+      top: 24,
+    } as React.CSSProperties,
+    card: {
+      background: 'var(--surface)',
+      border: '1px solid var(--border)',
+      borderRadius: 12,
+      padding: 24,
+      marginBottom: 20,
+    } as React.CSSProperties,
+    label: {
+      display: 'block',
+      color: 'var(--text2)',
+      fontSize: 13,
+      marginBottom: 6,
+      fontWeight: 500,
+    } as React.CSSProperties,
+    input: {
+      width: '100%',
+      padding: '10px 14px',
+      borderRadius: 8,
+      border: '1px solid var(--border)',
+      background: 'var(--bg)',
+      color: 'var(--text)',
+      fontSize: 15,
+      fontFamily: 'inherit',
+      boxSizing: 'border-box' as const,
+    } as React.CSSProperties,
+    pillGroup: {
+      display: 'flex',
+      gap: 0,
+      borderRadius: 8,
+      overflow: 'hidden',
+      border: '1px solid var(--border)',
+    } as React.CSSProperties,
+    btnPrimary: {
+      background: '#FF6B00',
+      color: '#fff',
+      border: 'none',
+      borderRadius: 8,
+      padding: '12px 28px',
+      fontSize: 15,
+      fontWeight: 600,
+      cursor: 'pointer',
+      fontFamily: 'inherit',
+    } as React.CSSProperties,
+    row: {
+      display: 'flex',
+      justifyContent: 'space-between',
+      padding: '7px 0',
+      fontSize: 15,
+    } as React.CSSProperties,
+    checkbox: {
+      accentColor: '#FF6B00',
+      marginRight: 8,
+      width: 16,
+      height: 16,
+    } as React.CSSProperties,
   };
-  const row: React.CSSProperties = { display: 'flex', justifyContent: 'space-between', padding: '6px 0', fontSize: 15 };
 
-  /* ── signage inputs ── */
-  function renderSignageInputs() {
-    switch (sigSub) {
-      case 'Товгор үсэг':
-        return (
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-            <div>
-              <span style={label}>Үсэгний тоо</span>
-              <input type="number" min={1} value={letterCount}
-                onChange={e => setLetterCount(Math.max(1, +e.target.value))} style={input} />
-            </div>
-            <div>
-              <span style={label}>Хэмжээ (см)</span>
-              <select value={letterSize} onChange={e => setLetterSize(+e.target.value)} style={select}>
-                {Object.keys(TOVGOR_PRICES).map(s => <option key={s} value={s}>{s}см</option>)}
-                <option value={150}>150см (m²)</option>
-                <option value={200}>200см (m²)</option>
-              </select>
-            </div>
-          </div>
-        );
-      case 'Нерж үсэг':
-        return (
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-            <div>
-              <span style={label}>Талбай (m²)</span>
-              <input type="number" min={0.1} step={0.1} value={m2}
-                onChange={e => setM2(Math.max(0.1, +e.target.value))} style={input} />
-            </div>
-            <div>
-              <span style={label}>Төрөл</span>
-              <select value={nerjOpt} onChange={e => setNerjOpt(e.target.value)} style={select}>
-                {Object.keys(NERJ_OPTIONS).map(k => <option key={k} value={k}>{k}</option>)}
-              </select>
-            </div>
-          </div>
-        );
-      case '3D үсэг':
-        return (
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-            <div>
-              <span style={label}>Талбай (m²)</span>
-              <input type="number" min={0.1} step={0.1} value={m2}
-                onChange={e => setM2(Math.max(0.1, +e.target.value))} style={input} />
-            </div>
-            <div>
-              <span style={label}>Төрөл</span>
-              <select value={threeDOpt} onChange={e => setThreeDOpt(e.target.value)} style={select}>
-                {Object.keys(THREE_D_OPTIONS).map(k => <option key={k} value={k}>{k}</option>)}
-              </select>
-            </div>
-          </div>
-        );
-      case 'Гэрэлт самбар':
-        return (
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-            <div>
-              <span style={label}>Талбай (m²)</span>
-              <input type="number" min={0.1} step={0.1} value={m2}
-                onChange={e => setM2(Math.max(0.1, +e.target.value))} style={input} />
-            </div>
-            <div>
-              <span style={label}>Төрөл</span>
-              <select value={gereltOpt} onChange={e => setGereltOpt(e.target.value)} style={select}>
-                {Object.keys(GERELT_OPTIONS).map(k => <option key={k} value={k}>{k}</option>)}
-              </select>
-            </div>
-          </div>
-        );
-      case 'PVC үсэг':
-      case 'Хөнгөн цагаан/Эпокси':
-        return (
-          <div>
-            <span style={label}>Талбай (m²)</span>
-            <input type="number" min={0.1} step={0.1} value={m2}
-              onChange={e => setM2(Math.max(0.1, +e.target.value))} style={input} />
-          </div>
-        );
-      default: return null;
-    }
-  }
+  const pill = (active: boolean): React.CSSProperties => ({
+    flex: 1,
+    padding: '10px 16px',
+    fontSize: 14,
+    fontWeight: 500,
+    cursor: 'pointer',
+    background: active ? '#FF6B00' : 'var(--surface)',
+    color: active ? '#fff' : 'var(--text)',
+    border: 'none',
+    fontFamily: 'inherit',
+    transition: 'background .15s',
+    textAlign: 'center',
+  });
 
-  /* ── print inputs ── */
-  function renderPrintInputs() {
-    switch (prtSub) {
-      case 'Офсет хэвлэл':
-        return (
-          <>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-              <div>
-                <span style={label}>Тоо ширхэг</span>
-                <input type="number" min={1} value={qty}
-                  onChange={e => setQty(Math.max(1, +e.target.value))} style={input} />
-              </div>
-              <div>
-                <span style={label}>Цаас (gsm)</span>
-                <select value={gsm} onChange={e => setGsm(+e.target.value)} style={select}>
-                  {Object.keys(PAPER_COSTS).map(g => <option key={g} value={g}>{g}gsm</option>)}
-                </select>
-              </div>
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginTop: 16 }}>
-              <div>
-                <span style={label}>Финиш</span>
-                <select value={finishing} onChange={e => setFinishing(e.target.value)} style={select}>
-                  {Object.keys(FINISHING_COSTS).map(f => <option key={f} value={f}>{f}</option>)}
-                </select>
-              </div>
-              <div>
-                <span style={label}>Өнгө</span>
-                <div style={pillGroup}>
-                  <button style={pill(isColor)} onClick={() => setIsColor(true)}>Өнгөт</button>
-                  <button style={pill(!isColor)} onClick={() => setIsColor(false)}>Хар/цагаан</button>
-                </div>
-              </div>
-            </div>
-          </>
-        );
-      case 'Өргөн хэвлэл':
-        return (
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-            <div>
-              <span style={label}>Талбай (m²)</span>
-              <input type="number" min={0.1} step={0.1} value={prtM2}
-                onChange={e => setPrtM2(Math.max(0.1, +e.target.value))} style={input} />
-            </div>
-            <div>
-              <span style={label}>Төрөл</span>
-              <select value={orgonType} onChange={e => setOrgonType(e.target.value)} style={select}>
-                {Object.keys(ORGON_TYPES).map(k => <option key={k} value={k}>{k}</option>)}
-              </select>
-            </div>
-          </div>
-        );
-      case 'Промошн':
-        return (
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-            <div>
-              <span style={label}>Тоо ширхэг</span>
-              <input type="number" min={1} value={qty}
-                onChange={e => setQty(Math.max(1, +e.target.value))} style={input} />
-            </div>
-            <div>
-              <span style={label}>Төрөл</span>
-              <select value={promoType} onChange={e => setPromoType(e.target.value)} style={select}>
-                {Object.keys(PROMO_TYPES).map(k => <option key={k} value={k}>{k}</option>)}
-              </select>
-            </div>
-          </div>
-        );
-      case 'Шагнал':
-        return (
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-            <div>
-              <span style={label}>Тоо ширхэг</span>
-              <input type="number" min={1} value={qty}
-                onChange={e => setQty(Math.max(1, +e.target.value))} style={input} />
-            </div>
-            <div>
-              <span style={label}>Төрөл</span>
-              <select value={shagnalType} onChange={e => setShagnalType(e.target.value)} style={select}>
-                {Object.keys(SHAGNAL_TYPES).map(k => <option key={k} value={k}>{k}</option>)}
-              </select>
-            </div>
-          </div>
-        );
-      default: return null;
-    }
-  }
+  const productCard = (isSelected: boolean): React.CSSProperties => ({
+    padding: '14px 18px',
+    borderRadius: 10,
+    border: isSelected ? '2px solid #FF6B00' : '1px solid var(--border)',
+    background: isSelected ? 'rgba(255,107,0,0.06)' : 'var(--surface)',
+    cursor: 'pointer',
+    transition: 'all .15s',
+    textAlign: 'left' as const,
+  });
 
-  /* ── render ── */
+  const radioBtn = (active: boolean): React.CSSProperties => ({
+    padding: '10px 16px',
+    borderRadius: 8,
+    border: active ? '2px solid #FF6B00' : '1px solid var(--border)',
+    background: active ? 'rgba(255,107,0,0.06)' : 'var(--surface)',
+    cursor: 'pointer',
+    fontSize: 14,
+    fontWeight: active ? 600 : 400,
+    color: active ? '#FF6B00' : 'var(--text)',
+    fontFamily: 'inherit',
+    transition: 'all .15s',
+    textAlign: 'center' as const,
+  });
+
+  const checkBtn = (active: boolean): React.CSSProperties => ({
+    display: 'flex',
+    alignItems: 'center',
+    padding: '10px 16px',
+    borderRadius: 8,
+    border: active ? '2px solid #FF6B00' : '1px solid var(--border)',
+    background: active ? 'rgba(255,107,0,0.06)' : 'var(--surface)',
+    cursor: 'pointer',
+    fontSize: 14,
+    color: active ? '#FF6B00' : 'var(--text)',
+    fontFamily: 'inherit',
+    transition: 'all .15s',
+  });
+
+  /* ── success screen ── */
   if (submitted) {
     return (
-      <div style={{ maxWidth: 960, margin: '0 auto', padding: '40px 48px', textAlign: 'center' }}>
-        <div style={{ ...card, padding: 48 }}>
-          <div style={{ fontSize: 48, marginBottom: 16 }}>&#10003;</div>
-          <h2 style={{ color: 'var(--text)', marginBottom: 8 }}>Амжилттай!</h2>
-          <p style={{ color: 'var(--text2)', fontSize: 15, lineHeight: 1.6 }}>
-            {submitResult?.quote_number
-              ? `#${submitResult.quote_number} дугаартай үнийн санал ${formEmail} хаягруу илгээгдлээ.`
-              : 'Таны үнийн санал хүлээн авлаа. Бид тантай удахгүй холбогдоно.'}
+      <div style={{ ...s.page, maxWidth: 640, textAlign: 'center' }}>
+        <div style={{ ...s.card, padding: 48 }}>
+          <div style={{ width: 64, height: 64, borderRadius: '50%', background: '#22c55e', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', marginBottom: 20 }}>
+            <span style={{ color: '#fff', fontSize: 32, lineHeight: 1 }}>&#10003;</span>
+          </div>
+          <h2 style={{ fontSize: 24, fontWeight: 700, marginBottom: 8 }}>Амжилттай!</h2>
+          {submitResult?.quote_number && (
+            <p style={{ color: 'var(--text2)', fontSize: 18, marginBottom: 8 }}>
+              Үнийн санал: <strong style={{ color: '#FF6B00' }}>#{submitResult.quote_number}</strong>
+            </p>
+          )}
+          <p style={{ color: 'var(--text3)', fontSize: 15, lineHeight: 1.6, marginBottom: 28 }}>
+            Таны үнийн санал хүлээн авлаа. {formEmail} хаяг руу мэдэгдэл илгээгдсэн.
           </p>
-          <div style={{ display: 'flex', gap: 12, justifyContent: 'center', marginTop: 24 }}>
-            <button style={btnPrimary} onClick={() => { setSubmitted(false); setShowForm(false); setSubmitResult(null); }}>
+          <div style={{ display: 'flex', gap: 12, justifyContent: 'center' }}>
+            <button
+              style={s.btnPrimary}
+              onClick={() => {
+                setSubmitted(false);
+                setShowForm(false);
+                setSubmitResult(null);
+                setSelectedCode(null);
+                setProduct(null);
+                setPriceResult(null);
+                setFormName('');
+                setFormEmail('');
+                setFormPhone('');
+                setFormCompany('');
+                setFormNotes('');
+              }}
+            >
               Шинэ тооцоо
             </button>
-            <a href="/dashboard" style={{ ...btnPrimary, background: '#1C1917', textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}>
-              Дашбоард харах &rarr;
+            <a
+              href="/dashboard/customer/quotes"
+              style={{
+                ...s.btnPrimary,
+                background: 'var(--surface)',
+                color: 'var(--text)',
+                border: '1px solid var(--border)',
+                textDecoration: 'none',
+                display: 'inline-flex',
+                alignItems: 'center',
+              }}
+            >
+              Дашбоард харах
             </a>
           </div>
         </div>
@@ -465,171 +508,514 @@ export default function QuotePage() {
     );
   }
 
-  const discLabel = tab === 'print' ? qtyDiscountLabel(qty) : null;
+  /* ── price panel ── */
+  function renderPricePanel() {
+    const selectedSize = product?.sizes?.find(sz => sz.code === sizeCode);
+    const isCustom = selectedSize?.is_custom;
 
-  return (
-    <div style={{ maxWidth: 960, margin: '0 auto', padding: '40px 48px', color: 'var(--text)' }}>
-      <h1 style={{ fontSize: 28, fontWeight: 700, marginBottom: 4 }}>Үнийн тооцоолуур</h1>
-      <p style={{ color: 'var(--text2)', marginBottom: 28, fontSize: 15 }}>Захиалгын үнийг шууд тооцоолно уу</p>
-
-      {/* ── main tabs ── */}
-      <div style={{ ...pillGroup, marginBottom: 28 }}>
-        <button style={pill(tab === 'signage')} onClick={() => setTab('signage')}>Хаяг реклам</button>
-        <button style={pill(tab === 'print')} onClick={() => setTab('print')}>Хэвлэл</button>
-      </div>
-
-      {/* ── subtype ── */}
-      <div style={card}>
-        <span style={label}>Төрөл сонгох</span>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-          {(tab === 'signage' ? SIGNAGE_SUBTYPES : PRINT_SUBTYPES).map(s => (
-            <button key={s}
-              onClick={() => tab === 'signage' ? setSigSub(s) : setPrtSub(s)}
-              style={{
-                padding: '8px 16px', borderRadius: 8, fontSize: 14, fontWeight: 500, cursor: 'pointer',
-                fontFamily: 'inherit', border: '1px solid var(--border)',
-                background: (tab === 'signage' ? sigSub : prtSub) === s ? '#FF6B35' : 'var(--bg)',
-                color: (tab === 'signage' ? sigSub : prtSub) === s ? '#fff' : 'var(--text)',
-              }}>
-              {s}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* ── inputs ── */}
-      <div style={card}>
-        <h3 style={{ fontSize: 16, fontWeight: 600, marginBottom: 16 }}>
-          {tab === 'signage' ? sigSub : prtSub}
-          {discLabel && <span style={badgeStyle}>{discLabel}</span>}
+    return (
+      <div style={{ ...s.card, border: '2px solid #FF6B00', position: 'relative' }}>
+        {priceLoading && (
+          <div style={{
+            position: 'absolute', inset: 0, background: 'rgba(var(--bg),0.5)',
+            backdropFilter: 'blur(2px)', display: 'flex', alignItems: 'center',
+            justifyContent: 'center', borderRadius: 12, zIndex: 2,
+          }}>
+            <div style={{ width: 24, height: 24, border: '3px solid var(--border)', borderTopColor: '#FF6B00', borderRadius: '50%', animation: 'spin 0.6s linear infinite' }} />
+          </div>
+        )}
+        <h3 style={{ fontSize: 16, fontWeight: 600, marginBottom: 16, color: 'var(--text)' }}>
+          Үнийн задаргаа
         </h3>
-        {tab === 'signage' ? renderSignageInputs() : renderPrintInputs()}
-      </div>
 
-      {/* ── signage extras ── */}
-      {tab === 'signage' && (
-        <div style={card}>
-          <h3 style={{ fontSize: 16, fontWeight: 600, marginBottom: 16 }}>Нэмэлт</h3>
-          <div style={{ display: 'grid', gap: 12 }}>
-            <label style={{ display: 'flex', alignItems: 'center', fontSize: 14 }}>
-              <input type="checkbox" checked={exRam} onChange={e => setExRam(e.target.checked)} style={checkbox} />
-              Төмөр рам
-              {exRam && (
-                <span style={{ marginLeft: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <input type="number" min={1} value={ramMeters}
-                    onChange={e => setRamMeters(Math.max(1, +e.target.value))}
-                    style={{ ...input, width: 80, padding: '6px 10px' }} />
-                  <span style={{ color: 'var(--text2)', fontSize: 13 }}>м x 6,500₮</span>
+        {!priceResult && !priceLoading && (
+          <p style={{ color: 'var(--text3)', fontSize: 14, textAlign: 'center', padding: '20px 0' }}>
+            Бүтээгдэхүүн сонгоход үнэ тооцоологдоно
+          </p>
+        )}
+
+        {priceResult && (
+          <>
+            {/* base */}
+            <div style={s.row}>
+              <span style={{ color: 'var(--text2)' }}>Суурь үнэ</span>
+              <span>{fmt(priceResult.base_price)}</span>
+            </div>
+
+            {/* discounts */}
+            {priceResult.discounts?.map((d, i) => (
+              <div key={i} style={s.row}>
+                <span style={{ color: 'var(--text2)' }}>Хөнгөлөлт{d.label ? ` (${d.label})` : ''}</span>
+                <span style={{ color: '#22c55e', fontWeight: 500 }}>-{fmt(d.amount)}</span>
+              </div>
+            ))}
+
+            {/* surcharges */}
+            {priceResult.surcharges?.map((sc, i) => (
+              <div key={i} style={s.row}>
+                <span style={{ color: 'var(--text2)' }}>
+                  {sc.label || 'Яаралтай нэмэгдэл'}
                 </span>
-              )}
-            </label>
-            <label style={{ display: 'flex', alignItems: 'center', fontSize: 14 }}>
-              <input type="checkbox" checked={exRelay} onChange={e => setExRelay(e.target.checked)} style={checkbox} />
-              Цагийн реле — 30,000₮
-            </label>
-            <label style={{ display: 'flex', alignItems: 'center', fontSize: 14 }}>
-              <input type="checkbox" checked={exPower} onChange={e => setExPower(e.target.checked)} style={checkbox} />
-              Тог бууруулагч — 35,000₮
-            </label>
-            <label style={{ display: 'flex', alignItems: 'center', fontSize: 14 }}>
-              <input type="checkbox" checked={exKran} onChange={e => setExKran(e.target.checked)} style={checkbox} />
-              Кран
-              {exKran && (
-                <select value={kranOpt} onChange={e => setKranOpt(e.target.value)}
-                  style={{ ...select, width: 140, marginLeft: 12, padding: '6px 10px' }}>
-                  {Object.entries(KRAN_OPTIONS).map(([k, v]) => (
-                    <option key={k} value={k}>{k} — {fmt(v)}</option>
+                <span style={{ color: '#eab308', fontWeight: 500 }}>+{fmt(sc.amount)}</span>
+              </div>
+            ))}
+
+            {/* finishing */}
+            {priceResult.finishing_cost > 0 && (
+              <div style={s.row}>
+                <span style={{ color: 'var(--text2)' }}>Finishing</span>
+                <span>{fmt(priceResult.finishing_cost)}</span>
+              </div>
+            )}
+
+            {/* addon */}
+            {priceResult.addon_cost > 0 && (
+              <div style={s.row}>
+                <span style={{ color: 'var(--text2)' }}>Нэмэлт ажил</span>
+                <span>{fmt(priceResult.addon_cost)}</span>
+              </div>
+            )}
+
+            {/* divider */}
+            <div style={{ borderTop: '1px solid var(--border)', margin: '10px 0' }} />
+
+            {/* total */}
+            <div style={{ ...s.row, fontSize: 22, fontWeight: 700, paddingTop: 4 }}>
+              <span>Нийт</span>
+              <span style={{ color: '#FF6B00' }}>{fmt(priceResult.final_price)}</span>
+            </div>
+
+            {/* unit price */}
+            {quantity > 1 && (
+              <div style={{ ...s.row, fontSize: 14 }}>
+                <span style={{ color: 'var(--text3)' }}>Нэгжийн үнэ</span>
+                <span style={{ color: 'var(--text2)' }}>{fmt(priceResult.unit_price)}/ш</span>
+              </div>
+            )}
+
+            {/* market tactic badge */}
+            {priceResult.tactic_applied && priceResult.vs_market_pct != null && (
+              <div style={{
+                marginTop: 12,
+                padding: '8px 14px',
+                borderRadius: 8,
+                background: 'rgba(34,197,94,0.08)',
+                border: '1px solid rgba(34,197,94,0.2)',
+                fontSize: 13,
+                color: '#16a34a',
+                fontWeight: 600,
+                textAlign: 'center',
+              }}>
+                Зах зээлийн дунджаас {Math.abs(priceResult.vs_market_pct)}% хямд
+              </div>
+            )}
+
+            {/* novat note */}
+            <p style={{ color: 'var(--text4)', fontSize: 12, marginTop: 12, textAlign: 'center' }}>
+              {priceResult.novat_note || 'НӨАТ ороогүй'}
+            </p>
+
+            {/* validity */}
+            <p style={{ color: 'var(--text4)', fontSize: 12, textAlign: 'center' }}>
+              Хүчинтэй: {priceResult.validity_hours || 72} цаг
+            </p>
+
+            {/* submit CTA */}
+            {!showForm && (
+              <button
+                style={{ ...s.btnPrimary, width: '100%', marginTop: 16 }}
+                onClick={() => setShowForm(true)}
+              >
+                Үнийн санал авах
+              </button>
+            )}
+          </>
+        )}
+      </div>
+    );
+  }
+
+  /* ── main render ── */
+  return (
+    <div style={s.page}>
+      <style>{`
+        @keyframes spin { to { transform: rotate(360deg); } }
+        @media (max-width: 768px) {
+          .quote-layout { flex-direction: column !important; }
+          .quote-right { position: static !important; order: -1; }
+        }
+      `}</style>
+
+      <h1 style={s.h1}>Үнийн тооцоолуур</h1>
+      <p style={s.subtitle}>Захиалгын үнийг шууд тооцоолно уу</p>
+
+      {/* ── Step 1: Product selection ── */}
+      {!selectedCode && (
+        <>
+          {catalogLoading ? (
+            <div style={{ textAlign: 'center', padding: 48 }}>
+              <div style={{
+                width: 32, height: 32, border: '3px solid var(--border)',
+                borderTopColor: '#FF6B00', borderRadius: '50%',
+                animation: 'spin 0.6s linear infinite', margin: '0 auto 12px',
+              }} />
+              <p style={{ color: 'var(--text3)', fontSize: 14 }}>Бүтээгдэхүүн ачааллаж байна...</p>
+            </div>
+          ) : (
+            sortedCategories.map(cat => (
+              <div key={cat} style={{ marginBottom: 32 }}>
+                <h2 style={{ fontSize: 18, fontWeight: 600, marginBottom: 14, display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ fontSize: 22 }}>{CATEGORY_ICONS[cat] || ''}</span>
+                  {cat}
+                  <span style={{ fontSize: 13, color: 'var(--text3)', fontWeight: 400 }}>
+                    ({grouped[cat].length})
+                  </span>
+                </h2>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 12 }}>
+                  {grouped[cat].map(p => (
+                    <button
+                      key={p.code}
+                      onClick={() => setSelectedCode(p.code)}
+                      style={productCard(false)}
+                    >
+                      <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 4, color: 'var(--text)' }}>
+                        {p.name_mn}
+                      </div>
+                      {p.name_en && (
+                        <div style={{ fontSize: 12, color: 'var(--text3)' }}>{p.name_en}</div>
+                      )}
+                      {p.subcategory && (
+                        <div style={{
+                          marginTop: 6, fontSize: 11, color: 'var(--text4)',
+                          background: 'var(--surface2)', borderRadius: 4, padding: '2px 8px',
+                          display: 'inline-block',
+                        }}>
+                          {p.subcategory}
+                        </div>
+                      )}
+                    </button>
                   ))}
-                </select>
-              )}
-            </label>
-          </div>
-        </div>
+                </div>
+              </div>
+            ))
+          )}
+        </>
       )}
 
-      {/* ── rush + pricing ── */}
-      <div style={card}>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
-          <div>
-            <span style={label}>Хугацаа</span>
-            <div style={pillGroup}>
-              {RUSH_OPTIONS.map((r, i) => (
-                <button key={r.label} style={pill(rushIdx === i)} onClick={() => setRushIdx(i)}>
-                  {r.label}{r.pct > 0 && ` (+${r.pct * 100}%)`}
-                </button>
-              ))}
-            </div>
-          </div>
-          <div>
-            <span style={label}>Үнийн горим</span>
-            <div style={pillGroup}>
-              {PRICING_MODES.map((m, i) => (
-                <button key={m.label} style={pill(modeIdx === i)} onClick={() => setModeIdx(i)}>
-                  {m.label} (x{m.mult.toFixed(2)})
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
+      {/* ── Step 2: Product config + price panel ── */}
+      {selectedCode && (
+        <>
+          {/* back button */}
+          <button
+            onClick={() => {
+              setSelectedCode(null);
+              setProduct(null);
+              setPriceResult(null);
+              setShowForm(false);
+            }}
+            style={{
+              background: 'none', border: 'none', color: '#FF6B00',
+              fontSize: 14, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit',
+              marginBottom: 20, padding: 0, display: 'flex', alignItems: 'center', gap: 6,
+            }}
+          >
+            &#8592; Бүтээгдэхүүн солих
+          </button>
 
-      {/* ── result ── */}
-      <div style={{ ...card, background: 'var(--bg)', border: '2px solid #FF6B35' }}>
-        <h3 style={{ fontSize: 16, fontWeight: 600, marginBottom: 16 }}>Тооцоо</h3>
-        <div style={row}><span style={{ color: 'var(--text2)' }}>Суурь үнэ</span><span>{fmt(breakdown.base)}</span></div>
-        {breakdown.extras > 0 && (
-          <div style={row}><span style={{ color: 'var(--text2)' }}>Нэмэлт</span><span>{fmt(breakdown.extras)}</span></div>
-        )}
-        {breakdown.discount > 0 && (
-          <div style={row}><span style={{ color: 'var(--text2)' }}>Хөнгөлөлт ({(breakdown.discPct * 100).toFixed(0)}%)</span><span style={{ color: '#22c55e' }}>-{fmt(breakdown.discount)}</span></div>
-        )}
-        {breakdown.rushFee > 0 && (
-          <div style={row}><span style={{ color: 'var(--text2)' }}>Яаралтай нэмэгдэл</span><span>{fmt(breakdown.rushFee)}</span></div>
-        )}
-        <div style={row}><span style={{ color: 'var(--text2)' }}>Маржин ({PRICING_MODES[modeIdx].label})</span><span>{fmt(breakdown.margin)}</span></div>
-        <div style={{ ...row, borderTop: '1px solid var(--border)', marginTop: 8, paddingTop: 12, fontSize: 20, fontWeight: 700 }}>
-          <span>Нийт</span><span style={{ color: '#FF6B35' }}>{fmt(breakdown.total)}</span>
-        </div>
-      </div>
+          {productLoading ? (
+            <div style={{ textAlign: 'center', padding: 48 }}>
+              <div style={{
+                width: 32, height: 32, border: '3px solid var(--border)',
+                borderTopColor: '#FF6B00', borderRadius: '50%',
+                animation: 'spin 0.6s linear infinite', margin: '0 auto 12px',
+              }} />
+            </div>
+          ) : product ? (
+            <div className="quote-layout" style={s.twoCol}>
+              {/* LEFT COLUMN - form */}
+              <div style={s.leftCol}>
+                {/* product title */}
+                <div style={{ ...s.card, paddingBottom: 16 }}>
+                  <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 4 }}>{product.name_mn}</h2>
+                  {product.name_en && (
+                    <p style={{ color: 'var(--text3)', fontSize: 14, margin: 0 }}>{product.name_en}</p>
+                  )}
+                  <div style={{ marginTop: 8, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    <span style={{
+                      fontSize: 12, padding: '2px 10px', borderRadius: 6,
+                      background: 'rgba(255,107,0,0.08)', color: '#FF6B00', fontWeight: 500,
+                    }}>
+                      {product.category}
+                    </span>
+                    {product.subcategory && (
+                      <span style={{
+                        fontSize: 12, padding: '2px 10px', borderRadius: 6,
+                        background: 'var(--surface2)', color: 'var(--text3)',
+                      }}>
+                        {product.subcategory}
+                      </span>
+                    )}
+                    {product.unit_type && (
+                      <span style={{
+                        fontSize: 12, padding: '2px 10px', borderRadius: 6,
+                        background: 'var(--surface2)', color: 'var(--text3)',
+                      }}>
+                        Нэгж: {product.unit_type}
+                      </span>
+                    )}
+                  </div>
+                </div>
 
-      {/* ── CTA ── */}
-      {!showForm && (
-        <button style={{ ...btnPrimary, width: '100%' }} onClick={() => setShowForm(true)}>
-          Үнийн санал авах
-        </button>
-      )}
+                {/* Material selector */}
+                {product.materials?.length > 0 && (
+                  <div style={s.card}>
+                    <span style={s.label}>Материал</span>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                      {product.materials.map(m => (
+                        <button
+                          key={m.code}
+                          onClick={() => setMaterialCode(m.code)}
+                          style={radioBtn(materialCode === m.code)}
+                        >
+                          {m.name_mn}
+                          {m.price_per_unit != null && (
+                            <span style={{ fontSize: 12, opacity: 0.7, marginLeft: 4 }}>
+                              ({fmt(m.price_per_unit)})
+                            </span>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
-      {/* ── inline form ── */}
-      {showForm && (
-        <form onSubmit={handleSubmit} style={card}>
-          <h3 style={{ fontSize: 16, fontWeight: 600, marginBottom: 16 }}>Холбоо барих</h3>
-          <div style={{ display: 'grid', gap: 14 }}>
-            <div>
-              <span style={label}>Нэр *</span>
-              <input value={formName} onChange={e => setFormName(e.target.value)} required style={input} />
+                {/* Size selector */}
+                {product.sizes?.length > 0 && (
+                  <div style={s.card}>
+                    <span style={s.label}>Хэмжээ</span>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
+                      {product.sizes.map(sz => (
+                        <button
+                          key={sz.code}
+                          onClick={() => setSizeCode(sz.code)}
+                          style={radioBtn(sizeCode === sz.code)}
+                        >
+                          {sz.name_mn}
+                        </button>
+                      ))}
+                    </div>
+                    {/* custom size inputs */}
+                    {product.sizes.find(sz => sz.code === sizeCode)?.is_custom && (
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 8 }}>
+                        <div>
+                          <span style={s.label}>Өргөн (м)</span>
+                          <input
+                            type="number"
+                            min={0.01}
+                            step={0.01}
+                            value={customWidth}
+                            onChange={e => setCustomWidth(Math.max(0.01, +e.target.value))}
+                            style={s.input}
+                          />
+                        </div>
+                        <div>
+                          <span style={s.label}>Өндөр (м)</span>
+                          <input
+                            type="number"
+                            min={0.01}
+                            step={0.01}
+                            value={customHeight}
+                            onChange={e => setCustomHeight(Math.max(0.01, +e.target.value))}
+                            style={s.input}
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Quantity */}
+                <div style={s.card}>
+                  <span style={s.label}>Тоо ширхэг</span>
+                  <input
+                    type="number"
+                    min={1}
+                    value={quantity}
+                    onChange={e => setQuantity(Math.max(1, Math.round(+e.target.value)))}
+                    style={{ ...s.input, maxWidth: 200 }}
+                  />
+                </div>
+
+                {/* Finishing checkboxes */}
+                {product.finishings && product.finishings.length > 0 && (
+                  <div style={s.card}>
+                    <span style={s.label}>Финиш боловсруулалт</span>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                      {product.finishings.map(f => (
+                        <button
+                          key={f.code}
+                          onClick={() => toggleFinishing(f.code)}
+                          style={checkBtn(finishingCodes.includes(f.code))}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={finishingCodes.includes(f.code)}
+                            onChange={() => toggleFinishing(f.code)}
+                            style={s.checkbox}
+                          />
+                          {f.name_mn}
+                          {f.price != null && (
+                            <span style={{ fontSize: 12, opacity: 0.6, marginLeft: 4 }}>
+                              +{fmt(f.price)}
+                            </span>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Addon checkboxes */}
+                {product.addons && product.addons.length > 0 && (
+                  <div style={s.card}>
+                    <span style={s.label}>Нэмэлт ажил</span>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                      {product.addons.map(a => (
+                        <button
+                          key={a.code}
+                          onClick={() => toggleAddon(a.code)}
+                          style={checkBtn(addonCodes.includes(a.code))}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={addonCodes.includes(a.code)}
+                            onChange={() => toggleAddon(a.code)}
+                            style={s.checkbox}
+                          />
+                          {a.name_mn}
+                          {a.price != null && (
+                            <span style={{ fontSize: 12, opacity: 0.6, marginLeft: 4 }}>
+                              +{fmt(a.price)}
+                            </span>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Rush + Pricing tier */}
+                <div style={s.card}>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+                    <div>
+                      <span style={s.label}>Хугацаа</span>
+                      <div style={s.pillGroup}>
+                        {RUSH_OPTIONS.map((r, i) => (
+                          <button
+                            key={r.label}
+                            style={pill(rushIdx === i)}
+                            onClick={() => setRushIdx(i)}
+                          >
+                            {r.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div>
+                      <span style={s.label}>Үнийн горим</span>
+                      <div style={s.pillGroup}>
+                        <button
+                          style={pill(pricingTier === 'b2b')}
+                          onClick={() => setPricingTier('b2b')}
+                        >
+                          B2B
+                        </button>
+                        <button
+                          style={pill(pricingTier === 'retail')}
+                          onClick={() => setPricingTier('retail')}
+                        >
+                          Retail
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Submit form (inline) */}
+                {showForm && (
+                  <form onSubmit={handleSubmit} style={s.card}>
+                    <h3 style={{ fontSize: 16, fontWeight: 600, marginBottom: 16 }}>Холбоо барих</h3>
+                    <div style={{ display: 'grid', gap: 14 }}>
+                      <div>
+                        <span style={s.label}>Нэр *</span>
+                        <input
+                          value={formName}
+                          onChange={e => setFormName(e.target.value)}
+                          required
+                          style={s.input}
+                        />
+                      </div>
+                      <div>
+                        <span style={s.label}>Имэйл *</span>
+                        <input
+                          type="email"
+                          value={formEmail}
+                          onChange={e => setFormEmail(e.target.value)}
+                          required
+                          style={s.input}
+                        />
+                      </div>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                        <div>
+                          <span style={s.label}>Утас</span>
+                          <input
+                            value={formPhone}
+                            onChange={e => setFormPhone(e.target.value)}
+                            style={s.input}
+                          />
+                        </div>
+                        <div>
+                          <span style={s.label}>Компанийн нэр</span>
+                          <input
+                            value={formCompany}
+                            onChange={e => setFormCompany(e.target.value)}
+                            placeholder="Заавал биш"
+                            style={s.input}
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <span style={s.label}>Тэмдэглэл</span>
+                        <textarea
+                          value={formNotes}
+                          onChange={e => setFormNotes(e.target.value)}
+                          rows={3}
+                          style={{ ...s.input, resize: 'vertical' as const }}
+                        />
+                      </div>
+                      <button
+                        type="submit"
+                        disabled={submitting}
+                        style={{ ...s.btnPrimary, opacity: submitting ? 0.6 : 1, width: '100%' }}
+                      >
+                        {submitting ? 'Илгээж байна...' : 'Үнийн санал илгээх'}
+                      </button>
+                    </div>
+                  </form>
+                )}
+              </div>
+
+              {/* RIGHT COLUMN - price panel */}
+              <div className="quote-right" style={s.rightCol}>
+                {renderPricePanel()}
+              </div>
             </div>
-            <div>
-              <span style={label}>Имэйл *</span>
-              <input type="email" value={formEmail} onChange={e => setFormEmail(e.target.value)} required style={input} />
+          ) : (
+            <div style={{ ...s.card, textAlign: 'center' }}>
+              <p style={{ color: 'var(--text3)' }}>Бүтээгдэхүүн олдсонгүй</p>
             </div>
-            <div>
-              <span style={label}>Утас</span>
-              <input value={formPhone} onChange={e => setFormPhone(e.target.value)} style={input} />
-            </div>
-            <div>
-              <span style={label}>Компанийн нэр</span>
-              <input value={formCompany} onChange={e => setFormCompany(e.target.value)} placeholder="Заавал биш" style={input} />
-            </div>
-            <div>
-              <span style={label}>Тэмдэглэл</span>
-              <textarea value={formNotes} onChange={e => setFormNotes(e.target.value)} rows={3}
-                style={{ ...input, resize: 'vertical' }} />
-            </div>
-            <button type="submit" disabled={submitting} style={{ ...btnPrimary, opacity: submitting ? 0.6 : 1 }}>
-              {submitting ? 'Илгээж байна...' : 'Илгээх'}
-            </button>
-          </div>
-        </form>
+          )}
+        </>
       )}
     </div>
   );

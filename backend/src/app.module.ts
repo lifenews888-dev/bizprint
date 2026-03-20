@@ -55,6 +55,9 @@ import { PricingCatalogController } from './pricing-catalog/pricing-catalog.cont
 import { PricingCatalogService } from './pricing-catalog/pricing-catalog.service'
 import { NotificationModule } from './notifications/notification.module'
 import { PricingConfigModule } from './pricing-config/pricing-config.module'
+import { ProductsMasterModule } from './products-master/products-master.module'
+import { PricingEngineModule } from './pricing-engine/pricing-engine.module'
+import { CustomerCareModule } from './customer-care/customer-care.module'
 
 @Module({
   imports: [
@@ -122,6 +125,9 @@ import { PricingConfigModule } from './pricing-config/pricing-config.module'
     AuditTrailModule,
     NotificationModule,
     PricingConfigModule,
+    ProductsMasterModule,
+    PricingEngineModule,
+    CustomerCareModule,
   ],
   controllers: [PricingCatalogController],
   providers: [PricingCatalogService],
