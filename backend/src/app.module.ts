@@ -58,6 +58,7 @@ import { PricingConfigModule } from './pricing-config/pricing-config.module'
 import { ProductsMasterModule } from './products-master/products-master.module'
 import { PricingEngineModule } from './pricing-engine/pricing-engine.module'
 import { CustomerCareModule } from './customer-care/customer-care.module'
+import { CmsModule } from './cms/cms.module'
 
 @Module({
   imports: [
@@ -128,6 +129,7 @@ import { CustomerCareModule } from './customer-care/customer-care.module'
     ProductsMasterModule,
     PricingEngineModule,
     CustomerCareModule,
+    CmsModule,
   ],
   controllers: [PricingCatalogController],
   providers: [PricingCatalogService],

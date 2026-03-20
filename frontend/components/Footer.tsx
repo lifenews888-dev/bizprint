@@ -1,39 +1,27 @@
 'use client'
 
+import { useSiteSettings } from '@/contexts/SiteSettingsContext'
+
 const F = "'DM Sans','Segoe UI',system-ui,sans-serif"
 
 export default function Footer() {
-  const year = new Date().getFullYear()
+  const { settings } = useSiteSettings()
 
-  const sections = [
-    {
-      title: 'Бүтээгдэхүүн',
-      links: [
-        { label: 'Визит карт', href: '/shop?cat=business-card' },
-        { label: 'Флаер & Постер', href: '/shop?cat=flyer' },
-        { label: 'Баннер', href: '/shop?cat=banner' },
-        { label: 'Ном & Каталог', href: '/shop?cat=book' },
-        { label: 'Хайрцаг & Уут', href: '/shop?cat=packaging' },
-      ],
-    },
-    {
-      title: 'Үйлчилгээ',
-      links: [
-        { label: 'Үнийн санал', href: '/quote' },
-        { label: 'Онлайн дизайн', href: '/designer' },
-        { label: 'Хүргэлт', href: '/delivery' },
-        { label: 'Партнер хөтөлбөр', href: '/partner' },
-      ],
-    },
-    {
-      title: 'Компани',
-      links: [
-        { label: 'Бидний тухай', href: '/about' },
-        { label: 'Холбоо барих', href: '/contact' },
-        { label: 'Үйлчилгээний нөхцөл', href: '/terms' },
-        { label: 'Нууцлалын бодлого', href: '/privacy' },
-      ],
-    },
+  const siteName = settings.site_name || 'BizPrint'
+  const description = settings.footer_description || ''
+  const copyright = settings.footer_copyright || ''
+  const location = settings.footer_location || ''
+  const columns = settings.footer_columns || []
+  const showSocial = settings.footer_show_social !== false
+  const showLocation = settings.footer_show_location !== false
+  const facebook = settings.site_facebook || ''
+  const instagram = settings.site_instagram || ''
+  const youtube = settings.site_youtube || ''
+
+  const socialLinks = [
+    { icon: '📘', url: facebook, label: 'Facebook' },
+    { icon: '📷', url: instagram, label: 'Instagram' },
+    { icon: '🎬', url: youtube, label: 'YouTube' },
   ]
 
   return (
@@ -43,29 +31,53 @@ export default function Footer() {
           {/* Brand */}
           <div>
             <a href="/" style={{ fontSize: '20px', fontWeight: 700, color: 'var(--text)', textDecoration: 'none', display: 'inline-block', marginBottom: '14px' }}>
-              <span style={{ color: '#FF6B00' }}>Biz</span>Print
+              <span style={{ color: '#FF6B00' }}>{siteName.substring(0, 3)}</span>{siteName.substring(3)}
             </a>
             <p style={{ fontSize: '13px', color: 'var(--text2)', lineHeight: 1.7, margin: '0 0 20px' }}>
-              Хэвлэлийн салбарын бүх оролцогчдыг нэгтгэсэн нэгдсэн экосистем.
+              {description}
             </p>
-            <div style={{ display: 'flex', gap: '8px' }}>
-              {['📘', '📷', '🐦'].map((icon, i) => (
-                <a key={i} href="#" style={{ width: '34px', height: '34px', borderRadius: '8px', background: 'var(--surface2)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none', fontSize: '14px' }}>
-                  {icon}
-                </a>
-              ))}
-            </div>
+            {showSocial && (
+              <div style={{ display: 'flex', gap: '8px' }}>
+                {socialLinks.map((s, i) => (
+                  <a
+                    key={i}
+                    href={s.url || '#'}
+                    target={s.url ? '_blank' : undefined}
+                    rel={s.url ? 'noopener noreferrer' : undefined}
+                    aria-label={s.label}
+                    style={{
+                      width: '34px', height: '34px', borderRadius: '8px',
+                      background: 'var(--surface2)', border: '1px solid var(--border)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      textDecoration: 'none', fontSize: '14px',
+                      transition: 'border-color 0.2s',
+                    }}
+                    onMouseEnter={e => (e.currentTarget.style.borderColor = '#FF6B00')}
+                    onMouseLeave={e => (e.currentTarget.style.borderColor = 'var(--border)')}
+                  >
+                    {s.icon}
+                  </a>
+                ))}
+              </div>
+            )}
           </div>
 
-          {sections.map(s => (
-            <div key={s.title}>
-              <h4 style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text)', margin: '0 0 16px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{s.title}</h4>
+          {/* Dynamic columns */}
+          {Array.isArray(columns) && columns.map((col: any, idx: number) => (
+            <div key={idx}>
+              <h4 style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text)', margin: '0 0 16px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                {col.title}
+              </h4>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                {s.links.map(l => (
-                  <a key={l.href} href={l.href} style={{ fontSize: '13px', color: 'var(--text2)', textDecoration: 'none', transition: 'color 0.2s' }}
+                {Array.isArray(col.links) && col.links.map((link: any, li: number) => (
+                  <a
+                    key={li}
+                    href={link.url || '#'}
+                    style={{ fontSize: '13px', color: 'var(--text2)', textDecoration: 'none', transition: 'color 0.2s' }}
                     onMouseEnter={e => (e.currentTarget.style.color = '#FF6B00')}
-                    onMouseLeave={e => (e.currentTarget.style.color = 'var(--text2)')}>
-                    {l.label}
+                    onMouseLeave={e => (e.currentTarget.style.color = 'var(--text2)')}
+                  >
+                    {link.label}
                   </a>
                 ))}
               </div>
@@ -73,9 +85,12 @@ export default function Footer() {
           ))}
         </div>
 
+        {/* Bottom bar */}
         <div style={{ borderTop: '1px solid var(--border)', paddingTop: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
-          <p style={{ fontSize: '12px', color: 'var(--text3)', margin: 0 }}>© {year} BizPrint. Бүх эрх хуулиар хамгаалагдсан.</p>
-          <p style={{ fontSize: '12px', color: 'var(--text3)', margin: 0 }}>Улаанбаатар, Монгол</p>
+          <p style={{ fontSize: '12px', color: 'var(--text3)', margin: 0 }}>{copyright}</p>
+          {showLocation && location && (
+            <p style={{ fontSize: '12px', color: 'var(--text3)', margin: 0 }}>{location}</p>
+          )}
         </div>
       </div>
     </footer>

@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import './globals.css'
+import { SiteSettingsProvider } from '@/contexts/SiteSettingsContext'
 import MegaNav from '@/components/nav/MegaNav'
 import AnnouncementBar from '@/components/AnnouncementBar'
 import Footer from '@/components/Footer'
@@ -19,11 +20,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
       </head>
       <body>
-        <AnnouncementBar />
-        <MegaNav />
-        <main>{children}</main>
-        <ChatWidget />
-        <Footer />
+        <SiteSettingsProvider>
+          <AnnouncementBar />
+          <MegaNav />
+          <main>{children}</main>
+          <ChatWidget />
+          <Footer />
+        </SiteSettingsProvider>
       </body>
     </html>
   )
