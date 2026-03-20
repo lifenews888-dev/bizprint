@@ -241,31 +241,111 @@ export default function QuotePage() {
 
     if (tab === 'sign') {
       const c = signCalc;
-      lines.push({ label: 'Суурь үнэ', amount: c.base });
+      lines.push({ label: 'Тооцооллын үнэ', amount: c.base });
       if (c.extras > 0) lines.push({ label: 'Нэмэлт ажил', amount: c.extras });
       if (c.rushRate > 0) lines.push({ label: `Яаралтай (+${Math.round(c.rushRate * 100)}%)`, amount: c.rushAmt, color: '#eab308' });
-      lines.push({ label: `Ашиг (${c.marginRate === 1.2 ? '20%' : '45%'})`, amount: c.marginAmt });
       total = c.total;
       unitQty = c.qty;
     } else if (printSub === 'offset') {
       const c = offsetCalc;
-      lines.push({ label: 'Суурь үнэ', amount: c.subtotal });
+      lines.push({ label: 'Тооцооллын үнэ', amount: c.subtotal });
       if (c.disc > 0) lines.push({ label: `Хөнгөлөлт (-${Math.round(c.disc * 100)}%)`, amount: -c.discAmt, color: '#22c55e' });
       if (c.rushRate > 0) lines.push({ label: `Яаралтай (+${Math.round(c.rushRate * 100)}%)`, amount: c.rushAmt, color: '#eab308' });
-      lines.push({ label: `Ашиг (${c.marginRate === 1.2 ? '20%' : '45%'})`, amount: c.marginAmt });
       total = c.total;
       unitQty = c.qty;
     } else {
       const c = wideCalc;
-      lines.push({ label: 'Суурь үнэ', amount: c.base });
+      lines.push({ label: 'Тооцооллын үнэ', amount: c.base });
       if (c.rushRate > 0) lines.push({ label: `Яаралтай (+${Math.round(c.rushRate * 100)}%)`, amount: c.rushAmt, color: '#eab308' });
-      lines.push({ label: `Ашиг (${c.marginRate === 1.2 ? '20%' : '45%'})`, amount: c.marginAmt });
       total = c.total;
       unitQty = 1;
     }
 
     return { lines, total, unitPrice: unitQty > 0 ? total / unitQty : total };
   }, [tab, printSub, signCalc, offsetCalc, wideCalc]);
+
+  /* ─── API-BASED CALCULATION (authoritative when available) ─── */
+  const [apiResult, setApiResult] = useState<any>(null);
+
+  const getPricingKey = () => {
+    if (signProd === 'nerj') return nerjLit ? 'nerj_on_m2' : 'nerj_off_m2';
+    if (signProd === 'd3') return d3Lit ? 'd3_on_m2' : 'd3_off_m2';
+    if (signProd === 'sambar') {
+      if (sbLocation === 'in') return `sb_in${sbThickness}_m2`;
+      return sbOutType === 'corner' ? 'sb_out_corner_m2' : 'sb_out_fold_m2';
+    }
+    if (signProd === 'pvc') return 'pvc_m2';
+    if (signProd === 'epoxy') return 'epoxy_m2';
+    if (signProd === 'font') return 'font_back_m2';
+    if (signProd === 'tmr') return 'tmr_m2';
+    return '';
+  };
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      let endpoint = '';
+      let body: any = {};
+
+      if (tab === 'sign') {
+        endpoint = 'calculate-hadag';
+        body = {
+          product: signProd,
+          size: tovgorSize,
+          quantity: tovgorQty,
+          width: dimW,
+          height: dimH,
+          pricing_key: getPricingKey(),
+          rush_hours: rush === '24h' ? 24 : rush === '48h' ? 48 : 0,
+          pricing_mode: margin,
+          extra_rele: extraRele,
+          extra_tog: extraTog,
+          extra_crane1: extraCrane1,
+          extra_crane8: extraCrane8,
+        };
+      } else if (printSub === 'offset') {
+        endpoint = 'calculate-offset';
+        body = {
+          product: offProduct,
+          size_code: offSize,
+          pages: offPages,
+          quantity: offQty,
+          gsm: offGsm,
+          color_mode: offColor,
+          sides: offSides,
+          finishing: offFinish,
+          fold: offFold,
+          rush_hours: rush === '24h' ? 24 : rush === '48h' ? 48 : 0,
+          pricing_mode: margin,
+        };
+      } else {
+        endpoint = 'calculate-wide';
+        body = {
+          type: wideType,
+          width: wideW,
+          length: wideL,
+          rush_hours: rush === '24h' ? 24 : rush === '48h' ? 48 : 0,
+          pricing_mode: margin,
+        };
+      }
+
+      fetch(`${API}/quote-engine/${endpoint}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+        .then(r => r.ok ? r.json() : null)
+        .then(d => setApiResult(d))
+        .catch(() => setApiResult(null));
+    }, 400);
+    return () => clearTimeout(timer);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab, signProd, tovgorSize, tovgorQty, dimW, dimH, extraRele, extraTog, extraCrane1, extraCrane8,
+      printSub, offProduct, offSize, offPages, offQty, offGsm, offColor, offSides, offFinish, offFold,
+      wideType, wideW, wideL, rush, margin, nerjLit, d3Lit, sbLocation, sbThickness, sbOutType]);
+
+  /* ─── Display prices: prefer API result, fallback to client calc ─── */
+  const displayTotal = apiResult?.total_price || breakdown.total;
+  const displayUnitPrice = apiResult?.unit_price || breakdown.unitPrice;
 
   /* ─── MARKET ANALYSIS ─── */
   interface MarketData { has_data: boolean; market_avg_unit_price?: number; market_min_unit_price?: number; market_max_unit_price?: number; sample_count?: number; factories?: string[] }
@@ -289,11 +369,11 @@ export default function QuotePage() {
   }, [tab, signProd, printSub, offProduct, offSize, offGsm, offQty, wideType]);
 
   const marketComparison = useMemo(() => {
-    if (!market?.has_data || !market.market_avg_unit_price || !breakdown.unitPrice) return null;
-    const diff = Math.round(((breakdown.unitPrice - market.market_avg_unit_price) / market.market_avg_unit_price) * 100);
+    if (!market?.has_data || !market.market_avg_unit_price || !displayUnitPrice) return null;
+    const diff = Math.round(((displayUnitPrice - market.market_avg_unit_price) / market.market_avg_unit_price) * 100);
     const position = diff < -5 ? 'cheap' : diff > 5 ? 'expensive' : 'average';
     return { diff, position, avg: market.market_avg_unit_price, min: market.market_min_unit_price!, max: market.market_max_unit_price!, count: market.sample_count!, factories: market.factories || [] };
-  }, [market, breakdown.unitPrice]);
+  }, [market, displayUnitPrice]);
 
   /* ─── SUBMIT ─── */
   const handleSubmit = useCallback(async (e: FormEvent) => {
@@ -347,8 +427,8 @@ export default function QuotePage() {
           dimensions: dims,
           quantity: qty,
           base_price: breakdown.lines[0]?.amount || 0,
-          total_price: breakdown.total,
-          unit_price: breakdown.unitPrice,
+          total_price: displayTotal,
+          unit_price: displayUnitPrice,
           margin_rate: MARGIN_MAP[margin],
           rush_type: rush,
           rush_fee: breakdown.lines.find(l => l.color === '#eab308')?.amount || 0,
@@ -365,7 +445,7 @@ export default function QuotePage() {
     } finally {
       setSubmitting(false);
     }
-  }, [mName, mEmail, mPhone, mCompany, mNotes, tab, signProd, tovgorSize, tovgorQty, dimW, dimH, extraRele, extraTog, extraCrane1, extraCrane8, printSub, offProduct, offSize, offPages, offQty, offGsm, offColor, offSides, offFinish, offFold, wideType, wideW, wideL, breakdown, margin, rush]);
+  }, [mName, mEmail, mPhone, mCompany, mNotes, tab, signProd, tovgorSize, tovgorQty, dimW, dimH, extraRele, extraTog, extraCrane1, extraCrane8, printSub, offProduct, offSize, offPages, offQty, offGsm, offColor, offSides, offFinish, offFold, wideType, wideW, wideL, breakdown, margin, rush, displayTotal, displayUnitPrice]);
 
   /* ───── Shared styles ───── */
   const chipStyle = (active: boolean): React.CSSProperties => ({
@@ -617,13 +697,6 @@ export default function QuotePage() {
                   <button style={toggleStyle(rush === '24h')} onClick={() => setRush('24h')}>24цаг (+30%)</button>
                 </div>
               </div>
-              <div>
-                <label style={labelStyle}>Үнийн горим</label>
-                <div style={{ display: 'flex', gap: 6 }}>
-                  <button style={toggleStyle(margin === 'b2b')} onClick={() => setMargin('b2b')}>B2B (×1.20)</button>
-                  <button style={toggleStyle(margin === 'retail')} onClick={() => setMargin('retail')}>Retail (×1.45)</button>
-                </div>
-              </div>
             </div>
           </div>
 
@@ -631,7 +704,7 @@ export default function QuotePage() {
           <div style={{ flex: '0 0 340px', minWidth: 300, background: 'var(--surface)', borderRadius: 16, border: '1px solid var(--border)', padding: 24, position: 'sticky', top: 24 }}>
             <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 16 }}>Үнийн задаргаа</h2>
 
-            {breakdown.total > 0 ? (
+            {displayTotal > 0 ? (
               <>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                   {breakdown.lines.map((line, i) => (
@@ -647,11 +720,11 @@ export default function QuotePage() {
                 <div style={{ borderTop: '2px solid var(--border2)', marginTop: 16, paddingTop: 16 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 22, fontWeight: 800, color: '#ef4444' }}>
                     <span>НИЙТ</span>
-                    <span>{fmt(breakdown.total)}</span>
+                    <span>{fmt(displayTotal)}</span>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: 'var(--text2)', marginTop: 4 }}>
                     <span>Нэгж үнэ</span>
-                    <span>{fmt(breakdown.unitPrice)}/ш</span>
+                    <span>{fmt(displayUnitPrice)}/ш</span>
                   </div>
                   <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 8 }}>НӨАТ ороогүй</div>
                 </div>
@@ -670,7 +743,7 @@ export default function QuotePage() {
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 8 }}>
                       <span style={{ color: 'var(--text2)' }}>Бидний үнэ</span>
-                      <span style={{ fontWeight: 700, color: '#FF6B00' }}>{fmt(breakdown.unitPrice)}/ш</span>
+                      <span style={{ fontWeight: 700, color: '#FF6B00' }}>{fmt(displayUnitPrice)}/ш</span>
                     </div>
                     <div style={{
                       display: 'inline-block', padding: '4px 12px', borderRadius: 20, fontSize: 13, fontWeight: 700,
@@ -739,7 +812,7 @@ export default function QuotePage() {
                     </div>
                   ))}
                   <div style={{ borderTop: '1px solid var(--border)', marginTop: 8, paddingTop: 8, display: 'flex', justifyContent: 'space-between', fontWeight: 700, color: '#ef4444' }}>
-                    <span>НИЙТ</span><span>{fmt(breakdown.total)}</span>
+                    <span>НИЙТ</span><span>{fmt(displayTotal)}</span>
                   </div>
                 </div>
 

@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm'
 import { Repository } from 'typeorm'
 import { Machine } from '../machines/machine.entity'
 import { PricingRulesService } from '../pricing-rules/pricing-rules.service'
+import { PricingConfigService } from '../pricing-config/pricing-config.service'
 import pdfParse from 'pdf-parse'
 
 @Injectable()
@@ -11,6 +12,7 @@ export class QuoteEngineService {
     @InjectRepository(Machine)
     private machineRepo: Repository<Machine>,
     private pricingRulesService: PricingRulesService,
+    private pricingConfig: PricingConfigService,
   ) {}
 
   async calculateFromPdf(file: Express.Multer.File, input: any) {
@@ -191,6 +193,230 @@ export class QuoteEngineService {
         gang_run_discount: gang_run ? 0.10 : 0,
         pricing_rules_applied: matchingRules.length,
       },
+    }
+  }
+
+  async calculateOffset(params: any) {
+    const size_code = params.size_code || 'A4'
+    const pages = Number(params.pages) || 1
+    const qty = Number(params.quantity) || 100
+    const gsm = Number(params.gsm) || 130
+    const color = params.color_mode || 'full'
+    const sides = params.sides || 'single'
+    const finishing = params.finishing || 'none'
+    const fold = params.fold || 'none'
+    const rush = params.rush_hours || 0
+    const mode = params.pricing_mode || 'retail'
+
+    // Get rates from DB with fallback
+    const sf = await this.pricingConfig.getValue(`offset_size_${size_code}`) ?? ({ A6: 0.25, A5: 0.5, A4: 1.0, A3: 2.0, BC: 0.1 }[size_code] || 1.0)
+    const gsmRate = await this.pricingConfig.getValue(`offset_gsm_${gsm}`) ?? 110
+    const printRate = color === 'full'
+      ? (await this.pricingConfig.getValue('offset_print_full') ?? 65)
+      : (await this.pricingConfig.getValue('offset_print_bw') ?? 30)
+    const setupCost = color === 'full'
+      ? (await this.pricingConfig.getValue('offset_setup_full') ?? 35000)
+      : (await this.pricingConfig.getValue('offset_setup_bw') ?? 15000)
+    const finishRate = finishing !== 'none'
+      ? (await this.pricingConfig.getValue(`offset_finish_${finishing}`) ?? 0)
+      : 0
+    const foldRate = fold !== 'none'
+      ? (await this.pricingConfig.getValue(`offset_fold_${fold}`) ?? 0)
+      : 0
+    const marginRate = mode === 'b2b'
+      ? (await this.pricingConfig.getValue('b2b_margin') ?? 0.20)
+      : (await this.pricingConfig.getValue('retail_margin') ?? 0.45)
+
+    // Calculate
+    const paper = gsmRate * sf * pages * qty
+    const print = printRate * sf * pages * qty * (sides === 'double' ? 1.8 : 1)
+    const finish = finishRate * sf * qty
+    const foldCost = foldRate * qty
+    const subtotal = paper + print + finish + foldCost + setupCost
+
+    // Quantity discount
+    const disc = qty >= 5000 ? 0.20 : qty >= 1000 ? 0.15 : qty >= 500 ? 0.10 : qty >= 100 ? 0.05 : 0
+    const discAmt = Math.round(subtotal * disc)
+    const afterDisc = subtotal - discAmt
+
+    // Rush
+    const rushRate = rush === 24 ? 0.30 : rush === 48 ? 0.15 : 0
+    const rushAmt = Math.round(afterDisc * rushRate)
+
+    // Apply margin (hidden from user)
+    const beforeMargin = afterDisc + rushAmt
+    const total_price = Math.round(beforeMargin * (1 + marginRate))
+    const unit_price = Math.round(total_price / qty)
+
+    // Return - NO margin, NO cost info exposed
+    return {
+      paper_cost_label: 'Цаасны зардал',
+      paper_cost: Math.round(paper),
+      print_cost_label: 'Хэвлэлийн зардал',
+      print_cost: Math.round(print),
+      finishing_cost_label: 'Финиш',
+      finishing_cost: Math.round(finish),
+      fold_cost_label: 'Нугалалт',
+      fold_cost: Math.round(foldCost),
+      setup_cost_label: 'Setup',
+      setup_cost: Math.round(setupCost),
+      subtotal: Math.round(subtotal),
+      discount_pct: Math.round(disc * 100),
+      discount_amount: discAmt,
+      rush_pct: Math.round(rushRate * 100),
+      rush_amount: rushAmt,
+      total_price,
+      unit_price,
+      quantity: qty,
+      novat_note: 'НӨАТ ороогүй',
+      valid_hours: 72,
+    }
+  }
+
+  async calculateHadag(params: any) {
+    const product = params.product || 'tovgor'
+    const rush = params.rush_hours || 0
+    const mode = params.pricing_mode || 'retail'
+
+    const marginRate = mode === 'b2b'
+      ? (await this.pricingConfig.getValue('b2b_margin') ?? 0.20)
+      : (await this.pricingConfig.getValue('retail_margin') ?? 0.45)
+
+    let base = 0
+    let label = ''
+
+    if (product === 'tovgor') {
+      const size = Number(params.size) || 30
+      const qty = Number(params.quantity) || 1
+      const unit = await this.pricingConfig.getValue(`tovgor_${size}cm`) ?? 35000
+      base = unit * qty
+      label = `Товгор ${size}см × ${qty}ш`
+    } else {
+      const w = Number(params.width) || 1
+      const h = Number(params.height) || 1
+      const area = w * h
+      // Map product to pricing key
+      const keyMap: Record<string, string> = {
+        nerj_off: 'nerj_off_m2', nerj_on: 'nerj_on_m2',
+        d3_off: 'd3_off_m2', d3_on: 'd3_on_m2',
+        pvc: 'pvc_m2', epoxy: 'epoxy_m2',
+        sb_in4: 'sb_in4_m2', sb_in6: 'sb_in6_m2', sb_in8: 'sb_in8_m2',
+        sb_out_corner: 'sb_out_corner_m2', sb_out_fold: 'sb_out_fold_m2',
+        tmr: 'tmr_m2', font_back: 'font_back_m2', font_metal: 'font_metal_m2',
+      }
+      const pricingKey = params.pricing_key || keyMap[product] || 'pvc_m2'
+      const rate = await this.pricingConfig.getValue(pricingKey) ?? 280000
+      base = rate * area
+      label = `${product} ${w}×${h}м`
+    }
+
+    // Extras
+    let extras = 0
+    const extraItems: { label: string; amount: number }[] = []
+    if (params.extra_rele) {
+      const v = await this.pricingConfig.getValue('extra_rele') ?? 30000
+      extras += v; extraItems.push({ label: 'Цагийн реле', amount: v })
+    }
+    if (params.extra_tog) {
+      const v = await this.pricingConfig.getValue('extra_tog') ?? 35000
+      extras += v; extraItems.push({ label: 'Тог бууруулагч', amount: v })
+    }
+    if (params.extra_crane1) {
+      const v = await this.pricingConfig.getValue('extra_crane1') ?? 200000
+      extras += v; extraItems.push({ label: 'Кран 1 цаг', amount: v })
+    }
+    if (params.extra_crane8) {
+      const v = await this.pricingConfig.getValue('extra_crane8') ?? 600000
+      extras += v; extraItems.push({ label: 'Кран өдөр', amount: v })
+    }
+
+    // Rush
+    const rushRate = rush === 24 ? 0.30 : rush === 48 ? 0.15 : 0
+    const rushAmt = Math.round(base * rushRate)
+
+    // Total with hidden margin
+    const beforeMargin = base + extras + rushAmt
+    const total_price = Math.round(beforeMargin * (1 + marginRate))
+    const unit_price = total_price
+    const qty = product === 'tovgor' ? (Number(params.quantity) || 1) : 1
+
+    return {
+      base_label: label,
+      base_price: Math.round(base),
+      extras: extraItems,
+      extras_total: extras,
+      rush_pct: Math.round(rushRate * 100),
+      rush_amount: rushAmt,
+      total_price,
+      unit_price: Math.round(total_price / qty),
+      quantity: qty,
+      novat_note: 'НӨАТ ороогүй',
+      valid_hours: 72,
+    }
+  }
+
+  async calculateWide(params: any) {
+    const type = params.type || 'banner'
+    const w = Number(params.width) || 1
+    const l = Number(params.length) || 2
+    const rush = params.rush_hours || 0
+    const mode = params.pricing_mode || 'retail'
+
+    const keyMap: Record<string, string> = {
+      banner: 'orgon_banner', sticker: 'orgon_sticker',
+      flag: 'orgon_flag', canvas: 'orgon_fabric',
+    }
+    const rate = await this.pricingConfig.getValue(keyMap[type] || 'orgon_banner') ?? 8000
+    const base = rate * w * l
+
+    const rushRate = rush === 24 ? 0.30 : rush === 48 ? 0.15 : 0
+    const rushAmt = Math.round(base * rushRate)
+
+    const marginRate = mode === 'b2b'
+      ? (await this.pricingConfig.getValue('b2b_margin') ?? 0.20)
+      : (await this.pricingConfig.getValue('retail_margin') ?? 0.45)
+
+    const total_price = Math.round((base + rushAmt) * (1 + marginRate))
+
+    return {
+      base_label: `${type} ${w}×${l}м`,
+      base_price: Math.round(base),
+      rush_pct: Math.round(rushRate * 100),
+      rush_amount: rushAmt,
+      total_price,
+      unit_price: total_price,
+      quantity: 1,
+      novat_note: 'НӨАТ ороогүй',
+      valid_hours: 72,
+    }
+  }
+
+  async calculateWithBreakdown(params: any) {
+    // Call the appropriate calculator
+    const type = params.calc_type || 'offset'
+    let publicResult: any
+    if (type === 'offset') publicResult = await this.calculateOffset(params)
+    else if (type === 'hadag') publicResult = await this.calculateHadag(params)
+    else publicResult = await this.calculateWide(params)
+
+    const mode = params.pricing_mode || 'retail'
+    const marginRate = mode === 'b2b'
+      ? (await this.pricingConfig.getValue('b2b_margin') ?? 0.20)
+      : (await this.pricingConfig.getValue('retail_margin') ?? 0.45)
+
+    // Reverse-engineer cost from total
+    const totalBeforeMargin = Math.round(publicResult.total_price / (1 + marginRate))
+    const marginAmount = publicResult.total_price - totalBeforeMargin
+
+    return {
+      ...publicResult,
+      // Admin-only fields
+      _admin: true,
+      cost_before_margin: totalBeforeMargin,
+      margin_rate: marginRate,
+      margin_pct: Math.round(marginRate * 100),
+      margin_amount: marginAmount,
+      pricing_mode: mode,
     }
   }
 

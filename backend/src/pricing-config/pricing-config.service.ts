@@ -53,6 +53,12 @@ export class PricingConfigService implements OnModuleInit {
     return this.cache.get(key) ?? 0;
   }
 
+  async getValue(key: string): Promise<number | null> {
+    // Ensure cache is fresh
+    await this.get(key);
+    return this.cache.has(key) ? this.cache.get(key)! : null;
+  }
+
   async set(key: string, value: number, updatedBy?: string): Promise<void> {
     const existing = await this.repo.findOne({ where: { key } });
     if (existing) {
@@ -151,6 +157,39 @@ export class PricingConfigService implements OnModuleInit {
       { key: 'award_wood', value: 35000, label: 'Модон', category: 'khevlel' },
       { key: 'award_medal', value: 12000, label: 'Медаль', category: 'khevlel' },
       { key: 'award_badge', value: 8000, label: 'Тэмдэг', category: 'khevlel' },
+      // Хадаг - нэмэлт
+      { key: 'font_back_m2', value: 225000, label: 'Фонтой хаяг м²', category: 'hadag' },
+      { key: 'font_metal_m2', value: 650000, label: 'Фонтой хаяг төмөр м²', category: 'hadag' },
+      { key: 'tmr_m2', value: 650000, label: 'Төмөр лист м²', category: 'hadag' },
+      // Офсет GSM rates
+      { key: 'offset_gsm_80', value: 60, label: 'Офсет 80gsm', category: 'offset' },
+      { key: 'offset_gsm_115', value: 90, label: 'Офсет 115gsm', category: 'offset' },
+      { key: 'offset_gsm_130', value: 110, label: 'Офсет 130gsm', category: 'offset' },
+      { key: 'offset_gsm_150', value: 130, label: 'Офсет 150gsm', category: 'offset' },
+      { key: 'offset_gsm_170', value: 155, label: 'Офсет 170gsm', category: 'offset' },
+      { key: 'offset_gsm_200', value: 180, label: 'Офсет 200gsm', category: 'offset' },
+      { key: 'offset_gsm_250', value: 220, label: 'Офсет 250gsm', category: 'offset' },
+      { key: 'offset_gsm_300', value: 270, label: 'Офсет 300gsm', category: 'offset' },
+      // Офсет print rates
+      { key: 'offset_print_full', value: 65, label: 'Офсет бүрэн өнгө', category: 'offset' },
+      { key: 'offset_print_bw', value: 30, label: 'Офсет хар цагаан', category: 'offset' },
+      // Офсет setup
+      { key: 'offset_setup_full', value: 35000, label: 'Офсет setup өнгөт', category: 'offset' },
+      { key: 'offset_setup_bw', value: 15000, label: 'Офсет setup ХЦ', category: 'offset' },
+      // Офсет finishing
+      { key: 'offset_finish_mat', value: 18, label: 'Офсет мат', category: 'offset' },
+      { key: 'offset_finish_gloss', value: 15, label: 'Офсет гянт', category: 'offset' },
+      { key: 'offset_finish_uv', value: 22, label: 'Офсет UV', category: 'offset' },
+      { key: 'offset_finish_soft', value: 28, label: 'Офсет soft touch', category: 'offset' },
+      // Офсет fold
+      { key: 'offset_fold_tri', value: 8, label: 'Офсет гурван нугалалт', category: 'offset' },
+      { key: 'offset_fold_half', value: 5, label: 'Офсет хагас нугалалт', category: 'offset' },
+      // Size factors
+      { key: 'offset_size_A6', value: 0.25, label: 'A6 коэф', category: 'offset' },
+      { key: 'offset_size_A5', value: 0.5, label: 'A5 коэф', category: 'offset' },
+      { key: 'offset_size_A4', value: 1.0, label: 'A4 коэф', category: 'offset' },
+      { key: 'offset_size_A3', value: 2.0, label: 'A3 коэф', category: 'offset' },
+      { key: 'offset_size_BC', value: 0.1, label: 'Нэрийн хуудас коэф', category: 'offset' },
     ];
 
     await this.repo.save(defaults.map((d) => this.repo.create(d)));

@@ -1,6 +1,8 @@
-﻿import { Controller, Post, UploadedFile, UseInterceptors, Body, Get } from '@nestjs/common'
+﻿import { Controller, Post, UploadedFile, UseInterceptors, Body, Get, UseGuards } from '@nestjs/common'
 import { FileInterceptor } from '@nestjs/platform-express'
 import { QuoteEngineService } from './quote-engine.service'
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard'
+import { AdminGuard } from '../admin/admin.guard'
 
 @Controller('quote-engine')
 export class QuoteEngineController {
@@ -24,6 +26,27 @@ export class QuoteEngineController {
       category_id: body.category_id || null,
       product_id:  body.product_id || null,
     })
+  }
+
+  @Post('calculate-offset')
+  async calculateOffset(@Body() body: any) {
+    return this.svc.calculateOffset(body)
+  }
+
+  @Post('calculate-hadag')
+  async calculateHadag(@Body() body: any) {
+    return this.svc.calculateHadag(body)
+  }
+
+  @Post('calculate-wide')
+  async calculateWide(@Body() body: any) {
+    return this.svc.calculateWide(body)
+  }
+
+  @Post('admin/calculate-with-breakdown')
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  async calculateWithBreakdown(@Body() body: any) {
+    return this.svc.calculateWithBreakdown(body)
   }
 
   @Post('from-pdf')
