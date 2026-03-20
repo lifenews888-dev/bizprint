@@ -158,24 +158,92 @@ export class MailService {
     width_mm: number; height_mm: number; paper_type: string; paper_gsm: number;
     color_mode: string; sides: string; finishing: string; binding: string;
     unit_price: number; total_price: number; valid_until: Date; breakdown: any;
+    discount_amount?: number; rush_fee?: number; savings_amount?: number;
+    urgency?: string; smart_adjustments?: any[];
   }) {
-    const fmt = (n: number) => Number(n).toLocaleString('mn-MN')
+    const fmt = (n: number) => Number(n || 0).toLocaleString('mn-MN')
     const bd = q.breakdown || {}
+    const finishingLabels: Record<string, string> = {
+      none: 'Байхгүй', laminate_matte: 'Матт ламинат', laminate_gloss: 'Гялгар ламинат',
+      soft_touch: 'Soft touch', uv: 'UV лак', fold: 'Нугалах',
+    }
+    const bindingLabels: Record<string, string> = {
+      none: 'Байхгүй', staple: 'Степлер', perfect: 'Төгс холбох',
+      spiral: 'Спираль', hardcover: 'Хатуу хавтас',
+    }
+    const sidesLabel = q.sides === 'double' ? '2 тал' : '1 тал'
+    const colorLabel = q.color_mode === 'color' ? 'Өнгөт' : 'Хар цагаан'
+    const urgencyLabels: Record<string, string> = {
+      rush_24h: '24 цагийн яаралтай', rush_48h: '48 цагийн яаралтай', standard: 'Стандарт',
+    }
+
+    const row = (label: string, value: string, bold = false) =>
+      '<tr><td style="padding:8px 12px;color:#6b7280;font-size:13px;border-bottom:1px solid #f3f4f6">' + label + '</td>' +
+      '<td style="padding:8px 12px;font-size:13px;border-bottom:1px solid #f3f4f6;text-align:right;' + (bold ? 'font-weight:700;color:#FF6B00' : '') + '">' + value + '</td></tr>'
+
+    const discountHtml = Number(q.savings_amount || 0) > 0
+      ? '<div style="background:#ecfdf5;border:1px solid #6ee7b7;border-radius:8px;padding:12px 16px;margin-bottom:16px;text-align:center">' +
+        '<span style="color:#059669;font-weight:700;font-size:14px">Та ' + fmt(q.savings_amount || 0) + '₮ хэмнэлээ!</span></div>'
+      : ''
+
+    const rushHtml = Number(q.rush_fee || 0) > 0
+      ? row('Яаралтай нэмэгдэл', '+' + fmt(q.rush_fee || 0) + '₮')
+      : ''
+
+    const discountRow = Number(q.discount_amount || 0) > 0
+      ? row('Хөнгөлөлт', '-' + fmt(q.discount_amount || 0) + '₮')
+      : ''
+
     await this.mailerService.sendMail({
       to: q.to,
-      subject: 'BizPrint - ' + q.quote_number + ' - Uniin sanal',
+      subject: 'BizPrint - ' + q.quote_number + ' - Үнийн санал',
       html:
-        '<div style="font-family:Arial,sans-serif;max-width:640px;margin:0 auto;background:#fff;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden">' +
+        '<div style="font-family:\'Segoe UI\',Arial,sans-serif;max-width:640px;margin:0 auto;background:#fff;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden">' +
         '<div style="background:linear-gradient(135deg,#FF6B00,#FF8C42);padding:28px 32px;color:#fff">' +
         '<h1 style="margin:0;font-size:24px">BizPrint</h1>' +
+        '<p style="margin:6px 0 0;opacity:0.9;font-size:14px">Үнийн санал</p>' +
         '</div>' +
         '<div style="padding:32px">' +
-        '<h2 style="margin:0 0 8px;color:#111">Sain baina uu, ' + q.name + '!</h2>' +
-        '<div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;padding:20px;margin-bottom:24px">' +
-        '<div style="font-size:22px;font-weight:800;color:#FF6B00">' + q.quote_number + '</div>' +
-        '<div style="font-size:28px;font-weight:800;color:#FF6B00">' + fmt(q.total_price) + 'T</div>' +
+        '<h2 style="margin:0 0 8px;color:#111">Сайн байна уу, ' + q.name + '!</h2>' +
+        '<p style="color:#6b7280;margin:0 0 24px;font-size:14px">Таны хүсэлтийн дагуу үнийн санал бэлдлээ.</p>' +
+
+        '<div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;padding:20px;margin-bottom:24px;text-align:center">' +
+        '<div style="font-size:14px;color:#9a3412;font-weight:600;margin-bottom:4px">' + q.quote_number + '</div>' +
+        '<div style="font-size:32px;font-weight:800;color:#FF6B00">' + fmt(q.total_price) + '₮</div>' +
+        '<div style="font-size:13px;color:#9a3412;margin-top:4px">Нэгж үнэ: ' + fmt(q.unit_price) + '₮/ш</div>' +
         '</div>' +
-        '<p>Une: ' + fmt(q.unit_price) + 'T/shirkheg | Niit: ' + fmt(q.total_price) + 'T</p>' +
+
+        discountHtml +
+
+        '<h3 style="margin:0 0 12px;font-size:15px;color:#111">Захиалгын мэдээлэл</h3>' +
+        '<table style="width:100%;border-collapse:collapse;margin-bottom:20px">' +
+        row('Бүтээгдэхүүн', q.product_name || '-') +
+        row('Тоо ширхэг', q.quantity + ' ш') +
+        row('Хэмжээ', q.size + ' (' + q.width_mm + 'x' + q.height_mm + 'мм)') +
+        row('Хуудас', (q.pages || 1) + ' хуудас') +
+        row('Цаас', (q.paper_gsm || 150) + 'gsm') +
+        row('Өнгө', colorLabel) +
+        row('Тал', sidesLabel) +
+        row('Финиш', finishingLabels[q.finishing] || q.finishing || '-') +
+        row('Холбох', bindingLabels[q.binding] || q.binding || '-') +
+        (q.urgency ? row('Хугацаа', urgencyLabels[q.urgency] || 'Стандарт') : '') +
+        '</table>' +
+
+        '<h3 style="margin:0 0 12px;font-size:15px;color:#111">Зардлын задаргаа</h3>' +
+        '<table style="width:100%;border-collapse:collapse;margin-bottom:20px">' +
+        row('Цаасны зардал', fmt(bd.paper_cost || 0) + '₮') +
+        row('Хэвлэлийн зардал', fmt(bd.print_cost || 0) + '₮') +
+        (Number(bd.finishing_cost) > 0 ? row('Финишийн зардал', fmt(bd.finishing_cost) + '₮') : '') +
+        (Number(bd.binding_cost) > 0 ? row('Холболтын зардал', fmt(bd.binding_cost) + '₮') : '') +
+        (Number(bd.setup_cost) > 0 ? row('Бэлтгэл зардал', fmt(bd.setup_cost) + '₮') : '') +
+        discountRow +
+        rushHtml +
+        row('Нийт дүн', fmt(q.total_price) + '₮', true) +
+        '</table>' +
+
+        '<div style="background:#f9fafb;border-radius:8px;padding:14px;text-align:center;font-size:12px;color:#6b7280">' +
+        'Үнэ хүчинтэй: ' + (q.valid_until ? new Date(q.valid_until).toLocaleDateString('mn-MN') : '3 хоног') + ' хүртэл' +
+        '</div>' +
         '</div></div>',
     })
   }

@@ -70,8 +70,53 @@ export class QuoteV2 {
   @Column({ type: 'decimal', precision: 14, scale: 2, default: 0 })
   total_price: number;
 
+  @Column({ type: 'decimal', precision: 14, scale: 2, default: 0 })
+  discount_amount: number;
+
+  @Column({ type: 'decimal', precision: 14, scale: 2, default: 0 })
+  rush_fee: number;
+
+  @Column({ type: 'decimal', precision: 14, scale: 2, default: 0 })
+  savings_amount: number;
+
+  @Column({ nullable: true })
+  urgency: string;
+
   @Column({ type: 'jsonb', nullable: true })
   breakdown: any;
+
+  @Column({ type: 'jsonb', nullable: true })
+  smart_adjustments: any;
+
+  @Column({ nullable: true })
+  product_type: string;
+
+  @Column({ nullable: true })
+  product_subtype: string;
+
+  @Column({ type: 'jsonb', nullable: true })
+  dimensions: any;
+
+  @Column({ type: 'decimal', precision: 14, scale: 2, default: 0 })
+  base_price: number;
+
+  @Column({ type: 'decimal', precision: 6, scale: 4, nullable: true })
+  margin_rate: number;
+
+  @Column({ type: 'jsonb', nullable: true })
+  extras: any;
+
+  @Column({ nullable: true })
+  pricing_mode: string;
+
+  @Column({ nullable: true })
+  expires_at: Date;
+
+  @Column({ nullable: true })
+  guest_email: string;
+
+  @Column({ nullable: true })
+  user_id: string;
 
   @Column({ type: 'varchar', default: QuoteStatus.DRAFT })
   status: string;

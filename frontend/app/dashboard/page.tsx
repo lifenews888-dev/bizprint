@@ -59,6 +59,9 @@ export default function DashboardPage() {
   const [qrInfo, setQrInfo] = useState<{invoiceNo:string; qrImage:string; expiresAt?:string}|null>(null)
   const [payLoading, setPayLoading] = useState(false)
   const [ordering, setOrdering] = useState(false)
+  const [quoteEmail, setQuoteEmail] = useState('')
+  const [quoteEmailInput, setQuoteEmailInput] = useState('')
+  const [quotesLoading, setQuotesLoading] = useState(false)
 
   const show = (m: string) => { setToast(m); setTimeout(() => setToast(''), 2500) }
 
@@ -70,7 +73,7 @@ export default function DashboardPage() {
     setLoading(true)
     Promise.all([
       fetch(API+'/orders/customer/'+u.id, { headers: getH() }).then(r=>r.json()).catch(()=>[]),
-      fetch(API+'/quotes-v2', { headers: getH() }).then(r=>r.json()).catch(()=>[]),
+      fetch(API+'/quotes-v2/my', { headers: getH() }).then(r=>r.json()).catch(()=>[]),
       fetch(API+'/products', { headers: getH() }).then(r=>r.json()).catch(()=>[]),
     ]).then(([o,q,p]) => {
       setOrders(Array.isArray(o)?o:[]); setQuotes(Array.isArray(q)?q:[]); setProducts(Array.isArray(p)?p:[])
@@ -116,7 +119,7 @@ export default function DashboardPage() {
       setSelQ(new Set())
       // refresh
       const o = await fetch(API+"/orders/customer/"+user?.id, { headers: getH() }).then(r=>r.json()).catch(()=>[])
-      const q2 = await fetch(API+"/quotes-v2", { headers: getH() }).then(r=>r.json()).catch(()=>[])
+      const q2 = await fetch(API+"/quotes-v2/my", { headers: getH() }).then(r=>r.json()).catch(()=>[])
       setOrders(Array.isArray(o)?o:[]); setQuotes(Array.isArray(q2)?q2:[]); setSection("orders")
     } catch (err) {
       show("Алдаа гарлаа")
@@ -152,7 +155,7 @@ export default function DashboardPage() {
     for (const qid of selQ) { try { await fetch(API+'/orders/from-quote', { method:'POST', headers: getH(), body: JSON.stringify({ quote_id: qid }) }) } catch {} }
     show(selQ.size + ' захиалга үүсгэгдлээ!'); setSelQ(new Set())
     const o = await fetch(API+'/orders/customer/'+user?.id, { headers: getH() }).then(r=>r.json()).catch(()=>[])
-    const q = await fetch(API+'/quotes-v2', { headers: getH() }).then(r=>r.json()).catch(()=>[])
+    const q = await fetch(API+'/quotes-v2/my', { headers: getH() }).then(r=>r.json()).catch(()=>[])
     setOrders(Array.isArray(o)?o:[]); setQuotes(Array.isArray(q)?q:[]); setSection('orders')
     } finally { setOrdering(false) }
   }
@@ -166,6 +169,30 @@ export default function DashboardPage() {
   const getExpiry = (created: string) => {
     const d = new Date(created); d.setDate(d.getDate() + 3)
     return d.toLocaleDateString()
+  }
+
+  const QS: Record<string, { label: string; color: string; bg: string }> = {
+    sent: { label: 'Илгээсэн', color: '#2563EB', bg: '#DBEAFE' },
+    confirmed: { label: 'Баталгаажсан', color: '#059669', bg: '#D1FAE5' },
+    ordered: { label: 'Захиалагдсан', color: '#EA580C', bg: '#FFEDD5' },
+    expired: { label: 'Хугацаа дууссан', color: '#6B7280', bg: '#F3F4F6' },
+    draft: { label: 'Ноорог', color: '#6B7280', bg: '#F3F4F6' },
+    accepted: { label: 'Зөвшөөрсөн', color: '#059669', bg: '#D1FAE5' },
+    pending: { label: 'Хүлээгдэж буй', color: '#D97706', bg: '#FEF3C7' },
+    rejected: { label: 'Татгалзсан', color: '#DC2626', bg: '#FEE2E2' },
+  }
+  const getQS = (s: string) => QS[s] || { label: s, color: '#6B7280', bg: '#F3F4F6' }
+
+  const fetchQuotesByEmail = async (email: string) => {
+    if (!email) return
+    setQuotesLoading(true)
+    try {
+      const res = await fetch(API + '/quotes-v2/by-email?email=' + encodeURIComponent(email))
+      const data = await res.json()
+      setQuotes(Array.isArray(data) ? data : [])
+      setQuoteEmail(email)
+    } catch { setQuotes([]) }
+    finally { setQuotesLoading(false) }
   }
 
   if (loading) return <div style={{ display:'flex', alignItems:'center', justifyContent:'center', height:'100vh', background:'#FAFAF8' }}><div style={{ textAlign:'center' }}><div style={{ width:40, height:40, border:'3px solid #FF6B00', borderTopColor:'transparent', borderRadius:'50%', animation:'spin 0.8s linear infinite', margin:'0 auto 12px' }}/><div style={{ color:'#78716C', fontSize:14 }}>Ачааллж байна...</div></div><style>{'@keyframes spin{to{transform:rotate(360deg)}}'}</style></div>
@@ -218,7 +245,7 @@ export default function DashboardPage() {
 
           {/* Tab bar */}
           <div style={{ display:'flex', gap:0, marginBottom:24, borderBottom:'2px solid #E7E5E4' }}>
-            {[{key:'orders',label:'Захиалгууд',count:orders.length},{key:'quotes',label:'Үнийн санал',count:quotes.length},{key:'recommend',label:'Бүтээгдэхүүн'}].map(t=>(<button key={t.key} onClick={()=>setSection(t.key)} style={{ padding:'12px 20px', border:'none', borderBottom:section===t.key?'2px solid #FF6B00':'2px solid transparent', marginBottom:'-2px', background:'none', fontSize:14, fontWeight:section===t.key?600:400, color:section===t.key?'#1C1917':'#A8A29E', cursor:'pointer', fontFamily:"'DM Sans',sans-serif" }}>{t.label}{t.count!==undefined&&<span style={{ marginLeft:6, fontSize:11, background:section===t.key?'#FF6B00':'#E7E5E4', color:section===t.key?'#fff':'#78716C', padding:'1px 7px', borderRadius:99 }}>{t.count}</span>}</button>))}
+            {[{key:'orders',label:'Захиалгууд',count:orders.length},{key:'quotes',label:'Үнийн саналууд',count:quotes.length},{key:'recommend',label:'Бүтээгдэхүүн'}].map(t=>(<button key={t.key} onClick={()=>setSection(t.key)} style={{ padding:'12px 20px', border:'none', borderBottom:section===t.key?'2px solid #FF6B00':'2px solid transparent', marginBottom:'-2px', background:'none', fontSize:14, fontWeight:section===t.key?600:400, color:section===t.key?'#1C1917':'#A8A29E', cursor:'pointer', fontFamily:"'DM Sans',sans-serif" }}>{t.label}{t.count!==undefined&&<span style={{ marginLeft:6, fontSize:11, background:section===t.key?'#FF6B00':'#E7E5E4', color:section===t.key?'#fff':'#78716C', padding:'1px 7px', borderRadius:99 }}>{t.count}</span>}</button>))}
           </div>
 
           {/* ═══ ORDERS ═══ */}
@@ -233,16 +260,28 @@ export default function DashboardPage() {
             )})}
           </div>)}
 
-          {/* ═══ QUOTES (Screenshot дизайн) ═══ */}
+          {/* ═══ QUOTES (Үнийн саналууд) ═══ */}
           {section==='quotes' && (<div>
             {/* Header */}
             <div style={{ display:'flex', justifyContent:'space-between', alignItems:'start', marginBottom:20 }}>
               <div><h2 style={{ fontSize:24, fontWeight:700, margin:'0 0 4px', letterSpacing:'-0.02em' }}>Үнийн саналууд</h2><p style={{ fontSize:13, color:'#A8A29E', margin:0, fontFamily:"'DM Sans',sans-serif" }}>Таны авсан үнийн саналуудын түүх</p></div>
               <div style={{ display:'flex', gap:8 }}>
-                <button onClick={()=>router.push('/dashboard/customer/quotes')} style={{ background:'#fff', border:'1px solid #E7E5E4', padding:'9px 18px', borderRadius:99, fontSize:13, cursor:'pointer', fontFamily:"'DM Sans',sans-serif", color:'#78716C', display:'flex', alignItems:'center', gap:6 }}>👁 Харангуй</button>
+                <button onClick={()=>router.push('/dashboard/customer/quotes')} style={{ background:'#fff', border:'1px solid #E7E5E4', padding:'9px 18px', borderRadius:99, fontSize:13, cursor:'pointer', fontFamily:"'DM Sans',sans-serif", color:'#78716C', display:'flex', alignItems:'center', gap:6 }}>Харангуй</button>
                 <button onClick={()=>router.push('/quote')} style={{ background:'#FF6B00', color:'#fff', border:'none', padding:'9px 22px', borderRadius:99, fontSize:13, fontWeight:600, cursor:'pointer', fontFamily:"'DM Sans',sans-serif" }}>+ Шинэ үнэ тооцоолох</button>
               </div>
             </div>
+
+            {/* Email lookup for non-logged-in or additional search */}
+            {!getToken() && !quoteEmail && (
+              <div style={{ background:'#fff', border:'1px solid #E7E5E4', borderRadius:14, padding:'24px', marginBottom:20, textAlign:'center' }}>
+                <div style={{ fontSize:16, fontWeight:600, marginBottom:4 }}>И-мэйлээр үнийн санал хайх</div>
+                <div style={{ fontSize:13, color:'#A8A29E', marginBottom:16, fontFamily:"'DM Sans',sans-serif" }}>Бүртгэлгүй бол и-мэйл хаягаараа хайх боломжтой</div>
+                <div style={{ display:'flex', gap:8, maxWidth:420, margin:'0 auto' }}>
+                  <input type="email" value={quoteEmailInput} onChange={e=>setQuoteEmailInput(e.target.value)} placeholder="И-мэйл хаяг оруулна уу" style={{ flex:1, padding:'10px 14px', borderRadius:10, border:'1px solid #E7E5E4', fontSize:14, outline:'none', background:'#FAFAF8' }} onFocus={e=>e.currentTarget.style.borderColor='#FF6B00'} onBlur={e=>e.currentTarget.style.borderColor='#E7E5E4'} onKeyDown={e=>{if(e.key==='Enter')fetchQuotesByEmail(quoteEmailInput)}} />
+                  <button onClick={()=>fetchQuotesByEmail(quoteEmailInput)} disabled={quotesLoading||!quoteEmailInput} style={{ background:'#1C1917', color:'#fff', border:'none', padding:'10px 22px', borderRadius:10, fontSize:14, fontWeight:600, cursor:quotesLoading?'not-allowed':'pointer', fontFamily:"'DM Sans',sans-serif", opacity:quotesLoading||!quoteEmailInput?0.5:1 }}>{quotesLoading?'Хайж байна...':'Хайх'}</button>
+                </div>
+              </div>
+            )}
 
             {/* Quote KPI */}
             <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:1, background:'#E7E5E4', borderRadius:14, overflow:'hidden', marginBottom:20 }}>
@@ -253,8 +292,8 @@ export default function DashboardPage() {
             {selQ.size>0&&(<div style={{ background:'linear-gradient(135deg, #FF6B00, #FF8C40)', borderRadius:14, padding:'16px 24px', marginBottom:16, display:'flex', justifyContent:'space-between', alignItems:'center', color:'#fff' }}>
               <div style={{ fontSize:15, fontWeight:600, fontFamily:"'DM Sans',sans-serif" }}>{selQ.size} үнийн санал сонгогдсон — Нийт: {selTotal.toLocaleString()}₮</div>
               <div style={{ display:'flex', gap:8 }}>
-                <button onClick={()=>setShowProposal(true)} style={{ background:'rgba(255,255,255,0.2)', color:'#fff', border:'1px solid rgba(255,255,255,0.3)', padding:'9px 18px', borderRadius:99, fontSize:13, fontWeight:600, cursor:'pointer', fontFamily:"'DM Sans',sans-serif", display:'flex', alignItems:'center', gap:6 }}>📄 Proposal PDF</button>
-                <button onClick={()=>setShowPayment(true)} style={{ background:'#fff', color:'#1C1917', border:'none', padding:'9px 20px', borderRadius:99, fontSize:13, fontWeight:700, cursor:'pointer', fontFamily:"'DM Sans',sans-serif", display:'flex', alignItems:'center', gap:6 }}>💳 QPay төлбөр</button>
+                <button onClick={()=>setShowProposal(true)} style={{ background:'rgba(255,255,255,0.2)', color:'#fff', border:'1px solid rgba(255,255,255,0.3)', padding:'9px 18px', borderRadius:99, fontSize:13, fontWeight:600, cursor:'pointer', fontFamily:"'DM Sans',sans-serif", display:'flex', alignItems:'center', gap:6 }}>Proposal PDF</button>
+                <button onClick={()=>setShowPayment(true)} style={{ background:'#fff', color:'#1C1917', border:'none', padding:'9px 20px', borderRadius:99, fontSize:13, fontWeight:700, cursor:'pointer', fontFamily:"'DM Sans',sans-serif", display:'flex', alignItems:'center', gap:6 }}>QPay төлбөр</button>
               </div>
             </div>)}
 
@@ -265,13 +304,17 @@ export default function DashboardPage() {
             </div>
 
             {/* Quote cards */}
-            {filteredQuotes.length===0?(
-              <div style={{ border:'2px dashed #D6D3D1', borderRadius:16, padding:'60px 24px', textAlign:'center' }}><div style={{ fontSize:48, marginBottom:12 }}>💰</div><div style={{ fontSize:20, fontWeight:600, marginBottom:6 }}>Үнийн санал байхгүй</div><div style={{ fontSize:14, color:'#78716C', marginBottom:20 }}>Үнэ тооцоолсон бол энд харагдана</div><button onClick={()=>router.push('/quote')} style={{ background:'#1C1917', color:'#fff', border:'none', padding:'12px 28px', borderRadius:99, fontSize:14, fontWeight:600, cursor:'pointer', fontFamily:"'DM Sans',sans-serif" }}>Үнэ тооцоолох</button></div>
+            {quotesLoading ? (
+              <div style={{ textAlign:'center', padding:'60px 24px' }}><div style={{ width:32, height:32, border:'3px solid #FF6B00', borderTopColor:'transparent', borderRadius:'50%', animation:'spin 0.8s linear infinite', margin:'0 auto 12px' }}/><div style={{ color:'#78716C', fontSize:14, fontFamily:"'DM Sans',sans-serif" }}>Ачааллж байна...</div></div>
+            ) : filteredQuotes.length===0?(
+              <div style={{ border:'2px dashed #D6D3D1', borderRadius:16, padding:'60px 24px', textAlign:'center' }}><div style={{ fontSize:48, marginBottom:12 }}>💰</div><div style={{ fontSize:20, fontWeight:600, marginBottom:6 }}>Үнийн санал байхгүй</div><div style={{ fontSize:14, color:'#78716C', marginBottom:20 }}>Шинэ тооцоолол хийх <span onClick={()=>router.push('/quote')} style={{ color:'#FF6B00', cursor:'pointer', fontWeight:600, textDecoration:'underline' }}>→</span></div><button onClick={()=>router.push('/quote')} style={{ background:'#1C1917', color:'#fff', border:'none', padding:'12px 28px', borderRadius:99, fontSize:14, fontWeight:600, cursor:'pointer', fontFamily:"'DM Sans',sans-serif" }}>Шинэ тооцоолол хийх →</button></div>
             ):(
               <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
                 {filteredQuotes.map((q,qi)=>{
-                  const s=gs(q.status||'draft'); const sel=selQ.has(q.id); const canSel=true
-                  const qNum = q.quote_number || String(quotes.length - qi).padStart(3,'0')
+                  const qs=getQS(q.status||'draft'); const sel=selQ.has(q.id); const canSel=true
+                  const qNum = q.quote_number || ('QT-' + (q.id||'').slice(0,8).toUpperCase() + '-' + String(quotes.length - qi).padStart(3,'0'))
+                  const canOrder = ['sent','confirmed','accepted'].includes(q.status||'')
+                  const validUntil = q.valid_until ? new Date(q.valid_until).toLocaleDateString() : (q.created_at ? getExpiry(q.created_at) : '')
                   return(
                     <div key={q.id} style={{ background:'#fff', border:sel?'2px solid #FF6B00':'1px solid #E7E5E4', borderRadius:16, padding:'20px 24px', transition:'all .15s', cursor:canSel?'pointer':'default' }} onClick={()=>canSel&&toggleQ(q.id)}>
                       {/* Top row */}
@@ -279,35 +322,36 @@ export default function DashboardPage() {
                         {/* Checkbox */}
                         {canSel&&<div style={{ marginTop:4, width:24, height:24, borderRadius:8, border:sel?'2px solid #FF6B00':'2px solid #D6D3D1', background:sel?'#FF6B00':'#fff', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, transition:'all .15s' }}>{sel&&<svg width="13" height="13" fill="#fff" viewBox="0 0 20 20"><path d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"/></svg>}</div>}
 
-                        {/* Quote badge */}
-                        <div style={{ background:'#FF6B00', borderRadius:8, padding:'6px 10px', textAlign:'center', flexShrink:0 }}><div style={{ fontSize:9, color:'rgba(255,255,255,0.7)', fontWeight:600, fontFamily:"'DM Sans',sans-serif", letterSpacing:'0.05em' }}>QUOTE</div><div style={{ fontSize:14, fontWeight:700, color:'#fff', fontFamily:"'DM Sans',sans-serif" }}>{qNum}</div></div>
+                        {/* Quote number badge */}
+                        <div style={{ background:'#1C1917', borderRadius:8, padding:'6px 10px', textAlign:'center', flexShrink:0 }}><div style={{ fontSize:9, color:'rgba(255,255,255,0.5)', fontWeight:600, fontFamily:"'DM Sans',sans-serif", letterSpacing:'0.05em' }}>QUOTE</div><div style={{ fontSize:11, fontWeight:700, color:'#fff', fontFamily:"'DM Sans',sans-serif", letterSpacing:'-0.01em' }}>{qNum.length > 16 ? qNum.slice(-7) : qNum}</div></div>
 
                         {/* Info */}
                         <div style={{ flex:1, minWidth:0 }}>
-                          <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:3 }}>
+                          <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:3, flexWrap:'wrap' }}>
                             <span style={{ fontSize:16, fontWeight:700, letterSpacing:'-0.01em' }}>{q.product_name||'Үнийн санал'}</span>
-                            <span style={{ fontSize:10, padding:'2px 10px', borderRadius:99, background:s.bg, color:s.color, fontWeight:600, fontFamily:"'DM Sans',sans-serif" }}>{s.label}</span>
+                            <span style={{ fontSize:13, color:'#78716C', fontFamily:"'DM Sans',sans-serif" }}>{q.quantity||0} ширхэг</span>
+                            <span style={{ fontSize:10, padding:'3px 10px', borderRadius:99, background:qs.bg, color:qs.color, fontWeight:600, fontFamily:"'DM Sans',sans-serif" }}>{qs.label}</span>
                           </div>
                           <div style={{ fontSize:12, color:'#A8A29E', fontFamily:"'DM Sans',sans-serif" }}>
-                            {q.quantity||0} ш · {q.width_mm&&q.height_mm?q.width_mm+'×'+q.height_mm+'мм':'A4'} · {q.paper_gsm?q.paper_gsm+'gsm':''} · {q.color_mode||'Өнгөт'} · {q.created_at?new Date(q.created_at).toLocaleDateString():''}
+                            {q.width_mm&&q.height_mm?q.width_mm+'x'+q.height_mm+'мм':'A4'} · {q.paper_gsm?q.paper_gsm+'gsm':''} · {q.color_mode||'Өнгөт'} · {q.created_at?new Date(q.created_at).toLocaleDateString():''}
                           </div>
                         </div>
 
                         {/* Price */}
                         <div style={{ textAlign:'right', flexShrink:0 }}>
-                          <div style={{ fontSize:22, fontWeight:700, color:'#FF6B00', letterSpacing:'-0.02em' }}>{Number(q.total_price||0).toLocaleString()}₮</div>
+                          <div style={{ fontSize:24, fontWeight:700, color:'#FF6B35', letterSpacing:'-0.02em' }}>{Number(q.total_price||0).toLocaleString()}₮</div>
                           {q.unit_price&&<div style={{ fontSize:11, color:'#A8A29E', fontFamily:"'DM Sans',sans-serif" }}>Нэгж: {Number(q.unit_price).toLocaleString()}₮</div>}
                         </div>
                       </div>
 
                       {/* Bottom row */}
                       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginTop:14, paddingTop:12, borderTop:'1px solid #F5F5F4' }}>
-                        <div style={{ fontSize:12, color:'#A8A29E', fontFamily:"'DM Sans',sans-serif" }}>✓ Хүчинтэй: {q.created_at?getExpiry(q.created_at):''} хүртэл</div>
+                        <div style={{ fontSize:12, color:'#A8A29E', fontFamily:"'DM Sans',sans-serif" }}>Хүчинтэй: {validUntil} хүртэл</div>
                         <div style={{ display:'flex', gap:6 }}>
-                          <button onClick={e=>{e.stopPropagation()}} style={{ background:'#fff', border:'1px solid #E7E5E4', borderRadius:99, padding:'5px 14px', fontSize:11, cursor:'pointer', fontFamily:"'DM Sans',sans-serif", color:'#78716C' }}>▼ Дэлгэрэнгүй</button>
-                          <button onClick={e=>{e.stopPropagation()}} style={{ background:'#fff', border:'1px solid #E7E5E4', borderRadius:99, padding:'5px 14px', fontSize:11, cursor:'pointer', fontFamily:"'DM Sans',sans-serif", color:'#78716C', display:'flex', alignItems:'center', gap:4 }}>📄 PDF</button>
-                          <button onClick={e=>{e.stopPropagation(); if(!ordering){setSelQ(new Set([q.id])); setShowPayment(true)}}} style={{ background:'#059669', color:'#fff', border:'none', borderRadius:99, padding:'5px 14px', fontSize:11, fontWeight:600, cursor:'pointer', fontFamily:"'DM Sans',sans-serif", display:'flex', alignItems:'center', gap:4 }}>💳 QPay</button>
-                          <button onClick={e=>{e.stopPropagation(); if(!ordering){setSelQ(new Set([q.id])); setShowPayment(true)}}} style={{ background:'#FF6B00', color:'#fff', border:'none', borderRadius:99, padding:'5px 14px', fontSize:11, fontWeight:600, cursor:'pointer', fontFamily:"'DM Sans',sans-serif" }}>Захиалах →</button>
+                          <button onClick={e=>{e.stopPropagation(); router.push('/quote')}} style={{ background:'#fff', border:'1px solid #E7E5E4', borderRadius:99, padding:'5px 14px', fontSize:11, cursor:'pointer', fontFamily:"'DM Sans',sans-serif", color:'#78716C' }}>Дахин тооцоолох</button>
+                          {canOrder && (
+                            <button onClick={e=>{e.stopPropagation(); router.push('/checkout?quote_id='+q.id)}} style={{ background:'#FF6B35', color:'#fff', border:'none', borderRadius:99, padding:'5px 14px', fontSize:11, fontWeight:600, cursor:'pointer', fontFamily:"'DM Sans',sans-serif" }}>Захиалга болгох →</button>
+                          )}
                         </div>
                       </div>
                     </div>

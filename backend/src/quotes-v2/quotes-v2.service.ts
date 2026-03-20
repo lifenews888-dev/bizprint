@@ -51,6 +51,25 @@ export class QuotesV2Service {
     return this.findOne(id);
   }
 
+  findByEmail(email: string) {
+    return this.repo.find({
+      where: { customer_email: email },
+      order: { created_at: 'DESC' },
+    });
+  }
+
+  findByUserId(userId: string) {
+    return this.repo.find({
+      where: { user_id: userId },
+      order: { created_at: 'DESC' },
+    });
+  }
+
+  async updateStatus(id: string, status: string) {
+    await this.repo.update(id, { status });
+    return this.findOne(id);
+  }
+
   async markExpired() {
     const now = new Date();
     await this.repo
