@@ -1,7 +1,10 @@
 'use client'
 import { useEffect, useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
+import DashboardLayout from '@/components/layouts/DashboardLayout'
+import KpiCard from '@/components/dashboard/KpiCard'
 import { useRoleGuard } from '@/lib/use-role-guard'
+import { DESIGNER_MENU } from '@/config/sidebar-config'
 
 const API = 'http://localhost:4000'
 
@@ -129,49 +132,27 @@ export default function DesignerDashboard() {
 
   const s: React.CSSProperties = { background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 8, padding: '8px 12px', color: 'var(--text)', fontSize: 13, outline: 'none' }
 
-  return (
-    <div style={{ minHeight: '100vh', background: 'var(--bg)', fontFamily: "'Segoe UI',system-ui,sans-serif", color: 'var(--text)' }}>
+  if (authLoading) return <div style={{ minHeight: '100vh', background: 'var(--bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text2)' }}>Ачааллаж байна...</div>
 
+  return (
+    <DashboardLayout navGroups={DESIGNER_MENU} user={user || guardUser || undefined}>
       {toast && (
         <div style={{ position: 'fixed', top: 20, right: 20, zIndex: 9999, background: toast.ok ? '#1D9E75' : '#e24b4a', color: '#fff', padding: '12px 20px', borderRadius: 10, fontSize: 14, fontWeight: 600, boxShadow: '0 4px 24px rgba(0,0,0,0.3)' }}>
           {toast.msg}
         </div>
       )}
 
-      {/* Topbar */}
-      <div style={{ background: 'var(--surface)', borderBottom: '1px solid var(--border)', padding: '0 32px', height: 54, display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 10 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <span style={{ fontSize: 16, fontWeight: 700 }}><span style={{ color: '#FF6B00' }}>Biz</span>Print</span>
-          <span style={{ fontSize: 11, background: 'rgba(139,92,246,0.1)', color: '#8B5CF6', border: '1px solid rgba(139,92,246,0.3)', borderRadius: 20, padding: '2px 10px' }}>Designer</span>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <span style={{ fontSize: 13, color: 'var(--text2)' }}>{user?.full_name}</span>
-          <button onClick={() => router.push('/dashboard/wallet')} style={{ ...s, cursor: 'pointer', fontSize: 12 }}>💳 Хэтэвч</button>
-          <button onClick={() => { localStorage.clear(); router.push('/') }} style={{ ...s, cursor: 'pointer', fontSize: 12 }}>Гарах</button>
-        </div>
+      <div style={{ marginBottom: 24 }}>
+        <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>Дизайнерийн удирдлага</h1>
+        <p style={{ color: 'var(--text2)', fontSize: 13, margin: '4px 0 0' }}>Захиалгын дизайн, файл дамжуулалт, workflow</p>
       </div>
 
-      <div style={{ padding: '28px 32px', maxWidth: 1300, margin: '0 auto' }}>
-
-        <div style={{ marginBottom: 24 }}>
-          <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>Designer Dashboard</h1>
-          <p style={{ color: 'var(--text2)', fontSize: 13, margin: '4px 0 0' }}>Захиалгын дизайн, файл дамжуулалт, workflow</p>
-        </div>
-
-        {/* Stats */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14, marginBottom: 24 }}>
-          {[
-            { label: 'Нийт захиалга',   val: stats.total,   color: '#8B5CF6' },
-            { label: 'Хүлээгдэж байна', val: stats.pending, color: '#F59E0B' },
-            { label: 'Хэвлэж байна',    val: stats.inProd,  color: '#3B82F6' },
-            { label: 'Дууссан',         val: stats.done,    color: '#10B981' },
-          ].map(item => (
-            <div key={item.label} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: '16px 18px', borderTop: '3px solid ' + item.color }}>
-              <div style={{ fontSize: 24, fontWeight: 700, color: item.color }}>{item.val}</div>
-              <div style={{ fontSize: 12, color: 'var(--text2)', marginTop: 4 }}>{item.label}</div>
-            </div>
-          ))}
-        </div>
+      <KpiCard items={[
+        { label: 'Нийт захиалга', value: stats.total, color: 'purple', icon: '🎨' },
+        { label: 'Хүлээгдэж байна', value: stats.pending, color: 'orange', icon: '⏳' },
+        { label: 'Хэвлэж байна', value: stats.inProd, color: 'blue', icon: '🖨️' },
+        { label: 'Дууссан', value: stats.done, color: 'green', icon: '✅' },
+      ]} />
 
         {/* File transfer info banner */}
         <div style={{ background: 'rgba(139,92,246,0.06)', border: '1px solid rgba(139,92,246,0.2)', borderRadius: 10, padding: '12px 18px', marginBottom: 20, display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -353,7 +334,6 @@ export default function DesignerDashboard() {
             </div>
           )}
         </div>
-      </div>
-    </div>
+    </DashboardLayout>
   )
 }

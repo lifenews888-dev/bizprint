@@ -1,6 +1,10 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import DashboardLayout from '@/components/layouts/DashboardLayout'
+import KpiCard from '@/components/dashboard/KpiCard'
+import { useRoleGuard } from '@/lib/use-role-guard'
+import { VENDOR_MENU } from '@/config/sidebar-config'
 
 interface Job {
   id: string
@@ -35,6 +39,7 @@ function getToken() {
 
 export default function VendorDashboard() {
   const router = useRouter()
+  const { user: guardUser, loading: authLoading } = useRoleGuard(['vendor', 'admin'])
   const [jobs, setJobs] = useState<Job[]>([])
   const [machines, setMachines] = useState<Machine[]>([])
   const [user, setUser] = useState<any>(null)
@@ -43,10 +48,11 @@ export default function VendorDashboard() {
   const [actionLoading, setActionLoading] = useState<string | null>(null)
 
   useEffect(() => {
+    if (authLoading) return
     const token = getToken()
     if (!token) { router.push('/login'); return }
     fetchMe(token)
-  }, [])
+  }, [authLoading])
 
   async function fetchMe(token: string) {
     try {
@@ -119,40 +125,21 @@ export default function VendorDashboard() {
     completed: jobs.filter(j => j.status === 'completed').length,
   }
 
+  if (authLoading) return <div style={{ minHeight: '100vh', background: 'var(--bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text2)' }}>Ачааллаж байна...</div>
+
   return (
-    <div style={{ minHeight: '100vh', background: '#0A0A0A', fontFamily: F, color: '#F1F5F9' }}>
-      {/* Header */}
-      <div style={{ background: '#111', borderBottom: '1px solid #1A1A1A', padding: '16px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div>
-          <div style={{ fontSize: 11, color: '#666', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 4 }}>
-            Үйлдвэрийн хяналт
-          </div>
-          <h1 style={{ fontSize: 20, fontWeight: 700, margin: 0 }}>Vendor Dashboard</h1>
-          <div style={{ fontSize: 13, color: '#666', marginTop: 2 }}>{user?.email}</div>
-        </div>
-        <button onClick={() => fetchJobs(getToken(), user?.id)} style={{
-          padding: '8px 16px', background: 'transparent', border: '1px solid #2A2A2A',
-          borderRadius: 8, color: '#888', cursor: 'pointer', fontSize: 13, fontFamily: F,
-        }}>
-          Шинэчлэх
-        </button>
+    <DashboardLayout navGroups={VENDOR_MENU} user={user || guardUser || undefined}>
+      <div style={{ marginBottom: 24 }}>
+        <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>Үйлдвэрийн удирдлага</h1>
+        <p style={{ color: 'var(--text2)', fontSize: 13, margin: '4px 0 0' }}>Ажлын захиалга, машин, статус хяналт</p>
       </div>
 
-      {/* Stats */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 12, padding: '20px 24px 0' }}>
-        {Object.entries(counts).map(([key, count]) => (
-          <div key={key} onClick={() => setTab(key)} style={{
-            padding: '14px 16px', background: tab === key ? '#1A1A1A' : '#0F0F0F',
-            border: `1px solid ${tab === key ? '#333' : '#1A1A1A'}`,
-            borderRadius: 12, cursor: 'pointer',
-          }}>
-            <div style={{ fontSize: 22, fontWeight: 700, color: key === 'all' ? 'var(--orange)' : STATUS[key]?.color || '#888' }}>{count}</div>
-            <div style={{ fontSize: 12, color: '#666', marginTop: 4 }}>
-              {key === 'all' ? 'Бүгд' : STATUS[key]?.label || key}
-            </div>
-          </div>
-        ))}
-      </div>
+      <KpiCard items={[
+        { label: 'Нийт', value: counts.all, color: 'orange', icon: '📋' },
+        { label: 'Дараалалд', value: counts.queued, color: 'blue', icon: '⏳' },
+        { label: 'Хэвлэж байна', value: counts.printing, color: 'purple', icon: '🖨️' },
+        { label: 'Дууссан', value: counts.completed, color: 'green', icon: '✅' },
+      ]} />
 
       {/* Tabs */}
       <div style={{ display: 'flex', gap: 4, padding: '16px 24px 0', borderBottom: '1px solid #1A1A1A', flexWrap: 'wrap' }}>
@@ -259,6 +246,6 @@ export default function VendorDashboard() {
           </div>
         )}
       </div>
-    </div>
+    </DashboardLayout>
   )
 }

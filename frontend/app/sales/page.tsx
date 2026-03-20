@@ -1,7 +1,10 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import DashboardLayout from '@/components/layouts/DashboardLayout'
+import KpiCard from '@/components/dashboard/KpiCard'
 import { useRoleGuard } from '@/lib/use-role-guard'
+import { SALES_MENU } from '@/config/sidebar-config'
 
 const API = 'http://localhost:4000'
 const BASE_URL = 'http://localhost:3000'
@@ -113,46 +116,21 @@ export default function SalesDashboard() {
     </div>
   )
 
+  if (authLoading) return <div style={{ minHeight: '100vh', background: 'var(--bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text2)' }}>Ачааллаж байна...</div>
+
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--bg)', fontFamily: "'Segoe UI',system-ui,sans-serif", color: 'var(--text)' }}>
-
-      {/* Topbar */}
-      <div style={{ background: 'var(--surface)', borderBottom: '1px solid var(--border)', padding: '0 32px', height: 54, display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 10 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <span style={{ fontSize: 16, fontWeight: 700 }}><span style={{ color: '#FF6B00' }}>Biz</span>Print</span>
-          <span style={{ fontSize: 11, background: 'rgba(255,107,0,0.1)', color: '#FF6B00', border: '1px solid rgba(255,107,0,0.3)', borderRadius: 20, padding: '2px 10px' }}>Sales</span>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <span style={{ fontSize: 13, color: 'var(--text2)' }}>{user?.full_name}</span>
-          <button onClick={() => { localStorage.clear(); router.push('/') }}
-            style={{ ...inp, cursor: 'pointer', fontSize: 12 }}>
-            Гарах
-          </button>
-        </div>
-      </div>
-
-      <div style={{ padding: '28px 32px', maxWidth: 1100, margin: '0 auto' }}>
-
-        {/* Title */}
+    <DashboardLayout navGroups={SALES_MENU} user={user || guardUser || undefined}>
         <div style={{ marginBottom: 24 }}>
-          <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>Sales Dashboard</h1>
+          <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>Борлуулалтын удирдлага</h1>
           <p style={{ color: 'var(--text2)', fontSize: 13, margin: '4px 0 0' }}>Referral линк, комисс, захиалгын хяналт</p>
         </div>
 
-        {/* Stats */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 14, marginBottom: 24 }}>
-          {[
-            { label: 'Нийт захиалга',  val: orders.length,                        color: '#FF6B00' },
-            { label: 'Дууссан',        val: orders.filter(o=>o.status==='completed').length, color: '#10B981' },
-            { label: 'Нийт орлого',    val: totalRev.toLocaleString()+'₮',         color: '#378ADD' },
-            { label: 'Комисс ('+(referral?.commission_rate||10)+'%)', val: commission.toLocaleString()+'₮', color: '#8B5CF6' },
-          ].map(s => (
-            <div key={s.label} style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:12, padding:'18px 20px', borderTop:'3px solid '+s.color }}>
-              <div style={{ fontSize:22, fontWeight:700, color:s.color }}>{s.val}</div>
-              <div style={{ fontSize:12, color:'var(--text2)', marginTop:4 }}>{s.label}</div>
-            </div>
-          ))}
-        </div>
+        <KpiCard items={[
+          { label: 'Нийт захиалга', value: orders.length, color: 'orange', icon: '📋' },
+          { label: 'Дууссан', value: orders.filter(o=>o.status==='completed').length, color: 'green', icon: '✅' },
+          { label: 'Нийт орлого', value: totalRev.toLocaleString()+'₮', color: 'blue', icon: '💰' },
+          { label: 'Комисс ('+(referral?.commission_rate||10)+'%)', value: commission.toLocaleString()+'₮', color: 'purple', icon: '🎯' },
+        ]} />
 
         <div style={{ display:'grid', gridTemplateColumns:'1fr 300px', gap:20, marginBottom:24 }}>
 
@@ -262,7 +240,6 @@ export default function SalesDashboard() {
             </div>
           ))}
         </div>
-      </div>
-    </div>
+    </DashboardLayout>
   )
 }
