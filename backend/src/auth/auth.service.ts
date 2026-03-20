@@ -2,6 +2,7 @@ import {
   Injectable,
   UnauthorizedException,
   ConflictException,
+  BadRequestException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -26,6 +27,11 @@ export class AuthService {
   ) {}
 
   async register(dto: RegisterDto) {
+    // Password is REQUIRED for new registration
+    if (!dto.password || dto.password.length < 8) {
+      throw new BadRequestException('Нууц үг хамгийн багадаа 8 тэмдэгт байх ёстой');
+    }
+
     const existing = await this.userRepository.findOne({
       where: { email: dto.email },
     });
