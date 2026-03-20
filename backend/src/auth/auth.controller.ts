@@ -1,8 +1,9 @@
-import { Controller, Post, Body, Get, UseGuards, Request } from '@nestjs/common';
+import { Controller, Post, Body, Get, Patch, Param, UseGuards, Request } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { AdminGuard } from '../admin/admin.guard';
 
 @Controller('auth')
 export class AuthController {
@@ -38,5 +39,12 @@ export class AuthController {
   @Get('me')
   getMe(@Request() req: any) {
     return this.authService.getMe(req.user.id);
+  }
+
+  // Admin: change any user's role
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  @Patch('users/:id/role')
+  changeRole(@Param('id') id: string, @Body('role') role: string) {
+    return this.authService.changeRole(id, role);
   }
 }

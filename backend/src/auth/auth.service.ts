@@ -45,7 +45,16 @@ export class AuthService {
     });
 
     await this.userRepository.save(user);
-    return this.generateTokens(user);
+    return this.generateTokens(user, dto.device_id, dto.device_name, dto.platform);
+  }
+
+  async changeRole(userId: string, role: string) {
+    const user = await this.userRepository.findOne({ where: { id: userId } });
+    if (!user) throw new UnauthorizedException('Хэрэглэгч олдсонгүй');
+    user.role = role;
+    await this.userRepository.save(user);
+    const { password_hash, ...result } = user;
+    return result;
   }
 
   async login(dto: LoginDto) {
