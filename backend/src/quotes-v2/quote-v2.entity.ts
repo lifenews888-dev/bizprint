@@ -118,6 +118,18 @@ export class QuoteV2 {
   @Column({ nullable: true })
   user_id: string;
 
+  @Column({ nullable: true })
+  rush_type: string;
+
+  @Column({ nullable: true })
+  guest_name: string;
+
+  @Column({ nullable: true })
+  guest_phone: string;
+
+  @Column({ nullable: true })
+  company_name: string;
+
   @Column({ type: 'varchar', default: QuoteStatus.DRAFT })
   status: string;
 

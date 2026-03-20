@@ -13,28 +13,33 @@ function fmt(n: number) {
   return new Intl.NumberFormat('mn-MN').format(Math.round(n))
 }
 
-const TABS = ['Үнийн тохиргоо', 'Quotes', 'Статистик'] as const
+const TABS = ['Үнийн тохиргоо', 'Quotes хяналт', 'Статистик'] as const
 type Tab = typeof TABS[number]
 
-const LETTER_SIZES = [20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120]
-const LETTER_DEFAULTS = [35000, 45000, 60000, 75000, 95000, 140000, 180000, 235000, 290000, 330000, 360000]
-const PAPER_GSM = [
-  { gsm: 80, price: 60 },
-  { gsm: 120, price: 90 },
-  { gsm: 150, price: 120 },
-  { gsm: 200, price: 160 },
-  { gsm: 300, price: 220 },
-]
+const CATEGORY_SECTIONS = [
+  { category: 'hadag', title: 'Хаяг реклам', suffix: '' },
+  { category: 'khevlel', title: 'Хэвлэл', suffix: '' },
+  { category: 'extra', title: 'Нэмэлт', suffix: '' },
+  { category: 'margin', title: 'Margin', suffix: '%' },
+  { category: 'rush', title: 'Яаралтай', suffix: '%' },
+  { category: 'discount', title: 'Хөнгөлөлт', suffix: '%' },
+] as const
 
 const STATUS_COLORS: Record<string, { bg: string; color: string }> = {
-  sent: { bg: '#EBF5FF', color: '#2563EB' },
-  confirmed: { bg: '#ECFDF5', color: '#059669' },
-  ordered: { bg: '#FFF7ED', color: '#EA580C' },
+  sent: { bg: '#DBEAFE', color: '#1D4ED8' },
+  confirmed: { bg: '#D1FAE5', color: '#065F46' },
+  ordered: { bg: '#FED7AA', color: '#9A3412' },
   expired: { bg: '#F3F4F6', color: '#6B7280' },
-  draft: { bg: '#F3F4F6', color: '#6B7280' },
 }
 
-const STATUS_OPTIONS = ['draft', 'sent', 'confirmed', 'ordered', 'expired']
+const STATUS_OPTIONS = ['all', 'sent', 'confirmed', 'ordered', 'expired']
+const STATUS_LABELS: Record<string, string> = {
+  all: 'Бүгд',
+  sent: 'Илгээсэн',
+  confirmed: 'Баталсан',
+  ordered: 'Захиалсан',
+  expired: 'Хугацаа дууссан',
+}
 
 // ─── Main Component ───
 
@@ -71,7 +76,7 @@ export default function AdminQuoteEngine() {
       </div>
 
       {tab === 'Үнийн тохиргоо' && <PriceConfigTab />}
-      {tab === 'Quotes' && <QuotesListTab />}
+      {tab === 'Quotes хяналт' && <QuotesListTab />}
       {tab === 'Статистик' && <StatsTab />}
     </div>
   )
@@ -79,158 +84,219 @@ export default function AdminQuoteEngine() {
 
 // ─── Tab 1: Price Configuration ───
 
+type PricingConfig = {
+  id: number
+  key: string
+  label: string
+  value: number
+  category: string
+}
+
 function PriceConfigTab() {
-  const [letterPrices, setLetterPrices] = useState<number[]>([...LETTER_DEFAULTS])
-  const [b2bMargin, setB2bMargin] = useState(20)
-  const [retailMargin, setRetailMargin] = useState(45)
-  const [paperPrices, setPaperPrices] = useState<number[]>(PAPER_GSM.map(p => p.price))
+  const [configs, setConfigs] = useState<PricingConfig[]>([])
+  const [editValues, setEditValues] = useState<Record<string, string>>({})
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({})
   const [saving, setSaving] = useState(false)
-  const [msg, setMsg] = useState('')
+  const [savingKey, setSavingKey] = useState<string | null>(null)
+  const [toast, setToast] = useState('')
 
   useEffect(() => {
-    fetch(`${API}/settings`, {
+    fetch(`${API}/pricing-config`, {
       headers: { Authorization: `Bearer ${getToken()}` },
     })
-      .then(r => r.ok ? r.json() : Promise.reject())
-      .then((data: any[]) => {
-        if (!Array.isArray(data)) return
-        const map: Record<string, string> = {}
-        data.forEach((s: any) => { map[s.key] = s.value })
-
-        const loaded = LETTER_SIZES.map((sz, i) => {
-          const v = map[`letter_price_${sz}cm`]
-          return v ? Number(v) : LETTER_DEFAULTS[i]
-        })
-        setLetterPrices(loaded)
-
-        if (map['b2b_margin']) setB2bMargin(Number(map['b2b_margin']))
-        if (map['retail_margin']) setRetailMargin(Number(map['retail_margin']))
-
-        const lp = PAPER_GSM.map((p, i) => {
-          const v = map[`paper_price_${p.gsm}gsm`]
-          return v ? Number(v) : PAPER_GSM[i].price
-        })
-        setPaperPrices(lp)
+      .then(r => r.ok ? r.json() : [])
+      .then((data: PricingConfig[]) => {
+        const arr = Array.isArray(data) ? data : []
+        setConfigs(arr)
+        const vals: Record<string, string> = {}
+        arr.forEach(c => { vals[c.key] = String(c.value) })
+        setEditValues(vals)
       })
       .catch(() => {})
   }, [])
 
-  async function handleSave() {
-    setSaving(true)
-    setMsg('')
-    const pairs: { key: string; value: string }[] = []
+  function showToast(msg: string) {
+    setToast(msg)
+    setTimeout(() => setToast(''), 3000)
+  }
 
-    LETTER_SIZES.forEach((sz, i) => {
-      pairs.push({ key: `letter_price_${sz}cm`, value: String(letterPrices[i]) })
-    })
-    pairs.push({ key: 'b2b_margin', value: String(b2bMargin) })
-    pairs.push({ key: 'retail_margin', value: String(retailMargin) })
-    PAPER_GSM.forEach((p, i) => {
-      pairs.push({ key: `paper_price_${p.gsm}gsm`, value: String(paperPrices[i]) })
-    })
-
+  async function saveSingle(key: string) {
+    setSavingKey(key)
     try {
-      const res = await fetch(`${API}/settings/bulk`, {
-        method: 'POST',
+      const res = await fetch(`${API}/pricing-config`, {
+        method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${getToken()}`,
         },
-        body: JSON.stringify(pairs),
+        body: JSON.stringify({ items: [{ key, value: Number(editValues[key]) || 0 }] }),
       })
-      if (!res.ok) throw new Error('Save failed')
-      setMsg('Амжилттай хадгаллаа')
+      if (!res.ok) throw new Error()
+      setConfigs(prev => prev.map(c => c.key === key ? { ...c, value: Number(editValues[key]) || 0 } : c))
+      showToast('Амжилттай хадгаллаа')
     } catch {
-      setMsg('Алдаа гарлаа')
+      showToast('Алдаа гарлаа')
     } finally {
-      setSaving(false)
-      setTimeout(() => setMsg(''), 3000)
+      setSavingKey(null)
     }
   }
 
+  async function saveAll() {
+    setSaving(true)
+    try {
+      const items = configs.map(c => ({
+        key: c.key,
+        value: Number(editValues[c.key]) || 0,
+      }))
+      const res = await fetch(`${API}/pricing-config`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${getToken()}`,
+        },
+        body: JSON.stringify({ items }),
+      })
+      if (!res.ok) throw new Error()
+      setConfigs(prev => prev.map(c => ({ ...c, value: Number(editValues[c.key]) || 0 })))
+      showToast('Амжилттай хадгаллаа')
+    } catch {
+      showToast('Алдаа гарлаа')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  function toggleCollapse(cat: string) {
+    setCollapsed(prev => ({ ...prev, [cat]: !prev[cat] }))
+  }
+
+  function getByCategory(cat: string) {
+    return configs.filter(c => c.category === cat)
+  }
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
-      {/* Letter prices */}
-      <Section title="Товгор үсэг үнэ (см)">
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: 12 }}>
-          {LETTER_SIZES.map((sz, i) => (
-            <label key={sz} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-              <span style={{ fontSize: 12, color: 'var(--text2)', fontWeight: 500 }}>{sz} см</span>
-              <input
-                type="number"
-                value={letterPrices[i]}
-                onChange={e => {
-                  const next = [...letterPrices]
-                  next[i] = Number(e.target.value) || 0
-                  setLetterPrices(next)
-                }}
-                style={inputStyle}
-              />
-            </label>
-          ))}
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      {toast && (
+        <div style={{
+          position: 'fixed',
+          top: 24,
+          right: 32,
+          background: toast.includes('Амжилт') ? '#059669' : '#DC2626',
+          color: '#fff',
+          padding: '12px 24px',
+          borderRadius: 8,
+          fontSize: 14,
+          fontWeight: 600,
+          zIndex: 9999,
+          boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+        }}>
+          {toast}
         </div>
-      </Section>
+      )}
 
-      {/* Margin settings */}
-      <Section title="Margin тохиргоо">
-        <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap' }}>
-          <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-            <span style={{ fontSize: 12, color: 'var(--text2)', fontWeight: 500 }}>B2B margin (%)</span>
-            <input
-              type="number"
-              value={b2bMargin}
-              onChange={e => setB2bMargin(Number(e.target.value) || 0)}
-              style={{ ...inputStyle, width: 120 }}
-            />
-          </label>
-          <label style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-            <span style={{ fontSize: 12, color: 'var(--text2)', fontWeight: 500 }}>Retail margin (%)</span>
-            <input
-              type="number"
-              value={retailMargin}
-              onChange={e => setRetailMargin(Number(e.target.value) || 0)}
-              style={{ ...inputStyle, width: 120 }}
-            />
-          </label>
-        </div>
-      </Section>
+      {CATEGORY_SECTIONS.map(section => {
+        const items = getByCategory(section.category)
+        if (items.length === 0) return null
+        const isCollapsed = !!collapsed[section.category]
 
-      {/* Paper / print prices */}
-      <Section title="Хэвлэлийн үнэ">
-        <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
-          {PAPER_GSM.map((p, i) => (
-            <label key={p.gsm} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-              <span style={{ fontSize: 12, color: 'var(--text2)', fontWeight: 500 }}>{p.gsm} GSM (₮/хуудас)</span>
-              <input
-                type="number"
-                value={paperPrices[i]}
-                onChange={e => {
-                  const next = [...paperPrices]
-                  next[i] = Number(e.target.value) || 0
-                  setPaperPrices(next)
-                }}
-                style={{ ...inputStyle, width: 130 }}
-              />
-            </label>
-          ))}
-        </div>
-      </Section>
+        return (
+          <div
+            key={section.category}
+            style={{
+              background: 'var(--surface)',
+              border: '1px solid var(--border)',
+              borderRadius: 12,
+              overflow: 'hidden',
+            }}
+          >
+            <button
+              onClick={() => toggleCollapse(section.category)}
+              style={{
+                width: '100%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '14px 20px',
+                border: 'none',
+                background: 'transparent',
+                cursor: 'pointer',
+                textAlign: 'left',
+              }}
+            >
+              <span style={{ fontSize: 15, fontWeight: 600, color: 'var(--text)' }}>
+                {section.title}
+              </span>
+              <span style={{ fontSize: 18, color: 'var(--text2)', transform: isCollapsed ? 'rotate(0deg)' : 'rotate(180deg)', transition: 'transform 0.2s' }}>
+                &#9660;
+              </span>
+            </button>
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-        <button onClick={handleSave} disabled={saving} style={btnStyle}>
-          {saving ? 'Хадгалж байна...' : 'Хадгалах'}
+            {!isCollapsed && (
+              <div style={{ padding: '0 20px 16px' }}>
+                {items.map(item => (
+                  <div
+                    key={item.key}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 12,
+                      padding: '8px 0',
+                      borderBottom: '1px solid var(--border)',
+                    }}
+                  >
+                    <span style={{ flex: 1, fontSize: 13, color: 'var(--text)', fontWeight: 500 }}>
+                      {item.label}
+                    </span>
+                    <span style={{ fontSize: 12, color: 'var(--text2)', minWidth: 80, textAlign: 'right' }}>
+                      {fmt(item.value)}{section.suffix}
+                    </span>
+                    <input
+                      type="number"
+                      value={editValues[item.key] ?? ''}
+                      onChange={e => setEditValues(prev => ({ ...prev, [item.key]: e.target.value }))}
+                      placeholder="Шинэ утга"
+                      style={{ ...inputStyle, width: 120 }}
+                    />
+                    <button
+                      onClick={() => saveSingle(item.key)}
+                      disabled={savingKey === item.key}
+                      title="Хадгалах"
+                      style={{
+                        background: 'transparent',
+                        border: '1px solid var(--border)',
+                        borderRadius: 6,
+                        padding: '6px 8px',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        opacity: savingKey === item.key ? 0.5 : 1,
+                      }}
+                    >
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#FF6B00" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+                        <polyline points="17 21 17 13 7 13 7 21" />
+                        <polyline points="7 3 7 8 15 8" />
+                      </svg>
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )
+      })}
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginTop: 8 }}>
+        <button onClick={saveAll} disabled={saving} style={btnStyle}>
+          {saving ? 'Хадгалж байна...' : 'Бүгдийг хадгалах'}
         </button>
-        {msg && (
-          <span style={{ fontSize: 13, color: msg.includes('Амжилт') ? '#059669' : '#DC2626', fontWeight: 500 }}>
-            {msg}
-          </span>
-        )}
       </div>
     </div>
   )
 }
 
-// ─── Tab 2: Quotes List ───
+// ─── Tab 2: Quotes Management ───
 
 type Quote = {
   id: number
@@ -238,15 +304,18 @@ type Quote = {
   user?: any
   customerName?: string
   customerEmail?: string
+  customerPhone?: string
   productName?: string
   product_type?: string
   quantity?: number
   totalPrice?: number
+  total_price?: number
   total?: number
   status: string
   createdAt?: string
   breakdown?: any
   items?: any[]
+  notes?: string
 }
 
 function QuotesListTab() {
@@ -254,6 +323,8 @@ function QuotesListTab() {
   const [loading, setLoading] = useState(true)
   const [expandedId, setExpandedId] = useState<number | null>(null)
   const [sendingEmail, setSendingEmail] = useState<number | null>(null)
+  const [statusFilter, setStatusFilter] = useState('all')
+  const [search, setSearch] = useState('')
 
   const fetchQuotes = useCallback(async () => {
     setLoading(true)
@@ -290,131 +361,193 @@ function QuotesListTab() {
   async function resendEmail(id: number) {
     setSendingEmail(id)
     try {
-      await fetch(`${API}/quotes-v2/${id}/send-email`, {
+      await fetch(`${API}/quotes-v2/${id}/resend-email`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${getToken()}` },
-      })
+      }).catch(() =>
+        fetch(`${API}/quotes-v2/${id}/send-email`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${getToken()}` },
+        })
+      )
     } catch {}
     setSendingEmail(null)
   }
+
+  const filtered = quotes.filter(q => {
+    if (statusFilter !== 'all' && q.status !== statusFilter) return false
+    if (search) {
+      const s = search.toLowerCase()
+      const name = (q.customerName || q.user?.name || '').toLowerCase()
+      const email = (q.customerEmail || q.user?.email || '').toLowerCase()
+      const num = (q.quoteNumber || `#${q.id}`).toLowerCase()
+      const product = (q.productName || q.product_type || '').toLowerCase()
+      if (!name.includes(s) && !email.includes(s) && !num.includes(s) && !product.includes(s)) return false
+    }
+    return true
+  })
 
   if (loading) {
     return <div style={{ textAlign: 'center', padding: 40, color: 'var(--text2)' }}>Уншиж байна...</div>
   }
 
-  if (!quotes.length) {
-    return <div style={{ textAlign: 'center', padding: 40, color: 'var(--text2)' }}>Quotes олдсонгүй</div>
-  }
-
   return (
-    <div style={{ overflowX: 'auto' }}>
-      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-        <thead>
-          <tr>
-            {['Quote#', 'Хэрэглэгч', 'Бүтээгдэхүүн', 'Тоо', 'Нийт үнэ', 'Статус', 'Огноо', ''].map(h => (
-              <th key={h} style={thStyle}>{h}</th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {quotes.map(q => {
-            const expanded = expandedId === q.id
-            const price = q.totalPrice ?? q.total ?? 0
-            const userName = q.customerName || q.user?.name || q.user?.email || '-'
-            const product = q.productName || q.product_type || '-'
-            const statusColor = STATUS_COLORS[q.status] || STATUS_COLORS.draft
+    <div>
+      {/* Filter bar */}
+      <div style={{ display: 'flex', gap: 12, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' }}>
+        <select
+          value={statusFilter}
+          onChange={e => setStatusFilter(e.target.value)}
+          style={{
+            ...inputStyle,
+            width: 180,
+            cursor: 'pointer',
+          }}
+        >
+          {STATUS_OPTIONS.map(s => (
+            <option key={s} value={s}>{STATUS_LABELS[s] || s}</option>
+          ))}
+        </select>
+        <input
+          type="text"
+          placeholder="Хайх... (нэр, имэйл, дугаар)"
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          style={{ ...inputStyle, flex: 1, minWidth: 200 }}
+        />
+      </div>
 
-            return (
-              <Fragment key={q.id}>
-                <tr
-                  onClick={() => setExpandedId(expanded ? null : q.id)}
-                  style={{ cursor: 'pointer', borderBottom: expanded ? 'none' : '1px solid var(--border)' }}
-                  onMouseEnter={e => { e.currentTarget.style.background = 'var(--surface)' }}
-                  onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
-                >
-                  <td style={tdStyle}>{q.quoteNumber || `#${q.id}`}</td>
-                  <td style={tdStyle}>{userName}</td>
-                  <td style={tdStyle}>{product}</td>
-                  <td style={tdStyle}>{q.quantity ?? '-'}</td>
-                  <td style={tdStyle}>{price ? `${fmt(price)}₮` : '-'}</td>
-                  <td style={tdStyle}>
-                    <select
-                      value={q.status}
-                      onClick={e => e.stopPropagation()}
-                      onChange={e => { e.stopPropagation(); changeStatus(q.id, e.target.value) }}
-                      style={{
-                        background: statusColor.bg,
-                        color: statusColor.color,
-                        border: 'none',
-                        borderRadius: 12,
-                        padding: '4px 10px',
-                        fontSize: 12,
-                        fontWeight: 600,
-                        cursor: 'pointer',
-                        appearance: 'auto' as any,
-                      }}
+      {filtered.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: 40, color: 'var(--text2)' }}>Quotes олдсонгүй</div>
+      ) : (
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+            <thead>
+              <tr>
+                {['#', 'Дугаар', 'Хэрэглэгч', 'Бүтээгдэхүүн', 'Дүн', 'Статус', 'Огноо', 'Үйлдэл'].map(h => (
+                  <th key={h} style={thStyle}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map((q, idx) => {
+                const expanded = expandedId === q.id
+                const price = q.totalPrice ?? q.total_price ?? q.total ?? 0
+                const userName = q.customerName || q.user?.name || q.user?.email || '-'
+                const product = q.productName || q.product_type || '-'
+                const statusColor = STATUS_COLORS[q.status] || { bg: '#F3F4F6', color: '#6B7280' }
+
+                return (
+                  <Fragment key={q.id}>
+                    <tr
+                      onClick={() => setExpandedId(expanded ? null : q.id)}
+                      style={{ cursor: 'pointer', borderBottom: expanded ? 'none' : '1px solid var(--border)' }}
+                      onMouseEnter={e => { e.currentTarget.style.background = 'var(--surface)' }}
+                      onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
                     >
-                      {STATUS_OPTIONS.map(s => (
-                        <option key={s} value={s}>{s}</option>
-                      ))}
-                    </select>
-                  </td>
-                  <td style={tdStyle}>
-                    {q.createdAt ? new Date(q.createdAt).toLocaleDateString('mn-MN') : '-'}
-                  </td>
-                  <td style={tdStyle}>
-                    <button
-                      onClick={e => { e.stopPropagation(); resendEmail(q.id) }}
-                      disabled={sendingEmail === q.id}
-                      style={{
-                        background: 'transparent',
-                        border: '1px solid var(--border)',
-                        borderRadius: 6,
-                        padding: '4px 10px',
-                        fontSize: 11,
-                        color: 'var(--text2)',
-                        cursor: 'pointer',
-                        whiteSpace: 'nowrap',
-                      }}
-                    >
-                      {sendingEmail === q.id ? '...' : 'Имэйл дахин илгээх'}
-                    </button>
-                  </td>
-                </tr>
-                {expanded && (
-                  <tr style={{ borderBottom: '1px solid var(--border)' }}>
-                    <td colSpan={8} style={{ padding: '12px 16px', background: 'var(--surface)' }}>
-                      <div style={{ display: 'flex', gap: 32, flexWrap: 'wrap', fontSize: 13 }}>
-                        <div>
-                          <strong style={{ color: 'var(--text2)' }}>Холбоо барих:</strong>
-                          <div>{q.customerName || q.user?.name || '-'}</div>
-                          <div>{q.customerEmail || q.user?.email || '-'}</div>
-                        </div>
-                        {q.breakdown && (
-                          <div>
-                            <strong style={{ color: 'var(--text2)' }}>Задаргаа:</strong>
-                            <pre style={{ margin: '4px 0', fontSize: 12, color: 'var(--text2)', whiteSpace: 'pre-wrap' }}>
-                              {JSON.stringify(q.breakdown, null, 2)}
-                            </pre>
+                      <td style={tdStyle}>{idx + 1}</td>
+                      <td style={tdStyle}>{q.quoteNumber || `#${q.id}`}</td>
+                      <td style={tdStyle}>{userName}</td>
+                      <td style={tdStyle}>{product}</td>
+                      <td style={tdStyle}>{price ? `${fmt(price)}₮` : '-'}</td>
+                      <td style={tdStyle}>
+                        <span style={{
+                          background: statusColor.bg,
+                          color: statusColor.color,
+                          borderRadius: 12,
+                          padding: '4px 12px',
+                          fontSize: 12,
+                          fontWeight: 600,
+                          display: 'inline-block',
+                        }}>
+                          {q.status}
+                        </span>
+                      </td>
+                      <td style={tdStyle}>
+                        {q.createdAt ? new Date(q.createdAt).toLocaleDateString('mn-MN') : '-'}
+                      </td>
+                      <td style={{ ...tdStyle, whiteSpace: 'nowrap' }}>
+                        <select
+                          value={q.status}
+                          onClick={e => e.stopPropagation()}
+                          onChange={e => { e.stopPropagation(); changeStatus(q.id, e.target.value) }}
+                          style={{
+                            border: '1px solid var(--border)',
+                            borderRadius: 6,
+                            padding: '4px 8px',
+                            fontSize: 11,
+                            color: 'var(--text)',
+                            background: 'var(--bg)',
+                            cursor: 'pointer',
+                            marginRight: 6,
+                          }}
+                        >
+                          {['sent', 'confirmed', 'ordered', 'expired'].map(s => (
+                            <option key={s} value={s}>{s}</option>
+                          ))}
+                        </select>
+                        <button
+                          onClick={e => { e.stopPropagation(); resendEmail(q.id) }}
+                          disabled={sendingEmail === q.id}
+                          style={{
+                            background: 'transparent',
+                            border: '1px solid var(--border)',
+                            borderRadius: 6,
+                            padding: '4px 10px',
+                            fontSize: 11,
+                            color: 'var(--text2)',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          {sendingEmail === q.id ? '...' : 'Имэйл'}
+                        </button>
+                      </td>
+                    </tr>
+                    {expanded && (
+                      <tr style={{ borderBottom: '1px solid var(--border)' }}>
+                        <td colSpan={8} style={{ padding: '14px 20px', background: 'var(--surface)' }}>
+                          <div style={{ display: 'flex', gap: 32, flexWrap: 'wrap', fontSize: 13 }}>
+                            <div>
+                              <div style={{ fontWeight: 600, color: 'var(--text2)', marginBottom: 6 }}>Холбоо барих</div>
+                              <div style={{ color: 'var(--text)' }}>{q.customerName || q.user?.name || '-'}</div>
+                              <div style={{ color: 'var(--text2)', fontSize: 12 }}>{q.customerEmail || q.user?.email || '-'}</div>
+                              {(q.customerPhone || q.user?.phone) && (
+                                <div style={{ color: 'var(--text2)', fontSize: 12 }}>{q.customerPhone || q.user?.phone}</div>
+                              )}
+                            </div>
+                            {q.breakdown && (
+                              <div style={{ flex: 1, minWidth: 200 }}>
+                                <div style={{ fontWeight: 600, color: 'var(--text2)', marginBottom: 6 }}>Задаргаа</div>
+                                <pre style={{ margin: 0, fontSize: 12, color: 'var(--text2)', whiteSpace: 'pre-wrap', background: 'var(--bg)', padding: 10, borderRadius: 8 }}>
+                                  {JSON.stringify(q.breakdown, null, 2)}
+                                </pre>
+                              </div>
+                            )}
+                            {q.items && q.items.length > 0 && (
+                              <div style={{ flex: 1, minWidth: 200 }}>
+                                <div style={{ fontWeight: 600, color: 'var(--text2)', marginBottom: 6 }}>Бүтээгдэхүүнүүд</div>
+                                <pre style={{ margin: 0, fontSize: 12, color: 'var(--text2)', whiteSpace: 'pre-wrap', background: 'var(--bg)', padding: 10, borderRadius: 8 }}>
+                                  {JSON.stringify(q.items, null, 2)}
+                                </pre>
+                              </div>
+                            )}
+                            {q.notes && (
+                              <div>
+                                <div style={{ fontWeight: 600, color: 'var(--text2)', marginBottom: 6 }}>Тэмдэглэл</div>
+                                <div style={{ color: 'var(--text)', fontSize: 13 }}>{q.notes}</div>
+                              </div>
+                            )}
                           </div>
-                        )}
-                        {q.items && q.items.length > 0 && (
-                          <div>
-                            <strong style={{ color: 'var(--text2)' }}>Бүтээгдэхүүнүүд:</strong>
-                            <pre style={{ margin: '4px 0', fontSize: 12, color: 'var(--text2)', whiteSpace: 'pre-wrap' }}>
-                              {JSON.stringify(q.items, null, 2)}
-                            </pre>
-                          </div>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                )}
-              </Fragment>
-            )
-          })}
-        </tbody>
-      </table>
+                        </td>
+                      </tr>
+                    )}
+                  </Fragment>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   )
 }
@@ -425,7 +558,9 @@ function StatsTab() {
   const [todayCount, setTodayCount] = useState(0)
   const [totalValue, setTotalValue] = useState(0)
   const [conversionRate, setConversionRate] = useState(0)
+  const [avgValue, setAvgValue] = useState(0)
   const [totalCount, setTotalCount] = useState(0)
+  const [statusCounts, setStatusCounts] = useState<Record<string, number>>({})
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -435,22 +570,28 @@ function StatsTab() {
       fetch(`${API}/quotes-v2/today`, { headers }).then(r => r.ok ? r.json() : null).catch(() => null),
       fetch(`${API}/quotes-v2`, { headers }).then(r => r.ok ? r.json() : null).catch(() => null),
     ]).then(([todayData, allData]) => {
-      // Today count
       if (todayData) {
         if (typeof todayData === 'number') setTodayCount(todayData)
         else if (todayData.count !== undefined) setTodayCount(todayData.count)
         else if (Array.isArray(todayData)) setTodayCount(todayData.length)
       }
 
-      // All quotes stats
       const all: Quote[] = Array.isArray(allData) ? allData : allData?.data || []
-      setTotalCount(all.length)
+      const count = all.length
+      setTotalCount(count)
 
-      const sum = all.reduce((acc: number, q: any) => acc + (q.totalPrice ?? q.total ?? 0), 0)
+      const sum = all.reduce((acc: number, q: any) => acc + (q.totalPrice ?? q.total_price ?? q.total ?? 0), 0)
       setTotalValue(sum)
+      setAvgValue(count > 0 ? sum / count : 0)
 
       const ordered = all.filter((q: any) => q.status === 'ordered').length
-      setConversionRate(all.length > 0 ? (ordered / all.length) * 100 : 0)
+      setConversionRate(count > 0 ? (ordered / count) * 100 : 0)
+
+      const counts: Record<string, number> = {}
+      all.forEach((q: any) => {
+        counts[q.status] = (counts[q.status] || 0) + 1
+      })
+      setStatusCounts(counts)
 
       setLoading(false)
     })
@@ -461,14 +602,17 @@ function StatsTab() {
   }
 
   const stats = [
-    { label: 'Өнөөдрийн quotes', value: String(todayCount), sub: 'ширхэг' },
+    { label: 'Өнөөдрийн quote тоо', value: String(todayCount), sub: 'ширхэг' },
     { label: 'Нийт дүн', value: `${fmt(totalValue)}₮`, sub: `${totalCount} quotes` },
-    { label: 'Conversion rate', value: `${conversionRate.toFixed(1)}%`, sub: 'ordered / total' },
+    { label: 'Захиалга болсон %', value: `${conversionRate.toFixed(1)}%`, sub: `ordered / total` },
+    { label: 'Дундаж дүн', value: `${fmt(avgValue)}₮`, sub: 'нэг quote-д' },
   ]
+
+  const maxCount = Math.max(...Object.values(statusCounts), 1)
 
   return (
     <div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16, marginBottom: 32 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16, marginBottom: 32 }}>
         {stats.map(s => (
           <div
             key={s.label}
@@ -486,78 +630,55 @@ function StatsTab() {
         ))}
       </div>
 
-      {/* Simple bar chart visualization */}
-      <Section title="Статус тойм">
-        <StatusBarChart />
-      </Section>
+      <div style={{
+        background: 'var(--surface)',
+        border: '1px solid var(--border)',
+        borderRadius: 12,
+        padding: 20,
+      }}>
+        <h3 style={{ fontSize: 15, fontWeight: 600, marginBottom: 16, color: 'var(--text)' }}>Статус тойм</h3>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {['sent', 'confirmed', 'ordered', 'expired'].map(status => {
+            const count = statusCounts[status] || 0
+            const pct = (count / maxCount) * 100
+            const colors = STATUS_COLORS[status] || { bg: '#F3F4F6', color: '#6B7280' }
+
+            return (
+              <div key={status} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <span style={{ fontSize: 12, color: 'var(--text2)', width: 80, textTransform: 'capitalize', fontWeight: 500 }}>
+                  {status}
+                </span>
+                <div style={{ flex: 1, height: 28, background: 'var(--bg)', borderRadius: 6, overflow: 'hidden', position: 'relative' }}>
+                  <div
+                    style={{
+                      width: `${Math.max(pct, 2)}%`,
+                      height: '100%',
+                      background: colors.color,
+                      borderRadius: 6,
+                      transition: 'width 0.4s ease',
+                      minWidth: count > 0 ? 4 : 0,
+                    }}
+                  />
+                </div>
+                <span style={{
+                  fontSize: 13,
+                  fontWeight: 700,
+                  color: colors.color,
+                  minWidth: 32,
+                  textAlign: 'right',
+                }}>
+                  {count}
+                </span>
+              </div>
+            )
+          })}
+        </div>
+      </div>
     </div>
   )
 }
 
-function StatusBarChart() {
-  const [data, setData] = useState<{ status: string; count: number }[]>([])
-
-  useEffect(() => {
-    fetch(`${API}/quotes-v2`, {
-      headers: { Authorization: `Bearer ${getToken()}` },
-    })
-      .then(r => r.ok ? r.json() : [])
-      .then((raw: any) => {
-        const all: any[] = Array.isArray(raw) ? raw : raw?.data || []
-        const counts: Record<string, number> = {}
-        STATUS_OPTIONS.forEach(s => { counts[s] = 0 })
-        all.forEach((q: any) => {
-          counts[q.status] = (counts[q.status] || 0) + 1
-        })
-        setData(Object.entries(counts).map(([status, count]) => ({ status, count })))
-      })
-      .catch(() => {})
-  }, [])
-
-  const max = Math.max(...data.map(d => d.count), 1)
-
-  return (
-    <div style={{ display: 'flex', gap: 16, alignItems: 'flex-end', height: 160, padding: '16px 0' }}>
-      {data.map(d => {
-        const colors = STATUS_COLORS[d.status] || STATUS_COLORS.draft
-        const pct = (d.count / max) * 100
-        return (
-          <div key={d.status} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1, gap: 6 }}>
-            <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>{d.count}</span>
-            <div
-              style={{
-                width: '100%',
-                maxWidth: 60,
-                height: `${Math.max(pct, 4)}%`,
-                background: colors.color,
-                borderRadius: '6px 6px 0 0',
-                minHeight: 4,
-                transition: 'height 0.3s',
-              }}
-            />
-            <span style={{ fontSize: 11, color: 'var(--text2)', textTransform: 'capitalize' }}>{d.status}</span>
-          </div>
-        )
-      })}
-    </div>
-  )
-}
-
-// ─── Shared UI ───
-
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <div style={{
-      background: 'var(--surface)',
-      border: '1px solid var(--border)',
-      borderRadius: 12,
-      padding: 20,
-    }}>
-      <h3 style={{ fontSize: 15, fontWeight: 600, marginBottom: 14, color: 'var(--text)' }}>{title}</h3>
-      {children}
-    </div>
-  )
-}
+// ─── Shared Styles ───
 
 const inputStyle: React.CSSProperties = {
   border: '1px solid var(--border)',

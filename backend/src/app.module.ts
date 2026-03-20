@@ -54,6 +54,7 @@ import { AuditTrailModule } from './audit-trail/audit-trail.module'
 import { PricingCatalogController } from './pricing-catalog/pricing-catalog.controller'
 import { PricingCatalogService } from './pricing-catalog/pricing-catalog.service'
 import { NotificationModule } from './notifications/notification.module'
+import { PricingConfigModule } from './pricing-config/pricing-config.module'
 
 @Module({
   imports: [
@@ -120,6 +121,7 @@ import { NotificationModule } from './notifications/notification.module'
     FilesModule,
     AuditTrailModule,
     NotificationModule,
+    PricingConfigModule,
   ],
   controllers: [PricingCatalogController],
   providers: [PricingCatalogService],

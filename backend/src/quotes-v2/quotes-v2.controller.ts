@@ -45,9 +45,13 @@ export class QuotesV2Controller {
       margin_rate:          body.margin_rate != null ? Number(body.margin_rate) : null,
       extras:               body.extras,
       pricing_mode:         body.pricing_mode,
-      expires_at:           body.expires_at ? new Date(body.expires_at) : null,
       guest_email:          body.guest_email,
       user_id:              body.user_id,
+      rush_type:            body.rush_type,
+      guest_name:           body.guest_name,
+      guest_phone:          body.guest_phone,
+      company_name:         body.company_name,
+      expires_at:           body.expires_at ? new Date(body.expires_at) : new Date(Date.now() + 3 * 24 * 60 * 60 * 1000),
     });
     try {
       await this.mail.sendQuoteToCustomer({
@@ -57,16 +61,6 @@ export class QuotesV2Controller {
         quote_number: quote.quote_number,
         product_name: quote.product_name || '',
         quantity:     quote.quantity,
-        pages:        quote.pages,
-        size:         quote.size || '',
-        width_mm:     quote.width_mm,
-        height_mm:    quote.height_mm,
-        paper_type:   quote.paper_type || '',
-        paper_gsm:    quote.paper_gsm,
-        color_mode:   quote.color_mode || 'color',
-        sides:        quote.sides || 'single',
-        finishing:    quote.finishing || 'none',
-        binding:      quote.binding || 'none',
         unit_price:   Number(quote.unit_price),
         total_price:  Number(quote.total_price),
         valid_until:  quote.valid_until,
@@ -75,7 +69,8 @@ export class QuotesV2Controller {
         rush_fee:        Number(quote.rush_fee),
         savings_amount:  Number(quote.savings_amount),
         urgency:         quote.urgency,
-        smart_adjustments: quote.smart_adjustments,
+        extras:          quote.extras,
+        company_name:    quote.company_name,
       });
       await this.svc.update(quote.id, { email_sent: true });
     } catch(e) {
@@ -84,7 +79,7 @@ export class QuotesV2Controller {
     return quote;
   }
 
-  @Get('by-email')
+  @Get('guest')
   findByEmail(@Query('email') email: string) {
     return this.svc.findByEmail(email);
   }
@@ -124,39 +119,49 @@ export class QuotesV2Controller {
     return this.svc.updateStatus(id, body.status);
   }
 
+  private buildMailParams(quote: any) {
+    return {
+      to:           quote.customer_email,
+      name:         quote.customer_name,
+      phone:        quote.customer_phone,
+      quote_number: quote.quote_number,
+      product_name: quote.product_name || '',
+      quantity:     quote.quantity,
+      unit_price:   Number(quote.unit_price),
+      total_price:  Number(quote.total_price),
+      valid_until:  quote.valid_until,
+      breakdown:    quote.breakdown,
+      discount_amount: Number(quote.discount_amount),
+      rush_fee:        Number(quote.rush_fee),
+      savings_amount:  Number(quote.savings_amount),
+      urgency:         quote.urgency,
+      extras:          quote.extras,
+      company_name:    quote.company_name,
+    };
+  }
+
   @Post(':id/send-email')
+  @UseGuards(JwtAuthGuard)
+  async sendEmail(@Param('id') id: string) {
+    const quote = await this.svc.findOne(id);
+    if (!quote) return { error: 'Quote not found' };
+    try {
+      await this.mail.sendQuoteToCustomer(this.buildMailParams(quote));
+      await this.svc.update(quote.id, { email_sent: true });
+      return { success: true };
+    } catch(e) {
+      console.error('Email илгээхэд алдаа:', e.message);
+      return { error: e.message };
+    }
+  }
+
+  @Post(':id/resend-email')
   @UseGuards(JwtAuthGuard)
   async resendEmail(@Param('id') id: string) {
     const quote = await this.svc.findOne(id);
     if (!quote) return { error: 'Quote not found' };
     try {
-      await this.mail.sendQuoteToCustomer({
-        to:           quote.customer_email,
-        name:         quote.customer_name,
-        phone:        quote.customer_phone,
-        quote_number: quote.quote_number,
-        product_name: quote.product_name || '',
-        quantity:     quote.quantity,
-        pages:        quote.pages,
-        size:         quote.size || '',
-        width_mm:     quote.width_mm,
-        height_mm:    quote.height_mm,
-        paper_type:   quote.paper_type || '',
-        paper_gsm:    quote.paper_gsm,
-        color_mode:   quote.color_mode || 'color',
-        sides:        quote.sides || 'single',
-        finishing:    quote.finishing || 'none',
-        binding:      quote.binding || 'none',
-        unit_price:   Number(quote.unit_price),
-        total_price:  Number(quote.total_price),
-        valid_until:  quote.valid_until,
-        breakdown:    quote.breakdown,
-        discount_amount: Number(quote.discount_amount),
-        rush_fee:        Number(quote.rush_fee),
-        savings_amount:  Number(quote.savings_amount),
-        urgency:         quote.urgency,
-        smart_adjustments: quote.smart_adjustments,
-      });
+      await this.mail.sendQuoteToCustomer(this.buildMailParams(quote));
       await this.svc.update(quote.id, { email_sent: true });
       return { success: true };
     } catch(e) {

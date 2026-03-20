@@ -175,7 +175,7 @@ export default function DashboardPage() {
     sent: { label: 'Илгээсэн', color: '#2563EB', bg: '#DBEAFE' },
     confirmed: { label: 'Баталгаажсан', color: '#059669', bg: '#D1FAE5' },
     ordered: { label: 'Захиалагдсан', color: '#EA580C', bg: '#FFEDD5' },
-    expired: { label: 'Хугацаа дууссан', color: '#6B7280', bg: '#F3F4F6' },
+    expired: { label: 'Хугацаа дууссан', color: '#9CA3AF', bg: '#F3F4F6' },
     draft: { label: 'Ноорог', color: '#6B7280', bg: '#F3F4F6' },
     accepted: { label: 'Зөвшөөрсөн', color: '#059669', bg: '#D1FAE5' },
     pending: { label: 'Хүлээгдэж буй', color: '#D97706', bg: '#FEF3C7' },
@@ -187,7 +187,7 @@ export default function DashboardPage() {
     if (!email) return
     setQuotesLoading(true)
     try {
-      const res = await fetch(API + '/quotes-v2/by-email?email=' + encodeURIComponent(email))
+      const res = await fetch(API + '/quotes-v2/guest?email=' + encodeURIComponent(email))
       const data = await res.json()
       setQuotes(Array.isArray(data) ? data : [])
       setQuoteEmail(email)
@@ -274,7 +274,7 @@ export default function DashboardPage() {
             {/* Email lookup for non-logged-in or additional search */}
             {!getToken() && !quoteEmail && (
               <div style={{ background:'#fff', border:'1px solid #E7E5E4', borderRadius:14, padding:'24px', marginBottom:20, textAlign:'center' }}>
-                <div style={{ fontSize:16, fontWeight:600, marginBottom:4 }}>И-мэйлээр үнийн санал хайх</div>
+                <div style={{ fontSize:16, fontWeight:600, marginBottom:4 }}>Имэйл хаягаа оруулаад өмнөх үнийн саналаа харна уу</div>
                 <div style={{ fontSize:13, color:'#A8A29E', marginBottom:16, fontFamily:"'DM Sans',sans-serif" }}>Бүртгэлгүй бол и-мэйл хаягаараа хайх боломжтой</div>
                 <div style={{ display:'flex', gap:8, maxWidth:420, margin:'0 auto' }}>
                   <input type="email" value={quoteEmailInput} onChange={e=>setQuoteEmailInput(e.target.value)} placeholder="И-мэйл хаяг оруулна уу" style={{ flex:1, padding:'10px 14px', borderRadius:10, border:'1px solid #E7E5E4', fontSize:14, outline:'none', background:'#FAFAF8' }} onFocus={e=>e.currentTarget.style.borderColor='#FF6B00'} onBlur={e=>e.currentTarget.style.borderColor='#E7E5E4'} onKeyDown={e=>{if(e.key==='Enter')fetchQuotesByEmail(quoteEmailInput)}} />
@@ -328,7 +328,7 @@ export default function DashboardPage() {
                         {/* Info */}
                         <div style={{ flex:1, minWidth:0 }}>
                           <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:3, flexWrap:'wrap' }}>
-                            <span style={{ fontSize:16, fontWeight:700, letterSpacing:'-0.01em' }}>{q.product_name||'Үнийн санал'}</span>
+                            <span style={{ fontSize:16, fontWeight:700, letterSpacing:'-0.01em' }}>{q.product_name||q.product_subtype||'Үнийн санал'}</span>
                             <span style={{ fontSize:13, color:'#78716C', fontFamily:"'DM Sans',sans-serif" }}>{q.quantity||0} ширхэг</span>
                             <span style={{ fontSize:10, padding:'3px 10px', borderRadius:99, background:qs.bg, color:qs.color, fontWeight:600, fontFamily:"'DM Sans',sans-serif" }}>{qs.label}</span>
                           </div>
@@ -346,7 +346,7 @@ export default function DashboardPage() {
 
                       {/* Bottom row */}
                       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginTop:14, paddingTop:12, borderTop:'1px solid #F5F5F4' }}>
-                        <div style={{ fontSize:12, color:'#A8A29E', fontFamily:"'DM Sans',sans-serif" }}>Хүчинтэй: {validUntil} хүртэл</div>
+                        <div style={{ fontSize:12, fontFamily:"'DM Sans',sans-serif", color: (q.valid_until && new Date(q.valid_until) < new Date()) || q.status === 'expired' ? '#DC2626' : '#A8A29E' }}>{(q.valid_until && new Date(q.valid_until) < new Date()) || q.status === 'expired' ? 'Хугацаа дууссан' : `Хүчинтэй: ${validUntil} хүртэл`}</div>
                         <div style={{ display:'flex', gap:6 }}>
                           <button onClick={e=>{e.stopPropagation(); router.push('/quote')}} style={{ background:'#fff', border:'1px solid #E7E5E4', borderRadius:99, padding:'5px 14px', fontSize:11, cursor:'pointer', fontFamily:"'DM Sans',sans-serif", color:'#78716C' }}>Дахин тооцоолох</button>
                           {canOrder && (

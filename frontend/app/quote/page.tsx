@@ -105,8 +105,10 @@ export default function QuotePage() {
   const [formEmail, setFormEmail] = useState('');
   const [formPhone, setFormPhone] = useState('');
   const [formNotes, setFormNotes] = useState('');
+  const [formCompany, setFormCompany] = useState('');
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [submitResult, setSubmitResult] = useState<{ quote_number: string } | null>(null);
 
   /* ── signage calc ── */
   const sigBase = useMemo(() => {
@@ -189,19 +191,49 @@ export default function QuotePage() {
     if (!formName || !formEmail) return;
     setSubmitting(true);
     try {
+      const selectedSubtype = tab === 'signage' ? sigSub : prtSub;
+      const dims: Record<string, any> = tab === 'signage'
+        ? (sigSub === 'Товгор үсэг'
+          ? { letter_count: letterCount, letter_size_cm: letterSize }
+          : { m2 })
+        : (prtSub === 'Офсет хэвлэл'
+          ? { qty, gsm, finishing, is_color: isColor }
+          : prtSub === 'Өргөн хэвлэл'
+            ? { m2: prtM2, orgon_type: orgonType }
+            : { qty });
+
+      const extras = tab === 'signage' ? {
+        rele: exRelay,
+        tog: exPower,
+        ...(exKran ? { crane: kranOpt } : {}),
+      } : undefined;
+
       const body = {
-        tab,
-        subtype: tab === 'signage' ? sigSub : prtSub,
+        customer_name: formName,
+        customer_email: formEmail,
+        customer_phone: formPhone,
+        company_name: formCompany || undefined,
+        product_type: tab === 'signage' ? 'hadag' : 'khevlel',
+        product_subtype: selectedSubtype,
+        base_price: breakdown.base,
+        total_price: breakdown.total,
+        unit_price: breakdown.total,
+        discount_amount: breakdown.discount,
+        rush_fee: breakdown.rushFee,
+        rush_type: RUSH_OPTIONS[rushIdx].label,
+        pricing_mode: PRICING_MODES[modeIdx].label,
+        notes: formNotes,
         breakdown,
-        rush: RUSH_OPTIONS[rushIdx].label,
-        pricingMode: PRICING_MODES[modeIdx].label,
-        contact: { name: formName, email: formEmail, phone: formPhone, notes: formNotes },
+        extras,
+        dimensions: dims,
       };
-      await fetch('http://localhost:4000/quotes-v2', {
+      const res = await fetch('http://localhost:4000/quotes-v2', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       });
+      const data = await res.json();
+      setSubmitResult({ quote_number: data.quote_number || '' });
       setSubmitted(true);
     } catch {
       /* silent */
@@ -414,11 +446,20 @@ export default function QuotePage() {
       <div style={{ maxWidth: 960, margin: '0 auto', padding: '40px 48px', textAlign: 'center' }}>
         <div style={{ ...card, padding: 48 }}>
           <div style={{ fontSize: 48, marginBottom: 16 }}>&#10003;</div>
-          <h2 style={{ color: 'var(--text)', marginBottom: 8 }}>Амжилттай илгээгдлээ</h2>
-          <p style={{ color: 'var(--text2)' }}>Таны үнийн санал хүлээн авлаа. Бид тантай удахгүй холбогдоно.</p>
-          <button style={{ ...btnPrimary, marginTop: 24 }} onClick={() => { setSubmitted(false); setShowForm(false); }}>
-            Шинэ тооцоо
-          </button>
+          <h2 style={{ color: 'var(--text)', marginBottom: 8 }}>Амжилттай!</h2>
+          <p style={{ color: 'var(--text2)', fontSize: 15, lineHeight: 1.6 }}>
+            {submitResult?.quote_number
+              ? `#${submitResult.quote_number} дугаартай үнийн санал ${formEmail} хаягруу илгээгдлээ.`
+              : 'Таны үнийн санал хүлээн авлаа. Бид тантай удахгүй холбогдоно.'}
+          </p>
+          <div style={{ display: 'flex', gap: 12, justifyContent: 'center', marginTop: 24 }}>
+            <button style={btnPrimary} onClick={() => { setSubmitted(false); setShowForm(false); setSubmitResult(null); }}>
+              Шинэ тооцоо
+            </button>
+            <a href="/dashboard" style={{ ...btnPrimary, background: '#1C1917', textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}>
+              Дашбоард харах &rarr;
+            </a>
+          </div>
         </div>
       </div>
     );
@@ -574,6 +615,10 @@ export default function QuotePage() {
             <div>
               <span style={label}>Утас</span>
               <input value={formPhone} onChange={e => setFormPhone(e.target.value)} style={input} />
+            </div>
+            <div>
+              <span style={label}>Компанийн нэр</span>
+              <input value={formCompany} onChange={e => setFormCompany(e.target.value)} placeholder="Заавал биш" style={input} />
             </div>
             <div>
               <span style={label}>Тэмдэглэл</span>
