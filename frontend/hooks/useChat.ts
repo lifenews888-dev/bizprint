@@ -1,10 +1,13 @@
 'use client'
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { io, Socket } from 'socket.io-client'
 
-const WS_URL = 'ws://localhost:4000'
-const API = 'http://localhost:4000'
+const SOCKET_URL = 'http://localhost:4000'
+const API       = 'http://localhost:4000'
 
-interface Room {
+// ─── Types ───────────────────────────────────────────────────────────────────
+
+export interface Room {
   room_id: string
   participants: string[]
   participant_names: string[]
@@ -13,175 +16,196 @@ interface Room {
   unread_count?: number
 }
 
-interface Message {
+export interface Message {
   id?: string
   room_id?: string
   sender_id: string
   sender_name?: string
-  content: string
+  sender_role?: string
+  message: string
   type?: 'text' | 'image' | 'system'
   created_at: string
 }
 
-export function useChat(userId: string, userName: string, role: string) {
-  const [rooms, setRooms] = useState<Room[]>([])
-  const [messages, setMessages] = useState<Record<string, Message[]>>({})
-  const [activeRoom, setActiveRoom] = useState<string | null>(null)
-  const [connected, setConnected] = useState(false)
-  const wsRef = useRef<WebSocket | null>(null)
+// ─── Hook ────────────────────────────────────────────────────────────────────
 
-  // Load rooms from API
+export function useChat(userId: string, userName: string, role: string) {
+  const [rooms,      setRooms]      = useState<Room[]>([])
+  const [messages,   setMessages]   = useState<Record<string, Message[]>>({})
+  const [activeRoom, setActiveRoom] = useState<string | null>(null)
+  const [connected,  setConnected]  = useState(false)
+  const socketRef = useRef<Socket | null>(null)
+
+  // ── Helper: read auth token from either key ────────────────────────────────
+  function token() {
+    if (typeof window === 'undefined') return ''
+    return localStorage.getItem('token') || localStorage.getItem('access_token') || ''
+  }
+
+  // ── Normalise raw backend message object to Message interface ──────────────
+  function normalise(m: any): Message {
+    return {
+      id:          m.id,
+      room_id:     m.room_id,
+      sender_id:   m.sender_id   || m.senderId   || '',
+      sender_name: m.sender_name || m.senderName,
+      sender_role: m.sender_role || m.senderRole,
+      message:     m.message     || m.content     || m.text || '',
+      type:        m.msg_type    || m.type        || 'text',
+      created_at:  m.created_at  || m.timestamp   || new Date().toISOString(),
+    }
+  }
+
+  // ── Prefetch rooms from REST API ───────────────────────────────────────────
   useEffect(() => {
     if (!userId) return
-    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : ''
     fetch(`${API}/chat/rooms`, {
-      headers: { Authorization: `Bearer ${token}` }
+      headers: { Authorization: `Bearer ${token()}` },
     })
       .then(r => r.json())
-      .then(data => {
-        if (Array.isArray(data)) setRooms(data)
-      })
+      .then(data => { if (Array.isArray(data)) setRooms(data) })
       .catch(() => {})
   }, [userId])
 
-  // WebSocket connection
+  // ── Socket.IO connection ───────────────────────────────────────────────────
   useEffect(() => {
     if (!userId) return
-    try {
-      const ws = new WebSocket(`${WS_URL}/chat?userId=${userId}&userName=${encodeURIComponent(userName)}&role=${role}`)
-      wsRef.current = ws
 
-      ws.onopen = () => setConnected(true)
-      ws.onclose = () => setConnected(false)
-      ws.onerror = () => setConnected(false)
+    const socket = io(`${SOCKET_URL}/chat`, {
+      query:      { userId, userName, role },
+      transports: ['websocket'],
+    })
+    socketRef.current = socket
 
-      ws.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data)
+    socket.on('connect',       () => setConnected(true))
+    socket.on('disconnect',    () => setConnected(false))
+    socket.on('connect_error', () => setConnected(false))
 
-          if (data.type === 'room_list' && Array.isArray(data.rooms)) {
-            setRooms(data.rooms)
-          } else if (data.type === 'room_created' && data.room) {
-            setRooms(prev => {
-              if (prev.find(r => r.room_id === data.room.room_id)) return prev
-              return [data.room, ...prev]
-            })
-          } else if (data.type === 'message' || data.sender_id) {
-            const msg: Message = {
-              id: data.id,
-              room_id: data.room_id,
-              sender_id: data.sender_id || data.senderId,
-              sender_name: data.sender_name || data.senderName,
-              content: data.content || data.text,
-              type: data.msg_type || data.type || 'text',
-              created_at: data.created_at || data.timestamp || new Date().toISOString(),
-            }
-            if (msg.room_id) {
-              setMessages(prev => ({
-                ...prev,
-                [msg.room_id!]: [...(prev[msg.room_id!] || []), msg]
-              }))
-              setRooms(prev => prev.map(r =>
-                r.room_id === msg.room_id
-                  ? { ...r, last_message: msg.content, last_message_at: msg.created_at }
-                  : r
-              ))
-            }
-          } else if (data.type === 'history' && data.room_id && Array.isArray(data.messages)) {
-            setMessages(prev => ({ ...prev, [data.room_id]: data.messages }))
-          }
-        } catch {}
+    socket.on('room_list', (data: { rooms: Room[] }) => {
+      if (Array.isArray(data.rooms)) setRooms(data.rooms)
+    })
+
+    socket.on('room_created', (data: { room: Room }) => {
+      if (!data.room) return
+      setRooms(prev => {
+        if (prev.find(r => r.room_id === data.room.room_id)) return prev
+        return [data.room, ...prev]
+      })
+    })
+
+    socket.on('message', (data: any) => {
+      const msg = normalise(data)
+      if (!msg.room_id) return
+      setMessages(prev => ({
+        ...prev,
+        [msg.room_id!]: [...(prev[msg.room_id!] || []), msg],
+      }))
+      setRooms(prev => prev.map(r =>
+        r.room_id === msg.room_id
+          ? { ...r, last_message: msg.message, last_message_at: msg.created_at }
+          : r,
+      ))
+    })
+
+    socket.on('history', (data: { room_id: string; messages: any[] }) => {
+      if (data.room_id && Array.isArray(data.messages)) {
+        setMessages(prev => ({
+          ...prev,
+          [data.room_id]: data.messages.map(normalise),
+        }))
       }
+    })
 
-      return () => { ws.close() }
-    } catch {
-      setConnected(false)
-    }
+    return () => { socket.disconnect() }
   }, [userId, userName, role])
 
+  // ── joinRoom ───────────────────────────────────────────────────────────────
   const joinRoom = useCallback((roomId: string) => {
     setActiveRoom(roomId)
-    if (wsRef.current?.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify({ type: 'join_room', room_id: roomId }))
-    }
-    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : ''
+    socketRef.current?.emit('join_room', { room_id: roomId })
+
     fetch(`${API}/chat/rooms/${roomId}/messages`, {
-      headers: { Authorization: `Bearer ${token}` }
+      headers: { Authorization: `Bearer ${token()}` },
     })
       .then(r => r.json())
       .then(data => {
         if (Array.isArray(data)) {
-          setMessages(prev => ({ ...prev, [roomId]: data }))
+          setMessages(prev => ({ ...prev, [roomId]: data.map(normalise) }))
         }
       })
       .catch(() => {})
+
     setRooms(prev => prev.map(r =>
-      r.room_id === roomId ? { ...r, unread_count: 0 } : r
+      r.room_id === roomId ? { ...r, unread_count: 0 } : r,
     ))
   }, [])
 
-  const sendMessage = useCallback((content: string, type: string = 'text') => {
-    if (!activeRoom || !content.trim()) return
-    const msg = {
-      type: 'message',
-      room_id: activeRoom,
-      sender_id: userId,
+  // ── sendMessage(roomId, content) ───────────────────────────────────────────
+  const sendMessage = useCallback((roomId: string, content: string) => {
+    if (!roomId || !content.trim()) return
+
+    socketRef.current?.emit('message', {
+      room_id:     roomId,
+      sender_id:   userId,
       sender_name: userName,
-      content: content.trim(),
-      msg_type: type,
-    }
+      sender_role: role,
+      message:     content.trim(),
+    })
 
-    if (wsRef.current?.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify(msg))
-    }
-
+    // Optimistic UI update
     const localMsg: Message = {
-      room_id: activeRoom,
-      sender_id: userId,
+      room_id:     roomId,
+      sender_id:   userId,
       sender_name: userName,
-      content: content.trim(),
-      type: type as any,
-      created_at: new Date().toISOString(),
+      sender_role: role,
+      message:     content.trim(),
+      type:        'text',
+      created_at:  new Date().toISOString(),
     }
     setMessages(prev => ({
       ...prev,
-      [activeRoom]: [...(prev[activeRoom] || []), localMsg]
+      [roomId]: [...(prev[roomId] || []), localMsg],
     }))
     setRooms(prev => prev.map(r =>
-      r.room_id === activeRoom
+      r.room_id === roomId
         ? { ...r, last_message: content.trim(), last_message_at: localMsg.created_at }
-        : r
+        : r,
     ))
-  }, [activeRoom, userId, userName])
+  }, [userId, userName, role])
 
-  const createRoom = useCallback((targetId: string, targetName: string) => {
-    const roomId = [userId, targetId].sort().join('_')
+  // ── createRoom({ type, participants, participantNames }) ───────────────────
+  const createRoom = useCallback((params: {
+    type: string
+    participants: string[]
+    participantNames: string[]
+  }) => {
+    const { type, participants, participantNames } = params
+    const roomId = [...participants].sort().join('_')
 
-    const existing = rooms.find(r => r.room_id === roomId || (
-      r.participants?.includes(userId) && r.participants?.includes(targetId)
-    ))
+    const existing = rooms.find(r =>
+      r.room_id === roomId ||
+      participants.every(p => r.participants?.includes(p)),
+    )
     if (existing) {
       joinRoom(existing.room_id)
       return
     }
 
-    if (wsRef.current?.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify({
-        type: 'create_room',
-        room_id: roomId,
-        participants: [userId, targetId],
-        participant_names: [userName, targetName],
-      }))
-    }
+    socketRef.current?.emit('create_room', {
+      room_id:           roomId,
+      type,
+      participants,
+      participant_names: participantNames,
+    })
 
     const newRoom: Room = {
-      room_id: roomId,
-      participants: [userId, targetId],
-      participant_names: [userName, targetName],
+      room_id:           roomId,
+      participants,
+      participant_names: participantNames,
     }
     setRooms(prev => [newRoom, ...prev])
     setActiveRoom(roomId)
-  }, [userId, userName, rooms, joinRoom])
+  }, [rooms, joinRoom])
 
   return { rooms, messages, activeRoom, connected, joinRoom, sendMessage, createRoom }
 }

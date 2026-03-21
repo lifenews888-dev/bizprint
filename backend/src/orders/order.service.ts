@@ -6,18 +6,26 @@ import { AuditTrail } from '../audit-trail/audit-trail.entity';
 import { MailService } from '../mail/mail.service';
 import { OrdersGateway } from './orders.gateway';
 import { NotificationService } from '../notifications/notification.service';
+import { EventBusService } from '../events/event-bus.service';
+import { BizEvent } from '../events/event-types';
 
 // Workflow stage дараалал (index-ээр буцаана)
+// OrderStatus enum + дотоодын production stage-уудыг нэгтгэсэн бүрэн дараалал
 const WORKFLOW_STAGES = [
-  'pending',
-  'designing',
-  'prepress',
-  'printing',
-  'finishing',
-  'qc',
-  'ready',
-  'delivering',
-  'completed',
+  'pending',        // захиалга ирсэн
+  'paid',           // төлбөр баталгаажсан  (OrderStatus.PAID)
+  'scheduled',      // үйлдвэрлэлд төлөвлөгдсөн (OrderStatus.SCHEDULED)
+  'designing',      // дизайн хийгдэж байна
+  'prepress',       // prepress / хавтан
+  'in_production',  // үйлдвэрлэлд орсон (OrderStatus.IN_PRODUCTION)
+  'printing',       // хэвлэгдэж байна
+  'finishing',      // боловсруулалт (ламинат, зүсэлт...)
+  'qc',             // чанарын шалгалт
+  'ready',          // хүргэлтэд бэлэн
+  'delivering',     // хүргэгдэж байна
+  'shipped',        // илгээгдсэн (OrderStatus.SHIPPED)
+  'delivered',      // хүргэгдсэн (OrderStatus.DELIVERED)
+  'completed',      // дууссан (OrderStatus.COMPLETED)
 ];
 
 @Injectable()
@@ -30,6 +38,7 @@ export class OrdersService {
     private mailService: MailService,
     private ordersGateway: OrdersGateway,
     private notificationService: NotificationService,
+    private readonly eventBus: EventBusService,
   ) {}
 
   async createOrder(data: any) {
@@ -50,6 +59,13 @@ export class OrdersService {
         console.log('Email error:', e.message);
       }
     }
+    // Emit ORDER_CREATED for real-time broadcast
+    this.eventBus.emit(BizEvent.ORDER_CREATED, {
+      orderId: saved.id,
+      userId: data.user_id || data.customer_id,
+      vendorId: data.vendor_id,
+      status: saved.status,
+    });
     return saved;
   }
 
@@ -111,11 +127,13 @@ export class OrdersService {
     const customerId = (order as any).customer_id || (order as any).user_id;
     if (customerId) {
       const statusMessages: Record<string, string> = {
-        'delivering': 'Таны захиалга хүргэгдэж байна 🚚',
-        'DISPATCHED': 'Таны захиалга илгээгдлээ 📦',
-        'DELIVERED': 'Захиалга хүргэгдлээ. Үнэлгээ өгнө үү ⭐',
-        'completed': 'Захиалга амжилттай дууслаа ✅',
-        'ready': 'Захиалга бэлэн боллоо 🎉',
+        'paid':          'Таны захиалга баталгаажлаа ✅',
+        'in_production': 'Захиалга үйлдвэрлэлд орлоо 🏭',
+        'ready':         'Захиалга бэлэн боллоо 🎉',
+        'delivering':    'Таны захиалга хүргэгдэж байна 🚚',
+        'shipped':       'Таны захиалга илгээгдлээ 📦',
+        'delivered':     'Захиалга хүргэгдлээ. Үнэлгээ өгнө үү ⭐',
+        'completed':     'Захиалга амжилттай дууслаа ✅',
       };
       if (statusMessages[status]) {
         try {
@@ -161,15 +179,16 @@ export class OrdersService {
     // Одоогийн stage-ийн index олох
     const currentIndex = WORKFLOW_STAGES.indexOf(currentStatus);
 
-    // completed, cancelled, pending бол буцаах боломжгүй
-    if (currentIndex <= 0) {
+    // completed, delivered, shipped, cancelled, pending бол буцаах боломжгүй
+    const NON_REVERTABLE = ['completed', 'delivered', 'shipped', 'cancelled'];
+    if (NON_REVERTABLE.includes(currentStatus)) {
       throw new BadRequestException(
         `"${currentStatus}" төлөвөөс буцаах боломжгүй`,
       );
     }
-    if (currentStatus === 'completed' || currentStatus === 'cancelled') {
+    if (currentIndex <= 0) {
       throw new BadRequestException(
-        `"${currentStatus}" төлөвөөс буцаах боломжгүй`,
+        `"${currentStatus}" төлөвөөс буцаах боломжгүй (анхны төлөв)`,
       );
     }
 
@@ -224,6 +243,13 @@ export class OrdersService {
   async cancelOrder(id: string) {
     const order = await this.getOrderById(id);
     order.status = OrderStatus.CANCELLED;
-    return this.ordersRepo.save(order);
+    const saved = await this.ordersRepo.save(order);
+    // Emit ORDER_CANCELLED for real-time broadcast
+    this.eventBus.emit(BizEvent.ORDER_CANCELLED, {
+      orderId: id,
+      userId: (order as any).customer_id || (order as any).user_id,
+      status: OrderStatus.CANCELLED,
+    });
+    return saved;
   }
 }
