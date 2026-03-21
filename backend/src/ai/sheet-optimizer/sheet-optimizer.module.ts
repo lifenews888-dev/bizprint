@@ -4,6 +4,7 @@ import { SheetOptimizerService } from './sheet-optimizer.service';
 
 @Module({
   controllers: [SheetOptimizerController],
-  providers: [SheetOptimizerService]
+  providers: [SheetOptimizerService],
+  exports: [SheetOptimizerService],
 })
 export class SheetOptimizerModule {}

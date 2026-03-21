@@ -8,6 +8,7 @@ import { ImpositionModule } from '../imposition/imposition.module'
 import { GangRunModule } from '../gang-run/gang-run.module'
 import { MachineSelectorModule } from '../machine-selector/machine-selector.module'
 import { PrintCostModule } from '../print-cost/print-cost.module'
+import { SheetOptimizerModule } from '../sheet-optimizer/sheet-optimizer.module'
 
 @Module({
   imports: [
@@ -16,9 +17,10 @@ import { PrintCostModule } from '../print-cost/print-cost.module'
     ImpositionModule,
     GangRunModule,
     MachineSelectorModule,
-    PrintCostModule
+    PrintCostModule,
+    SheetOptimizerModule,
   ],
   controllers: [FullQuoteController],
-  providers: [FullQuoteService]
+  providers: [FullQuoteService],
 })
 export class FullQuoteModule {}

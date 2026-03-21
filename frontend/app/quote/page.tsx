@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useCallback, useMemo, useEffect, FormEvent } from 'react';
+import { useRouter } from 'next/navigation';
 
 const API = 'http://localhost:4000';
 
@@ -71,6 +72,23 @@ interface BLine { label: string; amount: number; color?: string }
 
 /* ─────────────────────────── PAGE ─────────────────────────── */
 export default function QuotePage() {
+  const router = useRouter();
+
+  /* ─ logged-in user detection ─ */
+  const [loggedUser, setLoggedUser] = useState<any>(null);
+  useEffect(() => {
+    try {
+      const u = JSON.parse(localStorage.getItem('user') || 'null');
+      if (u?.id) {
+        setLoggedUser(u);
+        setMName(u.full_name || '');
+        setMEmail(u.email || '');
+        setMPhone(u.phone || '');
+        setMCompany(u.company_name || u.company || '');
+      }
+    } catch {}
+  }, []);
+
   /* ─ remote config ─ */
   const [prices, setPrices] = useState(DEFAULT_PRICES);
   useEffect(() => {
@@ -266,6 +284,8 @@ export default function QuotePage() {
 
   /* ─── API-BASED CALCULATION (authoritative when available) ─── */
   const [apiResult, setApiResult] = useState<any>(null);
+  const [offAiResult, setOffAiResult] = useState<any>(null);   // AI layout+cost breakdown for offset tab
+  const [offAiLoading, setOffAiLoading] = useState(false);
 
   const getPricingKey = () => {
     if (signProd === 'nerj') return nerjLit ? 'nerj_on_m2' : 'nerj_off_m2';
@@ -303,19 +323,18 @@ export default function QuotePage() {
           extra_crane8: extraCrane8,
         };
       } else if (printSub === 'offset') {
-        endpoint = 'calculate-offset';
+        // ─ AI engine: sheet-optimizer + print-cost full pipeline ─
+        endpoint = 'ai/full-quote/offset';
         body = {
-          product: offProduct,
-          size_code: offSize,
-          pages: offPages,
+          product:  offProduct,
+          size:     offSize,
+          gsm:      offGsm,
           quantity: offQty,
-          gsm: offGsm,
-          color_mode: offColor,
-          sides: offSides,
-          finishing: offFinish,
-          fold: offFold,
-          rush_hours: rush === '24h' ? 24 : rush === '48h' ? 48 : 0,
-          pricing_mode: margin,
+          color:    offColor,
+          sides:    offSides,
+          finish:   offFinish,
+          fold:     offFold,
+          is_rush:  rush !== 'normal',
         };
       } else {
         endpoint = 'calculate-wide';
@@ -328,14 +347,35 @@ export default function QuotePage() {
         };
       }
 
-      fetch(`${API}/quote-engine/${endpoint}`, {
+      const isOffsetAi = tab === 'print' && printSub === 'offset';
+      const fetchUrl = isOffsetAi
+        ? `${API}/${endpoint}`
+        : `${API}/quote-engine/${endpoint}`;
+
+      if (isOffsetAi) setOffAiLoading(true);
+
+      fetch(fetchUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       })
         .then(r => r.ok ? r.json() : null)
-        .then(d => setApiResult(d))
-        .catch(() => setApiResult(null));
+        .then(d => {
+          if (isOffsetAi) {
+            setOffAiLoading(false);
+            if (d?.summary) {
+              setOffAiResult(d);
+              setApiResult({ total_price: d.summary.total_price, unit_price: d.summary.price_per_unit });
+            } else {
+              setOffAiResult(null);
+              setApiResult(null);
+            }
+          } else {
+            setOffAiResult(null);
+            setApiResult(d);
+          }
+        })
+        .catch(() => { setApiResult(null); setOffAiResult(null); setOffAiLoading(false); });
     }, 400);
     return () => clearTimeout(timer);
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -412,10 +452,24 @@ export default function QuotePage() {
     }
 
     try {
+      // Attach JWT + user_id if logged in so quote links to their account
+      const token = typeof window !== 'undefined'
+        ? (localStorage.getItem('access_token') || localStorage.getItem('token') || '')
+        : ''
+      const storedUser = typeof window !== 'undefined'
+        ? (() => { try { return JSON.parse(localStorage.getItem('user') || 'null') } catch { return null } })()
+        : null
+      const reqHeaders: Record<string, string> = { 'Content-Type': 'application/json' }
+      if (token) reqHeaders['Authorization'] = `Bearer ${token}`
+
       const res = await fetch(`${API}/quotes-v2`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: reqHeaders,
         body: JSON.stringify({
+          user_id: storedUser?.id || undefined,
+          customer_name: storedUser?.full_name || mName,
+          customer_email: storedUser?.email || mEmail,
+          customer_phone: storedUser?.phone || mPhone,
           guest_name: mName,
           guest_email: mEmail,
           guest_phone: mPhone,
@@ -426,6 +480,28 @@ export default function QuotePage() {
           product_subtype: productSubtype,
           dimensions: dims,
           quantity: qty,
+          // Print specs — имэйлд харуулах
+          size:       tab === 'sign' ? undefined : printSub === 'offset' ? offSize : `${wideW}×${wideL}м`,
+          pages:      printSub === 'offset' ? offPages : undefined,
+          paper_gsm:  printSub === 'offset' ? offGsm : undefined,
+          color_mode: printSub === 'offset' ? (offColor === 'full' ? 'color' : 'bw') : undefined,
+          sides:      printSub === 'offset' ? offSides : undefined,
+          finishing:  printSub === 'offset' ? (offFinish !== 'none' ? offFinish : undefined) : undefined,
+          paper_type: printSub === 'offset' ? `${offGsm}gsm` : undefined,
+          // Зардлын задаргаа — paper_cost, print_cost etc. separately
+          ...(printSub === 'offset' ? {
+            breakdown: {
+              paper_cost:    Math.round(offsetCalc.paper),
+              print_cost:    Math.round(offsetCalc.print),
+              finishing_cost:Math.round(offsetCalc.fin),
+              setup_cost:    Math.round(offsetCalc.setup),
+              binding_cost:  0,
+              subtotal:      Math.round(offsetCalc.subtotal),
+              lines: breakdown.lines.map(l => ({ label: l.label, amount: Math.round(l.amount) })),
+            }
+          } : {
+            breakdown: breakdown.lines.map(l => ({ label: l.label, amount: Math.round(l.amount) })),
+          }),
           base_price: breakdown.lines[0]?.amount || 0,
           total_price: displayTotal,
           unit_price: displayUnitPrice,
@@ -439,9 +515,18 @@ export default function QuotePage() {
         }),
       });
       const data = await res.json();
-      setSuccessMsg(`Имэйлээр илгээгдлээ #${data.quote_number || 'QT-?????'}`);
+      const qNum = data?.quote_number || data?.id?.slice(0, 8)?.toUpperCase() || '??????';
+
+      if (loggedUser) {
+        // Logged-in: redirect to dashboard quotes section
+        setShowModal(false);
+        router.push('/dashboard?section=quotes');
+      } else {
+        // Guest: show success with quote number + email info
+        setSuccessMsg(`✅ Амжилттай! #${qNum}\nИмэйлээр илгээгдлээ: ${mEmail}`);
+      }
     } catch {
-      setSuccessMsg('Алдаа гарлаа. Дахин оролдоно уу.');
+      setSuccessMsg('❌ Алдаа гарлаа. Дахин оролдоно уу.');
     } finally {
       setSubmitting(false);
     }
@@ -702,7 +787,14 @@ export default function QuotePage() {
 
           {/* ── RIGHT: price breakdown ── */}
           <div style={{ flex: '0 0 340px', minWidth: 300, background: 'var(--surface)', borderRadius: 16, border: '1px solid var(--border)', padding: 24, position: 'sticky', top: 24 }}>
-            <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 16 }}>Үнийн задаргаа</h2>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+              <h2 style={{ fontSize: 18, fontWeight: 700, margin: 0 }}>Үнийн задаргаа</h2>
+              {tab === 'print' && printSub === 'offset' && (
+                <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 20, background: 'rgba(255,107,0,0.1)', color: '#FF6B00', fontWeight: 700, border: '1px solid rgba(255,107,0,0.2)' }}>
+                  {offAiLoading ? '⏳ AI...' : offAiResult ? '🤖 AI үнэ' : ''}
+                </span>
+              )}
+            </div>
 
             {displayTotal > 0 ? (
               <>
@@ -728,6 +820,52 @@ export default function QuotePage() {
                   </div>
                   <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 8 }}>НӨАТ ороогүй</div>
                 </div>
+
+                {/* AI offset breakdown — layout + cost detail */}
+                {offAiResult && tab === 'print' && printSub === 'offset' && (
+                  <div style={{ marginTop: 14, borderRadius: 10, border: '1px solid rgba(255,107,0,0.2)', overflow: 'hidden' }}>
+                    {/* Layout card */}
+                    <div style={{ background: 'rgba(255,107,0,0.06)', padding: '10px 14px', borderBottom: '1px solid rgba(255,107,0,0.12)' }}>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: '#FF6B00', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 5 }}>
+                        📐 Хэвлэлийн зохион байгуулалт
+                      </div>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '3px 10px', fontSize: 11 }}>
+                        <span style={{ color: 'var(--text3)' }}>Хуудас</span>
+                        <span style={{ fontWeight: 600, color: 'var(--text)' }}>{offAiResult.layout?.sheet}</span>
+                        <span style={{ color: 'var(--text3)' }}>N-up</span>
+                        <span style={{ fontWeight: 600, color: 'var(--text)' }}>{offAiResult.layout?.items_per_sheet}ш / хуудас</span>
+                        <span style={{ color: 'var(--text3)' }}>Хуудас тоо</span>
+                        <span style={{ fontWeight: 600, color: 'var(--text)' }}>{offAiResult.layout?.sheet_count} + {offAiResult.layout?.waste_sheets} (хаягдал)</span>
+                        <span style={{ color: 'var(--text3)' }}>Ашиглалт</span>
+                        <span style={{ fontWeight: 600, color: offAiResult.layout?.utilization_pct >= 70 ? '#22c55e' : '#eab308' }}>
+                          {offAiResult.layout?.utilization_pct}%
+                        </span>
+                      </div>
+                    </div>
+                    {/* Cost breakdown */}
+                    <div style={{ padding: '10px 14px' }}>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text2)', marginBottom: 6 }}>💰 Зардлын задаргаа</div>
+                      {[
+                        { label: 'Цаасны зардал',    val: offAiResult.cost?.paper_cost },
+                        { label: 'Бэхний зардал',     val: offAiResult.cost?.ink_cost },
+                        { label: 'Машины зардал',     val: offAiResult.cost?.machine_cost },
+                        { label: 'Боловсруулалт',     val: offAiResult.cost?.finishing_cost },
+                        { label: 'Хөдөлмөрийн зардал',val: offAiResult.cost?.labour_cost },
+                        { label: 'Нийтлэг зардал',   val: offAiResult.cost?.overhead_cost },
+                        { label: 'Платформын хураамж',val: offAiResult.cost?.platform_commission },
+                      ].filter(r => r.val > 0).map((row, i) => (
+                        <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, marginBottom: 3 }}>
+                          <span style={{ color: 'var(--text3)' }}>{row.label}</span>
+                          <span style={{ fontWeight: 600, color: 'var(--text)' }}>{Math.round(row.val).toLocaleString()}₮</span>
+                        </div>
+                      ))}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, marginTop: 4, paddingTop: 4, borderTop: '1px solid var(--border)' }}>
+                        <span style={{ color: 'var(--text3)' }}>Машины цаг</span>
+                        <span style={{ fontWeight: 600, color: 'var(--text)' }}>{offAiResult.cost?.machine_time_display}</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 {/* Market comparison */}
                 {marketComparison && (
@@ -777,27 +915,42 @@ export default function QuotePage() {
 
             {successMsg ? (
               <div style={{ textAlign: 'center', padding: 24 }}>
-                <div style={{ fontSize: 18, fontWeight: 600, color: '#22c55e', marginBottom: 12 }}>{successMsg}</div>
-                <button onClick={() => setShowModal(false)} style={{ padding: '10px 24px', borderRadius: 8, border: 'none', background: '#FF6B00', color: '#fff', fontWeight: 600, cursor: 'pointer' }}>Хаах</button>
+                <div style={{ fontSize: 40, marginBottom: 12 }}>🎉</div>
+                {successMsg.split('\n').map((line, i) => (
+                  <div key={i} style={{ fontSize: i === 0 ? 18 : 14, fontWeight: i === 0 ? 700 : 400, color: i === 0 ? '#22c55e' : 'var(--text2)', marginBottom: 6 }}>{line}</div>
+                ))}
+                <button onClick={() => setShowModal(false)} style={{ marginTop: 16, padding: '10px 24px', borderRadius: 8, border: 'none', background: '#FF6B00', color: '#fff', fontWeight: 600, cursor: 'pointer' }}>Хаах</button>
               </div>
             ) : (
               <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                <div>
-                  <label style={labelStyle}>Нэр *</label>
-                  <input style={inputStyle} value={mName} onChange={e => setMName(e.target.value)} required />
-                </div>
-                <div>
-                  <label style={labelStyle}>Имэйл *</label>
-                  <input type="email" style={inputStyle} value={mEmail} onChange={e => setMEmail(e.target.value)} required />
-                </div>
-                <div>
-                  <label style={labelStyle}>Утас</label>
-                  <input style={inputStyle} value={mPhone} onChange={e => setMPhone(e.target.value)} />
-                </div>
-                <div>
-                  <label style={labelStyle}>Компани</label>
-                  <input style={inputStyle} value={mCompany} onChange={e => setMCompany(e.target.value)} />
-                </div>
+                {/* Logged-in user: show their info (read-only) */}
+                {loggedUser ? (
+                  <div style={{ background: 'var(--surface2)', borderRadius: 10, padding: 14, fontSize: 13 }}>
+                    <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 6 }}>Таны мэдээлэл</div>
+                    <div style={{ fontWeight: 700 }}>{loggedUser.full_name}</div>
+                    <div style={{ color: 'var(--text2)' }}>{loggedUser.email}</div>
+                    {loggedUser.phone && <div style={{ color: 'var(--text2)' }}>{loggedUser.phone}</div>}
+                  </div>
+                ) : (
+                  <>
+                    <div>
+                      <label style={labelStyle}>Нэр *</label>
+                      <input style={inputStyle} value={mName} onChange={e => setMName(e.target.value)} required />
+                    </div>
+                    <div>
+                      <label style={labelStyle}>Имэйл *</label>
+                      <input type="email" style={inputStyle} value={mEmail} onChange={e => setMEmail(e.target.value)} required />
+                    </div>
+                    <div>
+                      <label style={labelStyle}>Утас</label>
+                      <input style={inputStyle} value={mPhone} onChange={e => setMPhone(e.target.value)} />
+                    </div>
+                    <div>
+                      <label style={labelStyle}>Компани</label>
+                      <input style={inputStyle} value={mCompany} onChange={e => setMCompany(e.target.value)} />
+                    </div>
+                  </>
+                )}
                 <div>
                   <label style={labelStyle}>Тэмдэглэл</label>
                   <textarea style={{ ...inputStyle, minHeight: 60, resize: 'vertical' }} value={mNotes} onChange={e => setMNotes(e.target.value)} />
@@ -819,7 +972,9 @@ export default function QuotePage() {
                 <button type="submit" disabled={submitting} style={{
                   padding: '12px 0', borderRadius: 10, border: 'none', cursor: submitting ? 'wait' : 'pointer',
                   background: submitting ? 'var(--text3)' : '#FF6B00', color: '#fff', fontSize: 15, fontWeight: 700,
-                }}>{submitting ? 'Илгээж байна...' : 'Илгээх'}</button>
+                }}>
+                  {submitting ? 'Илгээж байна...' : loggedUser ? '📋 Дашбоардад хадгалах →' : '📧 Имэйлээр авах'}
+                </button>
               </form>
             )}
           </div>
