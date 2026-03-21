@@ -19,21 +19,19 @@ export class FullQuoteService {
     private readonly printCost: PrintCostService
   ) {}
 
-  async calculate(file: any) {
+  async calculate(file: any, quantity = 500) {
 
-    /* PDF analyze */
-
+    // 1. PDF preflight + бодит хэмжээ
     const pdf = await this.pdfInspector.inspect(file.buffer)
 
-    /* temporary demo size */
+    // 2. Бодит хуудасны хэмжээ (pdf-lib-ээс авна, 0 бол A4 fallback)
+    const width  = pdf.page_width_mm  > 0 ? pdf.page_width_mm  : 210
+    const height = pdf.page_height_mm > 0 ? pdf.page_height_mm : 297
 
-    const width = 90
-    const height = 50
-
+    // 3. Стандарт хэмжээ таних
     const size = this.printSize.detect(width, height)
 
-    /* imposition */
-
+    // 4. Imposition — A3 хуудсанд хэдэн ширхэг багтах
     const layout = this.imposition.calculate(
       297,
       420,
@@ -43,50 +41,50 @@ export class FullQuoteService {
 
     const perSheet = layout.best_layout.total_per_sheet
 
-    /* gang run */
-
+    // 5. Gang run — хуудас хэрхэн хуваарилах
     const gang = this.gangRun.optimize(
-      [{ id: 1, quantity: 5000 }],
+      [{ id: 1, quantity }],
       perSheet
     )
 
-    /* machine selector */
-
+    // 6. Машин сонголт
     const machine = this.machineSelector.select({
-      width: size.width_mm,
-      height: size.height_mm,
-      quantity: 5000
+      width:    size.width_mm,
+      height:   size.height_mm,
+      quantity,
     })
 
-    /* print cost */
-
+    // 7. Хэвлэлийн зардал
     const cost = this.printCost.calculate({
-      sheet_cost: 1200,
-      total_sheets: gang.total_sheets || gang.sheets || 100,
+      sheet_cost:            1200,
+      total_sheets:          gang.total_sheets,
       machine_cost_per_hour: 50000,
-      production_minutes: 20
+      production_minutes:    20,
     })
-
-    /* RESPONSE */
 
     return {
+      pdf_analysis: {
+        pages:          pdf.pages,
+        page_width_mm:  pdf.page_width_mm,
+        page_height_mm: pdf.page_height_mm,
+        score:          pdf.score,
+        risk:           pdf.risk,
+        summary:        pdf.summary,
+        issues:         pdf.issues,
+      },
 
-      pdf_analysis: pdf,
-
-      size,
+      print_size: {
+        detected: size.detected_size,
+        width_mm: size.width_mm,
+        height_mm: size.height_mm,
+      },
 
       layout,
-
       gang_run: gang,
-
       machine,
 
       cost,
-
-      price: cost.final_price
-
+      price: cost.final_price,
     }
-
   }
-
 }
