@@ -1,4 +1,4 @@
-import { Controller, Post, UploadedFile, UseInterceptors } from '@nestjs/common'
+import { Controller, Post, UploadedFile, UseInterceptors, Query, ParseIntPipe, DefaultValuePipe } from '@nestjs/common'
 import { FileInterceptor } from '@nestjs/platform-express'
 import { FullQuoteService } from './full-quote.service'
 
@@ -9,10 +9,10 @@ export class FullQuoteController {
 
   @Post('full-quote')
   @UseInterceptors(FileInterceptor('file'))
-  async quote(@UploadedFile() file: Express.Multer.File) {
-
-    return this.service.calculate(file)
-
+  async quote(
+    @UploadedFile() file: Express.Multer.File,
+    @Query('quantity', new DefaultValuePipe(500), ParseIntPipe) quantity: number,
+  ) {
+    return this.service.calculate(file, quantity)
   }
-
 }

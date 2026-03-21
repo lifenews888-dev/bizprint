@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common'
 import pdf from 'pdf-parse'
+import { PDFDocument } from 'pdf-lib'
 
 export interface PreflightIssue {
   type: string
@@ -9,11 +10,12 @@ export interface PreflightIssue {
 
 export interface PreflightResult {
   pages: number
+  page_width_mm: number
+  page_height_mm: number
   text_length: number
   info: any
-  // Preflight analysis
   issues: PreflightIssue[]
-  score: number        // 0-100
+  score: number
   risk: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL'
   summary: string
   checks: {
@@ -26,6 +28,8 @@ export interface PreflightResult {
   }
 }
 
+const PT_TO_MM = 25.4 / 72  // 1 point = 0.3528 mm
+
 @Injectable()
 export class PdfInspectorService {
 
@@ -33,6 +37,26 @@ export class PdfInspectorService {
     const data = await pdf(file)
     const issues: PreflightIssue[] = []
     let score = 100
+
+    // --- PAGE DIMENSIONS via pdf-lib ---
+    let page_width_mm = 0
+    let page_height_mm = 0
+    let pageSizeStatus = 'info'
+    let pageSizeDetail = 'PDF metadata-аас хэмжээ авах боломжгүй'
+
+    try {
+      const pdfDoc = await PDFDocument.load(file, { ignoreEncryption: true })
+      if (pdfDoc.getPageCount() > 0) {
+        const firstPage = pdfDoc.getPage(0)
+        const { width, height } = firstPage.getSize()
+        page_width_mm = Math.round(width * PT_TO_MM)
+        page_height_mm = Math.round(height * PT_TO_MM)
+        pageSizeStatus = 'pass'
+        pageSizeDetail = `${page_width_mm}×${page_height_mm} мм (${width.toFixed(0)}×${height.toFixed(0)} pt)`
+      }
+    } catch {
+      pageSizeDetail = 'Хуудасны хэмжээ уншиж чадсангүй'
+    }
 
     // --- CHECK 1: Pages ---
     if (data.numpages === 0) {
@@ -45,7 +69,7 @@ export class PdfInspectorService {
     let resolutionStatus = 'pass'
     let resolutionDetail = 'Файлын хэмжээ хэвлэлд тохиромжтой'
 
-    if (avgPageSize < 50000) { // < 50KB per page = likely low res
+    if (avgPageSize < 50000) {
       issues.push({
         type: 'LOW_RESOLUTION',
         severity: 'error',
@@ -54,7 +78,7 @@ export class PdfInspectorService {
       score -= 25
       resolutionStatus = 'fail'
       resolutionDetail = 'Хуудас бүр < 50KB — зургийн чанар бага байж болно'
-    } else if (avgPageSize < 200000) { // < 200KB = warning
+    } else if (avgPageSize < 200000) {
       issues.push({
         type: 'MEDIUM_RESOLUTION',
         severity: 'warning',
@@ -65,7 +89,7 @@ export class PdfInspectorService {
       resolutionDetail = 'Хуудас бүр < 200KB — 300 DPI шалгахыг зөвлөж байна'
     }
 
-    // --- CHECK 3: Color mode (from PDF metadata) ---
+    // --- CHECK 3: Color mode ---
     let colorStatus = 'pass'
     let colorDetail = 'Өнгөний мэдээлэл хэвийн'
     const pdfText = JSON.stringify(data.info || {}).toLowerCase()
@@ -81,7 +105,7 @@ export class PdfInspectorService {
       colorDetail = 'RGB илэрсэн — CMYK болгох шаардлагатай байж болно'
     }
 
-    // --- CHECK 4: Text content (font embedding proxy) ---
+    // --- CHECK 4: Font embedding ---
     let fontStatus = 'pass'
     let fontDetail = 'Фонт хэвийн'
 
@@ -96,22 +120,17 @@ export class PdfInspectorService {
       fontDetail = 'Зарим тэмдэгт зөв уншигдахгүй — фонт embed шалгана уу'
     }
 
-    // --- CHECK 5: Page size from metadata ---
-    let pageSizeStatus = 'info'
-    let pageSizeDetail = 'PDF metadata-аас хэмжээ авах боломжгүй'
-
-    // --- CHECK 6: PDF version / transparency ---
+    // --- CHECK 5: Transparency ---
     let transparencyStatus = 'pass'
     let transparencyDetail = 'Хэвийн'
 
     const pdfVersion = data.info?.PDFFormatVersion
     if (pdfVersion && parseFloat(pdfVersion) >= 1.4) {
-      // PDF 1.4+ supports transparency
       transparencyStatus = 'info'
       transparencyDetail = `PDF ${pdfVersion} — transparency дэмжих боломжтой. Flatten хийсэн эсэхийг шалгана уу`
     }
 
-    // --- CHECK 7: Bleed (heuristic) ---
+    // --- CHECK 6: Bleed ---
     let bleedStatus = 'warning'
     let bleedDetail = 'Bleed байгаа эсэхийг PDF metadata-аас тодорхойлох боломжгүй. 3mm bleed нэмсэн эсэхийг шалгана уу'
     issues.push({
@@ -120,7 +139,7 @@ export class PdfInspectorService {
       message: 'Bleed (3мм) байгаа эсэхийг гараар шалгана уу'
     })
 
-    // --- Calculate final score ---
+    // --- Final score ---
     score = Math.max(0, Math.min(100, score))
 
     let risk: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL' = 'LOW'
@@ -142,6 +161,8 @@ export class PdfInspectorService {
 
     return {
       pages: data.numpages,
+      page_width_mm,
+      page_height_mm,
       text_length: data.text.length,
       info: data.info,
       issues,
