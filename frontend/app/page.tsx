@@ -104,26 +104,49 @@ function DefaultHero({ s }: { s: Record<string, any> }) {
     <div style={{ borderRadius: 14, overflow: 'hidden', position: 'relative', height: '100%', background: 'linear-gradient(135deg, #FF6B00 0%, #c94d00 100%)' }}>
       <div style={{ position: 'absolute', top: -60, right: -60, width: 240, height: 240, background: 'rgba(255,255,255,0.08)', borderRadius: '50%' }} />
       <div style={{ position: 'absolute', bottom: -40, left: -40, width: 180, height: 180, background: 'rgba(255,255,255,0.05)', borderRadius: '50%' }} />
-      <div style={{ position: 'absolute', top: '50%', left: 36, transform: 'translateY(-50%)', maxWidth: 400, zIndex: 2 }}>
+      <div style={{ position: 'absolute', top: '50%', left: 36, transform: 'translateY(-50%)', maxWidth: 420, zIndex: 2 }}>
         <div style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.7)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 12 }}>
           Print Industry Platform
         </div>
         <h1 style={{ fontSize: 36, fontWeight: 700, color: '#fff', lineHeight: 1.2, margin: '0 0 14px', letterSpacing: '-0.5px' }}>
-          {s.hero_title || 'Хэвлэлийн бүх шийдэл нэг дор'}
+          {s.hero_title || 'Хэвлэлийн үйлчилгээ — хурдан, ухаалаг'}
         </h1>
         <p style={{ fontSize: 15, color: 'rgba(255,255,255,0.8)', lineHeight: 1.6, margin: '0 0 24px' }}>
-          {s.hero_subtitle || 'AI-тай үнэ тооцоолол. 1 секундэд үнэ мэдэх.'}
+          {s.hero_subtitle || 'AI-тай үнэ тооцоолол. Бүтээгдэхүүн сонгоод шууд захиал.'}
         </p>
         <div style={{ display: 'flex', gap: 10 }}>
-          <a href={s.hero_cta_primary_url || '/quote'} style={{ padding: '11px 24px', background: '#fff', color: '#FF6B00', borderRadius: 9, textDecoration: 'none', fontSize: 14, fontWeight: 700 }}>
-            {s.hero_cta_primary_text || 'Үнэ авах'}
+          <a href={s.hero_cta_primary_url || '/shop'} style={{ padding: '12px 28px', background: '#fff', color: '#FF6B00', borderRadius: 9, textDecoration: 'none', fontSize: 14, fontWeight: 700 }}>
+            {s.hero_cta_primary_text || 'Захиалга эхлэх'}
           </a>
-          <a href={s.hero_cta_secondary_url || '/shop'} style={{ padding: '11px 24px', background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.3)', color: '#fff', borderRadius: 9, textDecoration: 'none', fontSize: 14, fontWeight: 500 }}>
-            {s.hero_cta_secondary_text || 'Дэлгүүр'}
+          <a href="#how-it-works" style={{ padding: '12px 24px', background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.3)', color: '#fff', borderRadius: 9, textDecoration: 'none', fontSize: 14, fontWeight: 500 }}>
+            Хэрхэн ажилладаг вэ
           </a>
         </div>
       </div>
     </div>
+  )
+}
+
+function HowItWorks() {
+  const steps = [
+    { icon: '🛒', title: 'Бүтээгдэхүүн сонгоно', desc: 'Дэлгүүрээс хэвлэлийн бүтээгдэхүүн сонгож сагсанд нэмнэ' },
+    { icon: '📤', title: 'Файл оруулна', desc: 'PDF файлаа upload хийж AI-ээр шалгуулна' },
+    { icon: '✅', title: 'Батлах — Хэвлэлт', desc: 'Үнийн санал авч, захиалга баталгаажуулна' },
+  ]
+  return (
+    <section id="how-it-works" style={{ padding: '48px 0 32px' }}>
+      <h2 style={{ textAlign: 'center', fontSize: 22, fontWeight: 800, marginBottom: 32, color: 'var(--text, #111)' }}>Хэрхэн ажилладаг вэ?</h2>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 20 }}>
+        {steps.map((s, i) => (
+          <div key={i} style={{ textAlign: 'center', padding: 24, background: 'var(--surface, #fff)', borderRadius: 16, border: '1px solid var(--border, #E5E7EB)' }}>
+            <div style={{ fontSize: 36, marginBottom: 12 }}>{s.icon}</div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: '#FF6B00', marginBottom: 6 }}>Алхам {i + 1}</div>
+            <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 6, color: 'var(--text, #111)' }}>{s.title}</div>
+            <div style={{ fontSize: 13, color: 'var(--text2, #888)', lineHeight: 1.5 }}>{s.desc}</div>
+          </div>
+        ))}
+      </div>
+    </section>
   )
 }
 
@@ -252,6 +275,8 @@ export default function HomePage() {
           </div>
         </div>
       </section>
+
+      <HowItWorks />
 
       {/* ═══ PRINT IT YOUR WAY — DUAL CTA ═══ */}
       <section style={{ maxWidth: 1200, margin: '0 auto', padding: '20px 20px 0' }}>
