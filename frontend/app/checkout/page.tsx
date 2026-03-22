@@ -58,13 +58,13 @@ function CheckoutInner() {
       let res
       if (quoteId) {
         // Convert quote to order
-        res = await apiFetch(`//orders/from-quote`, {
+        res = await apiFetch(`/orders/from-quote`, {
           method: 'POST',
           body: { quote_id: quoteId, payment_method: payMethod },
         })
       } else {
         // Create order directly
-        res = await apiFetch(`//orders`, {
+        res = await apiFetch(`/orders`, {
           method: 'POST',
           body: { ...form, payment_method: payMethod },
         })

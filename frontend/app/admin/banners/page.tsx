@@ -29,7 +29,7 @@ export default function AdminBannersPage() {
 
   const del = async (id: string) => {
     if (!confirm('Устгах уу?')) return
-    await apiFetch(`/banners/${id}`, { method: 'DELETE' })
+    await apiFetch(`/banners/${id}`, { method: 'DELETE')
     load()
   }
 
@@ -45,11 +45,10 @@ export default function AdminBannersPage() {
     const fd = new FormData()
     fd.append('file', file)
     try {
-      const res = await apiFetch(`/upload/file`, {
+      const data = await apiFetch(`/upload/file`, {
         method: 'POST',
         body: fd,
       })
-      const data = await res.json()
       const rawUrl = data.url || data.path || data.fileUrl
       const filename = data.filename || data.file_name || data.name
       let fullUrl = ''

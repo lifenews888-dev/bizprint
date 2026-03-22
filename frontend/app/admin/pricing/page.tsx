@@ -135,8 +135,7 @@ function fmt(n: number) {
 }
 
 async function apiFetch<T>(path: string, opts?: RequestInit): Promise<T> {
-  const res = await apiFetch(`/${path}`, { ...opts })
-  if (!res.ok) throw new Error(`API error ${res.status}`)
+  await apiFetch(`/${path}`, { ...opts })
   return res.json()
 }
 
@@ -911,7 +910,7 @@ function CompetitorTab() {
 
   const deletePrice = async (id: string) => {
     try {
-      await apiFetch(`/pricing-engine/competitors/${id}`, { method: 'DELETE' })
+      await apiFetch(`/pricing-engine/competitors/${id}`, { method: 'DELETE')
       loadData()
     } catch (e) {
       console.error('Failed to delete', e)

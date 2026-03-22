@@ -132,8 +132,7 @@ export default function AdminCustomersPage() {
       if (search) params.set('search', search)
       if (tierFilter !== 'ALL') params.set('tier', tierFilter)
       params.set('page', String(page))
-      const res = await apiFetch(`/admin/customers?${params}`)
-      const data = await res.json()
+      const data = await apiFetch(`/admin/customers?${params}`)
       setItems(data.items || [])
       setTotal(data.total || 0)
     } catch {
@@ -616,8 +615,7 @@ function InteractionsTab({ customerId }: { customerId: string }) {
   const loadInteractions = useCallback(async () => {
     setLoading(true)
     try {
-      const res = await apiFetch(`/admin/customers/${customerId}/interactions`)
-      const data = await res.json()
+      const data = await apiFetch(`/admin/customers/${customerId}/interactions`)
       setInteractions(Array.isArray(data) ? data : [])
     } catch {
       setInteractions([])

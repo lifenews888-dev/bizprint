@@ -392,7 +392,7 @@ export default function QuotePage() {
       } else {
         params = `product_type=wide&product_subtype=${wideType}`;
       }
-      apiFetch(`//pricing-engine/market-analysis?${params}`)
+      apiFetch(`/pricing-engine/market-analysis?${params}`)
         .then(r => r.ok ? r.json() : null)
         .then(d => setMarket(d))
         .catch(() => setMarket(null));

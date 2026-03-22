@@ -86,7 +86,7 @@ export default function PartnerPage() {
 
     setSubmitting(true)
     try {
-      const res = await apiFetch(`//auth/register`, {
+      const res = await apiFetch(`/auth/register`, {
         method: 'POST',
         headers: {},
         body: {

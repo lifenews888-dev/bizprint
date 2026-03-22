@@ -10,7 +10,7 @@ export default function ҮйлдвэрийнсамбарPage() {
     const token = localStorage.getItem('token')
     const headers: any = {}
     if (token) headers.Authorization = `Bearer ${token}`
-    apiFetch(`//production-jobs`, { headers })
+    apiFetch(`/production-jobs`, { headers })
       .then(d => setData(Array.isArray(d) ? d : []))
       .catch(() => {}).finally(() => setLoading(false))
   }, [])

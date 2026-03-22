@@ -10,7 +10,7 @@ export default function AdminVendorsPage() {
   useEffect(load, [])
   const reset = () => { setEditing(null); setForm({ company_name: '', contact_name: '', email: '', phone: '', address: '', description: '', is_active: true }) }
   const save = async () => { const m = editing?.id ? 'PATCH' : 'POST'; const u = editing?.id ? `/admin/vendors/${editing.id}` : `/admin/vendors`; await apiFetch(u, { method: m, body: form }); reset(); load() }
-  const del = async (id: string) => { if (!confirm('Устгах уу?')) return; await apiFetch(`/admin/vendors/${id}`, { method: 'DELETE' }); load() }
+  const del = async (id: string) => { if (!confirm('Устгах уу?')) return; await apiFetch(`/admin/vendors/${id}`, { method: 'DELETE'); load() }
   const edit = (i: any) => { setEditing(i); setForm({ company_name: i.company_name||'', contact_name: i.contact_name||'', email: i.email||'', phone: i.phone||'', address: i.address||'', description: i.description||'', is_active: i.is_active !== false }) }
   const inp: React.CSSProperties = { width: '100%', padding: '10px 14px', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 13, color: 'var(--text)', outline: 'none' }
   return (

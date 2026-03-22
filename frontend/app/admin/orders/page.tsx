@@ -41,8 +41,7 @@ export default function AdminOrdersPage() {
 
   const loadFiles = async (orderId: string) => {
     try {
-      const r = await apiFetch(`/order-files?order_id=${orderId}`)
-      const d = await r.json()
+      const d = await apiFetch(`/order-files?order_id=${orderId}`)
       setOrderFiles(Array.isArray(d) ? d : [])
     } catch { setOrderFiles([]) }
   }

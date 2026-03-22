@@ -64,9 +64,8 @@ export default function VendorStorePage() {
   async function loadProducts(t: string) {
     setLoading(true);
     try {
-      const res = await apiFetch(`//vendor-store/products`, {` },
+      const data = await apiFetch(`/vendor-store/products`,
       });
-      const data = await res.json();
       setProducts(Array.isArray(data) ? data : []);
     } catch {
       setError('Failed to load products');
@@ -77,9 +76,8 @@ export default function VendorStorePage() {
 
   async function loadStats(t: string) {
     try {
-      const res = await apiFetch(`//vendor-store/stats`, {` },
+      const data = await apiFetch(`/vendor-store/stats`,
       });
-      const data = await res.json();
       setStats(data);
     } catch {}
   }
@@ -117,11 +115,10 @@ export default function VendorStorePage() {
     try {
       const fd = new FormData();
       fd.append('file', file);
-      const res = await apiFetch(`//upload/file`, {
-        method: 'POST'` },
+      const data = await apiFetch(`/upload/file`, {
+        method: 'POST',
         body: fd,
       });
-      const data = await res.json();
       const url = data.url || data.path || data.filename;
       setForm(f => ({ ...f, thumbnail_url: url }));
     } catch {
@@ -163,8 +160,8 @@ export default function VendorStorePage() {
 
   async function handleDelete(id: string) {
     if (!token || !confirm('Delete this product?')) return;
-    await apiFetch(`//vendor-store/products/${id}`, {
-      method: 'DELETE'` },
+    await apiFetch(`/vendor-store/products/${id}`, {
+      method: 'DELETE',
     });
     loadProducts(token);
     loadStats(token);
@@ -172,8 +169,8 @@ export default function VendorStorePage() {
 
   async function toggleActive(p: Product) {
     if (!token) return;
-    await apiFetch(`//vendor-store/products/${p.id}`, {
-      method: 'PATCH'` },
+    await apiFetch(`/vendor-store/products/${p.id}`, {
+      method: 'PATCH',
       body: { is_active: !p.is_active },
     });
     loadProducts(token);

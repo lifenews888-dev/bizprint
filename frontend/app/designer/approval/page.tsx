@@ -90,7 +90,7 @@ export default function DesignerDashboard() {
 
   useEffect(() => {
     if (!token) { window.location.href = '/login'; return }
-    apiFetch(`//auth/me`, {` } })
+    apiFetch(`/auth/me`, {} })
       .then(r => r.ok ? r.json() : null)
       .then(u => { if (u) setUser(u) })
       .catch(() => {})
@@ -101,8 +101,7 @@ export default function DesignerDashboard() {
   const loadRequests = useCallback(async () => {
     if (!user?.id) return
     try {
-      const res = await apiFetch(`//design-requests/designer/${user.id}`)
-      const data = await res.json()
+      const data = await apiFetch(`/design-requests/designer/${user.id}`)
       if (Array.isArray(data)) setRequests(data)
     } catch {}
   }, [user?.id])
@@ -149,8 +148,7 @@ export default function DesignerDashboard() {
 
   const loadDetail = useCallback(async (id: string) => {
     try {
-      const res = await apiFetch(`//design-requests/${id}`)
-      const data = await res.json()
+      const data = await apiFetch(`/design-requests/${id}`)
       setSelected(data)
     } catch {}
   }, [])
@@ -169,11 +167,10 @@ export default function DesignerDashboard() {
     try {
       const formData = new FormData()
       formData.append('file', file)
-      const res = await apiFetch(`//upload/file`, {
-        method: 'POST'` },
+      const data = await apiFetch(`/upload/file`, {
+        method: 'POST',
         body: formData,
       })
-      const data = await res.json()
       if (data.file_url) {
         const fullUrl = data.file_url.startsWith('http') ? data.file_url : `${API_URL}${data.file_url}`
         setFileUrl(fullUrl)
@@ -196,7 +193,7 @@ export default function DesignerDashboard() {
     if (!selected || !fileUrl) { showToast('Файлын URL оруулна уу', 'error'); return }
     setUploading(true)
     try {
-      const res = await apiFetch(`//design-requests/${selected.id}/versions`, {
+      const res = await apiFetch(`/design-requests/${selected.id}/versions`, {
         method: 'POST',
         body: { file_url: fileUrl, preview_url: previewUrl, version_note: versionNote },
       })
@@ -214,7 +211,7 @@ export default function DesignerDashboard() {
   const handleSubmitForReview = async () => {
     if (!selected) return
     try {
-      const res = await apiFetch(`//design-requests/${selected.id}/submit-for-review`, {
+      const res = await apiFetch(`/design-requests/${selected.id}/submit-for-review`, {
         method: 'PATCH',
       })
       if (res.ok) { showToast('Хянуулахаар илгээлээ ✓'); loadDetail(selected.id); loadRequests() }
@@ -226,7 +223,7 @@ export default function DesignerDashboard() {
   const handleAddComment = async () => {
     if (!selected || !comment.trim()) return
     try {
-      const res = await apiFetch(`//design-requests/${selected.id}/comments`, {
+      const res = await apiFetch(`/design-requests/${selected.id}/comments`, {
         method: 'POST',
         body: { content: comment, author_role: 'designer', type: 'comment' },
       })
@@ -241,11 +238,10 @@ export default function DesignerDashboard() {
     try {
       const body: any = {}
       if (scheduledAt) body.scheduled_at = scheduledAt
-      const res = await apiFetch(`//design-requests/${selected.id}/zoom`, {
+      const data = await apiFetch(`/design-requests/${selected.id}/zoom`, {
         method: 'POST',
         body: body,
       })
-      const data = await res.json()
       if (res.ok) {
         showToast('Zoom уулзалт товлогдлоо ✓')
         setScheduledAt('')

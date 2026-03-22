@@ -40,7 +40,7 @@ export default function ServicesPage() {
     setSubmitting(true)
     try {
       const user = JSON.parse(localStorage.getItem('user') || '{}')
-      await apiFetch(`//design-requests`, {
+      await apiFetch(`/design-requests`, {
         method: 'POST',
         body: {
           customer_id: user.id, customer_name: user.full_name || user.email,

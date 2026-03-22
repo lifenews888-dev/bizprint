@@ -64,8 +64,7 @@ export default function CommissionPage() {
 
   async function loadSettings(t: string) {
     try {
-      const res = await apiFetch(`//settings`, {` } });
-      const data = await res.json();
+      const data = await apiFetch(`/settings`, {} });
       if (data.commission_rate) setDefaultRate(data.commission_rate);
       setRoleRates(r => ({
         designer: data.commission_role_designer || r.designer,
@@ -88,8 +87,7 @@ export default function CommissionPage() {
 
   async function loadVendors(t: string) {
     try {
-      const res = await apiFetch(`//admin/users`, {` } });
-      const data = await res.json();
+      const data = await apiFetch(`/admin/users`, {} });
       const list = Array.isArray(data) ? data : (data.users || []);
       setVendors(list.filter((u: Vendor) => u.role === 'vendor'));
     } catch {}
@@ -97,10 +95,9 @@ export default function CommissionPage() {
 
   async function loadAdminWallet(t: string) {
     try {
-      const res = await apiFetch(`//wallet/balance`, {` } });
-      const data = await res.json();
+      const data = await apiFetch(`/wallet/balance`, {} });
       setAdminWallet(data);
-      const txRes = await apiFetch(`//wallet/transactions`, {` } });
+      const txRes = await apiFetch(`/wallet/transactions`, {} });
       const txData = await txRes.json();
       setAdminTx(Array.isArray(txData) ? txData.filter((tx: WalletTx) => tx.source === 'platform_commission' || tx.source === 'order_commission') : []);
     } catch {}
@@ -111,15 +108,15 @@ export default function CommissionPage() {
     setMsg('');
     try {
       // Save default rate
-      await apiFetch(`//settings`, {
-        method: 'POST'` },
+      await apiFetch(`/settings`, {
+        method: 'POST',
         body: { key: 'commission_rate', value: defaultRate, label: 'Default Commission Rate %', type: 'number' },
       });
 
       // Save role splits
       for (const [role, rate] of Object.entries(roleRates)) {
-        await apiFetch(`//settings`, {
-          method: 'POST'` },
+        await apiFetch(`/settings`, {
+          method: 'POST',
           body: {
             key: `commission_role_${role}`,
             value: rate,
@@ -132,8 +129,8 @@ export default function CommissionPage() {
       // Save per-vendor rates
       for (const [vendorId, rate] of Object.entries(rules)) {
         if (rate) {
-          await apiFetch(`//settings`, {
-            method: 'POST'` },
+          await apiFetch(`/settings`, {
+            method: 'POST',
             body: {
               key: `commission_vendor_${vendorId}`,
               value: rate,

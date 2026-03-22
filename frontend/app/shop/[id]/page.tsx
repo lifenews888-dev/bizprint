@@ -101,11 +101,11 @@ export default function ProductConfiguratorPage() {
       const fd = new FormData()
       fd.append('file', file)
       fd.append('quantity', String(quantity))
-      const res = await apiFetch(`//ai/smart-quote/from-pdf`, {
-        method: 'POST'` },
+      const res = await apiFetch(`/ai/smart-quote/from-pdf`, {
+        method: 'POST',
         body: fd,
       })
-      if (res.ok) setUploadResult(await res.json())
+      setUploadResult(res)
     } catch {}
     setUploading(false)
   }

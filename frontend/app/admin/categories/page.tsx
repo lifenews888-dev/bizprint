@@ -110,8 +110,8 @@ export default function AdminCategoriesPage() {
 
   async function fetchAttrs(pid: string) {
     try {
-      const r = await apiFetch('//products/'+pid+'/attributes')
-      setAttributes(r.ok ? await r.json() : [])
+      const r = await apiFetch('/products/'+pid+'/attributes')
+      setAttributes(r)
     } catch { setAttributes([]) }
   }
 
@@ -138,11 +138,11 @@ export default function AdminCategoriesPage() {
   }
   async function deleteCat(id: string) {
     if (!confirm('Устгах уу?')) return
-    await apiFetch('//categories/'+id, { method:'DELETE'})
+    await apiFetch('/categories/'+id, { method:'DELETE'})
     showToast('Устгагдлаа'); fetchAll()
   }
   async function toggleActive(c: Category) {
-    await apiFetch('//categories/'+c.id, { method:'PATCH', body: {is_active: !c.is_active} })
+    await apiFetch('/categories/'+c.id, { method:'PATCH', body: {is_active: !c.is_active} })
     fetchAll()
   }
 
@@ -166,7 +166,7 @@ export default function AdminCategoriesPage() {
   }
   async function deleteAttr(a: ProductAttribute) {
     if (!confirm('Устгах уу?')) return
-    await apiFetch('//products/'+a.product_id+'/attributes/'+a.id, { method:'DELETE'})
+    await apiFetch('/products/'+a.product_id+'/attributes/'+a.id, { method:'DELETE'})
     showToast('Устгагдлаа'); fetchAttrs(selProduct)
   }
   function addOption() {

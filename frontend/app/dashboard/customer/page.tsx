@@ -39,9 +39,9 @@ export default function CustomerDashboard() {
     const headers = { Authorization: `Bearer ${token}` }
 
     Promise.all([
-      apiFetch(`//auth/me`, { headers }).catch(() => null),
-      apiFetch(`//orders?limit=3`, { headers }).catch(() => []),
-      apiFetch(`//wallet/balance`, { headers }).catch(() => null),
+      apiFetch(`/auth/me`, { headers }).catch(() => null),
+      apiFetch(`/orders?limit=3`, { headers }).catch(() => []),
+      apiFetch(`/wallet/balance`, { headers }).catch(() => null),
     ]).then(([u, o, w]) => {
       setUser(u)
       setOrders(Array.isArray(o) ? o : (o?.data ?? []))

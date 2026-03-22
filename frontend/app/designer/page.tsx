@@ -69,7 +69,7 @@ export default function DesignerDashboard() {
     setLoading(true)
     try {
       const r = await apiFetch('/admin/orders')
-      setOrders(r.ok ? await r.json() : [])
+      setOrders(r)
     } catch {}
     setLoading(false)
   }
@@ -81,7 +81,7 @@ export default function DesignerDashboard() {
 
   async function updateStatus(order: Order, status: string) {
     try {
-      const r = await apiFetch('//orders/' + order.id, {
+      const r = await apiFetch('/orders/' + order.id, {
         method: 'PATCH',
         body: { status },
       })
@@ -99,10 +99,10 @@ export default function DesignerDashboard() {
     try {
       const fd = new FormData()
       fd.append('file', file)
-      const r = await apiFetch('//upload/file', { method: 'POST', body: fd })
+      const r = await apiFetch('/upload/file', { method: 'POST', body: fd })
       if (!r.ok) throw new Error()
       const { url } = await r.json()
-      const r2 = await apiFetch('//orders/' + order.id, {
+      const r2 = await apiFetch('/orders/' + order.id, {
         method: 'PATCH',
         body: { file_url: url },
       })

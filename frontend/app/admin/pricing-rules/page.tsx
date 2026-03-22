@@ -137,14 +137,14 @@ export default function AdminPricingRulesPage() {
     setLoading(true)
     try {
       const [rulesRes, prodsRes, catsRes, pmRes] = await Promise.all([
-        apiFetch(`//pricing-rules`),
-        apiFetch(`//products`),
-        apiFetch(`//categories`),
-        apiFetch(`//admin/products-master`),
+        apiFetch(`/pricing-rules`),
+        apiFetch(`/products`),
+        apiFetch(`/categories`),
+        apiFetch(`/admin/products-master`),
       ])
-      const r: PricingRule[]     = rulesRes.ok ? await rulesRes.json() : []
-      const p: Product[]         = prodsRes.ok ? await prodsRes.json() : []
-      const c: Category[]        = catsRes.ok  ? await catsRes.json()  : []
+      const r: PricingRule[]     = rulesRes
+      const p: Product[]         = prodsRes
+      const c: Category[]        = catsRes
       const pmData               = pmRes.ok ? await pmRes.json() : {}
       const pm: ProductMaster[]  = pmData.items || []
       setRules(r)
@@ -223,8 +223,7 @@ export default function AdminPricingRulesPage() {
     const url    = isEdit ? `/pricing-rules/${editRule.id}` : `/pricing-rules`
     const method = isEdit ? 'PATCH' : 'POST'
     try {
-      const res = await apiFetch(url, { method: , body: body })
-      if (!res.ok) throw new Error()
+      await apiFetch(url, { method: , body: body })
       showToast(isEdit ? 'Дүрэм шинэчлэгдлээ' : 'Дүрэм нэмэгдлээ')
       setModal(null)
       fetchAll()
@@ -234,7 +233,7 @@ export default function AdminPricingRulesPage() {
   // ── Toggle active ──
   async function toggleActive(rule: PricingRule) {
     try {
-      await apiFetch(`//pricing-rules/${rule.id}`, {
+      await apiFetch(`/pricing-rules/${rule.id}`, {
         method: 'PATCH',
         body: { is_active: !rule.is_active },
       })
@@ -246,8 +245,7 @@ export default function AdminPricingRulesPage() {
   async function deleteRule(id: number) {
     if (!confirm('Дүрэм устгах уу?')) return
     try {
-      const res = await apiFetch(`//pricing-rules/${id}`, { method: 'DELETE'})
-      if (!res.ok) throw new Error()
+      await apiFetch(`/pricing-rules/${id}`, { method: 'DELETE'})
       showToast('Устгагдлаа')
       fetchAll()
     } catch { showToast('Устгах боломжгүй', 'err') }

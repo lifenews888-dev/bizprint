@@ -33,7 +33,7 @@ export default function CartPage() {
   const removeItem = async (itemId: string) => {
     setRemoving(itemId)
     try {
-      await apiFetch(`/cart/items/${itemId}`, { method: 'DELETE' })
+      await apiFetch(`/cart/items/${itemId}`, { method: 'DELETE')
       await loadCart()
     } catch {}
     setRemoving(null)
@@ -43,7 +43,7 @@ export default function CartPage() {
   const handleQuote = async () => {
     setQuoting(true); setError('')
     try {
-      const q = await apiFetch<any>('/cart/quote', { method: 'POST' })
+      const q = await apiFetch<any>('/cart/quote', { method: 'POST')
       setQuotation(q)
       setStep('quote')
     } catch (e: any) {

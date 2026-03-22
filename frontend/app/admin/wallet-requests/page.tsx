@@ -58,8 +58,8 @@ export default function AdminWalletRequestsPage() {
   async function fetchRequests() {
     setLoading(true)
     try {
-      const res = await apiFetch(`//wallet/withdraw-requests`)
-      const data: WithdrawRequest[] = res.ok ? await res.json() : []
+      const res = await apiFetch(`/wallet/withdraw-requests`)
+      const data: WithdrawRequest[] = res
       setRequests(data)
       setStats({
         pending:              data.filter(r => r.status === 'pending').length,
@@ -81,10 +81,9 @@ export default function AdminWalletRequestsPage() {
   async function approveRequest(req: WithdrawRequest) {
     setProcessing(true)
     try {
-      const res = await apiFetch(`//wallet/withdraw-requests/${req.id}/approve`, {
+      await apiFetch(`/wallet/withdraw-requests/${req.id}/approve`, {
         method: 'PATCH',
       })
-      if (!res.ok) throw new Error()
       showToast(`${req.user?.email || 'Хэрэглэгч'}-ийн ${req.amount.toLocaleString()}₮ татах хүсэлт батлагдлаа`)
       setActionModal(null)
       fetchRequests()
@@ -98,11 +97,10 @@ export default function AdminWalletRequestsPage() {
     if (!rejectReason.trim()) return
     setProcessing(true)
     try {
-      const res = await apiFetch(`//wallet/withdraw-requests/${req.id}/reject`, {
+      await apiFetch(`/wallet/withdraw-requests/${req.id}/reject`, {
         method: 'PATCH',
         body: { reason: rejectReason },
       })
-      if (!res.ok) throw new Error()
       showToast(`Татгалзлаа — ${req.user?.email}`)
       setActionModal(null)
       setRejectReason('')

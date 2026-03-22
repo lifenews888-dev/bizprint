@@ -32,14 +32,14 @@ function ShopPageInner() {
     const token = localStorage.getItem('token')
     const headers: any = {}
     if (token) headers.Authorization = `Bearer ${token}`
-    apiFetch(`//products`, { headers })
+    apiFetch(`/products`, { headers })
       .then(r => r.json())
       .then(d => setProducts(Array.isArray(d) ? d : []))
       .catch(() => setProducts([]))
       .finally(() => setLoading(false))
 
     if (token) {
-      apiFetch(`//auth/me`, { headers })
+      apiFetch(`/auth/me`, { headers })
         .then(r => r.json())
         .then(u => u?.id && setUser(u))
         .catch(() => {})
@@ -63,8 +63,8 @@ function ShopPageInner() {
     }
     setAddingId(productId)
     try {
-      await apiFetch(`//cart/items`, {
-        method: 'POST'` },
+      await apiFetch(`/cart/items`, {
+        method: 'POST',
         body: { user_id: user.id, product_id: productId, quantity: 1 },
       })
       setToast('Сагсанд нэмэгдлээ')

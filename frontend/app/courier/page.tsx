@@ -57,7 +57,7 @@ export default function CourierDashboard() {
     setLoading(true)
     try {
       const r = await apiFetch('/admin/orders')
-      setOrders(r.ok ? await r.json() : [])
+      setOrders(r)
     } catch {}
     setLoading(false)
   }
@@ -69,7 +69,7 @@ export default function CourierDashboard() {
 
   async function updateStatus(order: Order, status: string) {
     try {
-      const r = await apiFetch('//orders/' + order.id, {
+      const r = await apiFetch('/orders/' + order.id, {
         method: 'PATCH',
         body: { status },
       })

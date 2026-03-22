@@ -98,7 +98,7 @@ export default function ProductPage({ params }: { params: { slug: string } }) {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    apiFetch(`//products`, { cache: 'no-store' } as any)
+    apiFetch(`/products`, { cache: 'no-store' } as any)
       .then(r => r.json())
       .then(list => {
         const found = Array.isArray(list) ? list.find((p: any) => p.slug === params.slug || p.id === params.slug) : null

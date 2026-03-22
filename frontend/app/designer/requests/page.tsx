@@ -40,8 +40,7 @@ export default function DesignerRequestsPage() {
   async function loadJobs() {
     setLoading(true)
     try {
-      const r = await apiFetch(`//design-requests`)
-      const data = await r.json()
+      const data = await apiFetch(`/design-requests`)
       setJobs(Array.isArray(data) ? data : [])
     } catch {}
     setLoading(false)
@@ -49,7 +48,7 @@ export default function DesignerRequestsPage() {
 
   async function requestJob(id: string) {
     try {
-      await apiFetch(`//design-requests/${id}/assign`, { method: 'PATCH'})
+      await apiFetch(`/design-requests/${id}/assign`, { method: 'PATCH'})
       setToast('Ажил хүлээн авах хүсэлт илгээгдлээ')
       setTimeout(() => setToast(''), 3000)
       loadJobs()
@@ -60,7 +59,7 @@ export default function DesignerRequestsPage() {
     const fd = new FormData()
     fd.append('file', file)
     try {
-      await apiFetch(`//design-requests/${jobId}/upload`, { method: 'POST', body: fd })
+      await apiFetch(`/design-requests/${jobId}/upload`, { method: 'POST', body: fd })
       setToast('Файл амжилттай илгээгдлээ')
       setTimeout(() => setToast(''), 3000)
       loadJobs()
@@ -69,7 +68,7 @@ export default function DesignerRequestsPage() {
 
   async function submitForReview(id: string) {
     try {
-      await apiFetch(`//design-requests/${id}/submit`, { method: 'PATCH'})
+      await apiFetch(`/design-requests/${id}/submit`, { method: 'PATCH'})
       setToast('Хянуулахаар илгээгдлээ')
       setTimeout(() => setToast(''), 3000)
       loadJobs()

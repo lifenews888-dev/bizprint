@@ -104,7 +104,7 @@ export default function SmartQuotePage() {
       if (finishing)  fd.append('finishing', finishing)
       if (binding)    fd.append('binding', binding)
 
-      const res = await apiFetch(`//ai/smart-quote/from-pdf`, { method: 'POST', body: fd })
+      const res = await apiFetch(`/ai/smart-quote/from-pdf`, { method: 'POST', body: fd })
       clearInterval(iv)
       if (!res.ok) {
         const e = await res.json().catch(() => ({}))

@@ -134,8 +134,7 @@ export default function AdminCmsPage() {
 
   const loadMenu = useCallback(async () => {
     try {
-      const res = await apiFetch('/cms/mega-menu')
-      const data = await res.json()
+      const data = await apiFetch('/cms/mega-menu')
       setMenuItems(Array.isArray(data) ? data : [])
     } catch { /* ignore */ }
   }, [])
@@ -178,7 +177,7 @@ export default function AdminCmsPage() {
 
   const deleteMenuItem = async (id: string) => {
     if (!confirm('Устгах уу?')) return
-    await apiFetch(`/cms/mega-menu/${id}`, { method: 'DELETE' })
+    await apiFetch(`/cms/mega-menu/${id}`, { method: 'DELETE')
     loadMenu()
   }
 

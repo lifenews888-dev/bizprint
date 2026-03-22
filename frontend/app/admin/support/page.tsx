@@ -97,9 +97,7 @@ export default function AdminSupportPage() {
   async function fetchTickets() {
     setLoading(true)
     try {
-      const res = await apiFetch(`/admin/support-tickets?status=${statusFilter}`)
-      if (!res.ok) throw new Error()
-      const data = await res.json()
+      const data = await apiFetch(`/admin/support-tickets?status=${statusFilter}`)
       const items: Ticket[] = data.items || []
       setTickets(items)
       setTotal(data.total || items.length)
@@ -134,11 +132,10 @@ export default function AdminSupportPage() {
     if (!selected || !replyText.trim()) return
     setSending(true)
     try {
-      const res = await apiFetch(`/admin/support-tickets/${selected.id}/reply`, {
+      await apiFetch(`/admin/support-tickets/${selected.id}/reply`, {
         method: 'POST',
         body: { message: replyText.trim(, sender: 'admin' }),
       })
-      if (!res.ok) throw new Error()
       setReplyText('')
       // Refresh ticket data
       const updated = await apiFetch(`/admin/support-tickets?status=${statusFilter}`)
@@ -159,11 +156,10 @@ export default function AdminSupportPage() {
   async function updateTicket(id: number, updates: Partial<{ status: string; priority: string; assigned_to: string }>) {
     setUpdating(true)
     try {
-      const res = await apiFetch(`/admin/support-tickets/${id}`, {
+      await apiFetch(`/admin/support-tickets/${id}`, {
         method: 'PUT',
         body: updates,
       })
-      if (!res.ok) throw new Error()
       await fetchTickets()
       // Refresh selected
       if (selected && selected.id === id) {
@@ -180,7 +176,7 @@ export default function AdminSupportPage() {
     if (!createForm.subject.trim() || !createForm.message.trim()) return
     setCreating(true)
     try {
-      const res = await apiFetch(`/admin/support-tickets`, {
+      await apiFetch(`/admin/support-tickets`, {
         method: 'POST',
         body: {
           customer_id: createForm.customer_id ? Number(createForm.customer_id : undefined,
@@ -189,7 +185,6 @@ export default function AdminSupportPage() {
           priority: createForm.priority,
         }),
       })
-      if (!res.ok) throw new Error()
       setShowCreate(false)
       setCreateForm({ customer_id: '', subject: '', message: '', priority: 'NORMAL' })
       showToast('Тикет үүсгэлээ')

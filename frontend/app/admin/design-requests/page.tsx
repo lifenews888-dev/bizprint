@@ -60,7 +60,7 @@ export default function AdminDesignRequestsPage() {
 
   const del = async (id: string) => {
     if (!confirm('Устгах уу?')) return
-    await apiFetch(`/design-requests/${id}`, { method: 'DELETE' })
+    await apiFetch(`/design-requests/${id}`, { method: 'DELETE')
     load()
   }
 

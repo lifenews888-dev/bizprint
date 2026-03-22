@@ -76,9 +76,7 @@ function PrintProductsTab() {
       const params = new URLSearchParams()
       if (search) params.set('search', search)
       if (categoryFilter) params.set('category', categoryFilter)
-      const res = await apiFetch(`/admin/products-master?${params}`)
-      if (!res.ok) throw new Error(`${res.status}`)
-      const data = await res.json()
+      const data = await apiFetch(`/admin/products-master?${params}`)
       setItems(data.items || [])
       setTotal(data.total || 0)
     } catch (e: any) {
@@ -114,15 +112,13 @@ function PrintProductsTab() {
     try {
       const payload = { ...form, thumbnail_url: form.images[0] || form.thumbnail_url }
       if (editing?.id) {
-        const res = await apiFetch(`/admin/products-master/${editing.id}`, {
+        await apiFetch(`/admin/products-master/${editing.id}`, {
           method: 'PUT', body: payload,
         })
-        if (!res.ok) throw new Error(await res.text())
       } else {
-        const res = await apiFetch(`/admin/products-master`, {
+        await apiFetch(`/admin/products-master`, {
           method: 'POST', body: payload,
         })
-        if (!res.ok) throw new Error(await res.text())
         const created = await res.json()
         setEditing(created)
         setFormTab(1)  // advance to Materials tab after creating
@@ -140,17 +136,15 @@ function PrintProductsTab() {
     setSaving(true); setError('')
     try {
       if (editingMaterial?.id) {
-        const res = await apiFetch(`/admin/products-master/materials/${editingMaterial.id}`, {
+        await apiFetch(`/admin/products-master/materials/${editingMaterial.id}`, {
           method: 'PUT', body: materialForm,
         })
-        if (!res.ok) throw new Error(await res.text())
         const updated = await res.json()
         setMaterials(prev => prev.map(m => m.id === updated.id ? updated : m))
       } else {
-        const res = await apiFetch(`/admin/products-master/${editing.id}/materials`, {
+        await apiFetch(`/admin/products-master/${editing.id}/materials`, {
           method: 'POST', body: materialForm,
         })
-        if (!res.ok) throw new Error(await res.text())
         const created = await res.json()
         setMaterials(prev => [...prev, created])
       }
@@ -167,17 +161,15 @@ function PrintProductsTab() {
     setSaving(true); setError('')
     try {
       if (editingSize?.id) {
-        const res = await apiFetch(`/admin/products-master/sizes/${editingSize.id}`, {
+        await apiFetch(`/admin/products-master/sizes/${editingSize.id}`, {
           method: 'PUT', body: sizeForm,
         })
-        if (!res.ok) throw new Error(await res.text())
         const updated = await res.json()
         setSizes(prev => prev.map(s => s.id === updated.id ? updated : s))
       } else {
-        const res = await apiFetch(`/admin/products-master/${editing.id}/sizes`, {
+        await apiFetch(`/admin/products-master/${editing.id}/sizes`, {
           method: 'POST', body: sizeForm,
         })
-        if (!res.ok) throw new Error(await res.text())
         const created = await res.json()
         setSizes(prev => [...prev, created])
       }
@@ -189,7 +181,7 @@ function PrintProductsTab() {
 
   const deactivate = async (id: string) => {
     if (!confirm('Устгах уу?')) return
-    await apiFetch(`/admin/products-master/${id}`, { method: 'DELETE' })
+    await apiFetch(`/admin/products-master/${id}`, { method: 'DELETE')
     await load()
   }
 
@@ -444,9 +436,7 @@ function ShopProductsTab() {
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const res = await apiFetch('/admin/shop-products?product_type=ready')
-      if (!res.ok) throw new Error(`${res.status}`)
-      const data = await res.json()
+      const data = await apiFetch('/admin/shop-products?product_type=ready')
       setItems(data.items || [])
       setTotal(data.total || 0)
     } catch (e: any) {
@@ -486,11 +476,9 @@ function ShopProductsTab() {
         product_type: 'ready',
       }
       if (editing?.id) {
-        const res = await apiFetch(`/admin/shop-products/${editing.id}`, { method: 'PATCH', body: payload })
-        if (!res.ok) throw new Error(await res.text())
+        await apiFetch(`/admin/shop-products/${editing.id}`, { method: 'PATCH', body: payload })
       } else {
-        const res = await apiFetch('/admin/shop-products', { method: 'POST', body: payload })
-        if (!res.ok) throw new Error(await res.text())
+        await apiFetch('/admin/shop-products', { method: 'POST', body: payload })
       }
       await load(); closeModal()
     } catch (e: any) { setError('Хадгалахад алдаа: ' + (e.message || '')) }
@@ -499,7 +487,7 @@ function ShopProductsTab() {
 
   const deleteItem = async (id: string) => {
     if (!confirm('Устгах уу?')) return
-    await apiFetch(`/admin/shop-products/${id}`, { method: 'DELETE' })
+    await apiFetch(`/admin/shop-products/${id}`, { method: 'DELETE')
     await load()
   }
 
@@ -627,9 +615,7 @@ function TemplatesTab() {
     setLoading(true)
     try {
       const params = statusFilter ? `?status=${statusFilter}` : ''
-      const res = await apiFetch(`/templates${params}`)
-      if (!res.ok) throw new Error(`${res.status}`)
-      const data = await res.json()
+      const data = await apiFetch(`/templates${params}`)
       setItems(Array.isArray(data) ? data : [])
     } catch (e: any) {
       setItems([]); setError('Алдаа: ' + (e.message || ''))

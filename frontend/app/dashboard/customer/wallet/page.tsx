@@ -94,9 +94,9 @@ export default function WalletPage() {
     setLoading(true)
     try {
       const [meRes, balRes, txRes] = await Promise.all([
-        apiFetch(`//auth/me`),
-        apiFetch(`//wallet/balance`),
-        apiFetch(`//wallet/transactions`),
+        apiFetch(`/auth/me`),
+        apiFetch(`/wallet/balance`),
+        apiFetch(`/wallet/transactions`),
       ])
       if (meRes.ok)  setUser(await meRes.json())
       if (balRes.ok) setBalance(await balRes.json())
@@ -124,11 +124,10 @@ export default function WalletPage() {
     }
     setWithdrawing(true)
     try {
-      const res = await apiFetch(`//wallet/withdraw`, {
+      await apiFetch(`/wallet/withdraw`, {
         method: 'POST',
         body: { amount, note: withdrawNote },
       })
-      if (!res.ok) throw new Error()
       showToast('Татах хүсэлт илгээгдлээ. Admin батлах хүртэл хүлээнэ үү.')
       setShowWithdraw(false)
       setWithdrawAmount('')

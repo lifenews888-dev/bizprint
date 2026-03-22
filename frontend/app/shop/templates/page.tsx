@@ -37,12 +37,12 @@ function TemplatesShopInner() {
       .finally(() => setLoading(false))
 
     if (token) {
-      apiFetch(`/auth/me`, {` } })
+      apiFetch(`/auth/me`, {} })
         .then(r => r.json())
         .then(u => {
           if (u?.id) {
             setUser(u)
-            return apiFetch(`/templates/my/purchases`, {` } })
+            return apiFetch(`/templates/my/purchases`, {} })
           }
         })
         .then(r => r?.json())
@@ -98,8 +98,7 @@ function TemplatesShopInner() {
     setDownloading(templateId)
     try {
       const r = await apiFetch(`/templates/${templateId}/download`)
-      if (r.ok) {
-        const data = await r.json()
+      const data = r
         if (data.file_url) {
           window.open(data.file_url, '_blank')
         } else {

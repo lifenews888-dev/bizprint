@@ -51,8 +51,7 @@ export default function VendorDashboard() {
 
   async function fetchMe(token: string) {
     try {
-      const res = await apiFetch(`//auth/me`, {` } })
-      const data = await res.json()
+      const data = await apiFetch(`/auth/me`, {} })
       setUser(data)
       fetchJobs(token, data.id)
       fetchMachines(token)
@@ -61,17 +60,15 @@ export default function VendorDashboard() {
 
   async function fetchJobs(token: string, vendorId: string) {
     try {
-      const res = await apiFetch(`//vendor-dashboard/${vendorId}/jobs`, {` }
+      const data = await apiFetch(`/vendor-dashboard/${vendorId}/jobs`, {}
       })
-      const data = await res.json()
       setJobs(Array.isArray(data) ? data : [])
     } catch {} finally { setLoading(false) }
   }
 
   async function fetchMachines(token: string) {
     try {
-      const res = await apiFetch(`//machines`, {` } })
-      const data = await res.json()
+      const data = await apiFetch(`/machines`, {} })
       setMachines(Array.isArray(data) ? data : [])
     } catch {}
   }
@@ -79,8 +76,8 @@ export default function VendorDashboard() {
   async function assignMachine(jobId: string, machineId: string) {
     setActionLoading(jobId)
     try {
-      await apiFetch(`//vendor-dashboard/${jobId}/assign-machine`, {
-        method: 'PATCH'` },
+      await apiFetch(`/vendor-dashboard/${jobId}/assign-machine`, {
+        method: 'PATCH',
         body: { machine_id: machineId },
       })
       fetchJobs(getToken(), user.id)
@@ -90,8 +87,8 @@ export default function VendorDashboard() {
   async function startJob(jobId: string) {
     setActionLoading(jobId)
     try {
-      await apiFetch(`//vendor-dashboard/${jobId}/start`, {
-        method: 'PATCH'` },
+      await apiFetch(`/vendor-dashboard/${jobId}/start`, {
+        method: 'PATCH',
       })
       fetchJobs(getToken(), user.id)
     } catch {} finally { setActionLoading(null) }
@@ -100,8 +97,8 @@ export default function VendorDashboard() {
   async function finishJob(jobId: string) {
     setActionLoading(jobId)
     try {
-      await apiFetch(`//vendor-dashboard/${jobId}/finish`, {
-        method: 'PATCH'` },
+      await apiFetch(`/vendor-dashboard/${jobId}/finish`, {
+        method: 'PATCH',
       })
       fetchJobs(getToken(), user.id)
     } catch {} finally { setActionLoading(null) }

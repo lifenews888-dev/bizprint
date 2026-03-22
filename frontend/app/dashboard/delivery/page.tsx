@@ -59,9 +59,8 @@ export default function DeliveryTrackingPage() {
 
   async function fetchMe(t: string) {
     try {
-      const res = await apiFetch(`//auth/me`, {` },
+      const data = await apiFetch(`/auth/me`,
       });
-      const data = await res.json();
       setUserId(data.id);
       fetchOrders(t, data.id);
     } catch {
@@ -71,9 +70,8 @@ export default function DeliveryTrackingPage() {
 
   async function fetchOrders(t: string, uid: string) {
     try {
-      const res = await apiFetch(`//customer-dashboard/${uid}/orders`, {` },
+      const data = await apiFetch(`/customer-dashboard/${uid}/orders`,
       });
-      const data = await res.json();
       const list = Array.isArray(data) ? data : (data.orders || []);
       setOrders(list);
       if (list.length > 0) {
@@ -92,10 +90,9 @@ export default function DeliveryTrackingPage() {
     setDelivery(null);
     setTrackLoading(true);
     try {
-      const res = await apiFetch(`//delivery/order/${orderId}`, {` },
+      const res = await apiFetch(`/delivery/order/${orderId}`,
       });
-      if (res.ok) {
-        const data = await res.json();
+      const data = res;
         setDelivery(data);
       } else {
         setDelivery(null);

@@ -27,12 +27,12 @@ export default function DesignerEarningsPage() {
   async function loadData() {
     setLoading(true)
     try {
-      const bRes = await apiFetch(`//wallet/balance`)
+      const bRes = await apiFetch(`/wallet/balance`)
       const bData = await bRes.json()
       setBalance(bData?.balance || bData || 0)
     } catch {}
     try {
-      const tRes = await apiFetch(`//wallet/transactions`)
+      const tRes = await apiFetch(`/wallet/transactions`)
       const tData = await tRes.json()
       setTransactions(Array.isArray(tData) ? tData : [])
     } catch {}
@@ -45,7 +45,7 @@ export default function DesignerEarningsPage() {
     if (amount > Number(balance)) { setToast('Үлдэгдэл хүрэлцэхгүй'); setTimeout(() => setToast(''), 3000); return }
     if (!bankAccount || !bankName) { setToast('Банкны мэдээлэл оруулна уу'); setTimeout(() => setToast(''), 3000); return }
     try {
-      await apiFetch(`//wallet/withdraw`, {
+      await apiFetch(`/wallet/withdraw`, {
         method: 'POST',
         body: { amount, bank_name: bankName, bank_account: bankAccount },
       })

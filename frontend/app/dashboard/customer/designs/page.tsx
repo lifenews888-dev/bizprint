@@ -34,16 +34,15 @@ export default function CustomerDesignsPage() {
 
   useEffect(() => {
     if (!token) { router.push('/login'); return }
-    apiFetch(`//auth/me`, { headers }).catch(() => null).then(u => { if (u) setUser(u) })
+    apiFetch(`/auth/me`, { headers }).catch(() => null).then(u => { if (u) setUser(u) })
   }, [])
 
   const loadDesigns = async (userId?: string) => {
     const uid = userId || user?.id
     if (!uid) return
     try {
-      const res = await apiFetch(`//design-requests/customer/${uid}`, { headers })
-      if (res.ok) {
-        const data = await res.json()
+      const res = await apiFetch(`/design-requests/customer/${uid}`, { headers })
+      const data = res
         if (Array.isArray(data)) setDesigns(data)
       }
     } catch {}

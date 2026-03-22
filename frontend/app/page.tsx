@@ -186,7 +186,7 @@ export default function HomePage() {
     if (!unfetched.length) return
     Promise.all(
       unfetched.map(cat =>
-        apiFetch(`//products?categoryId=${cat.id}&limit=10`)
+        apiFetch(`/products?categoryId=${cat.id}&limit=10`)
           .then(r => r.json())
           .then(d => ({ id: String(cat.id), list: Array.isArray(d) ? d : (d?.data ?? []) }))
           .catch(() => ({ id: String(cat.id), list: [] as any[] }))

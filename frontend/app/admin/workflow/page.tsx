@@ -110,8 +110,7 @@ export default function AdminWorkflowPage() {
   // DB Audit Trail ачааллах
   const loadAuditTrail = async (orderId: string) => {
     try {
-      const r = await apiFetch(`/audit-trail/${orderId}`)
-      const d = await r.json()
+      const d = await apiFetch(`/audit-trail/${orderId}`)
       setAuditTrail(Array.isArray(d) ? d : [])
     } catch { setAuditTrail([]) }
   }
@@ -130,13 +129,13 @@ export default function AdminWorkflowPage() {
     setUploading(true)
     try {
       const formData = new FormData(); formData.append('file', file)
-      const uploadRes = await apiFetch(`/upload/file`, { method: 'POST'` }, body: formData })
+      const uploadRes = await apiFetch(`/upload/file`, { method: 'POST', body: formData })
       const uploadData = await uploadRes.json()
       const filePath = uploadData.url || uploadData.path || uploadData.filename || file.name
       await apiFetch('/order-files', { method: 'POST', body: { order_id: orderId, filename: file.name, path: filePath, size: file.size, mime_type: file.type, file_type: fileType, uploaded_by: currentUser, uploaded_by_role: 'admin' } })
       if (file.type === 'application/pdf') {
         const inspectForm = new FormData(); inspectForm.append('file', file)
-        const inspectRes = await apiFetch(`/ai/pdf-inspector/inspect`, { method: 'POST'` }, body: inspectForm }).catch(() => null)
+        const inspectRes = await apiFetch(`/ai/pdf-inspector/inspect`, { method: 'POST', body: inspectForm }).catch(() => null)
         if (inspectRes?.ok) {
           const analysis = await inspectRes.json()
           const files = await apiFetch(`/order-files?order_id=${orderId}`)
@@ -225,14 +224,13 @@ export default function AdminWorkflowPage() {
     if (!revertModal || !revertReason.trim()) return
     setReverting(true)
     try {
-      const res = await apiFetch(`/orders/${revertModal.order.id}/revert`, {
+      await apiFetch(`/orders/${revertModal.order.id}/revert`, {
         method: 'PATCH',
         body: {
           reason: revertReason.trim(,
           target_stage: revertTarget || undefined,
         }),
       })
-      if (!res.ok) {
         const err = await res.json().catch(() => ({}))
         showToast(`❌ ${err.message || 'Буцаахад алдаа гарлаа'}`)
         return

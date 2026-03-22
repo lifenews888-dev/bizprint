@@ -38,7 +38,7 @@ export default function CustomerChatPage() {
 
   // load me
   useEffect(() => {
-    apiFetch(`//auth/me`, {` } })
+    apiFetch(`/auth/me`, {} })
       .then(r => r.json())
       .then((u) => {
         if (u?.id) {
@@ -55,8 +55,7 @@ export default function CustomerChatPage() {
       const all: ChatUser[] = []
       for (const role of roles) {
         try {
-          const res = await apiFetch(`//chat/users/role/${role}`, {` } })
-          const list = await res.json()
+          const list = await apiFetch(`/chat/users/role/${role}`, {} })
           if (Array.isArray(list)) {
             all.push(...list.map((u: any) => ({ id: u.id, email: u.email, full_name: u.full_name, role: role })))
           }
@@ -76,7 +75,7 @@ export default function CustomerChatPage() {
 
   async function fetchMessages(userId: string) {
     if (!me) return
-    const res = await apiFetch(`//chat/messages?userId=${userId}&me=${me.id}`, {` },
+    const res = await apiFetch(`/chat/messages?userId=${userId}&me=${me.id}`,
     })
     const d: any[] = await res.json()
     if (!Array.isArray(d)) return setMessages([])
@@ -115,11 +114,10 @@ export default function CustomerChatPage() {
     if (!file) return undefined
     const form = new FormData()
     form.append('file', file)
-    const res = await apiFetch(`//upload/file`, {
-      method: 'POST'` },
+    const data = await apiFetch(`/upload/file`, {
+      method: 'POST',
       body: form,
     })
-    const data = await res.json()
     return data?.file_url || undefined
   }
 
@@ -141,8 +139,8 @@ export default function CustomerChatPage() {
     }
     setMessages(prev => [...prev, optimistic])
 
-    await apiFetch(`//chat/send`, {
-      method: 'POST'` },
+    await apiFetch(`/chat/send`, {
+      method: 'POST',
       body: {
         receiverId: selected.id,
         content,

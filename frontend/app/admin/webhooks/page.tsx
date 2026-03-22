@@ -33,8 +33,7 @@ export default function AdminWebhooksPage() {
   const load = async () => {
     setLoading(true)
     try {
-      const res = await apiFetch('/delivery/webhooks/list')
-      const data = await res.json()
+      const data = await apiFetch('/delivery/webhooks/list')
       setWebhooks(Array.isArray(data) ? data : [])
     } catch { setWebhooks([]) }
     setLoading(false)
@@ -69,7 +68,7 @@ export default function AdminWebhooksPage() {
 
   const handleDelete = async (id: number) => {
     if (!confirm('Устгах уу?')) return
-    await apiFetch(`/delivery/webhooks/${id}`, { method: 'DELETE' })
+    await apiFetch(`/delivery/webhooks/${id}`, { method: 'DELETE')
     load()
   }
 
@@ -81,8 +80,7 @@ export default function AdminWebhooksPage() {
   const handleTest = async (id: number) => {
     setTesting(id); setTestResult(null)
     try {
-      const res = await apiFetch(`/delivery/webhooks/${id}/test`, { method: 'POST'})
-      const data = await res.json()
+      const data = await apiFetch(`/delivery/webhooks/${id}/test`, { method: 'POST'})
       setTestResult(data.success ? '✅ Тест амжилттай илгээгдлээ' : '❌ Алдаа: ' + (data.error || 'Unknown'))
     } catch (e) {
       setTestResult('❌ Тест илгээхэд алдаа гарлаа')

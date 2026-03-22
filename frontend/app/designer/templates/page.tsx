@@ -62,8 +62,7 @@ export default function DesignerTemplatesPage() {
 
   async function loadCategories() {
     try {
-      const r = await apiFetch(`//categories`)
-      const data = await r.json()
+      const data = await apiFetch(`/categories`)
       if (Array.isArray(data)) setCategories(data)
     } catch {}
   }
@@ -71,8 +70,7 @@ export default function DesignerTemplatesPage() {
   async function loadTemplates() {
     setLoading(true)
     try {
-      const r = await apiFetch('/templates')
-      const data = await r.json()
+      const data = await apiFetch('/templates')
       setTemplates(Array.isArray(data) ? data : [])
     } catch {}
     setLoading(false)
@@ -82,7 +80,7 @@ export default function DesignerTemplatesPage() {
   async function uploadFile(file: File): Promise<string | null> {
     const fd = new FormData()
     fd.append('file', file)
-    const r = await apiFetch(`//upload/file`, { method: 'POST', body: fd })
+    const r = await apiFetch(`/upload/file`, { method: 'POST', body: fd })
     if (!r.ok) return null
     const data = await r.json()
     const url = data.url || data.file_url || null
@@ -132,7 +130,7 @@ export default function DesignerTemplatesPage() {
     if (!form.title.trim()) { showMsg('Нэр оруулна уу', false); return }
     setSaving(true)
     try {
-      await apiFetch(`//templates`, {
+      await apiFetch(`/templates`, {
         method: 'POST',
         body: {
           title: form.title,

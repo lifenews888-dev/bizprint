@@ -60,9 +60,8 @@ export default function CustomerDesignApproval() {
   const loadDesign = useCallback(async () => {
     if (!id) return
     try {
-      const res = await apiFetch(`//design-requests/${id}`)
-      if (res.ok) {
-        const data = await res.json()
+      const res = await apiFetch(`/design-requests/${id}`)
+      const data = res
         setDesign(data)
       }
     } catch {}
@@ -111,7 +110,7 @@ export default function CustomerDesignApproval() {
   const handleRequestRevision = async () => {
     if (!revisionReason.trim()) { showToast('Засах шалтгааныг бичнэ үү', 'error'); return }
     try {
-      const res = await apiFetch(`//design-requests/${id}/request-revision`, {
+      const res = await apiFetch(`/design-requests/${id}/request-revision`, {
         method: 'PATCH',
         body: { reason: revisionReason },
       })
@@ -130,7 +129,7 @@ export default function CustomerDesignApproval() {
   const handleApprove = async () => {
     setApproving(true)
     try {
-      const res = await apiFetch(`//design-requests/${id}/approve`, {
+      const res = await apiFetch(`/design-requests/${id}/approve`, {
         method: 'PATCH',
       })
       if (res.ok) {
@@ -151,7 +150,7 @@ export default function CustomerDesignApproval() {
     try {
       const body: any = {}
       if (zoomPreferredAt) body.preferred_at = zoomPreferredAt
-      const res = await apiFetch(`//design-requests/${id}/request-zoom`, {
+      const res = await apiFetch(`/design-requests/${id}/request-zoom`, {
         method: 'PATCH',
         headers: { ...(authHeaders as any)},
         body: body,
@@ -172,7 +171,7 @@ export default function CustomerDesignApproval() {
   const handleAddComment = async () => {
     if (!commentText.trim()) return
     try {
-      await apiFetch(`//design-requests/${id}/comments`, {
+      await apiFetch(`/design-requests/${id}/comments`, {
         method: 'POST',
         body: { content: commentText, author_role: 'customer', type: 'comment' },
       })

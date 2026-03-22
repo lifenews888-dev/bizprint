@@ -87,7 +87,7 @@ export default function SalesDashboard() {
     setUser(u)
     Promise.all([
       apiFetch('/referral/my').catch(() => null),
-      apiFetch('//orders/customer/' + u.id).catch(() => []),
+      apiFetch('/orders/customer/' + u.id).catch(() => []),
     ]).then(([ref, ord]) => {
       if (ref) setReferral(ref)
       setOrders(Array.isArray(ord) ? ord : [])

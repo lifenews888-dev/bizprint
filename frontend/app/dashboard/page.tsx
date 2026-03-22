@@ -77,7 +77,7 @@ export default function DashboardPage() {
     if (!ticketSubject || !ticketMessage || ticketSending) return
     setTicketSending(true)
     try {
-      await apiFetch('//customer/support', {
+      await apiFetch('/customer/support', {
         method: 'POST',
         body: { subject: ticketSubject, message: ticketMessage, quote_id: ticketQuoteId || undefined },
       })
@@ -107,7 +107,7 @@ export default function DashboardPage() {
     joinRoom(`user:${u.id}`)
     setLoading(true)
     Promise.all([
-      apiFetch('//orders/customer/'+u.id).catch(()=>[]),
+      apiFetch('/orders/customer/'+u.id).catch(()=>[]),
       apiFetch('/quotes-v2/my').catch(()=>[]),
       apiFetch('/products').catch(()=>[]),
     ]).then(([o,q,p]) => {
@@ -124,13 +124,13 @@ export default function DashboardPage() {
       subscribe('DESIGN_ZOOM_CREATED', (p: any) => {
         show('📹 Zoom уулзалт товлогдлоо! Имэйлийг шалгаарай.')
         // Reload orders to refresh status
-        apiFetch('//orders/customer/'+user.id).then(o => setOrders(Array.isArray(o)?o:[])).catch(()=>{})
+        apiFetch('/orders/customer/'+user.id).then(o => setOrders(Array.isArray(o)?o:[])).catch(()=>{})
       }),
       subscribe('DESIGN_APPROVED', () => {
-        apiFetch('//orders/customer/'+user.id).then(o => setOrders(Array.isArray(o)?o:[])).catch(()=>{})
+        apiFetch('/orders/customer/'+user.id).then(o => setOrders(Array.isArray(o)?o:[])).catch(()=>{})
       }),
       subscribe('DESIGN_FILE_UPLOADED', () => {
-        apiFetch('//orders/customer/'+user.id).then(o => setOrders(Array.isArray(o)?o:[])).catch(()=>{})
+        apiFetch('/orders/customer/'+user.id).then(o => setOrders(Array.isArray(o)?o:[])).catch(()=>{})
       }),
     ]
     return () => unsubs.forEach(u => u())
@@ -186,8 +186,7 @@ export default function DashboardPage() {
   const pollStatus = async (invoiceNo: string) => {
     const timer = setInterval(async () => {
       try {
-        const res = await apiFetch(`/payment/status/${invoiceNo}`)
-        const data = await res.json()
+        const data = await apiFetch(`/payment/status/${invoiceNo}`)
         if (data?.status === 1 || data?.status === 'PAID' || data?.status === 'paid') {
           clearInterval(timer)
           show('Төлбөр амжилттай!')
@@ -209,7 +208,7 @@ export default function DashboardPage() {
     if (selQ.size === 0) return
     for (const qid of selQ) { try { await apiFetch('/orders/from-quote', { method: 'POST', body: { quote_id: qid } }) } catch {} }
     show(selQ.size + ' захиалга үүсгэгдлээ!'); setSelQ(new Set())
-    const o = await apiFetch('//orders/customer/'+user?.id).catch(()=>[])
+    const o = await apiFetch('/orders/customer/'+user?.id).catch(()=>[])
     const q = await apiFetch('/quotes-v2/my').catch(()=>[])
     setOrders(Array.isArray(o)?o:[]); setQuotes(Array.isArray(q)?q:[]); setSection('orders')
     } finally { setOrdering(false) }
@@ -242,8 +241,7 @@ export default function DashboardPage() {
     if (!email) return
     setQuotesLoading(true)
     try {
-      const res = await apiFetch('//quotes-v2/guest?email=' + encodeURIComponent(email))
-      const data = await res.json()
+      const data = await apiFetch('/quotes-v2/guest?email=' + encodeURIComponent(email))
       setQuotes(Array.isArray(data) ? data : [])
       setQuoteEmail(email)
     } catch { setQuotes([]) }

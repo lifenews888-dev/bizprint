@@ -95,10 +95,8 @@ function PriceConfigTab() {
   const [toast, setToast] = useState('')
 
   useEffect(() => {
-    apiFetch(`//pricing-config`, {` },
-    })
-      .then(r => r.ok ? r.json() : [])
-      .then((data: PricingConfig[]) => {
+    apiFetch<PricingConfig[]>('/pricing-config')
+      .then((data) => {
         const arr = Array.isArray(data) ? data : []
         setConfigs(arr)
         const vals: Record<string, string> = {}
@@ -116,12 +114,10 @@ function PriceConfigTab() {
   async function saveSingle(key: string) {
     setSavingKey(key)
     try {
-      const res = await apiFetch(`//pricing-config`, {
-        method: 'PUT'`,
-        },
-        body: { items: [{ key, value: Number(editValues[key] || 0 }] }),
+      await apiFetch('/pricing-config', {
+        method: 'PUT',
+        body: { items: [{ key, value: Number(editValues[key]) || 0 }] },
       })
-      if (!res.ok) throw new Error()
       setConfigs(prev => prev.map(c => c.key === key ? { ...c, value: Number(editValues[key]) || 0 } : c))
       showToast('Амжилттай хадгаллаа')
     } catch {
@@ -138,12 +134,10 @@ function PriceConfigTab() {
         key: c.key,
         value: Number(editValues[c.key]) || 0,
       }))
-      const res = await apiFetch(`//pricing-config`, {
-        method: 'PUT'`,
-        },
+      await apiFetch('/pricing-config', {
+        method: 'PUT',
         body: { items },
       })
-      if (!res.ok) throw new Error()
       setConfigs(prev => prev.map(c => ({ ...c, value: Number(editValues[c.key]) || 0 })))
       showToast('Амжилттай хадгаллаа')
     } catch {
@@ -316,10 +310,7 @@ function QuotesListTab() {
   const fetchQuotes = useCallback(async () => {
     setLoading(true)
     try {
-      const res = await apiFetch(`//quotes-v2`, {` },
-      })
-      if (!res.ok) throw new Error()
-      const data = await res.json()
+      const data = await apiFetch<any>('/quotes-v2')
       setQuotes(Array.isArray(data) ? data : data.data || [])
     } catch {
       setQuotes([])
@@ -332,9 +323,8 @@ function QuotesListTab() {
 
   async function changeStatus(id: number, status: string) {
     try {
-      await apiFetch(`//quotes-v2/${id}`, {
-        method: 'PATCH'`,
-        },
+      await apiFetch(`/quotes-v2/${id}`, {
+        method: 'PATCH',
         body: { status },
       })
       setQuotes(prev => prev.map(q => q.id === id ? { ...q, status } : q))
@@ -344,11 +334,11 @@ function QuotesListTab() {
   async function resendEmail(id: number) {
     setSendingEmail(id)
     try {
-      await apiFetch(`//quotes-v2/${id}/resend-email`, {
-        method: 'POST'` },
+      await apiFetch(`/quotes-v2/${id}/resend-email`, {
+        method: 'POST',
       }).catch(() =>
-        apiFetch(`//quotes-v2/${id}/send-email`, {
-          method: 'POST'` },
+        apiFetch(`/quotes-v2/${id}/send-email`, {
+          method: 'POST',
         })
       )
     } catch {}
@@ -546,8 +536,8 @@ function StatsTab() {
 
   useEffect(() => {
         Promise.all([
-      apiFetch(`//quotes-v2/today`, { headers }).catch(() => null).catch(() => null),
-      apiFetch(`//quotes-v2`, { headers }).catch(() => null).catch(() => null),
+      apiFetch('/quotes-v2/today').catch(() => null),
+      apiFetch('/quotes-v2').catch(() => null),
     ]).then(([todayData, allData]) => {
       if (todayData) {
         if (typeof todayData === 'number') setTodayCount(todayData)
