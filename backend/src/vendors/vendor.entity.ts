@@ -1,4 +1,5 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, OneToMany } from 'typeorm';
+import { VendorCapability } from './entities/vendor-capability.entity';
 
 @Entity('vendors')
 export class Vendor {
@@ -21,7 +22,9 @@ export class Vendor {
   @Column({ default: false })
   verified: boolean;
 
+  @OneToMany(() => VendorCapability, (vc) => vc.vendor)
+  vendor_capabilities: VendorCapability[];
+
   @CreateDateColumn()
   created_at: Date;
-
 }

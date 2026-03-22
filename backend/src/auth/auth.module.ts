@@ -7,10 +7,11 @@ import { AuthController } from './auth.controller';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { User } from '../users/user.entity';
 import { RefreshToken } from './entities/refresh-token.entity';
+import { Role } from './entities/role.entity';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User, RefreshToken]),
+    TypeOrmModule.forFeature([User, RefreshToken, Role]),
     PassportModule,
     JwtModule.register({
       secret: 'bizprint_super_secret_key_2026',

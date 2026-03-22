@@ -1,7 +1,8 @@
 ﻿import {
   Entity, PrimaryGeneratedColumn, Column,
-  CreateDateColumn, UpdateDateColumn
+  CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn,
 } from 'typeorm';
+import { Role } from '../auth/entities/role.entity';
 
 @Entity('users')
 export class User {
@@ -34,6 +35,13 @@ export class User {
 
   @Column({ default: 'customer' })
   role: string;
+
+  @Column({ nullable: true })
+  role_id: string;
+
+  @ManyToOne(() => Role, { nullable: true })
+  @JoinColumn({ name: 'role_id' })
+  role_entity: Role;
 
   @Column({ default: false })
   totp_enabled: boolean;

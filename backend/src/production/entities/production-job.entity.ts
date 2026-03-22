@@ -1,4 +1,5 @@
-import { Entity, PrimaryGeneratedColumn, Column } from 'typeorm'
+import { Entity, PrimaryGeneratedColumn, Column, OneToMany } from 'typeorm'
+import { ProductionStage } from './production-stage.entity'
 
 export enum ProductionStatus {
   QUEUED = 'queued',
@@ -36,4 +37,6 @@ export class ProductionJob {
   @Column({ nullable: true })
   end_time: Date
 
+  @OneToMany(() => ProductionStage, (stage) => stage.production_job)
+  stages: ProductionStage[]
 }
