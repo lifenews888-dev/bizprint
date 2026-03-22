@@ -445,18 +445,11 @@ export default function QuotePage() {
 
     try {
       // Attach JWT + user_id if logged in so quote links to their account
-      const token = typeof window !== 'undefined'
-        ? (localStorage.getItem('access_token') || localStorage.getItem('token') || '')
-        : ''
       const storedUser = typeof window !== 'undefined'
         ? (() => { try { return JSON.parse(localStorage.getItem('user') || 'null') } catch { return null } })()
         : null
-      const reqHeaders: Record<string, string> = {}
-      if (token) reqHeaders['Authorization'] = `Bearer ${token}`
-
-      const res = await apiFetch(`//quotes-v2`, {
+      const data = await apiFetch<any>('/quotes-v2', {
         method: 'POST',
-        headers: reqHeaders,
         body: {
           user_id: storedUser?.id || undefined,
           customer_name: storedUser?.full_name || mName,
@@ -504,9 +497,8 @@ export default function QuotePage() {
           pricing_mode: margin,
           extras,
           breakdown: breakdown.lines.map(l => ({ label: l.label, amount: Math.round(l.amount) })),
-        }),
+        },
       });
-      const data = await res.json();
       const qNum = data?.quote_number || data?.id?.slice(0, 8)?.toUpperCase() || '??????';
 
       if (loggedUser) {
