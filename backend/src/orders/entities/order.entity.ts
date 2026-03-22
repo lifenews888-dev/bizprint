@@ -6,6 +6,8 @@ import { User } from '../../users/user.entity';
 import { Product } from '../../products/product.entity';
 import { OrderItem } from './order-item.entity';
 import { OrderVendorGroup } from './order-vendor-group.entity';
+import { Invoice } from '../../payment/entities/invoice.entity';
+import { Shipment } from '../../shipping/entities/shipment.entity';
 
 export enum OrderStatus {
   DRAFT = 'draft',
@@ -123,6 +125,12 @@ export class Order {
 
   @OneToMany(() => OrderVendorGroup, (vg) => vg.order)
   vendor_groups: OrderVendorGroup[];
+
+  @OneToMany(() => Invoice, (inv) => inv.order)
+  invoices: Invoice[];
+
+  @OneToMany(() => Shipment, (s) => s.order)
+  shipments: Shipment[];
 
   @CreateDateColumn()
   created_at: Date;

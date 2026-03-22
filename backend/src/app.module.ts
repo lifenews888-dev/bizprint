@@ -63,6 +63,7 @@ import { CustomerCareModule } from './customer-care/customer-care.module'
 import { CmsModule } from './cms/cms.module'
 import { MarketingModule } from './marketing/marketing.module'
 import { SmartQuoteModule } from './ai/smart-quote/smart-quote.module'
+import { ShippingModule } from './shipping/shipping.module'
 
 @Module({
   imports: [
@@ -138,6 +139,7 @@ import { SmartQuoteModule } from './ai/smart-quote/smart-quote.module'
     CmsModule,
     MarketingModule,
     SmartQuoteModule,
+    ShippingModule,
   ],
   controllers: [PricingCatalogController],
   providers: [PricingCatalogService],
