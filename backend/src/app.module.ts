@@ -15,21 +15,14 @@ import { ProductsModule } from './products/products.module'
 import { ProductAttributesModule } from './product-attributes/product-attributes.module'
 import { VariantsModule } from './variants/variants.module'
 import { ProductVariantsModule } from './product-variants/product-variants.module'
-// import { PriceModule } from './price/price.module' // DISABLED: legacy, hardcoded 1.4x markup
 import { MachinesModule } from './machines/machines.module'
-// import { PricingModule } from './pricing/pricing.module' // DISABLED: legacy, superseded by quote-engine + pricing-rules
 import { PdfInspectorModule } from './ai/pdf-inspector/pdf-inspector.module'
 import { SheetOptimizerModule } from './ai/sheet-optimizer/sheet-optimizer.module'
 import { GangRunModule } from './ai/gang-run/gang-run.module'
 import { MachineSelectorModule } from './ai/machine-selector/machine-selector.module'
 import { PrintCostModule } from './ai/print-cost/print-cost.module'
 import { ImpositionModule } from './ai/imposition/imposition.module'
-// import { PrintQuoteModule } from './ai/print-quote/print-quote.module' // DISABLED: stub, hardcoded prices, no DB
-// import { AutoQuoteModule } from './ai/auto-quote/auto-quote.module' // DISABLED: only consumer was QuoteFromFile
-// import { PrintEngineModule } from './ai/print-engine/print-engine.module' // DISABLED: stub, placeholder logic
 import { PrintSizeModule } from './ai/print-size/print-size.module'
-// import { QuoteFromFileModule } from './ai/quote-from-file/quote-from-file.module' // DISABLED: migrated to smart-quote/from-pdf
-// import { FullQuoteModule } from './ai/full-quote/full-quote.module' // DISABLED: migrated to quote-engine/calculate-offset
 import { OrdersModule } from './orders/order.module'
 import { CartModule } from './cart/cart.module'
 import { PaymentModule } from './payment/payment.module'
@@ -93,9 +86,7 @@ import { ShippingModule } from './shipping/shipping.module'
     ProductAttributesModule,
     VariantsModule,
     ProductVariantsModule,
-    // PriceModule, // DISABLED
     MachinesModule,
-    // PricingModule, // DISABLED
     PdfInspectorModule,
     SheetOptimizerModule,
     GangRunModule,
@@ -103,12 +94,7 @@ import { ShippingModule } from './shipping/shipping.module'
     PrintCostModule,
     ImpositionModule,
     PaymentModule,
-    // PrintQuoteModule, // DISABLED
-    // AutoQuoteModule, // DISABLED
-    // PrintEngineModule, // DISABLED
     PrintSizeModule,
-    // QuoteFromFileModule, // DISABLED
-    // FullQuoteModule, // DISABLED
     OrdersModule,
     CartModule,
     ProductionModule,
