@@ -3,6 +3,8 @@ import { ChatModule } from './chat/chat.module'
 import { ConfigModule } from '@nestjs/config'
 import { TypeOrmModule } from '@nestjs/typeorm'
 import { ThrottlerModule } from '@nestjs/throttler'
+import { EventsModule } from './events/events.module'
+import { SyncModule } from './sync/sync.module'
 
 import { AuthModule } from './auth/auth.module'
 import { VendorsModule } from './vendors/vendors.module'
@@ -13,21 +15,21 @@ import { ProductsModule } from './products/products.module'
 import { ProductAttributesModule } from './product-attributes/product-attributes.module'
 import { VariantsModule } from './variants/variants.module'
 import { ProductVariantsModule } from './product-variants/product-variants.module'
-import { PriceModule } from './price/price.module'
+// import { PriceModule } from './price/price.module' // DISABLED: legacy, hardcoded 1.4x markup
 import { MachinesModule } from './machines/machines.module'
-import { PricingModule } from './pricing/pricing.module'
+// import { PricingModule } from './pricing/pricing.module' // DISABLED: legacy, superseded by quote-engine + pricing-rules
 import { PdfInspectorModule } from './ai/pdf-inspector/pdf-inspector.module'
 import { SheetOptimizerModule } from './ai/sheet-optimizer/sheet-optimizer.module'
 import { GangRunModule } from './ai/gang-run/gang-run.module'
 import { MachineSelectorModule } from './ai/machine-selector/machine-selector.module'
 import { PrintCostModule } from './ai/print-cost/print-cost.module'
 import { ImpositionModule } from './ai/imposition/imposition.module'
-import { PrintQuoteModule } from './ai/print-quote/print-quote.module'
+// import { PrintQuoteModule } from './ai/print-quote/print-quote.module' // DISABLED: stub, hardcoded prices, no DB
 import { AutoQuoteModule } from './ai/auto-quote/auto-quote.module'
-import { PrintEngineModule } from './ai/print-engine/print-engine.module'
+// import { PrintEngineModule } from './ai/print-engine/print-engine.module' // DISABLED: stub, placeholder logic
 import { PrintSizeModule } from './ai/print-size/print-size.module'
 import { QuoteFromFileModule } from './ai/quote-from-file/quote-from-file.module'
-import { FullQuoteModule } from './ai/full-quote/full-quote.module'
+// import { FullQuoteModule } from './ai/full-quote/full-quote.module' // DISABLED: migrated to quote-engine/calculate-offset
 import { OrdersModule } from './orders/order.module'
 import { CartModule } from './cart/cart.module'
 import { PaymentModule } from './payment/payment.module'
@@ -59,9 +61,13 @@ import { ProductsMasterModule } from './products-master/products-master.module'
 import { PricingEngineModule } from './pricing-engine/pricing-engine.module'
 import { CustomerCareModule } from './customer-care/customer-care.module'
 import { CmsModule } from './cms/cms.module'
+import { MarketingModule } from './marketing/marketing.module'
+import { SmartQuoteModule } from './ai/smart-quote/smart-quote.module'
 
 @Module({
   imports: [
+    EventsModule,   // ← Global EventBus (must be first)
+    SyncModule,     // ← WebSocket /sync gateway
     ChatModule,
     ConfigModule.forRoot({ isGlobal: true }),
     TypeOrmModule.forRoot({
@@ -86,9 +92,9 @@ import { CmsModule } from './cms/cms.module'
     ProductAttributesModule,
     VariantsModule,
     ProductVariantsModule,
-    PriceModule,
+    // PriceModule, // DISABLED
     MachinesModule,
-    PricingModule,
+    // PricingModule, // DISABLED
     PdfInspectorModule,
     SheetOptimizerModule,
     GangRunModule,
@@ -96,12 +102,12 @@ import { CmsModule } from './cms/cms.module'
     PrintCostModule,
     ImpositionModule,
     PaymentModule,
-    PrintQuoteModule,
+    // PrintQuoteModule, // DISABLED
     AutoQuoteModule,
-    PrintEngineModule,
+    // PrintEngineModule, // DISABLED
     PrintSizeModule,
     QuoteFromFileModule,
-    FullQuoteModule,
+    // FullQuoteModule, // DISABLED
     OrdersModule,
     CartModule,
     ProductionModule,
@@ -130,6 +136,8 @@ import { CmsModule } from './cms/cms.module'
     PricingEngineModule,
     CustomerCareModule,
     CmsModule,
+    MarketingModule,
+    SmartQuoteModule,
   ],
   controllers: [PricingCatalogController],
   providers: [PricingCatalogService],

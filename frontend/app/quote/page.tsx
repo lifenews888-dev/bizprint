@@ -323,18 +323,17 @@ export default function QuotePage() {
           extra_crane8: extraCrane8,
         };
       } else if (printSub === 'offset') {
-        // ─ AI engine: sheet-optimizer + print-cost full pipeline ─
-        endpoint = 'ai/full-quote/offset';
+        endpoint = 'calculate-offset';
         body = {
-          product:  offProduct,
-          size:     offSize,
-          gsm:      offGsm,
-          quantity: offQty,
-          color:    offColor,
-          sides:    offSides,
-          finish:   offFinish,
-          fold:     offFold,
-          is_rush:  rush !== 'normal',
+          product:    offProduct,
+          size_code:  offSize,
+          gsm:        offGsm,
+          quantity:   offQty,
+          color_mode: offColor,
+          sides:      offSides,
+          finish:     offFinish,
+          fold:       offFold,
+          rush_hours: rush === '24h' ? 24 : rush === '48h' ? 48 : 0,
         };
       } else {
         endpoint = 'calculate-wide';
@@ -347,12 +346,10 @@ export default function QuotePage() {
         };
       }
 
-      const isOffsetAi = tab === 'print' && printSub === 'offset';
-      const fetchUrl = isOffsetAi
-        ? `${API}/${endpoint}`
-        : `${API}/quote-engine/${endpoint}`;
+      const isOffset = tab === 'print' && printSub === 'offset';
+      const fetchUrl = `${API}/quote-engine/${endpoint}`;
 
-      if (isOffsetAi) setOffAiLoading(true);
+      if (isOffset) setOffAiLoading(true);
 
       fetch(fetchUrl, {
         method: 'POST',
@@ -361,11 +358,11 @@ export default function QuotePage() {
       })
         .then(r => r.ok ? r.json() : null)
         .then(d => {
-          if (isOffsetAi) {
+          if (isOffset) {
             setOffAiLoading(false);
-            if (d?.summary) {
+            if (d?.total_price) {
               setOffAiResult(d);
-              setApiResult({ total_price: d.summary.total_price, unit_price: d.summary.price_per_unit });
+              setApiResult({ total_price: d.total_price, unit_price: d.unit_price });
             } else {
               setOffAiResult(null);
               setApiResult(null);
