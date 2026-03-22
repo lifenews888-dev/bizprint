@@ -476,7 +476,7 @@ export default function QuotePage() {
           size:       tab === 'sign' ? undefined : printSub === 'offset' ? offSize : `${wideW}×${wideL}м`,
           pages:      printSub === 'offset' ? offPages : undefined,
           paper_gsm:  printSub === 'offset' ? offGsm : undefined,
-          color_mode: printSub === 'offset' ? (offColor === 'full' ? 'color' : 'bw' : undefined,
+          color_mode: printSub === 'offset' ? (offColor === 'full' ? 'color' : 'bw') : undefined,
           sides:      printSub === 'offset' ? offSides : undefined,
           finishing:  printSub === 'offset' ? (offFinish !== 'none' ? offFinish : undefined) : undefined,
           paper_type: printSub === 'offset' ? `${offGsm}gsm` : undefined,
