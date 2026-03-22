@@ -88,7 +88,7 @@ export class OrdersService {
   }
 
   async createFromQuote(quoteId: string, userId: string, paymentMethod?: string) {
-    const quoteRepo = this.ordersRepo.manager.connection.getRepository('QuoteV2');
+    const quoteRepo = this.ordersRepo.manager.connection.getRepository('Quotation');
     const quote = await quoteRepo.findOne({ where: { id: quoteId } });
     if (!quote) throw new NotFoundException('Quote олдсонгүй');
 

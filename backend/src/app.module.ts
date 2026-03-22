@@ -40,7 +40,7 @@ import { PaperTypesModule } from './paper-types/paper-types.module'
 import { DesignRequestsModule } from './design-requests/design-requests.module'
 import { DeliveryModule } from './delivery/delivery.module'
 import { TemplatesModule } from './templates/templates.module'
-import { QuotesV2Module } from './quotes-v2/quotes-v2.module'
+import { QuoteModule } from './quote/quote.module'
 import { BannersModule } from './banners/banners.module'
 import { PagesModule } from './pages/pages.module'
 import { MenusModule } from './menus/menus.module'
@@ -111,7 +111,7 @@ import { ShippingModule } from './shipping/shipping.module'
     DesignRequestsModule,
     DeliveryModule,
     TemplatesModule,
-    QuotesV2Module,
+    QuoteModule,
     BannersModule,
     PagesModule,
     MenusModule,

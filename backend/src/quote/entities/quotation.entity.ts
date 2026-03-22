@@ -1,5 +1,5 @@
-﻿import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, OneToMany } from 'typeorm';
-import { QuotationItem } from '../quote/entities/quotation-item.entity';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, OneToMany } from 'typeorm';
+import { QuotationItem } from './quotation-item.entity';
 
 export enum QuoteStatus {
   DRAFT     = 'draft',
@@ -10,7 +10,7 @@ export enum QuoteStatus {
 }
 
 @Entity('quotes_v2')
-export class QuoteV2 {
+export class Quotation {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 

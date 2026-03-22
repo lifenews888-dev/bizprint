@@ -2,7 +2,7 @@ import {
   Entity, PrimaryGeneratedColumn, Column,
   CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn,
 } from 'typeorm';
-import { QuoteV2 } from '../../quotes-v2/quote-v2.entity';
+import { Quotation } from './quotation.entity';
 import { Product } from '../../products/product.entity';
 
 @Entity('quotation_items')
@@ -13,9 +13,9 @@ export class QuotationItem {
   @Column()
   quotation_id: string;
 
-  @ManyToOne(() => QuoteV2, (quote) => quote.items)
+  @ManyToOne(() => Quotation, (quote) => quote.items)
   @JoinColumn({ name: 'quotation_id' })
-  quotation: QuoteV2;
+  quotation: Quotation;
 
   @Column({ nullable: true })
   product_id: string;

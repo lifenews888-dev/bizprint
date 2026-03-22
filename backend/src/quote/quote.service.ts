@@ -1,13 +1,13 @@
-﻿import { Injectable } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Between } from 'typeorm';
-import { QuoteV2 } from './quote-v2.entity';
+import { Quotation } from './entities/quotation.entity';
 
 @Injectable()
-export class QuotesV2Service {
+export class QuoteService {
   constructor(
-    @InjectRepository(QuoteV2)
-    private repo: Repository<QuoteV2>,
+    @InjectRepository(Quotation)
+    private repo: Repository<Quotation>,
   ) {}
 
   async generateNumber(): Promise<string> {
@@ -18,7 +18,7 @@ export class QuotesV2Service {
     return 'QT-' + d + '-' + ms + rand;
   }
 
-  async create(data: Partial<QuoteV2>): Promise<QuoteV2> {
+  async create(data: Partial<Quotation>): Promise<Quotation> {
     const quote_number = await this.generateNumber();
     const valid_until = new Date();
     valid_until.setDate(valid_until.getDate() + 3);
@@ -47,7 +47,7 @@ export class QuotesV2Service {
     });
   }
 
-  async update(id: string, data: Partial<QuoteV2>) {
+  async update(id: string, data: Partial<Quotation>) {
     await this.repo.update(id, data);
     return this.findOne(id);
   }
@@ -66,6 +66,16 @@ export class QuotesV2Service {
     });
   }
 
+  findByUserIdOrEmail(userId: string, email: string) {
+    return this.repo.find({
+      where: [
+        { user_id: userId },
+        { customer_email: email },
+      ],
+      order: { created_at: 'DESC' },
+    });
+  }
+
   async updateStatus(id: string, status: string) {
     await this.repo.update(id, { status });
     return this.findOne(id);
@@ -75,7 +85,7 @@ export class QuotesV2Service {
     const now = new Date();
     await this.repo
       .createQueryBuilder()
-      .update(QuoteV2)
+      .update(Quotation)
       .set({ status: 'expired' })
       .where('valid_until < :now AND status NOT IN (:...statuses)', {
         now, statuses: ['ordered', 'expired'],
