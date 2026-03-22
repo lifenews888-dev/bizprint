@@ -25,10 +25,10 @@ import { MachineSelectorModule } from './ai/machine-selector/machine-selector.mo
 import { PrintCostModule } from './ai/print-cost/print-cost.module'
 import { ImpositionModule } from './ai/imposition/imposition.module'
 // import { PrintQuoteModule } from './ai/print-quote/print-quote.module' // DISABLED: stub, hardcoded prices, no DB
-import { AutoQuoteModule } from './ai/auto-quote/auto-quote.module'
+// import { AutoQuoteModule } from './ai/auto-quote/auto-quote.module' // DISABLED: only consumer was QuoteFromFile
 // import { PrintEngineModule } from './ai/print-engine/print-engine.module' // DISABLED: stub, placeholder logic
 import { PrintSizeModule } from './ai/print-size/print-size.module'
-import { QuoteFromFileModule } from './ai/quote-from-file/quote-from-file.module'
+// import { QuoteFromFileModule } from './ai/quote-from-file/quote-from-file.module' // DISABLED: migrated to smart-quote/from-pdf
 // import { FullQuoteModule } from './ai/full-quote/full-quote.module' // DISABLED: migrated to quote-engine/calculate-offset
 import { OrdersModule } from './orders/order.module'
 import { CartModule } from './cart/cart.module'
@@ -103,10 +103,10 @@ import { SmartQuoteModule } from './ai/smart-quote/smart-quote.module'
     ImpositionModule,
     PaymentModule,
     // PrintQuoteModule, // DISABLED
-    AutoQuoteModule,
+    // AutoQuoteModule, // DISABLED
     // PrintEngineModule, // DISABLED
     PrintSizeModule,
-    QuoteFromFileModule,
+    // QuoteFromFileModule, // DISABLED
     // FullQuoteModule, // DISABLED
     OrdersModule,
     CartModule,
