@@ -25,7 +25,7 @@ export default function AdminUsersPage() {
     await apiFetch(url, { method: , body: body })
     reset(); load()
   }
-  const del = async (id: string) => { if (!confirm('Устгах уу?')) return; await apiFetch(`/admin/users/${id}`, { method: 'DELETE'); load() }
+  const del = async (id: string) => { if (!confirm('Устгах уу?')) return; await apiFetch(`/admin/users/${id}`, { method: 'DELETE' }); load() }
   const edit = (item: any) => { setEditing(item); setForm({ full_name: item.full_name || '', email: item.email || '', password: '', role: item.role || 'customer', phone: item.phone || '' }) }
 
   const ROLE_LABELS: Record<string, string> = { customer: 'Хэрэглэгч', admin: 'Админ', vendor: 'Үйлдвэрлэгч', designer: 'Дизайнер', sales: 'Борлуулагч', courier: 'Хүргэлтийн ажилтан', factory: 'Үйлдвэр' }

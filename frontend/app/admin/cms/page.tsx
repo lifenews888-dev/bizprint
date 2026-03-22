@@ -177,7 +177,7 @@ export default function AdminCmsPage() {
 
   const deleteMenuItem = async (id: string) => {
     if (!confirm('Устгах уу?')) return
-    await apiFetch(`/cms/mega-menu/${id}`, { method: 'DELETE')
+    await apiFetch(`/cms/mega-menu/${id}`, { method: 'DELETE' })
     loadMenu()
   }
 

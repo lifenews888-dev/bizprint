@@ -910,7 +910,7 @@ function CompetitorTab() {
 
   const deletePrice = async (id: string) => {
     try {
-      await apiFetch(`/pricing-engine/competitors/${id}`, { method: 'DELETE')
+      await apiFetch(`/pricing-engine/competitors/${id}`, { method: 'DELETE' })
       loadData()
     } catch (e) {
       console.error('Failed to delete', e)

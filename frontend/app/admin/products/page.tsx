@@ -181,7 +181,7 @@ function PrintProductsTab() {
 
   const deactivate = async (id: string) => {
     if (!confirm('Устгах уу?')) return
-    await apiFetch(`/admin/products-master/${id}`, { method: 'DELETE')
+    await apiFetch(`/admin/products-master/${id}`, { method: 'DELETE' })
     await load()
   }
 
@@ -487,7 +487,7 @@ function ShopProductsTab() {
 
   const deleteItem = async (id: string) => {
     if (!confirm('Устгах уу?')) return
-    await apiFetch(`/admin/shop-products/${id}`, { method: 'DELETE')
+    await apiFetch(`/admin/shop-products/${id}`, { method: 'DELETE' })
     await load()
   }
 

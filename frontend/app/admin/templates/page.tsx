@@ -15,7 +15,7 @@ export default function AdminTemplatesPage() {
 
   const approve = async (id: string) => { await apiFetch(`/templates/${id}/approve`, { method: 'PATCH'}); load() }
   const reject = async (id: string) => { if (!confirm('Татгалзах уу?')) return; await apiFetch(`/templates/${id}/reject`, { method: 'PATCH'}); load() }
-  const del = async (id: string) => { if (!confirm('Устгах уу?')) return; await apiFetch(`/templates/${id}`, { method: 'DELETE'); load() }
+  const del = async (id: string) => { if (!confirm('Устгах уу?')) return; await apiFetch(`/templates/${id}`, { method: 'DELETE' }); load() }
 
   const STATUS_COLOR: Record<string, string> = { approved: '#10B981', pending: '#F59E0B', rejected: '#EF4444' }
 

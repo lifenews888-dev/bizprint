@@ -33,7 +33,7 @@ export default function AdminMarketingPage() {
   }
   const del = async (id: string) => {
     if (!confirm('Устгах уу?')) return
-    try { await apiFetch(`/marketing/campaigns/${id}`, { method: 'DELETE') } catch {}
+    try { await apiFetch(`/marketing/campaigns/${id}`, { method: 'DELETE' }) } catch {}
     setCampaigns(prev => prev.filter(c => c.id !== id))
   }
 

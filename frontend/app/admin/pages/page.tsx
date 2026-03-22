@@ -18,7 +18,7 @@ export default function AdminPagesPage() {
     await apiFetch(url, { method: , body: form })
     reset(); load()
   }
-  const del = async (id: string) => { if (!confirm('Устгах уу?')) return; await apiFetch(`/pages/${id}`, { method: 'DELETE'); load() }
+  const del = async (id: string) => { if (!confirm('Устгах уу?')) return; await apiFetch(`/pages/${id}`, { method: 'DELETE' }); load() }
   const edit = (item: any) => { setEditing(item); setForm({ title: item.title || '', slug: item.slug || '', content: item.content || '', isActive: item.isActive !== false }) }
 
   const inp: React.CSSProperties = { width: '100%', padding: '10px 14px', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 13, color: 'var(--text)', outline: 'none' }

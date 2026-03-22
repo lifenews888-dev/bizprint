@@ -29,7 +29,7 @@ export default function AdminBannersPage() {
 
   const del = async (id: string) => {
     if (!confirm('Устгах уу?')) return
-    await apiFetch(`/banners/${id}`, { method: 'DELETE')
+    await apiFetch(`/banners/${id}`, { method: 'DELETE' })
     load()
   }
 

@@ -18,7 +18,7 @@ export default function AdminMenusPage() {
     await apiFetch(url, { method: , body: form })
     reset(); load()
   }
-  const del = async (id: string) => { if (!confirm('Устгах уу?')) return; await apiFetch(`/menus/${id}`, { method: 'DELETE'); load() }
+  const del = async (id: string) => { if (!confirm('Устгах уу?')) return; await apiFetch(`/menus/${id}`, { method: 'DELETE' }); load() }
   const edit = (item: any) => { setEditing(item); setForm({ title: item.title || '', url: item.url || '', icon: item.icon || '', location: item.location || 'main', section_title: item.section_title || '', is_mega: !!item.is_mega, isActive: item.isActive !== false, order: item.order || 0 }) }
 
   const inp: React.CSSProperties = { width: '100%', padding: '10px 14px', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 13, color: 'var(--text)', outline: 'none' }

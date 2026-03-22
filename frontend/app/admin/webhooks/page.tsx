@@ -68,7 +68,7 @@ export default function AdminWebhooksPage() {
 
   const handleDelete = async (id: number) => {
     if (!confirm('Устгах уу?')) return
-    await apiFetch(`/delivery/webhooks/${id}`, { method: 'DELETE')
+    await apiFetch(`/delivery/webhooks/${id}`, { method: 'DELETE' })
     load()
   }
 
