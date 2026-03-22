@@ -1,4 +1,5 @@
-﻿import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn } from 'typeorm';
+﻿import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, OneToMany } from 'typeorm';
+import { QuotationItem } from '../quote/entities/quotation-item.entity';
 
 export enum QuoteStatus {
   DRAFT     = 'draft',
@@ -144,6 +145,9 @@ export class QuoteV2 {
 
   @Column({ default: false })
   daily_report_sent: boolean;
+
+  @OneToMany(() => QuotationItem, (item) => item.quotation)
+  items: QuotationItem[];
 
   @CreateDateColumn()
   created_at: Date;

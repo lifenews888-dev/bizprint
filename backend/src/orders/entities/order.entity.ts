@@ -1,9 +1,11 @@
 ﻿import {
   Entity, PrimaryGeneratedColumn, Column,
-  CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn
+  CreateDateColumn, UpdateDateColumn, ManyToOne, OneToMany, JoinColumn,
 } from 'typeorm';
 import { User } from '../../users/user.entity';
 import { Product } from '../../products/product.entity';
+import { OrderItem } from './order-item.entity';
+import { OrderVendorGroup } from './order-vendor-group.entity';
 
 export enum OrderStatus {
   DRAFT = 'draft',
@@ -115,6 +117,12 @@ export class Order {
 
   @Column({ nullable: true })
   deadline: Date;
+
+  @OneToMany(() => OrderItem, (item) => item.order)
+  items: OrderItem[];
+
+  @OneToMany(() => OrderVendorGroup, (vg) => vg.order)
+  vendor_groups: OrderVendorGroup[];
 
   @CreateDateColumn()
   created_at: Date;
