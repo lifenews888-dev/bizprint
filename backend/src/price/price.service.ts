@@ -2,7 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
 import { Repository } from 'typeorm'
 
-import { PaperType } from './paper-type.entity'
+import { PaperType } from '../paper-types/paper-type.entity'
 import { PrintSize } from './print-size.entity'
 import { FinishType } from './finish-type.entity'
 import { Machine } from '../machines/machine.entity'

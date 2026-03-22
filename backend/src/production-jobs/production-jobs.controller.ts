@@ -1,6 +1,6 @@
-﻿import { Controller, Get, Patch, Post, Param, Body, ParseIntPipe } from '@nestjs/common'
+import { Controller, Get, Patch, Post, Param, Body } from '@nestjs/common'
 import { ProductionJobsService } from './production-jobs.service'
-import { ProductionJobStatus } from './production-job.entity'
+import { ProductionStatus } from '../production/entities/production-job.entity'
 
 @Controller('production-jobs')
 export class ProductionJobsController {
@@ -13,14 +13,14 @@ export class ProductionJobsController {
 
   @Patch(':id/status')
   updateStatus(
-    @Param('id', ParseIntPipe) id: number,
-    @Body('status') status: ProductionJobStatus,
+    @Param('id') id: string,
+    @Body('status') status: ProductionStatus,
   ) {
     return this.service.updateStatus(id, status)
   }
 
   @Post('from-order/:orderId')
-  createFromOrder(@Param('orderId', ParseIntPipe) orderId: number) {
+  createFromOrder(@Param('orderId') orderId: string) {
     return this.service.createFromOrder(orderId)
   }
 }

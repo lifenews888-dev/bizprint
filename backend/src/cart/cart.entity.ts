@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, OneToMany } from 'typeorm'
+import { Entity, PrimaryGeneratedColumn, Column, OneToMany, Index } from 'typeorm'
 import { CartItem } from './entities/cart-item.entity'
 
 export enum CartStatus {
@@ -10,6 +10,7 @@ export enum CartStatus {
 }
 
 @Entity('carts')
+@Index('UQ_cart_active_customer', ['customer_id'], { unique: true, where: "status = 'active'" })
 export class Cart {
 
   @PrimaryGeneratedColumn('uuid')

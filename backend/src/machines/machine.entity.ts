@@ -6,7 +6,7 @@ export enum MachineStatus {
   MAINTENANCE = 'maintenance',
 }
 
-@Entity('machine')
+@Entity('machines')
 export class Machine {
   @PrimaryGeneratedColumn()
   id: number

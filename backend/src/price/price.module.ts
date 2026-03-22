@@ -4,7 +4,7 @@ import { TypeOrmModule } from '@nestjs/typeorm'
 import { PriceService } from './price.service'
 import { PriceController } from './price.controller'
 
-import { PaperType } from './paper-type.entity'
+import { PaperType } from '../paper-types/paper-type.entity'
 import { PrintSize } from './print-size.entity'
 import { FinishType } from './finish-type.entity'
 import { Machine } from '../machines/machine.entity'

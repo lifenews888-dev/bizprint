@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
 import { Repository } from 'typeorm'
-import { ProductionJob, ProductionJobStatus } from './production-job.entity'
+import { ProductionJob, ProductionStatus } from '../production/entities/production-job.entity'
 import { Order, OrderStatus } from '../orders/entities/order.entity'
 
 @Injectable()
@@ -13,22 +13,22 @@ export class ProductionJobsService {
 
   findAll() {
     return this.repo.find({
-      relations: ['order', 'order.customer'],
-      order: { created_at: 'DESC' },
+      relations: ['stages'],
+      order: { start_time: 'DESC' },
     })
   }
 
-  async updateStatus(id: number, status: ProductionJobStatus) {
-    const job = await this.repo.findOne({ where: { id }, relations: ['order'] })
+  async updateStatus(id: string, status: ProductionStatus) {
+    const job = await this.repo.findOne({ where: { id } })
     if (!job) throw new NotFoundException('Job not found')
     job.status = status
     await this.repo.save(job)
 
     // If job completed -> update order status to completed
-    if (status === ProductionJobStatus.COMPLETED && job.order) {
+    if (status === ProductionStatus.COMPLETED && job.order_id) {
       try {
         const orderRepo = this.repo.manager.getRepository(Order)
-        await orderRepo.update(job.order.id, { status: OrderStatus.COMPLETED })
+        await orderRepo.update(job.order_id, { status: OrderStatus.COMPLETED })
       } catch (e) {
         console.log('Order status update error:', e.message)
       }
@@ -37,18 +37,16 @@ export class ProductionJobsService {
     return job
   }
 
-  async createFromOrder(orderId: string | number) {
-    const id = String(orderId)
+  async createFromOrder(orderId: string) {
     // Check if job already exists for this order
     const existing = await this.repo.findOne({
-      where: { order: { id: id } as any },
-      relations: ['order'],
+      where: { order_id: orderId },
     })
     if (existing) return existing
 
     const job = this.repo.create({
-      order: { id: id } as any,
-      status: ProductionJobStatus.PENDING,
+      order_id: orderId,
+      status: ProductionStatus.QUEUED,
     })
     return this.repo.save(job)
   }

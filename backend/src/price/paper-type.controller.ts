@@ -1,7 +1,7 @@
 import { Controller, Post, Body, Get } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
 import { Repository } from 'typeorm'
-import { PaperType } from './paper-type.entity'
+import { PaperType } from '../paper-types/paper-type.entity'
 
 @Controller('paper-types')
 export class PaperTypeController {
