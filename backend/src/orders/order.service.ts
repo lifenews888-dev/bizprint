@@ -9,24 +9,42 @@ import { NotificationService } from '../notifications/notification.service';
 import { EventBusService } from '../events/event-bus.service';
 import { BizEvent } from '../events/event-types';
 
-// Workflow stage дараалал (index-ээр буцаана)
-// OrderStatus enum + дотоодын production stage-уудыг нэгтгэсэн бүрэн дараалал
+// Canonical order state progression (matches OrderStatus enum exactly)
+// Production sub-stages (designing, printing, qc, etc.) belong in production_stages table
 const WORKFLOW_STAGES = [
-  'pending',        // захиалга ирсэн
-  'paid',           // төлбөр баталгаажсан  (OrderStatus.PAID)
-  'scheduled',      // үйлдвэрлэлд төлөвлөгдсөн (OrderStatus.SCHEDULED)
-  'designing',      // дизайн хийгдэж байна
-  'prepress',       // prepress / хавтан
-  'in_production',  // үйлдвэрлэлд орсон (OrderStatus.IN_PRODUCTION)
-  'printing',       // хэвлэгдэж байна
-  'finishing',      // боловсруулалт (ламинат, зүсэлт...)
-  'qc',             // чанарын шалгалт
-  'ready',          // хүргэлтэд бэлэн
-  'delivering',     // хүргэгдэж байна
-  'shipped',        // илгээгдсэн (OrderStatus.SHIPPED)
-  'delivered',      // хүргэгдсэн (OrderStatus.DELIVERED)
-  'completed',      // дууссан (OrderStatus.COMPLETED)
+  OrderStatus.DRAFT,
+  OrderStatus.QUOTATION_SENT,
+  OrderStatus.CONFIRMED,
+  OrderStatus.PENDING_FILE,
+  OrderStatus.FILE_REVIEW,
+  OrderStatus.FILE_REJECTED,
+  OrderStatus.ON_HOLD,
+  OrderStatus.IN_PRODUCTION,
+  OrderStatus.FINISHING,
+  OrderStatus.PARTIALLY_DISPATCHED,
+  OrderStatus.DISPATCHED,
+  OrderStatus.DELIVERED,
+  OrderStatus.COMPLETED,
+  OrderStatus.CANCELLED,
 ];
+
+// Valid state transitions — defines which states each state can move to
+const VALID_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
+  [OrderStatus.DRAFT]:                 [OrderStatus.QUOTATION_SENT, OrderStatus.CANCELLED],
+  [OrderStatus.QUOTATION_SENT]:        [OrderStatus.CONFIRMED, OrderStatus.CANCELLED],
+  [OrderStatus.CONFIRMED]:             [OrderStatus.PENDING_FILE, OrderStatus.IN_PRODUCTION, OrderStatus.CANCELLED],
+  [OrderStatus.PENDING_FILE]:          [OrderStatus.FILE_REVIEW, OrderStatus.CANCELLED],
+  [OrderStatus.FILE_REVIEW]:           [OrderStatus.CONFIRMED, OrderStatus.FILE_REJECTED],
+  [OrderStatus.FILE_REJECTED]:         [OrderStatus.PENDING_FILE, OrderStatus.CANCELLED],
+  [OrderStatus.ON_HOLD]:               [], // resolved dynamically — can return to any state that led to ON_HOLD
+  [OrderStatus.IN_PRODUCTION]:         [OrderStatus.FINISHING, OrderStatus.ON_HOLD, OrderStatus.CANCELLED],
+  [OrderStatus.FINISHING]:             [OrderStatus.PARTIALLY_DISPATCHED, OrderStatus.DISPATCHED],
+  [OrderStatus.PARTIALLY_DISPATCHED]:  [OrderStatus.DISPATCHED],
+  [OrderStatus.DISPATCHED]:            [OrderStatus.DELIVERED],
+  [OrderStatus.DELIVERED]:             [OrderStatus.COMPLETED],
+  [OrderStatus.COMPLETED]:             [], // terminal
+  [OrderStatus.CANCELLED]:             [], // terminal
+};
 
 @Injectable()
 export class OrdersService {
@@ -42,7 +60,7 @@ export class OrdersService {
   ) {}
 
   async createOrder(data: any) {
-    const order = this.ordersRepo.create({ ...data, status: OrderStatus.PENDING });
+    const order = this.ordersRepo.create({ ...data, status: OrderStatus.DRAFT });
     const saved: Order = await this.ordersRepo.save(order as any);
     if (data.customer_email) {
       try {
@@ -91,7 +109,7 @@ export class OrdersService {
       finishing: (quote as any).finishing,
       payment_method: paymentMethod || 'pending',
       payment_status: 'pending',
-      status: OrderStatus.PENDING,
+      status: OrderStatus.DRAFT,
       notes: `Quote ${(quote as any).quote_number}-аас үүсгэгдсэн`,
     });
     const saved: Order = await this.ordersRepo.save(order as any);
@@ -117,8 +135,9 @@ export class OrdersService {
   }
 
   async updateStatus(id: string, status: string) {
-    await this.ordersRepo.update(id, { status });
     const order = await this.getOrderById(id);
+    this.validateTransition(order.status, status);
+    await this.ordersRepo.update(id, { status });
 
     // Real-time notification via Socket.IO
     this.ordersGateway.notifyStatusChange(id, status, {});
@@ -127,13 +146,12 @@ export class OrdersService {
     const customerId = (order as any).customer_id || (order as any).user_id;
     if (customerId) {
       const statusMessages: Record<string, string> = {
-        'paid':          'Таны захиалга баталгаажлаа ✅',
-        'in_production': 'Захиалга үйлдвэрлэлд орлоо 🏭',
-        'ready':         'Захиалга бэлэн боллоо 🎉',
-        'delivering':    'Таны захиалга хүргэгдэж байна 🚚',
-        'shipped':       'Таны захиалга илгээгдлээ 📦',
-        'delivered':     'Захиалга хүргэгдлээ. Үнэлгээ өгнө үү ⭐',
-        'completed':     'Захиалга амжилттай дууслаа ✅',
+        [OrderStatus.CONFIRMED]:            'Таны захиалга баталгаажлаа ✅',
+        [OrderStatus.IN_PRODUCTION]:        'Захиалга үйлдвэрлэлд орлоо 🏭',
+        [OrderStatus.FINISHING]:            'Захиалга боловсруулалтад орлоо 🔧',
+        [OrderStatus.DISPATCHED]:           'Таны захиалга илгээгдлээ 📦',
+        [OrderStatus.DELIVERED]:            'Захиалга хүргэгдлээ. Үнэлгээ өгнө үү ⭐',
+        [OrderStatus.COMPLETED]:            'Захиалга амжилттай дууслаа ✅',
       };
       if (statusMessages[status]) {
         try {
@@ -153,7 +171,11 @@ export class OrdersService {
 
   async updateOrder(id: string, data: any) {
     const update: any = {};
-    if (data.status) update.status = data.status;
+    if (data.status) {
+      const order = await this.getOrderById(id);
+      this.validateTransition(order.status, data.status);
+      update.status = data.status;
+    }
     if (data.assigned_to !== undefined) update.assigned_to = data.assigned_to;
     if (data.deadline !== undefined) update.deadline = data.deadline;
     await this.ordersRepo.update(id, update);
@@ -177,11 +199,11 @@ export class OrdersService {
     const currentStatus = order.status;
 
     // Одоогийн stage-ийн index олох
-    const currentIndex = WORKFLOW_STAGES.indexOf(currentStatus);
+    const currentIndex = WORKFLOW_STAGES.indexOf(currentStatus as OrderStatus);
 
     // completed, delivered, shipped, cancelled, pending бол буцаах боломжгүй
-    const NON_REVERTABLE = ['completed', 'delivered', 'shipped', 'cancelled'];
-    if (NON_REVERTABLE.includes(currentStatus)) {
+    const NON_REVERTABLE = [OrderStatus.COMPLETED, OrderStatus.DELIVERED, OrderStatus.DISPATCHED, OrderStatus.CANCELLED];
+    if (NON_REVERTABLE.includes(currentStatus as OrderStatus)) {
       throw new BadRequestException(
         `"${currentStatus}" төлөвөөс буцаах боломжгүй`,
       );
@@ -196,7 +218,7 @@ export class OrdersService {
 
     if (targetStage) {
       // Тодорхой stage руу буцаах
-      revertToIndex = WORKFLOW_STAGES.indexOf(targetStage);
+      revertToIndex = WORKFLOW_STAGES.indexOf(targetStage as OrderStatus);
       if (revertToIndex < 0 || revertToIndex >= currentIndex) {
         throw new BadRequestException(
           `"${targetStage}" руу буцаах боломжгүй (одоогийн: ${currentStatus})`,
@@ -238,6 +260,33 @@ export class OrdersService {
     const order = await this.ordersRepo.findOne({ where: { id } });
     if (!order) throw new NotFoundException('Захиалга олдсонгүй');
     return order;
+  }
+
+  private validateTransition(currentStatus: string, newStatus: string) {
+    const current = currentStatus as OrderStatus;
+    const next = newStatus as OrderStatus;
+
+    if (!Object.values(OrderStatus).includes(next)) {
+      throw new BadRequestException(`"${newStatus}" нь зөвшөөрөгдсөн төлөв биш`);
+    }
+
+    const allowed = VALID_TRANSITIONS[current];
+    if (!allowed) {
+      throw new BadRequestException(`"${currentStatus}" төлөвөөс шилжих боломжгүй`);
+    }
+
+    // ON_HOLD is resolved dynamically via revertStatus, not updateStatus
+    if (current === OrderStatus.ON_HOLD) {
+      throw new BadRequestException(
+        `ON_HOLD төлөвөөс гарахын тулд revertStatus ашиглана уу`,
+      );
+    }
+
+    if (!allowed.includes(next)) {
+      throw new BadRequestException(
+        `"${currentStatus}" → "${newStatus}" шилжилт зөвшөөрөгдөөгүй. Зөвшөөрөгдсөн: ${allowed.join(', ')}`,
+      );
+    }
   }
 
   async cancelOrder(id: string) {

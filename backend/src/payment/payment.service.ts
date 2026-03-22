@@ -3,10 +3,12 @@ import { InjectRepository } from '@nestjs/typeorm'
 import { Repository } from 'typeorm'
 import axios from 'axios'
 import { Payment } from './entities/payment.entity'
-import { Order } from '../orders/entities/order.entity'
+import { Order, OrderStatus } from '../orders/entities/order.entity'
 import { MailService } from '../mail/mail.service'
 import { ProductionJobsService } from '../production-jobs/production-jobs.service'
 import { NotificationService } from '../notifications/notification.service'
+import { EventBusService } from '../events/event-bus.service'
+import { BizEvent } from '../events/event-types'
 
 const TDB_QR_BASE = process.env.TDB_QR_BASE || 'https://qrservice.tdbmlabs.mn'
 const TDB_QR_USER = process.env.TDB_QR_USER || 'tdbm'
@@ -28,6 +30,7 @@ export class PaymentService {
     private mailService: MailService,
     private productionJobsService: ProductionJobsService,
     private notificationService: NotificationService,
+    private readonly eventBus: EventBusService,
   ) {}
 
   // ─── Helpers ───────────────────────────────────────────
@@ -152,14 +155,14 @@ export class PaymentService {
 
     const order = await this.orderRepo.findOne({ where: { id: payment.order_id } })
     if (order) {
-      order.status = 'paid'
+      order.status = OrderStatus.CONFIRMED
       order.payment_status = 'paid'
       await this.orderRepo.save(order)
 
       // auto production job
       try {
         await this.productionJobsService.createFromOrder(payment.order_id as any)
-        order.status = 'in_production'
+        order.status = OrderStatus.IN_PRODUCTION
         await this.orderRepo.save(order)
       } catch (e) {
         console.log('Production job creation error:', (e as any).message)
@@ -184,6 +187,14 @@ export class PaymentService {
         title: `Төлбөр батлагдлаа: ${order.id}`,
         message: `${payment.amount}₮`,
         data: { order_id: order.id, payment_id: payment.id },
+      })
+
+      // Emit ORDER_PAID for real-time broadcast
+      this.eventBus.emit(BizEvent.ORDER_PAID, {
+        orderId: order.id,
+        userId: (order as any).customer_id || (order as any).user_id,
+        amount: payment.amount,
+        status: 'paid',
       })
     }
 

@@ -3,8 +3,10 @@ import { CartItem } from './entities/cart-item.entity'
 
 export enum CartStatus {
   ACTIVE = 'active',
-  CHECKED_OUT = 'checked_out',
-  EXPIRED = 'expired'
+  MERGED = 'merged',
+  CONVERTED = 'converted',
+  EXPIRED = 'expired',
+  ABANDONED = 'abandoned',
 }
 
 @Entity('carts')

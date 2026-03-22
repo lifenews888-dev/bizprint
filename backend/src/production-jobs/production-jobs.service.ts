@@ -2,7 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
 import { Repository } from 'typeorm'
 import { ProductionJob, ProductionJobStatus } from './production-job.entity'
-import { Order } from '../orders/entities/order.entity'
+import { Order, OrderStatus } from '../orders/entities/order.entity'
 
 @Injectable()
 export class ProductionJobsService {
@@ -28,7 +28,7 @@ export class ProductionJobsService {
     if (status === ProductionJobStatus.COMPLETED && job.order) {
       try {
         const orderRepo = this.repo.manager.getRepository(Order)
-        await orderRepo.update(job.order.id, { status: 'completed' })
+        await orderRepo.update(job.order.id, { status: OrderStatus.COMPLETED })
       } catch (e) {
         console.log('Order status update error:', e.message)
       }

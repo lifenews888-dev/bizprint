@@ -6,13 +6,19 @@ import { User } from '../../users/user.entity';
 import { Product } from '../../products/product.entity';
 
 export enum OrderStatus {
-  PENDING = 'pending',
-  PAID = 'paid',
-  SCHEDULED = 'scheduled',
+  DRAFT = 'draft',
+  QUOTATION_SENT = 'quotation_sent',
+  CONFIRMED = 'confirmed',
+  PENDING_FILE = 'pending_file',
+  FILE_REVIEW = 'file_review',
+  FILE_REJECTED = 'file_rejected',
+  ON_HOLD = 'on_hold',
   IN_PRODUCTION = 'in_production',
-  COMPLETED = 'completed',
-  SHIPPED = 'shipped',
+  FINISHING = 'finishing',
+  PARTIALLY_DISPATCHED = 'partially_dispatched',
+  DISPATCHED = 'dispatched',
   DELIVERED = 'delivered',
+  COMPLETED = 'completed',
   CANCELLED = 'cancelled',
 }
 
@@ -89,7 +95,7 @@ export class Order {
   @Column({ nullable: true })
   notes: string;
 
-  @Column({ default: OrderStatus.PENDING })
+  @Column({ default: OrderStatus.DRAFT })
   status: string;
 
   @Column({ nullable: true })

@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
 import { Repository } from 'typeorm'
-import { Order } from './order.entity'
+import { Order, OrderStatus } from '../orders/entities/order.entity'
 
 @Injectable()
 export class OrdersService {
@@ -15,8 +15,8 @@ export class OrdersService {
 
     const order = this.orderRepo.create({
       customer_id: data.customer_id,
-      total_amount: data.total_amount,
-      status: 'confirmed',
+      total_price: data.total_amount,
+      status: OrderStatus.CONFIRMED,
     })
 
     return this.orderRepo.save(order)
