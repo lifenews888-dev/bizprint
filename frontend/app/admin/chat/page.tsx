@@ -1,4 +1,5 @@
 'use client'
+import { apiFetch, apiUpload, API_URL } from '@/lib/api'
 import { useState, useEffect, useRef } from 'react'
 import { useChat } from '@/hooks/useChat'
 
@@ -54,9 +55,7 @@ export default function AdminChatPage() {
   const fileRef   = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
-    fetch('http://localhost:4000/admin/users', {
-      headers: { Authorization: 'Bearer ' + (localStorage.getItem('access_token') || localStorage.getItem('token') || '') }
-    }).then(r => r.json()).then(d => setUsers(Array.isArray(d) ? d : []))
+    apiFetch<any[]>('/admin/users').then(d => setUsers(Array.isArray(d) ? d : [])).catch(() => {})
   }, [])
 
   useEffect(() => {
@@ -73,13 +72,8 @@ export default function AdminChatPage() {
     try {
       const fd = new FormData()
       fd.append('file', file)
-      const res = await fetch('http://localhost:4000/upload/file', {
-        method: 'POST',
-        headers: { Authorization: 'Bearer ' + (localStorage.getItem('access_token') || localStorage.getItem('token') || '') },
-        body: fd,
-      })
-      const data = await res.json()
-      const url = data.url || 'http://localhost:4000/uploads/' + data.filename
+      const data = await apiUpload<any>('/upload/file', fd)
+      const url = data.url || `${API_URL}/uploads/${data.filename}`
       const msg = file.type.startsWith('image/') ? '[IMAGE]' + url : '[FILE]' + file.name + '|' + url
       sendMessage(activeRoom, msg)
     } finally {

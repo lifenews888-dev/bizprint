@@ -1,5 +1,6 @@
 'use client'
 
+import { apiFetch } from '@/lib/api'
 import { useEffect, useMemo, useState } from 'react'
 
 // Types
@@ -15,8 +16,6 @@ interface WithdrawRequest {
 }
 
 // Constants
-const API = 'http://localhost:4000'
-
 const ROLE_LABEL: Record<string, { label: string; color: string }> = {
   sales:    { label: 'Борлуулагч', color: '#3B82F6' },
   designer: { label: 'Дизайнер',   color: '#8B5CF6' },
@@ -32,15 +31,6 @@ const STATUS_CONFIG = {
 }
 
 // Helpers
-function getToken() {
-  if (typeof window === 'undefined') return ''
-  return localStorage.getItem('access_token') || ''
-}
-
-function authHeaders() {
-  return { 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}` }
-}
-
 function formatDate(str: string) {
   return new Date(str).toLocaleString('mn-MN', {
     year: 'numeric', month: '2-digit', day: '2-digit',
@@ -68,7 +58,7 @@ export default function AdminWalletRequestsPage() {
   async function fetchRequests() {
     setLoading(true)
     try {
-      const res = await fetch(`${API}/wallet/withdraw-requests`, { headers: authHeaders() })
+      const res = await apiFetch(`//wallet/withdraw-requests`)
       const data: WithdrawRequest[] = res.ok ? await res.json() : []
       setRequests(data)
       setStats({
@@ -91,9 +81,8 @@ export default function AdminWalletRequestsPage() {
   async function approveRequest(req: WithdrawRequest) {
     setProcessing(true)
     try {
-      const res = await fetch(`${API}/wallet/withdraw-requests/${req.id}/approve`, {
+      const res = await apiFetch(`//wallet/withdraw-requests/${req.id}/approve`, {
         method: 'PATCH',
-        headers: authHeaders(),
       })
       if (!res.ok) throw new Error()
       showToast(`${req.user?.email || 'Хэрэглэгч'}-ийн ${req.amount.toLocaleString()}₮ татах хүсэлт батлагдлаа`)
@@ -109,10 +98,9 @@ export default function AdminWalletRequestsPage() {
     if (!rejectReason.trim()) return
     setProcessing(true)
     try {
-      const res = await fetch(`${API}/wallet/withdraw-requests/${req.id}/reject`, {
+      const res = await apiFetch(`//wallet/withdraw-requests/${req.id}/reject`, {
         method: 'PATCH',
-        headers: authHeaders(),
-        body: JSON.stringify({ reason: rejectReason }),
+        body: { reason: rejectReason },
       })
       if (!res.ok) throw new Error()
       showToast(`Татгалзлаа — ${req.user?.email}`)

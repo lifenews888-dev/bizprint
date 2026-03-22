@@ -1,8 +1,6 @@
 'use client'
+import { apiFetch } from '@/lib/api'
 import { useState, useEffect } from 'react'
-
-const API = 'http://localhost:4000'
-const getHeaders = () => ({ 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token')}` })
 
 const EVENT_OPTIONS = [
   { key: 'delivery_created', label: 'Хүргэлт үүссэн', icon: '📦' },
@@ -35,7 +33,7 @@ export default function AdminWebhooksPage() {
   const load = async () => {
     setLoading(true)
     try {
-      const res = await fetch(`${API}/delivery/webhooks/list`, { headers: getHeaders() })
+      const res = await apiFetch('/delivery/webhooks/list')
       const data = await res.json()
       setWebhooks(Array.isArray(data) ? data : [])
     } catch { setWebhooks([]) }
@@ -61,9 +59,9 @@ export default function AdminWebhooksPage() {
     const body = { name, url, secret: secret || undefined, provider, events }
 
     if (editing) {
-      await fetch(`${API}/delivery/webhooks/${editing.id}`, { method: 'PATCH', headers: getHeaders(), body: JSON.stringify(body) })
+      await apiFetch(`/delivery/webhooks/${editing.id}`, { method: 'PATCH', body: body })
     } else {
-      await fetch(`${API}/delivery/webhooks`, { method: 'POST', headers: getHeaders(), body: JSON.stringify(body) })
+      await apiFetch('/delivery/webhooks', { method: 'POST', body: body })
     }
 
     resetForm(); load()
@@ -71,22 +69,19 @@ export default function AdminWebhooksPage() {
 
   const handleDelete = async (id: number) => {
     if (!confirm('Устгах уу?')) return
-    await fetch(`${API}/delivery/webhooks/${id}`, { method: 'DELETE', headers: getHeaders() })
+    await apiFetch(`/delivery/webhooks/${id}`, { method: 'DELETE' })
     load()
   }
 
   const handleToggle = async (wh: any) => {
-    await fetch(`${API}/delivery/webhooks/${wh.id}`, {
-      method: 'PATCH', headers: getHeaders(),
-      body: JSON.stringify({ is_active: !wh.is_active })
-    })
+    await apiFetch(`/delivery/webhooks/${wh.id}`, { method: 'PATCH', body: { is_active: !wh.is_active } })
     load()
   }
 
   const handleTest = async (id: number) => {
     setTesting(id); setTestResult(null)
     try {
-      const res = await fetch(`${API}/delivery/webhooks/${id}/test`, { method: 'POST', headers: getHeaders() })
+      const res = await apiFetch(`/delivery/webhooks/${id}/test`, { method: 'POST'})
       const data = await res.json()
       setTestResult(data.success ? '✅ Тест амжилттай илгээгдлээ' : '❌ Алдаа: ' + (data.error || 'Unknown'))
     } catch (e) {

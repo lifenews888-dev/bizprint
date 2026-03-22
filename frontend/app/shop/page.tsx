@@ -1,8 +1,7 @@
 'use client'
+import { apiFetch } from '@/lib/api'
 import { Suspense, useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
-
-const API = 'http://localhost:4000'
 
 type Role = 'admin' | 'customer' | 'designer' | 'factory' | 'sales' | 'courier' | 'vendor' | 'user'
 
@@ -33,14 +32,14 @@ function ShopPageInner() {
     const token = localStorage.getItem('token')
     const headers: any = {}
     if (token) headers.Authorization = `Bearer ${token}`
-    fetch(`${API}/products`, { headers })
+    apiFetch(`//products`, { headers })
       .then(r => r.json())
       .then(d => setProducts(Array.isArray(d) ? d : []))
       .catch(() => setProducts([]))
       .finally(() => setLoading(false))
 
     if (token) {
-      fetch(`${API}/auth/me`, { headers })
+      apiFetch(`//auth/me`, { headers })
         .then(r => r.json())
         .then(u => u?.id && setUser(u))
         .catch(() => {})
@@ -64,10 +63,9 @@ function ShopPageInner() {
     }
     setAddingId(productId)
     try {
-      await fetch(`${API}/cart/items`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token') || ''}` },
-        body: JSON.stringify({ user_id: user.id, product_id: productId, quantity: 1 }),
+      await apiFetch(`//cart/items`, {
+        method: 'POST'` },
+        body: { user_id: user.id, product_id: productId, quantity: 1 },
       })
       setToast('Сагсанд нэмэгдлээ')
       setTimeout(() => setToast(''), 2500)

@@ -1,8 +1,8 @@
 'use client'
+import { apiFetch } from '@/lib/api'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 
-const API = 'http://localhost:4000'
 const F = "'DM Sans','Segoe UI',system-ui,sans-serif"
 
 const BULK_TIERS = [
@@ -52,8 +52,8 @@ export default function ProductConfiguratorPage() {
     if (!id) return
     setLoading(true)
     Promise.all([
-      fetch(`${API}/products/${id}`).then(r => r.ok ? r.json() : null).catch(() => null),
-      fetch(`${API}/product-attributes?product_id=${id}`).then(r => r.ok ? r.json() : []).catch(() => []),
+      apiFetch(`/products/${id}`, { auth: false }).catch(() => null),
+      apiFetch(`/product-attributes?product_id=${id}`, { auth: false }).catch(() => []),
     ]).then(([p, attrs]) => {
       setProduct(p)
       const attrList = Array.isArray(attrs) ? attrs : []
@@ -83,10 +83,8 @@ export default function ProductConfiguratorPage() {
           height_mm: selectedOptions[sizeAttr?.name]?.height || product.height_mm || 50,
           apply_vat: true,
         }
-        const res = await fetch(`${API}/pricing-catalog/quote`, {
-          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body),
-        })
-        if (res.ok) setPriceResult(await res.json())
+        const res = await apiFetch('/pricing-catalog/quote', { method: 'POST', body: body })
+        setPriceResult(res)
       } catch {}
       setPriceLoading(false)
     }, 600)
@@ -103,9 +101,8 @@ export default function ProductConfiguratorPage() {
       const fd = new FormData()
       fd.append('file', file)
       fd.append('quantity', String(quantity))
-      const res = await fetch(`${API}/ai/smart-quote/from-pdf`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${typeof window !== 'undefined' ? localStorage.getItem('token') : ''}` },
+      const res = await apiFetch(`//ai/smart-quote/from-pdf`, {
+        method: 'POST'` },
         body: fd,
       })
       if (res.ok) setUploadResult(await res.json())

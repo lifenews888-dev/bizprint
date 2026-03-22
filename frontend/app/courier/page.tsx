@@ -1,12 +1,11 @@
 'use client'
+import { apiFetch } from '@/lib/api'
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import DashboardLayout from '@/components/layouts/DashboardLayout'
 import KpiCard from '@/components/dashboard/KpiCard'
 import { useRoleGuard } from '@/lib/use-role-guard'
 import { COURIER_MENU } from '@/config/sidebar-config'
-
-const API = 'http://localhost:4000'
 
 interface Order {
   id: string
@@ -39,9 +38,6 @@ const WORKFLOW = [
   { status: 'delivered',     label: '\u0425\u04af\u0440\u0433\u044d\u0441\u044d\u043d', icon: '\ud83c\udfe0' },
 ]
 
-function tok() { return localStorage.getItem('access_token') || '' }
-function hdrs() { return { Authorization: 'Bearer ' + tok() } }
-
 type FilterType = 'all' | 'completed' | 'shipped' | 'delivered'
 
 export default function CourierDashboard() {
@@ -60,7 +56,7 @@ export default function CourierDashboard() {
   async function fetchOrders() {
     setLoading(true)
     try {
-      const r = await fetch(API + '/admin/orders', { headers: hdrs() })
+      const r = await apiFetch('/admin/orders')
       setOrders(r.ok ? await r.json() : [])
     } catch {}
     setLoading(false)
@@ -73,10 +69,9 @@ export default function CourierDashboard() {
 
   async function updateStatus(order: Order, status: string) {
     try {
-      const r = await fetch(API + '/orders/' + order.id, {
+      const r = await apiFetch('//orders/' + order.id, {
         method: 'PATCH',
-        headers: { ...hdrs(), 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status }),
+        body: { status },
       })
       if (r.ok) {
         showToast('\u0422\u04e9\u043b\u04e9\u0432 \u0448\u0438\u043d\u044d\u0447\u043b\u044d\u0433\u0434\u043b\u044d\u044d \u2713')

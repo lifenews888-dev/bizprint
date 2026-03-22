@@ -1,4 +1,5 @@
 'use client'
+import { apiFetch, API_URL } from '@/lib/api'
 import { useEffect, useState, useRef } from 'react'
 import DashboardLayout from '@/components/layouts/DashboardLayout'
 import KpiCard from '@/components/dashboard/KpiCard'
@@ -6,10 +7,6 @@ import EmptyState from '@/components/dashboard/EmptyState'
 import DashboardTabs from '@/components/dashboard/DashboardTabs'
 import { useRoleGuard } from '@/lib/use-role-guard'
 import { DESIGNER_MENU } from '@/config/sidebar-config'
-
-const API = 'http://localhost:4000'
-function tok() { return localStorage.getItem('access_token') || '' }
-function hdrs() { return { Authorization: 'Bearer ' + tok(), 'Content-Type': 'application/json' } }
 
 interface DesignJob {
   id: string; status: string; product_type?: string; notes?: string
@@ -43,7 +40,7 @@ export default function DesignerRequestsPage() {
   async function loadJobs() {
     setLoading(true)
     try {
-      const r = await fetch(`${API}/design-requests`, { headers: { Authorization: 'Bearer ' + tok() } })
+      const r = await apiFetch(`//design-requests`)
       const data = await r.json()
       setJobs(Array.isArray(data) ? data : [])
     } catch {}
@@ -52,7 +49,7 @@ export default function DesignerRequestsPage() {
 
   async function requestJob(id: string) {
     try {
-      await fetch(`${API}/design-requests/${id}/assign`, { method: 'PATCH', headers: hdrs() })
+      await apiFetch(`//design-requests/${id}/assign`, { method: 'PATCH'})
       setToast('Ажил хүлээн авах хүсэлт илгээгдлээ')
       setTimeout(() => setToast(''), 3000)
       loadJobs()
@@ -63,7 +60,7 @@ export default function DesignerRequestsPage() {
     const fd = new FormData()
     fd.append('file', file)
     try {
-      await fetch(`${API}/design-requests/${jobId}/upload`, { method: 'POST', headers: { Authorization: 'Bearer ' + tok() }, body: fd })
+      await apiFetch(`//design-requests/${jobId}/upload`, { method: 'POST', body: fd })
       setToast('Файл амжилттай илгээгдлээ')
       setTimeout(() => setToast(''), 3000)
       loadJobs()
@@ -72,7 +69,7 @@ export default function DesignerRequestsPage() {
 
   async function submitForReview(id: string) {
     try {
-      await fetch(`${API}/design-requests/${id}/submit`, { method: 'PATCH', headers: hdrs() })
+      await apiFetch(`//design-requests/${id}/submit`, { method: 'PATCH'})
       setToast('Хянуулахаар илгээгдлээ')
       setTimeout(() => setToast(''), 3000)
       loadJobs()
@@ -157,7 +154,7 @@ export default function DesignerRequestsPage() {
               {selected.notes && <div><span style={{ fontSize: 11, color: 'var(--text3)' }}>Тэмдэглэл:</span> <span style={{ fontSize: 13 }}>{selected.notes}</span></div>}
               {selected.quantity && <div><span style={{ fontSize: 11, color: 'var(--text3)' }}>Тоо:</span> <span style={{ fontSize: 13 }}>{selected.quantity} ш</span></div>}
               {selected.file_url && (
-                <a href={selected.file_url.startsWith('http') ? selected.file_url : `${API}${selected.file_url}`} target="_blank" rel="noopener noreferrer"
+                <a href={selected.file_url.startsWith('http') ? selected.file_url : `${API_URL}${selected.file_url}`} target="_blank" rel="noopener noreferrer"
                   style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, color: '#3B82F6', textDecoration: 'none' }}>
                   📥 Файл татах
                 </a>

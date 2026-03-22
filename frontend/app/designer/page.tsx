@@ -1,12 +1,11 @@
 'use client'
+import { apiFetch } from '@/lib/api'
 import { useEffect, useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import DashboardLayout from '@/components/layouts/DashboardLayout'
 import KpiCard from '@/components/dashboard/KpiCard'
 import { useRoleGuard } from '@/lib/use-role-guard'
 import { DESIGNER_MENU } from '@/config/sidebar-config'
-
-const API = 'http://localhost:4000'
 
 interface Order {
   id: string
@@ -43,9 +42,6 @@ const WORKFLOW = [
   { status: 'completed',     label: '\u0414\u0443\u0443\u0441\u0441\u0430\u043d',         icon: '\u2705' },
 ]
 
-function tok() { return localStorage.getItem('access_token') || '' }
-function hdrs() { return { Authorization: 'Bearer ' + tok() } }
-
 type FilterType = 'all' | 'pending' | 'paid' | 'in_production' | 'completed'
 
 export default function DesignerDashboard() {
@@ -72,7 +68,7 @@ export default function DesignerDashboard() {
   async function fetchOrders() {
     setLoading(true)
     try {
-      const r = await fetch(API + '/admin/orders', { headers: hdrs() })
+      const r = await apiFetch('/admin/orders')
       setOrders(r.ok ? await r.json() : [])
     } catch {}
     setLoading(false)
@@ -85,10 +81,9 @@ export default function DesignerDashboard() {
 
   async function updateStatus(order: Order, status: string) {
     try {
-      const r = await fetch(API + '/orders/' + order.id, {
+      const r = await apiFetch('//orders/' + order.id, {
         method: 'PATCH',
-        headers: { ...hdrs(), 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status }),
+        body: { status },
       })
       if (r.ok) {
         showToast('\u0422\u04e9\u043b\u04e9\u0432 \u0448\u0438\u043d\u044d\u0447\u043b\u044d\u0433\u0434\u043b\u044d\u044d \u2713')
@@ -104,13 +99,12 @@ export default function DesignerDashboard() {
     try {
       const fd = new FormData()
       fd.append('file', file)
-      const r = await fetch(API + '/upload/file', { method: 'POST', headers: hdrs(), body: fd })
+      const r = await apiFetch('//upload/file', { method: 'POST', body: fd })
       if (!r.ok) throw new Error()
       const { url } = await r.json()
-      const r2 = await fetch(API + '/orders/' + order.id, {
+      const r2 = await apiFetch('//orders/' + order.id, {
         method: 'PATCH',
-        headers: { ...hdrs(), 'Content-Type': 'application/json' },
-        body: JSON.stringify({ file_url: url }),
+        body: { file_url: url },
       })
       if (r2.ok) {
         showToast('\u0424\u0430\u0439\u043b \u0430\u043c\u062c\u0438\u043b\u0442\u0430\u0439 \u0438\u043b\u044d\u0433\u0434\u043b\u044d\u044d \u2713')

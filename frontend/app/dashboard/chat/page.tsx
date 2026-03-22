@@ -1,8 +1,8 @@
 'use client'
+import { apiFetch } from '@/lib/api'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { io, Socket } from 'socket.io-client'
 
-const API = 'http://localhost:4000'
 const F = "'DM Sans','Segoe UI',system-ui,sans-serif"
 
 type Role = 'admin' | 'customer' | 'designer' | 'factory' | 'sales' | 'courier' | 'vendor' | 'user'
@@ -24,11 +24,6 @@ const ROLE_COLOR: Record<string, string> = {
   sales: '#06B6D4', factory: '#EC4899',
 }
 
-function getToken() {
-  if (typeof window === 'undefined') return ''
-  return localStorage.getItem('token') || localStorage.getItem('access_token') || ''
-}
-
 export default function CustomerChatPage() {
   const [me, setMe] = useState<ChatUser | null>(null)
   const [recipients, setRecipients] = useState<ChatUser[]>([])
@@ -43,7 +38,7 @@ export default function CustomerChatPage() {
 
   // load me
   useEffect(() => {
-    fetch(`${API}/auth/me`, { headers: { Authorization: `Bearer ${getToken()}` } })
+    apiFetch(`//auth/me`, {` } })
       .then(r => r.json())
       .then((u) => {
         if (u?.id) {
@@ -60,7 +55,7 @@ export default function CustomerChatPage() {
       const all: ChatUser[] = []
       for (const role of roles) {
         try {
-          const res = await fetch(`${API}/chat/users/role/${role}`, { headers: { Authorization: `Bearer ${getToken()}` } })
+          const res = await apiFetch(`//chat/users/role/${role}`, {` } })
           const list = await res.json()
           if (Array.isArray(list)) {
             all.push(...list.map((u: any) => ({ id: u.id, email: u.email, full_name: u.full_name, role: role })))
@@ -81,8 +76,7 @@ export default function CustomerChatPage() {
 
   async function fetchMessages(userId: string) {
     if (!me) return
-    const res = await fetch(`${API}/chat/messages?userId=${userId}&me=${me.id}`, {
-      headers: { Authorization: `Bearer ${getToken()}` },
+    const res = await apiFetch(`//chat/messages?userId=${userId}&me=${me.id}`, {` },
     })
     const d: any[] = await res.json()
     if (!Array.isArray(d)) return setMessages([])
@@ -121,9 +115,8 @@ export default function CustomerChatPage() {
     if (!file) return undefined
     const form = new FormData()
     form.append('file', file)
-    const res = await fetch(`${API}/upload/file`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${getToken()}` },
+    const res = await apiFetch(`//upload/file`, {
+      method: 'POST'` },
       body: form,
     })
     const data = await res.json()
@@ -148,17 +141,16 @@ export default function CustomerChatPage() {
     }
     setMessages(prev => [...prev, optimistic])
 
-    await fetch(`${API}/chat/send`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}` },
-      body: JSON.stringify({
+    await apiFetch(`//chat/send`, {
+      method: 'POST'` },
+      body: {
         receiverId: selected.id,
         content,
         senderId: me.id,
         senderName: me.full_name || me.email,
         senderRole: me.role,
         fileUrl,
-      }),
+      },
     }).catch(() => {})
   }
 

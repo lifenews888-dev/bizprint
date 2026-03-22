@@ -1,8 +1,6 @@
 'use client'
+import { apiFetch } from '@/lib/api'
 import { useState, useEffect } from 'react'
-
-const API = 'http://localhost:4000'
-const getHeaders = () => ({ 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token')}` })
 
 export default function AdminPagesPage() {
   const [items, setItems] = useState<any[]>([])
@@ -10,17 +8,17 @@ export default function AdminPagesPage() {
   const [editing, setEditing] = useState<any>(null)
   const [form, setForm] = useState({ title: '', slug: '', content: '', isActive: true })
 
-  const load = () => { fetch(`${API}/pages`, { headers: getHeaders() }).then(r => r.json()).then(d => setItems(Array.isArray(d) ? d : [])).catch(() => {}).finally(() => setLoading(false)) }
+  const load = () => { apiFetch('/pages').then(d => setItems(Array.isArray(d) ? d : [])).catch(() => {}).finally(() => setLoading(false)) }
   useEffect(load, [])
 
   const reset = () => { setEditing(null); setForm({ title: '', slug: '', content: '', isActive: true }) }
   const save = async () => {
     const method = editing?.id ? 'PATCH' : 'POST'
-    const url = editing?.id ? `${API}/pages/${editing.id}` : `${API}/pages`
-    await fetch(url, { method, headers: getHeaders(), body: JSON.stringify(form) })
+    const url = editing?.id ? `/pages/${editing.id}` : `/pages`
+    await apiFetch(url, { method: , body: form })
     reset(); load()
   }
-  const del = async (id: string) => { if (!confirm('Устгах уу?')) return; await fetch(`${API}/pages/${id}`, { method: 'DELETE', headers: getHeaders() }); load() }
+  const del = async (id: string) => { if (!confirm('Устгах уу?')) return; await apiFetch(`/pages/${id}`, { method: 'DELETE' }); load() }
   const edit = (item: any) => { setEditing(item); setForm({ title: item.title || '', slug: item.slug || '', content: item.content || '', isActive: item.isActive !== false }) }
 
   const inp: React.CSSProperties = { width: '100%', padding: '10px 14px', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 13, color: 'var(--text)', outline: 'none' }

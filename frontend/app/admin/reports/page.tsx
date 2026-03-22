@@ -1,8 +1,6 @@
 'use client'
+import { apiFetch } from '@/lib/api'
 import { useState, useEffect, useMemo } from 'react'
-
-const API = 'http://localhost:4000'
-const getHeaders = () => ({ 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token')}` })
 
 export default function AdminReportsPage() {
   const [orders, setOrders] = useState<any[]>([])
@@ -13,9 +11,9 @@ export default function AdminReportsPage() {
 
   useEffect(() => {
     Promise.all([
-      fetch(`${API}/orders`, { headers: getHeaders() }).then(r => r.json()).catch(() => []),
-      fetch(`${API}/admin/users`, { headers: getHeaders() }).then(r => r.json()).catch(() => []),
-      fetch(`${API}/quotes-v2`, { headers: getHeaders() }).then(r => r.json()).catch(() => []),
+      apiFetch('/orders').catch(() => []),
+      apiFetch('/admin/users').catch(() => []),
+      apiFetch('/quotes-v2').catch(() => []),
     ]).then(([o, u, q]) => {
       setOrders(Array.isArray(o) ? o : [])
       setUsers(Array.isArray(u) ? u : [])

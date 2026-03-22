@@ -1,11 +1,6 @@
 'use client'
+import { apiFetch } from '@/lib/api'
 import { useState, useEffect, useCallback } from 'react'
-
-const API = 'http://localhost:4000'
-const getHeaders = () => ({
-  'Content-Type': 'application/json',
-  Authorization: `Bearer ${localStorage.getItem('token')}`,
-})
 
 type Setting = { id: string; key: string; value: string; group: string; label: string }
 type MegaMenuItem = {
@@ -89,6 +84,14 @@ function Toggle({ label, value, onChange }: { label: string; value: boolean; onC
   )
 }
 
+function SaveButton({ onClick }: { onClick: () => void }) {
+  return (
+    <div style={{ marginTop: 24, display: 'flex', justifyContent: 'flex-end' }}>
+      <button onClick={onClick} style={primaryBtn}>Хадгалах</button>
+    </div>
+  )
+}
+
 function Toast({ message, onClose }: { message: string; onClose: () => void }) {
   useEffect(() => {
     const t = setTimeout(onClose, 3000)
@@ -108,7 +111,6 @@ function Toast({ message, onClose }: { message: string; onClose: () => void }) {
 export default function AdminCmsPage() {
   const [tab, setTab] = useState(0)
   const [settings, setSettings] = useState<Record<string, string>>({})
-  const [allSettings, setAllSettings] = useState<Setting[]>([])
   const [menuItems, setMenuItems] = useState<MegaMenuItem[]>([])
   const [loading, setLoading] = useState(true)
   const [toast, setToast] = useState('')
@@ -118,9 +120,8 @@ export default function AdminCmsPage() {
 
   const loadSettings = useCallback(async () => {
     try {
-      const res = await fetch(`${API}/cms/settings`, { headers: getHeaders() })
+      const res = await apiFetch('/cms/settings')
       const data: Setting[] = await res.json()
-      setAllSettings(Array.isArray(data) ? data : [])
       const map = (Array.isArray(data) ? data : []).reduce<Record<string, string>>((acc, s) => {
         acc[s.key] = s.value ?? ''
         return acc
@@ -133,7 +134,7 @@ export default function AdminCmsPage() {
 
   const loadMenu = useCallback(async () => {
     try {
-      const res = await fetch(`${API}/cms/mega-menu`, { headers: getHeaders() })
+      const res = await apiFetch('/cms/mega-menu')
       const data = await res.json()
       setMenuItems(Array.isArray(data) ? data : [])
     } catch { /* ignore */ }
@@ -149,8 +150,8 @@ export default function AdminCmsPage() {
   const saveBulk = async (keys: string[]) => {
     const items = keys.map(key => ({ key, value: form[key] ?? '' }))
     try {
-      await fetch(`${API}/cms/settings/bulk`, {
-        method: 'POST', headers: getHeaders(), body: JSON.stringify({ items }),
+      await apiFetch(`/cms/settings/bulk`, {
+        method: 'POST', body: { items },
       })
       setToast('Амжилттай хадгалагдлаа!')
       loadSettings()
@@ -162,10 +163,10 @@ export default function AdminCmsPage() {
   // Mega menu helpers
   const saveMenuItem = async () => {
     if (!menuForm) return
-    const url = editingMenuId ? `${API}/cms/mega-menu/${editingMenuId}` : `${API}/cms/mega-menu`
+    const url = editingMenuId ? `/cms/mega-menu/${editingMenuId}` : `/cms/mega-menu`
     const method = editingMenuId ? 'PUT' : 'POST'
     try {
-      await fetch(url, { method, headers: getHeaders(), body: JSON.stringify(menuForm) })
+      await apiFetch(url, { method: , body: menuForm })
       setMenuForm(null)
       setEditingMenuId(null)
       setToast('Амжилттай хадгалагдлаа!')
@@ -177,13 +178,13 @@ export default function AdminCmsPage() {
 
   const deleteMenuItem = async (id: string) => {
     if (!confirm('Устгах уу?')) return
-    await fetch(`${API}/cms/mega-menu/${id}`, { method: 'DELETE', headers: getHeaders() })
+    await apiFetch(`/cms/mega-menu/${id}`, { method: 'DELETE' })
     loadMenu()
   }
 
   const updateSortOrder = async (id: string, sort_order: number) => {
-    await fetch(`${API}/cms/mega-menu/${id}`, {
-      method: 'PUT', headers: getHeaders(), body: JSON.stringify({ sort_order }),
+    await apiFetch(`/cms/mega-menu/${id}`, {
+      method: 'PUT', body: { sort_order },
     })
     loadMenu()
   }
@@ -196,26 +197,20 @@ export default function AdminCmsPage() {
 
   // Homepage helpers
   const getFeatures = (): FeatureItem[] => {
-    try { return JSON.parse(form.home_features_items || '[]') } catch { return [] }
+    try { return JSON.parse(form.features_items || '[]') } catch { return [] }
   }
-  const setFeatures = (items: FeatureItem[]) => sf('home_features_items', JSON.stringify(items))
+  const setFeatures = (items: FeatureItem[]) => sf('features_items', JSON.stringify(items))
   const getStats = (): StatItem[] => {
-    try { return JSON.parse(form.home_stats_items || '[]') } catch { return [] }
+    try { return JSON.parse(form.stats_items || '[]') } catch { return [] }
   }
-  const setStats = (items: StatItem[]) => sf('home_stats_items', JSON.stringify(items))
-
-  const SaveButton = ({ onClick }: { onClick: () => void }) => (
-    <div style={{ marginTop: 24, display: 'flex', justifyContent: 'flex-end' }}>
-      <button onClick={onClick} style={primaryBtn}>Хадгалах</button>
-    </div>
-  )
+  const setStats = (items: StatItem[]) => sf('stats_items', JSON.stringify(items))
 
   // ===================== TAB 1: General =====================
   const renderGeneral = () => {
     const keys = [
       'site_name', 'site_phone', 'site_email', 'site_address',
-      'site_logo', 'site_favicon',
-      'social_facebook', 'social_instagram', 'social_youtube',
+      'site_logo_url', 'site_favicon',
+      'site_facebook', 'site_instagram', 'site_youtube',
       'site_primary_color', 'site_maintenance',
     ]
     return (
@@ -226,15 +221,15 @@ export default function AdminCmsPage() {
           <Field label="Утасны дугаар" value={f('site_phone')} onChange={v => sf('site_phone', v)} placeholder="+976 ..." />
           <Field label="И-мэйл" value={f('site_email')} onChange={v => sf('site_email', v)} placeholder="info@bizprint.mn" />
           <Field label="Хаяг" value={f('site_address')} onChange={v => sf('site_address', v)} placeholder="Улаанбаатар" />
-          <Field label="Лого URL" value={f('site_logo')} onChange={v => sf('site_logo', v)} placeholder="https://..." />
+          <Field label="Лого URL" value={f('site_logo_url')} onChange={v => sf('site_logo_url', v)} placeholder="https://..." />
           <Field label="Favicon URL" value={f('site_favicon')} onChange={v => sf('site_favicon', v)} placeholder="https://..." />
         </div>
 
         <h3 style={{ ...sectionTitle, marginTop: 24 }}>Сошиал хаягууд</h3>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 20px' }}>
-          <Field label="Facebook URL" value={f('social_facebook')} onChange={v => sf('social_facebook', v)} />
-          <Field label="Instagram URL" value={f('social_instagram')} onChange={v => sf('social_instagram', v)} />
-          <Field label="YouTube URL" value={f('social_youtube')} onChange={v => sf('social_youtube', v)} />
+          <Field label="Facebook URL" value={f('site_facebook')} onChange={v => sf('site_facebook', v)} />
+          <Field label="Instagram URL" value={f('site_instagram')} onChange={v => sf('site_instagram', v)} />
+          <Field label="YouTube URL" value={f('site_youtube')} onChange={v => sf('site_youtube', v)} />
         </div>
 
         <h3 style={{ ...sectionTitle, marginTop: 24 }}>Дизайн & Горим</h3>
@@ -249,18 +244,18 @@ export default function AdminCmsPage() {
   // ===================== TAB 2: Header =====================
   const renderHeader = () => {
     const keys = [
-      'header_logo', 'header_announcement_enabled', 'header_announcement_text',
+      'header_logo_url', 'header_announcement_active', 'header_announcement',
       'header_announcement_color', 'header_cta_text', 'header_cta_url',
       'header_show_search', 'header_show_login',
     ]
     return (
       <div style={cardStyle}>
         <h3 style={sectionTitle}>Лого</h3>
-        <Field label="Header лого URL" value={f('header_logo')} onChange={v => sf('header_logo', v)} placeholder="https://..." />
+        <Field label="Header лого URL" value={f('header_logo_url')} onChange={v => sf('header_logo_url', v)} placeholder="https://..." />
 
         <h3 style={{ ...sectionTitle, marginTop: 24 }}>Зарлал (Announcement)</h3>
-        <Toggle label="Зарлал харуулах" value={fb('header_announcement_enabled')} onChange={v => sfb('header_announcement_enabled', v)} />
-        <Field label="Зарлалын текст" value={f('header_announcement_text')} onChange={v => sf('header_announcement_text', v)} placeholder="Урамшуулал..." />
+        <Toggle label="Зарлал харуулах" value={fb('header_announcement_active')} onChange={v => sfb('header_announcement_active', v)} />
+        <Field label="Зарлалын текст" value={f('header_announcement')} onChange={v => sf('header_announcement', v)} placeholder="Урамшуулал..." />
         <Field label="Зарлалын өнгө" value={f('header_announcement_color')} onChange={v => sf('header_announcement_color', v)} type="color" placeholder="#FF6B00" />
 
         <h3 style={{ ...sectionTitle, marginTop: 24 }}>CTA товч</h3>
@@ -353,8 +348,8 @@ export default function AdminCmsPage() {
                   </td>
                   <td style={{ padding: '8px 14px' }}>
                     <Toggle label="" value={item.is_active} onChange={async (v) => {
-                      await fetch(`${API}/cms/mega-menu/${item.id}`, {
-                        method: 'PUT', headers: getHeaders(), body: JSON.stringify({ is_active: v }),
+                      await apiFetch(`/cms/mega-menu/${item.id}`, {
+                        method: 'PUT', body: { is_active: v },
                       })
                       loadMenu()
                     }} />
@@ -380,7 +375,7 @@ export default function AdminCmsPage() {
   // ===================== TAB 4: Footer =====================
   const renderFooter = () => {
     const keys = [
-      'footer_logo', 'footer_description', 'footer_copyright', 'footer_location',
+      'footer_logo_url', 'footer_description', 'footer_copyright', 'footer_location',
       'footer_show_social', 'footer_show_location', 'footer_columns',
     ]
     const columns = getFooterColumns()
@@ -412,7 +407,7 @@ export default function AdminCmsPage() {
       <div style={cardStyle}>
         <h3 style={sectionTitle}>Footer мэдээлэл</h3>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 20px' }}>
-          <Field label="Footer лого URL" value={f('footer_logo')} onChange={v => sf('footer_logo', v)} />
+          <Field label="Footer лого URL" value={f('footer_logo_url')} onChange={v => sf('footer_logo_url', v)} />
           <Field label="Copyright" value={f('footer_copyright')} onChange={v => sf('footer_copyright', v)} placeholder="© 2026 BizPrint" />
         </div>
         <Field label="Тайлбар" value={f('footer_description')} onChange={v => sf('footer_description', v)} type="textarea" />
@@ -454,12 +449,12 @@ export default function AdminCmsPage() {
   // ===================== TAB 5: Homepage =====================
   const renderHomepage = () => {
     const keys = [
-      'home_hero_title', 'home_hero_subtitle',
-      'home_hero_cta1_text', 'home_hero_cta1_url', 'home_hero_cta2_text', 'home_hero_cta2_url',
-      'home_hero_bg_type', 'home_hero_bg_value',
-      'home_features_enabled', 'home_features_title', 'home_features_items',
-      'home_stats_enabled', 'home_stats_items',
-      'home_cta_enabled', 'home_cta_title', 'home_cta_subtitle', 'home_cta_btn_text', 'home_cta_btn_url',
+      'hero_title', 'hero_subtitle',
+      'hero_cta_primary_text', 'hero_cta_primary_url', 'hero_cta_secondary_text', 'hero_cta_secondary_url',
+      'hero_background_type', 'hero_background_value',
+      'features_active', 'features_title', 'features_items',
+      'stats_active', 'stats_items',
+      'cta_section_active', 'cta_title', 'cta_subtitle', 'cta_button_text', 'cta_button_url',
     ]
     const features = getFeatures()
     const stats = getStats()
@@ -469,20 +464,20 @@ export default function AdminCmsPage() {
         {/* Hero */}
         <h3 style={sectionTitle}>Hero хэсэг</h3>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 20px' }}>
-          <Field label="Гарчиг" value={f('home_hero_title')} onChange={v => sf('home_hero_title', v)} />
-          <Field label="Дэд гарчиг" value={f('home_hero_subtitle')} onChange={v => sf('home_hero_subtitle', v)} />
-          <Field label="CTA1 текст" value={f('home_hero_cta1_text')} onChange={v => sf('home_hero_cta1_text', v)} />
-          <Field label="CTA1 URL" value={f('home_hero_cta1_url')} onChange={v => sf('home_hero_cta1_url', v)} />
-          <Field label="CTA2 текст" value={f('home_hero_cta2_text')} onChange={v => sf('home_hero_cta2_text', v)} />
-          <Field label="CTA2 URL" value={f('home_hero_cta2_url')} onChange={v => sf('home_hero_cta2_url', v)} />
-          <Field label="Background төрөл (image/video/gradient)" value={f('home_hero_bg_type')} onChange={v => sf('home_hero_bg_type', v)} />
-          <Field label="Background утга (URL эсвэл CSS)" value={f('home_hero_bg_value')} onChange={v => sf('home_hero_bg_value', v)} />
+          <Field label="Гарчиг" value={f('hero_title')} onChange={v => sf('hero_title', v)} />
+          <Field label="Дэд гарчиг" value={f('hero_subtitle')} onChange={v => sf('hero_subtitle', v)} />
+          <Field label="CTA1 текст" value={f('hero_cta_primary_text')} onChange={v => sf('hero_cta_primary_text', v)} />
+          <Field label="CTA1 URL" value={f('hero_cta_primary_url')} onChange={v => sf('hero_cta_primary_url', v)} />
+          <Field label="CTA2 текст" value={f('hero_cta_secondary_text')} onChange={v => sf('hero_cta_secondary_text', v)} />
+          <Field label="CTA2 URL" value={f('hero_cta_secondary_url')} onChange={v => sf('hero_cta_secondary_url', v)} />
+          <Field label="Background төрөл (image/video/gradient)" value={f('hero_background_type')} onChange={v => sf('hero_background_type', v)} />
+          <Field label="Background утга (URL эсвэл CSS)" value={f('hero_background_value')} onChange={v => sf('hero_background_value', v)} />
         </div>
 
         {/* Features */}
         <h3 style={{ ...sectionTitle, marginTop: 28 }}>Давуу тал (Features)</h3>
-        <Toggle label="Features хэсэг харуулах" value={fb('home_features_enabled')} onChange={v => sfb('home_features_enabled', v)} />
-        <Field label="Features гарчиг" value={f('home_features_title')} onChange={v => sf('home_features_title', v)} />
+        <Toggle label="Features хэсэг харуулах" value={fb('features_active')} onChange={v => sfb('features_active', v)} />
+        <Field label="Features гарчиг" value={f('features_title')} onChange={v => sf('features_title', v)} />
         {features.map((item, i) => (
           <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'flex-end', marginBottom: 8 }}>
             <div style={{ flex: 0.5 }}>
@@ -510,7 +505,7 @@ export default function AdminCmsPage() {
 
         {/* Stats */}
         <h3 style={{ ...sectionTitle, marginTop: 28 }}>Статистик (Stats)</h3>
-        <Toggle label="Stats хэсэг харуулах" value={fb('home_stats_enabled')} onChange={v => sfb('home_stats_enabled', v)} />
+        <Toggle label="Stats хэсэг харуулах" value={fb('stats_active')} onChange={v => sfb('stats_active', v)} />
         {stats.map((item, i) => (
           <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'flex-end', marginBottom: 8 }}>
             <div style={{ flex: 1 }}>
@@ -532,12 +527,12 @@ export default function AdminCmsPage() {
 
         {/* CTA Section */}
         <h3 style={{ ...sectionTitle, marginTop: 28 }}>CTA хэсэг</h3>
-        <Toggle label="CTA хэсэг харуулах" value={fb('home_cta_enabled')} onChange={v => sfb('home_cta_enabled', v)} />
+        <Toggle label="CTA хэсэг харуулах" value={fb('cta_section_active')} onChange={v => sfb('cta_section_active', v)} />
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 20px' }}>
-          <Field label="Гарчиг" value={f('home_cta_title')} onChange={v => sf('home_cta_title', v)} />
-          <Field label="Дэд гарчиг" value={f('home_cta_subtitle')} onChange={v => sf('home_cta_subtitle', v)} />
-          <Field label="Товчны текст" value={f('home_cta_btn_text')} onChange={v => sf('home_cta_btn_text', v)} />
-          <Field label="Товчны URL" value={f('home_cta_btn_url')} onChange={v => sf('home_cta_btn_url', v)} />
+          <Field label="Гарчиг" value={f('cta_title')} onChange={v => sf('cta_title', v)} />
+          <Field label="Дэд гарчиг" value={f('cta_subtitle')} onChange={v => sf('cta_subtitle', v)} />
+          <Field label="Товчны текст" value={f('cta_button_text')} onChange={v => sf('cta_button_text', v)} />
+          <Field label="Товчны URL" value={f('cta_button_url')} onChange={v => sf('cta_button_url', v)} />
         </div>
 
         <SaveButton onClick={() => saveBulk(keys)} />

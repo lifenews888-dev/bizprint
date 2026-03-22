@@ -1,8 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
 
-const API = 'http://localhost:4000';
-
 interface Delivery {
   id: number;
   status: string;
@@ -61,8 +59,7 @@ export default function DeliveryTrackingPage() {
 
   async function fetchMe(t: string) {
     try {
-      const res = await fetch(`${API}/auth/me`, {
-        headers: { Authorization: `Bearer ${t}` },
+      const res = await apiFetch(`//auth/me`, {` },
       });
       const data = await res.json();
       setUserId(data.id);
@@ -74,8 +71,7 @@ export default function DeliveryTrackingPage() {
 
   async function fetchOrders(t: string, uid: string) {
     try {
-      const res = await fetch(`${API}/customer-dashboard/${uid}/orders`, {
-        headers: { Authorization: `Bearer ${t}` },
+      const res = await apiFetch(`//customer-dashboard/${uid}/orders`, {` },
       });
       const data = await res.json();
       const list = Array.isArray(data) ? data : (data.orders || []);
@@ -96,8 +92,7 @@ export default function DeliveryTrackingPage() {
     setDelivery(null);
     setTrackLoading(true);
     try {
-      const res = await fetch(`${API}/delivery/order/${orderId}`, {
-        headers: { Authorization: `Bearer ${tok}` },
+      const res = await apiFetch(`//delivery/order/${orderId}`, {` },
       });
       if (res.ok) {
         const data = await res.json();

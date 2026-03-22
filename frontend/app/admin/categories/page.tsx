@@ -1,4 +1,5 @@
 'use client'
+import { apiFetch } from '@/lib/api'
 import { useState, useEffect } from 'react'
 
 interface Category {
@@ -36,9 +37,6 @@ interface Product {
 
 type Tab = 'categories' | 'attributes'
 
-const API = 'http://localhost:4000'
-const getToken = () => localStorage.getItem('access_token') || ''
-const hdrs = () => ({ 'Content-Type': 'application/json', Authorization: 'Bearer ' + getToken() })
 const slugify = (s: string) => s.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
 
 const ICONS = ['📦','🖨️','📋','🎨','📣','📷','🏷️','📰','🗂️','✉️','🎁','🔖','📐','🖼️','📌']
@@ -99,9 +97,9 @@ export default function AdminCategoriesPage() {
     setLoading(true)
     try {
       const [cR, tR, pR] = await Promise.all([
-        fetch(API+'/categories', { headers: hdrs() }),
-        fetch(API+'/categories/tree', { headers: hdrs() }),
-        fetch(API+'/products', { headers: hdrs() }),
+        apiFetch('/categories'),
+        apiFetch('/categories/tree'),
+        apiFetch('/products'),
       ])
       if (cR.ok) setCategories(await cR.json())
       if (tR.ok) setTree(await tR.json())
@@ -112,7 +110,7 @@ export default function AdminCategoriesPage() {
 
   async function fetchAttrs(pid: string) {
     try {
-      const r = await fetch(API+'/products/'+pid+'/attributes', { headers: hdrs() })
+      const r = await apiFetch('//products/'+pid+'/attributes')
       setAttributes(r.ok ? await r.json() : [])
     } catch { setAttributes([]) }
   }
@@ -132,20 +130,19 @@ export default function AdminCategoriesPage() {
     setCatSaving(true)
     const body = {...catForm, slug: catForm.slug || slugify(catForm.name)}
     try {
-      const url = catEdit ? API+'/categories/'+catEdit.id : API+'/categories'
-      const r = await fetch(url, { method: catEdit?'PATCH':'POST', headers: hdrs(), body: JSON.stringify(body) })
-      if (r.ok) { showToast(catEdit?'Засагдлаа':'Нэмэгдлээ'); setCatModal(false); fetchAll() }
-      else showToast('Алдаа гарлаа')
+      const path = catEdit ? `/categories/${catEdit.id}` : '/categories'
+      await apiFetch(path, { method: catEdit?'PATCH':'POST', body: body })
+      showToast(catEdit?'Засагдлаа':'Нэмэгдлээ'); setCatModal(false); fetchAll()
     } catch { showToast('Алдаа гарлаа') }
     setCatSaving(false)
   }
   async function deleteCat(id: string) {
     if (!confirm('Устгах уу?')) return
-    await fetch(API+'/categories/'+id, { method:'DELETE', headers: hdrs() })
+    await apiFetch('//categories/'+id, { method:'DELETE'})
     showToast('Устгагдлаа'); fetchAll()
   }
   async function toggleActive(c: Category) {
-    await fetch(API+'/categories/'+c.id, { method:'PATCH', headers: hdrs(), body: JSON.stringify({is_active: !c.is_active}) })
+    await apiFetch('//categories/'+c.id, { method:'PATCH', body: {is_active: !c.is_active} })
     fetchAll()
   }
 
@@ -161,16 +158,15 @@ export default function AdminCategoriesPage() {
     if (!attrForm.name || !attrForm.product_id) return
     setAttrSaving(true)
     try {
-      const url = attrEdit ? API+'/products/'+attrForm.product_id+'/attributes/'+attrEdit.id : API+'/products/'+attrForm.product_id+'/attributes'
-      const r = await fetch(url, { method: attrEdit?'PATCH':'POST', headers: hdrs(), body: JSON.stringify(attrForm) })
-      if (r.ok) { showToast(attrEdit?'Засагдлаа':'Нэмэгдлээ'); setAttrModal(false); fetchAttrs(selProduct) }
-      else showToast('Алдаа гарлаа')
+      const path = attrEdit ? `/products/${attrForm.product_id}/attributes/${attrEdit.id}` : `/products/${attrForm.product_id}/attributes`
+      await apiFetch(path, { method: attrEdit?'PATCH':'POST', body: attrForm })
+      showToast(attrEdit?'Засагдлаа':'Нэмэгдлээ'); setAttrModal(false); fetchAttrs(selProduct)
     } catch { showToast('Алдаа гарлаа') }
     setAttrSaving(false)
   }
   async function deleteAttr(a: ProductAttribute) {
     if (!confirm('Устгах уу?')) return
-    await fetch(API+'/products/'+a.product_id+'/attributes/'+a.id, { method:'DELETE', headers: hdrs() })
+    await apiFetch('//products/'+a.product_id+'/attributes/'+a.id, { method:'DELETE'})
     showToast('Устгагдлаа'); fetchAttrs(selProduct)
   }
   function addOption() {

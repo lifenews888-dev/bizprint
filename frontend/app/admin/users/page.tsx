@@ -1,8 +1,6 @@
 'use client'
+import { apiFetch } from '@/lib/api'
 import { useState, useEffect } from 'react'
-
-const API = 'http://localhost:4000'
-const getHeaders = () => ({ 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token')}` })
 
 export default function AdminUsersPage() {
   const [items, setItems] = useState<any[]>([])
@@ -10,7 +8,7 @@ export default function AdminUsersPage() {
   const [editing, setEditing] = useState<any>(null)
   const [form, setForm] = useState({ full_name: '', email: '', password: '', role: 'customer', phone: '' })
 
-  const load = () => { fetch(`${API}/admin/users`, { headers: getHeaders() }).then(r => r.json()).then(d => setItems(Array.isArray(d) ? d : [])).catch(() => {}).finally(() => setLoading(false)) }
+  const load = () => { apiFetch('/admin/users').then(d => setItems(Array.isArray(d) ? d : [])).catch(() => {}).finally(() => setLoading(false)) }
   useEffect(load, [])
 
   const reset = () => { setEditing(null); setForm({ full_name: '', email: '', password: '', role: 'customer', phone: '' }) }
@@ -21,13 +19,13 @@ export default function AdminUsersPage() {
       return
     }
     const method = editing?.id ? 'PATCH' : 'POST'
-    const url = editing?.id ? `${API}/admin/users/${editing.id}` : `${API}/auth/register`
+    const url = editing?.id ? `/admin/users/${editing.id}` : `/auth/register`
     const body: any = { ...form }
     if (!body.password) delete body.password
-    await fetch(url, { method, headers: getHeaders(), body: JSON.stringify(body) })
+    await apiFetch(url, { method: , body: body })
     reset(); load()
   }
-  const del = async (id: string) => { if (!confirm('Устгах уу?')) return; await fetch(`${API}/admin/users/${id}`, { method: 'DELETE', headers: getHeaders() }); load() }
+  const del = async (id: string) => { if (!confirm('Устгах уу?')) return; await apiFetch(`/admin/users/${id}`, { method: 'DELETE' }); load() }
   const edit = (item: any) => { setEditing(item); setForm({ full_name: item.full_name || '', email: item.email || '', password: '', role: item.role || 'customer', phone: item.phone || '' }) }
 
   const ROLE_LABELS: Record<string, string> = { customer: 'Хэрэглэгч', admin: 'Админ', vendor: 'Үйлдвэрлэгч', designer: 'Дизайнер', sales: 'Борлуулагч', courier: 'Хүргэлтийн ажилтан', factory: 'Үйлдвэр' }
@@ -83,7 +81,7 @@ export default function AdminUsersPage() {
                     <span style={{ fontSize: 11, color: 'var(--text2)' }}>—</span>
                   )}
                   {CONTRACT_ROLES.includes(u.role) && (
-                    <button onClick={async () => { await fetch(`${API}/admin/users/${u.id}`, { method: 'PATCH', headers: getHeaders(), body: JSON.stringify({ is_active: !u.is_active }) }); load() }} style={{ marginLeft: 8, fontSize: 11, padding: '2px 8px', background: u.is_active ? 'rgba(239,68,68,0.1)' : 'rgba(16,185,129,0.1)', color: u.is_active ? '#EF4444' : '#10B981', border: 'none', borderRadius: 4, cursor: 'pointer' }}>{u.is_active ? 'Идэвхгүй болгох' : 'Идэвхжүүлэх'}</button>
+                    <button onClick={async () => { await apiFetch(`/admin/users/${u.id}`, { method: 'PATCH', body: { is_active: !u.is_active } }); load() }} style={{ marginLeft: 8, fontSize: 11, padding: '2px 8px', background: u.is_active ? 'rgba(239,68,68,0.1)' : 'rgba(16,185,129,0.1)', color: u.is_active ? '#EF4444' : '#10B981', border: 'none', borderRadius: 4, cursor: 'pointer' }}>{u.is_active ? 'Идэвхгүй болгох' : 'Идэвхжүүлэх'}</button>
                   )}
                 </td>
                 <td style={{ padding: '10px 16px', color: 'var(--text2)' }}>{u.phone || '—'}</td>

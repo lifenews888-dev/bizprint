@@ -1,10 +1,8 @@
 'use client'
+import { apiFetch, API_URL } from '@/lib/api'
 import { useState, useEffect } from 'react'
 
-const API = 'http://localhost:4000'
 const F = "'DM Sans','Segoe UI',system-ui,sans-serif"
-const getHeaders = () => ({ 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token')}` })
-
 const COLORS = ['#FF6B00', '#8B5CF6', '#10B981', '#3B82F6', '#F59E0B', '#EC4899', '#06B6D4', '#EF4444']
 const ICONS = ['📱', '📸', '💼', '📄', '🖼️', '📅', '🎨', '📦']
 
@@ -22,10 +20,10 @@ export default function ServicesPage() {
 
   useEffect(() => {
     Promise.all([
-      fetch(`${API}/categories`).then(r => r.json()).catch(() => []),
-      fetch(`${API}/products`).then(r => r.json()).catch(() => []),
-      fetch(`${API}/templates?status=approved`).then(r => r.json()).catch(() => []),
-      fetch(`${API}/settings/public`).then(r => r.json()).catch(() => ({})),
+      apiFetch('/categories', { auth: false }).catch(() => []),
+      apiFetch('/products', { auth: false }).catch(() => []),
+      apiFetch('/templates?status=approved', { auth: false }).catch(() => []),
+      apiFetch('/settings/public', { auth: false }).catch(() => ({})),
     ]).then(([cats, prods, tmpl, sets]) => {
       setCategories(Array.isArray(cats) ? cats.filter((c: any) => c.is_active !== false) : [])
       setProducts(Array.isArray(prods) ? prods.filter((p: any) => p.is_active !== false) : [])
@@ -42,13 +40,13 @@ export default function ServicesPage() {
     setSubmitting(true)
     try {
       const user = JSON.parse(localStorage.getItem('user') || '{}')
-      await fetch(`${API}/design-requests`, {
-        method: 'POST', headers: getHeaders(),
-        body: JSON.stringify({
+      await apiFetch(`//design-requests`, {
+        method: 'POST',
+        body: {
           customer_id: user.id, customer_name: user.full_name || user.email,
           customer_email: user.email, customer_phone: orderForm.contact_phone,
           product_name: orderForm.service, description: orderForm.description, type: 'design',
-        }),
+        },
       })
       setSubmitted(true)
     } catch {} finally { setSubmitting(false) }
@@ -130,7 +128,7 @@ export default function ServicesPage() {
                     onMouseLeave={e => (e.currentTarget.style.borderColor = 'var(--border)')}>
                     {p.thumbnail_url ? (
                       <div style={{ height: '160px', overflow: 'hidden' }}>
-                        <img src={p.thumbnail_url.startsWith('http') ? p.thumbnail_url : `${API}${p.thumbnail_url}`} alt={p.name_mn || p.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        <img src={p.thumbnail_url.startsWith('http') ? p.thumbnail_url : `${API_URL}${p.thumbnail_url}`} alt={p.name_mn || p.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                       </div>
                     ) : (
                       <div style={{ height: '120px', background: `linear-gradient(135deg, ${color}15, ${color}08)`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>

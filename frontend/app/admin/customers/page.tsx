@@ -1,18 +1,7 @@
 'use client'
 
+import { apiFetch } from '@/lib/api'
 import { useState, useEffect, useCallback } from 'react'
-
-const API = 'http://localhost:4000'
-
-function getToken() {
-  if (typeof window === 'undefined') return ''
-  return localStorage.getItem('access_token') || localStorage.getItem('token') || ''
-}
-
-const getHeaders = () => ({
-  'Content-Type': 'application/json',
-  Authorization: `Bearer ${getToken()}`,
-})
 
 function fmt(n: number) {
   return new Intl.NumberFormat('mn-MN').format(Math.round(n)) + '₮'
@@ -143,7 +132,7 @@ export default function AdminCustomersPage() {
       if (search) params.set('search', search)
       if (tierFilter !== 'ALL') params.set('tier', tierFilter)
       params.set('page', String(page))
-      const res = await fetch(`${API}/admin/customers?${params}`, { headers: getHeaders() })
+      const res = await apiFetch(`/admin/customers?${params}`)
       const data = await res.json()
       setItems(data.items || [])
       setTotal(data.total || 0)
@@ -321,7 +310,7 @@ function CustomerDrawer({
     if (!customer?.id) return
     setLoadingProfile(true)
     setTab('Мэдээлэл')
-    fetch(`${API}/admin/customers/${customer.id}`, { headers: getHeaders() })
+    apiFetch(`/admin/customers/${customer.id}`)
       .then(r => r.json())
       .then(d => setProfile(d))
       .catch(() => {})
@@ -446,10 +435,9 @@ function InfoTab({ profile, customerId, onUpdated }: { profile: any; customerId:
   const save = async () => {
     setSaving(true)
     try {
-      await fetch(`${API}/admin/customers/${customerId}`, {
+      await apiFetch(`/admin/customers/${customerId}`, {
         method: 'PUT',
-        headers: getHeaders(),
-        body: JSON.stringify({ ...form, tags }),
+        body: { ...form, tags },
       })
       onUpdated()
     } catch { /* */ }
@@ -562,9 +550,9 @@ function QuotesTab({ customerId, profile }: { customerId: string; profile: any }
     setLoading(true)
     const email = profile?.guest_email || profile?.email
     const url = email
-      ? `${API}/quotes-v2/guest?email=${encodeURIComponent(email)}`
-      : `${API}/quotes-v2?customer_id=${customerId}`
-    fetch(url, { headers: getHeaders() })
+      ? `/quotes-v2/guest?email=${encodeURIComponent(email)}`
+      : `/quotes-v2?customer_id=${customerId}`
+    apiFetch(url)
       .then(r => r.json())
       .then(d => setQuotes(Array.isArray(d) ? d : d.items || []))
       .catch(() => setQuotes([]))
@@ -628,7 +616,7 @@ function InteractionsTab({ customerId }: { customerId: string }) {
   const loadInteractions = useCallback(async () => {
     setLoading(true)
     try {
-      const res = await fetch(`${API}/admin/customers/${customerId}/interactions`, { headers: getHeaders() })
+      const res = await apiFetch(`/admin/customers/${customerId}/interactions`)
       const data = await res.json()
       setInteractions(Array.isArray(data) ? data : [])
     } catch {
@@ -643,15 +631,14 @@ function InteractionsTab({ customerId }: { customerId: string }) {
     if (!noteContent.trim()) return
     setSubmitting(true)
     try {
-      await fetch(`${API}/admin/customers/${customerId}/interactions`, {
+      await apiFetch(`/admin/customers/${customerId}/interactions`, {
         method: 'POST',
-        headers: getHeaders(),
-        body: JSON.stringify({
+        body: {
           type: noteType,
           title: noteTitle || INTERACTION_LABELS[noteType] || noteType,
           content: noteContent,
           created_by: 'admin',
-        }),
+        },
       })
       setNoteContent('')
       setNoteTitle('')
@@ -776,7 +763,7 @@ function TicketsTab({ customerId }: { customerId: string }) {
 
   useEffect(() => {
     setLoading(true)
-    fetch(`${API}/admin/customers/${customerId}/tickets`, { headers: getHeaders() })
+    apiFetch(`/admin/customers/${customerId}/tickets`)
       .then(r => r.json())
       .then(d => setTickets(Array.isArray(d) ? d : []))
       .catch(() => setTickets([]))

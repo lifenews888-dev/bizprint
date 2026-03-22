@@ -1,4 +1,5 @@
 'use client'
+import { apiFetch } from '@/lib/api'
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 
@@ -29,11 +30,9 @@ export default function RegisterPage() {
 
     setLoading(true); setError('')
     try {
-      const res = await fetch('http://localhost:4000/auth/register', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password, full_name: fullName.trim(), phone: phone.trim() || undefined, role: 'customer' }),
+      const data = await apiFetch<any>('/auth/register', {
+        method: 'POST', body: { email, password, full_name: fullName.trim(), phone: phone.trim() || undefined, role: 'customer' }, auth: false,
       })
-      const data = await res.json()
       if (data.access_token) {
         localStorage.setItem('access_token', data.access_token)
         localStorage.setItem('token', data.access_token)

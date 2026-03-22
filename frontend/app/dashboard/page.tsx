@@ -1,10 +1,8 @@
 'use client'
+import { apiFetch } from '@/lib/api'
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-
-const API = 'http://localhost:4000'
-const getToken = () => localStorage.getItem('access_token') || localStorage.getItem('token') || ''
-const getH = () => ({ 'Content-Type': 'application/json', Authorization: 'Bearer ' + getToken() })
+import { useRealtime } from '@/contexts/RealtimeContext'
 
 const ST: Record<string, { label: string; color: string; bg: string }> = {
   pending: { label: 'Хүлээгдэж буй', color: '#D97706', bg: '#FEF3C7' },
@@ -41,6 +39,7 @@ const stepIdx = (s: string) => {
 
 export default function DashboardPage() {
   const router = useRouter()
+  const { joinRoom, subscribe } = useRealtime()
   const [user, setUser] = useState<any>(null)
   const [orders, setOrders] = useState<any[]>([])
   const [quotes, setQuotes] = useState<any[]>([])
@@ -70,7 +69,7 @@ export default function DashboardPage() {
   const [myTickets, setMyTickets] = useState<any[]>([])
 
   const loadMyTickets = () => {
-    fetch(API + '/customer/support/my-tickets', { headers: getH() })
+    apiFetch('/customer/support/my-tickets')
       .then(r => r.json()).then(d => setMyTickets(Array.isArray(d) ? d : [])).catch(() => {})
   }
 
@@ -78,9 +77,9 @@ export default function DashboardPage() {
     if (!ticketSubject || !ticketMessage || ticketSending) return
     setTicketSending(true)
     try {
-      await fetch(API + '/customer/support', {
-        method: 'POST', headers: getH(),
-        body: JSON.stringify({ subject: ticketSubject, message: ticketMessage, quote_id: ticketQuoteId || undefined }),
+      await apiFetch('//customer/support', {
+        method: 'POST',
+        body: { subject: ticketSubject, message: ticketMessage, quote_id: ticketQuoteId || undefined },
       })
       show('Тикет амжилттай илгээгдлээ')
       setShowTicket(false); setTicketSubject(''); setTicketMessage(''); setTicketQuoteId('')
@@ -94,19 +93,48 @@ export default function DashboardPage() {
   useEffect(() => {
     const ud = localStorage.getItem('user'); const tk = getToken()
     if (!ud || !tk) { router.push('/login'); return }
-    const u = JSON.parse(ud); setUser(u)
+    const u = JSON.parse(ud)
+    // Role-based redirect — /dashboard is for customers only
+    if (u.role === 'admin') { router.push('/admin'); return }
+    if (u.role === 'designer') { router.push('/designer'); return }
+    if (u.role === 'vendor') { router.push('/dashboard/vendor'); return }
+    if (u.role === 'sales') { router.push('/sales'); return }
+    if (u.role === 'courier') { router.push('/courier'); return }
+    if (u.role === 'factory') { router.push('/dashboard/factory'); return }
+    setUser(u)
     setProfileForm({ full_name: u.full_name || '', email: u.email || '', phone: u.phone || '', address: u.address || '', company: u.company || '' })
+    // Join personal room so design/zoom events arrive even when not on design detail page
+    joinRoom(`user:${u.id}`)
     setLoading(true)
     Promise.all([
-      fetch(API+'/orders/customer/'+u.id, { headers: getH() }).then(r=>r.json()).catch(()=>[]),
-      fetch(API+'/quotes-v2/my', { headers: getH() }).then(r=>r.json()).catch(()=>[]),
-      fetch(API+'/products', { headers: getH() }).then(r=>r.json()).catch(()=>[]),
+      apiFetch('//orders/customer/'+u.id).catch(()=>[]),
+      apiFetch('/quotes-v2/my').catch(()=>[]),
+      apiFetch('/products').catch(()=>[]),
     ]).then(([o,q,p]) => {
       setOrders(Array.isArray(o)?o:[]); setQuotes(Array.isArray(q)?q:[]); setProducts(Array.isArray(p)?p:[])
     }).finally(() => setLoading(false))
     // Load support tickets
-    fetch(API+'/customer/support/my-tickets', { headers: getH() }).then(r=>r.json()).then(d=>setMyTickets(Array.isArray(d)?d:[])).catch(()=>{})
+    apiFetch('/customer/support/my-tickets').then(d=>setMyTickets(Array.isArray(d)?d:[])).catch(()=>{})
   }, [])
+
+  // ── Realtime: design & zoom events ────────────────────────────────────────
+  useEffect(() => {
+    if (!user?.id) return
+    const unsubs = [
+      subscribe('DESIGN_ZOOM_CREATED', (p: any) => {
+        show('📹 Zoom уулзалт товлогдлоо! Имэйлийг шалгаарай.')
+        // Reload orders to refresh status
+        apiFetch('//orders/customer/'+user.id).then(o => setOrders(Array.isArray(o)?o:[])).catch(()=>{})
+      }),
+      subscribe('DESIGN_APPROVED', () => {
+        apiFetch('//orders/customer/'+user.id).then(o => setOrders(Array.isArray(o)?o:[])).catch(()=>{})
+      }),
+      subscribe('DESIGN_FILE_UPLOADED', () => {
+        apiFetch('//orders/customer/'+user.id).then(o => setOrders(Array.isArray(o)?o:[])).catch(()=>{})
+      }),
+    ]
+    return () => unsubs.forEach(u => u())
+  }, [user?.id, subscribe])
 
   const toggleQ = (id: string) => setSelQ(p => { const n = new Set(p); n.has(id)?n.delete(id):n.add(id); return n })
   const selTotal = quotes.filter(q => selQ.has(q.id)).reduce((s,q) => s+Number(q.total_price||0), 0)
@@ -124,16 +152,15 @@ export default function DashboardPage() {
     try {
       // 1) Order үүсгэх (одоогоор эхний quote-оор)
       const q = selectedQuotesList[0]
-      const orderRes = await fetch(API+"/orders/from-quote", { method:"POST", headers: getH(), body: JSON.stringify({ quote_id: q.id }) })
+      const orderRes = await apiFetch("//orders/from-quote", { method:"POST", body: { quote_id: q.id } })
       const orderData = await orderRes.json()
       const orderId = orderData?.id || q.id
 
       // 2) Payment create
       const amount = Math.round(selTotal * 1.1)
-      const payRes = await fetch(`${API}/payment/create`, {
+      const payRes = await apiFetch(`/payment/create`, {
         method: 'POST',
-        headers: getH(),
-        body: JSON.stringify({ orderId, amount, method: payMethod }),
+        body: { orderId, amount, method: payMethod },
       })
       const pay = await payRes.json()
 
@@ -146,8 +173,8 @@ export default function DashboardPage() {
       }
       setSelQ(new Set())
       // refresh
-      const o = await fetch(API+"/orders/customer/"+user?.id, { headers: getH() }).then(r=>r.json()).catch(()=>[])
-      const q2 = await fetch(API+"/quotes-v2/my", { headers: getH() }).then(r=>r.json()).catch(()=>[])
+      const o = await apiFetch("//orders/customer/"+user?.id).catch(()=>[])
+      const q2 = await apiFetch('/quotes-v2/my').catch(()=>[])
       setOrders(Array.isArray(o)?o:[]); setQuotes(Array.isArray(q2)?q2:[]); setSection("orders")
     } catch (err) {
       show("Алдаа гарлаа")
@@ -159,13 +186,13 @@ export default function DashboardPage() {
   const pollStatus = async (invoiceNo: string) => {
     const timer = setInterval(async () => {
       try {
-        const res = await fetch(`${API}/payment/status/${invoiceNo}`, { headers: getH() })
+        const res = await apiFetch(`/payment/status/${invoiceNo}`)
         const data = await res.json()
         if (data?.status === 1 || data?.status === 'PAID' || data?.status === 'paid') {
           clearInterval(timer)
           show('Төлбөр амжилттай!')
           setShowPayment(false); setQrInfo(null)
-          const o = await fetch(API+"/orders/customer/"+user?.id, { headers: getH() }).then(r=>r.json()).catch(()=>[]); setOrders(Array.isArray(o)?o:[])
+          const o = await apiFetch("//orders/customer/"+user?.id).catch(()=>[]); setOrders(Array.isArray(o)?o:[])
         }
       } catch {}
     }, 5000)
@@ -180,10 +207,10 @@ export default function DashboardPage() {
   const orderFromQuotes = async () => {
     if (ordering) return; setOrdering(true); try {
     if (selQ.size === 0) return
-    for (const qid of selQ) { try { await fetch(API+'/orders/from-quote', { method:'POST', headers: getH(), body: JSON.stringify({ quote_id: qid }) }) } catch {} }
+    for (const qid of selQ) { try { await apiFetch('/orders/from-quote', { method: 'POST', body: { quote_id: qid } }) } catch {} }
     show(selQ.size + ' захиалга үүсгэгдлээ!'); setSelQ(new Set())
-    const o = await fetch(API+'/orders/customer/'+user?.id, { headers: getH() }).then(r=>r.json()).catch(()=>[])
-    const q = await fetch(API+'/quotes-v2/my', { headers: getH() }).then(r=>r.json()).catch(()=>[])
+    const o = await apiFetch('//orders/customer/'+user?.id).catch(()=>[])
+    const q = await apiFetch('/quotes-v2/my').catch(()=>[])
     setOrders(Array.isArray(o)?o:[]); setQuotes(Array.isArray(q)?q:[]); setSection('orders')
     } finally { setOrdering(false) }
   }
@@ -215,7 +242,7 @@ export default function DashboardPage() {
     if (!email) return
     setQuotesLoading(true)
     try {
-      const res = await fetch(API + '/quotes-v2/guest?email=' + encodeURIComponent(email))
+      const res = await apiFetch('//quotes-v2/guest?email=' + encodeURIComponent(email))
       const data = await res.json()
       setQuotes(Array.isArray(data) ? data : [])
       setQuoteEmail(email)
@@ -279,11 +306,25 @@ export default function DashboardPage() {
           {/* ═══ ORDERS ═══ */}
           {section==='orders' && (<div style={{ display:'flex', flexDirection:'column', gap:12 }}>
             {orders.length===0?(
-              <div style={{ border:'2px dashed #D6D3D1', borderRadius:16, padding:'60px 24px', textAlign:'center' }}><div style={{ fontSize:48, marginBottom:12 }}>📦</div><div style={{ fontSize:20, fontWeight:600, marginBottom:6 }}>Захиалга байхгүй байна</div><div style={{ fontSize:14, color:'#78716C', marginBottom:20 }}>Эхний захиалгаа өгөөд хэвлэлийн аялалаа эхлүүлээрэй</div><button onClick={()=>router.push('/order')} style={{ background:'#1C1917', color:'#fff', border:'none', padding:'12px 28px', borderRadius:99, fontSize:14, fontWeight:600, cursor:'pointer', fontFamily:"'DM Sans',sans-serif" }}>+ Шинэ захиалга өгөх</button></div>
+              <div style={{ border:'2px dashed #D6D3D1', borderRadius:16, padding:'60px 24px', textAlign:'center' }}><div style={{ fontSize:48, marginBottom:12 }}>📦</div><div style={{ fontSize:20, fontWeight:600, marginBottom:6 }}>Захиалга байхгүй байна</div><div style={{ fontSize:14, color:'#78716C', marginBottom:20 }}>Эхний захиалгаа өгөөд хэвлэлийн аялалаа эхлүүлээрэй</div><button onClick={()=>router.push('/quote')} style={{ background:'#1C1917', color:'#fff', border:'none', padding:'12px 28px', borderRadius:99, fontSize:14, fontWeight:600, cursor:'pointer', fontFamily:"'DM Sans',sans-serif" }}>+ Шинэ захиалга өгөх</button></div>
             ):orders.map(o=>{const s=gs(o.status);const si=stepIdx(o.status);return(
               <div key={o.id} onClick={()=>setDetailOrder(o)} style={{ background:'#fff', border:'1px solid #E7E5E4', borderRadius:16, padding:'20px 24px', cursor:'pointer', transition:'all .2s' }} onMouseEnter={e=>{e.currentTarget.style.borderColor='#FF6B00';e.currentTarget.style.boxShadow='0 4px 20px rgba(255,107,0,0.08)'}} onMouseLeave={e=>{e.currentTarget.style.borderColor='#E7E5E4';e.currentTarget.style.boxShadow='none'}}>
                 <div style={{ display:'flex', justifyContent:'space-between', alignItems:'start', marginBottom:16 }}><div><div style={{ fontSize:18, fontWeight:600, marginBottom:3, letterSpacing:'-0.01em' }}>{o.product_name||'Захиалга'}</div><div style={{ fontSize:13, color:'#A8A29E', fontFamily:"'DM Sans',sans-serif" }}>#{o.id.slice(0,8)} · {o.quantity}ш · {new Date(o.created_at).toLocaleDateString()}</div></div><div style={{ textAlign:'right' }}><div style={{ fontSize:20, fontWeight:700, color:'#1C1917', letterSpacing:'-0.02em' }}>₮{Number(o.total_price||0).toLocaleString()}</div><span style={{ fontSize:11, padding:'3px 10px', borderRadius:99, background:s.bg, color:s.color, fontWeight:600, fontFamily:"'DM Sans',sans-serif" }}>{s.label}</span></div></div>
                 <div style={{ display:'flex', alignItems:'center', gap:0 }}>{STEP_LABELS.map((label,i)=>{const done=i<=si;const current=i===si;const last=i===STEP_LABELS.length-1;return(<div key={i} style={{ display:'flex', alignItems:'center', flex:last?0:1 }}><div style={{ display:'flex', flexDirection:'column', alignItems:'center' }}><div style={{ width:24, height:24, borderRadius:'50%', background:done?(current?'#FF6B00':'#059669'):'#E7E5E4', display:'flex', alignItems:'center', justifyContent:'center', fontSize:10, color:done?'#fff':'#A8A29E', fontWeight:700, fontFamily:"'DM Sans',sans-serif" }}>{done?(current?(si===5?'✓':'●'):'✓'):(i+1)}</div><div style={{ fontSize:10, color:current?'#FF6B00':done?'#78716C':'#D6D3D1', marginTop:4, fontWeight:current?600:400, fontFamily:"'DM Sans',sans-serif", whiteSpace:'nowrap' }}>{label}</div></div>{!last&&<div style={{ flex:1, height:2, background:done&&i<si?'#059669':'#E7E5E4', minWidth:8, marginBottom:16 }}/>}</div>)})}</div>
+                {/* Design approval CTA — show when order is in designing stage */}
+                {['designing','in_design','under_review','revision_requested','updated_version','zoom_scheduled'].includes(o.status) && (
+                  <div onClick={e=>e.stopPropagation()} style={{ marginTop:14, background:'linear-gradient(135deg,#F5F3FF,#EDE9FE)', border:'1px solid #8B5CF6', borderRadius:10, padding:'12px 16px', display:'flex', alignItems:'center', justifyContent:'space-between', gap:12 }}>
+                    <div>
+                      <div style={{ fontSize:13, fontWeight:700, color:'#6D28D9' }}>🎨 Дизайн батлалт шаардлагатай</div>
+                      <div style={{ fontSize:11, color:'#7C3AED', marginTop:2, fontFamily:"'DM Sans',sans-serif" }}>
+                        {o.status==='under_review'||o.status==='updated_version'||o.status==='zoom_scheduled' ? '⚡ Таны хариу хүлээж байна — батлах эсвэл засуулах' : 'Дизайнер загвар бэлтгэж байна'}
+                      </div>
+                    </div>
+                    <button onClick={()=>router.push('/dashboard/customer/designs')} style={{ background:'#8B5CF6', color:'#fff', border:'none', padding:'8px 16px', borderRadius:8, fontSize:12, fontWeight:700, cursor:'pointer', whiteSpace:'nowrap', fontFamily:"'DM Sans',sans-serif" }}>
+                      {o.status==='under_review'||o.status==='updated_version'||o.status==='zoom_scheduled' ? '✅ Батлах →' : '🎨 Харах →'}
+                    </button>
+                  </div>
+                )}
               </div>
             )})}
           </div>)}

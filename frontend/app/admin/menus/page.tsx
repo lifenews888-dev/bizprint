@@ -1,8 +1,6 @@
 'use client'
+import { apiFetch } from '@/lib/api'
 import { useState, useEffect } from 'react'
-
-const API = 'http://localhost:4000'
-const getHeaders = () => ({ 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token')}` })
 
 export default function AdminMenusPage() {
   const [items, setItems] = useState<any[]>([])
@@ -10,17 +8,17 @@ export default function AdminMenusPage() {
   const [editing, setEditing] = useState<any>(null)
   const [form, setForm] = useState({ title: '', url: '', icon: '', location: 'main', section_title: '', is_mega: false, isActive: true, order: 0 })
 
-  const load = () => { fetch(`${API}/menus`, { headers: getHeaders() }).then(r => r.json()).then(d => setItems(Array.isArray(d) ? d : [])).catch(() => {}).finally(() => setLoading(false)) }
+  const load = () => { apiFetch('/menus').then(d => setItems(Array.isArray(d) ? d : [])).catch(() => {}).finally(() => setLoading(false)) }
   useEffect(load, [])
 
   const reset = () => { setEditing(null); setForm({ title: '', url: '', icon: '', location: 'main', section_title: '', is_mega: false, isActive: true, order: 0 }) }
   const save = async () => {
     const method = editing?.id ? 'PATCH' : 'POST'
-    const url = editing?.id ? `${API}/menus/${editing.id}` : `${API}/menus`
-    await fetch(url, { method, headers: getHeaders(), body: JSON.stringify(form) })
+    const url = editing?.id ? `/menus/${editing.id}` : `/menus`
+    await apiFetch(url, { method: , body: form })
     reset(); load()
   }
-  const del = async (id: string) => { if (!confirm('Устгах уу?')) return; await fetch(`${API}/menus/${id}`, { method: 'DELETE', headers: getHeaders() }); load() }
+  const del = async (id: string) => { if (!confirm('Устгах уу?')) return; await apiFetch(`/menus/${id}`, { method: 'DELETE' }); load() }
   const edit = (item: any) => { setEditing(item); setForm({ title: item.title || '', url: item.url || '', icon: item.icon || '', location: item.location || 'main', section_title: item.section_title || '', is_mega: !!item.is_mega, isActive: item.isActive !== false, order: item.order || 0 }) }
 
   const inp: React.CSSProperties = { width: '100%', padding: '10px 14px', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 13, color: 'var(--text)', outline: 'none' }

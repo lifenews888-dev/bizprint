@@ -1,14 +1,11 @@
 'use client'
+import { apiFetch } from '@/lib/api'
 import { useEffect, useState } from 'react'
 import DashboardLayout from '@/components/layouts/DashboardLayout'
 import KpiCard from '@/components/dashboard/KpiCard'
 import EmptyState from '@/components/dashboard/EmptyState'
 import { useRoleGuard } from '@/lib/use-role-guard'
 import { DESIGNER_MENU } from '@/config/sidebar-config'
-
-const API = 'http://localhost:4000'
-function tok() { return localStorage.getItem('access_token') || '' }
-function hdrs() { return { Authorization: 'Bearer ' + tok(), 'Content-Type': 'application/json' } }
 
 interface WalletTx { id: string; amount: number; type: string; reference?: string; description?: string; created_at: string }
 
@@ -30,12 +27,12 @@ export default function DesignerEarningsPage() {
   async function loadData() {
     setLoading(true)
     try {
-      const bRes = await fetch(`${API}/wallet/balance`, { headers: { Authorization: 'Bearer ' + tok() } })
+      const bRes = await apiFetch(`//wallet/balance`)
       const bData = await bRes.json()
       setBalance(bData?.balance || bData || 0)
     } catch {}
     try {
-      const tRes = await fetch(`${API}/wallet/transactions`, { headers: { Authorization: 'Bearer ' + tok() } })
+      const tRes = await apiFetch(`//wallet/transactions`)
       const tData = await tRes.json()
       setTransactions(Array.isArray(tData) ? tData : [])
     } catch {}
@@ -48,9 +45,9 @@ export default function DesignerEarningsPage() {
     if (amount > Number(balance)) { setToast('Үлдэгдэл хүрэлцэхгүй'); setTimeout(() => setToast(''), 3000); return }
     if (!bankAccount || !bankName) { setToast('Банкны мэдээлэл оруулна уу'); setTimeout(() => setToast(''), 3000); return }
     try {
-      await fetch(`${API}/wallet/withdraw`, {
-        method: 'POST', headers: hdrs(),
-        body: JSON.stringify({ amount, bank_name: bankName, bank_account: bankAccount }),
+      await apiFetch(`//wallet/withdraw`, {
+        method: 'POST',
+        body: { amount, bank_name: bankName, bank_account: bankAccount },
       })
       setToast('Татан авах хүсэлт илгээгдлээ')
       setShowWithdraw(false)

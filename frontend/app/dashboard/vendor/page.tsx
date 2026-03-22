@@ -1,4 +1,5 @@
 'use client'
+import { apiFetch } from '@/lib/api'
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import DashboardLayout from '@/components/layouts/DashboardLayout'
@@ -21,7 +22,6 @@ interface Machine {
   current_load: number
 }
 
-const API = 'http://localhost:4000'
 const F = "'Segoe UI',system-ui,sans-serif"
 
 const STATUS: Record<string, { label: string; color: string; bg: string }> = {
@@ -30,11 +30,6 @@ const STATUS: Record<string, { label: string; color: string; bg: string }> = {
   printing:  { label: 'Хэвлэж байна', color: '#8B5CF6', bg: 'rgba(139,92,246,0.12)' },
   completed: { label: 'Дууссан',      color: '#10B981', bg: 'rgba(16,185,129,0.12)' },
   failed:    { label: 'Алдаатай',     color: '#EF4444', bg: 'rgba(239,68,68,0.12)' },
-}
-
-function getToken() {
-  if (typeof window === 'undefined') return ''
-  return localStorage.getItem('token') || ''
 }
 
 export default function VendorDashboard() {
@@ -56,7 +51,7 @@ export default function VendorDashboard() {
 
   async function fetchMe(token: string) {
     try {
-      const res = await fetch(`${API}/auth/me`, { headers: { Authorization: `Bearer ${token}` } })
+      const res = await apiFetch(`//auth/me`, {` } })
       const data = await res.json()
       setUser(data)
       fetchJobs(token, data.id)
@@ -66,8 +61,7 @@ export default function VendorDashboard() {
 
   async function fetchJobs(token: string, vendorId: string) {
     try {
-      const res = await fetch(`${API}/vendor-dashboard/${vendorId}/jobs`, {
-        headers: { Authorization: `Bearer ${token}` }
+      const res = await apiFetch(`//vendor-dashboard/${vendorId}/jobs`, {` }
       })
       const data = await res.json()
       setJobs(Array.isArray(data) ? data : [])
@@ -76,7 +70,7 @@ export default function VendorDashboard() {
 
   async function fetchMachines(token: string) {
     try {
-      const res = await fetch(`${API}/machines`, { headers: { Authorization: `Bearer ${token}` } })
+      const res = await apiFetch(`//machines`, {` } })
       const data = await res.json()
       setMachines(Array.isArray(data) ? data : [])
     } catch {}
@@ -85,10 +79,9 @@ export default function VendorDashboard() {
   async function assignMachine(jobId: string, machineId: string) {
     setActionLoading(jobId)
     try {
-      await fetch(`${API}/vendor-dashboard/${jobId}/assign-machine`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}` },
-        body: JSON.stringify({ machine_id: machineId }),
+      await apiFetch(`//vendor-dashboard/${jobId}/assign-machine`, {
+        method: 'PATCH'` },
+        body: { machine_id: machineId },
       })
       fetchJobs(getToken(), user.id)
     } catch {} finally { setActionLoading(null) }
@@ -97,9 +90,8 @@ export default function VendorDashboard() {
   async function startJob(jobId: string) {
     setActionLoading(jobId)
     try {
-      await fetch(`${API}/vendor-dashboard/${jobId}/start`, {
-        method: 'PATCH',
-        headers: { Authorization: `Bearer ${getToken()}` },
+      await apiFetch(`//vendor-dashboard/${jobId}/start`, {
+        method: 'PATCH'` },
       })
       fetchJobs(getToken(), user.id)
     } catch {} finally { setActionLoading(null) }
@@ -108,9 +100,8 @@ export default function VendorDashboard() {
   async function finishJob(jobId: string) {
     setActionLoading(jobId)
     try {
-      await fetch(`${API}/vendor-dashboard/${jobId}/finish`, {
-        method: 'PATCH',
-        headers: { Authorization: `Bearer ${getToken()}` },
+      await apiFetch(`//vendor-dashboard/${jobId}/finish`, {
+        method: 'PATCH'` },
       })
       fetchJobs(getToken(), user.id)
     } catch {} finally { setActionLoading(null) }

@@ -1,7 +1,7 @@
 'use client'
+import { apiFetch } from '@/lib/api'
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-const API = 'http://localhost:4000'
 export default function ҮйлдвэрийнсамбарPage() {
   const router = useRouter()
   const [data, setData] = useState<any[]>([])
@@ -10,7 +10,7 @@ export default function ҮйлдвэрийнсамбарPage() {
     const token = localStorage.getItem('token')
     const headers: any = {}
     if (token) headers.Authorization = `Bearer ${token}`
-    fetch(`${API}/production-jobs`, { headers }).then(r => r.json())
+    apiFetch(`//production-jobs`, { headers })
       .then(d => setData(Array.isArray(d) ? d : []))
       .catch(() => {}).finally(() => setLoading(false))
   }, [])

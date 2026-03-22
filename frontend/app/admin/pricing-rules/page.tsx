@@ -1,5 +1,6 @@
 'use client'
 
+import { apiFetch } from '@/lib/api'
 import { useState, useEffect } from 'react'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -7,6 +8,7 @@ import { useState, useEffect } from 'react'
 interface PricingRule {
   id: number
   product_id?: number | null
+  product_master_id?: string | null
   category_id?: number | null
   attribute_key: string
   attribute_value: string
@@ -26,6 +28,16 @@ interface Product {
   category_id?: number
 }
 
+interface ProductMaster {
+  id: string
+  name_mn: string
+  name_en?: string
+  code?: string
+  category?: string
+  materials?: { material_code: string; material_name_mn: string; display_name?: string }[]
+  sizes?: { size_code: string; size_label: string }[]
+}
+
 interface Category {
   id: number
   name: string
@@ -33,13 +45,11 @@ interface Category {
   parent_id?: number | null
 }
 
-type TargetType = 'product' | 'category'
+type TargetType = 'product_master' | 'product' | 'category'
 type ModalMode = 'add' | 'edit' | null
 type FilterScope = 'all' | 'product' | 'category'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-
-const API = 'http://localhost:4000'
 
 const CALC_TYPES = [
   {
@@ -82,15 +92,6 @@ const CALC_TYPES = [
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function getToken() {
-  if (typeof window === 'undefined') return ''
-  return localStorage.getItem('access_token') || ''
-}
-
-function authHeaders() {
-  return { 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}` }
-}
-
 function formatValue(rule: PricingRule): string {
   if (rule.price_multiplier != null) return `×${rule.price_multiplier}`
   if (rule.price_addition != null)   return `+${rule.price_addition.toLocaleString()}₮`
@@ -110,10 +111,12 @@ function getCalcType(rule: PricingRule): string {
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function AdminPricingRulesPage() {
-  const [rules, setRules]         = useState<PricingRule[]>([])
-  const [products, setProducts]   = useState<Product[]>([])
-  const [categories, setCategories] = useState<Category[]>([])
-  const [loading, setLoading]     = useState(true)
+  const [rules, setRules]               = useState<PricingRule[]>([])
+  const [products, setProducts]         = useState<Product[]>([])
+  const [productMasters, setProductMasters] = useState<ProductMaster[]>([])
+  const [categories, setCategories]     = useState<Category[]>([])
+  const [loading, setLoading]           = useState(true)
+  const [selectedPM, setSelectedPM]     = useState<ProductMaster | null>(null)  // for attribute hints
   const [filterScope, setFilterScope] = useState<FilterScope>('all')
   const [filterTargetId, setFilterTargetId] = useState<number | null>(null)
   const [search, setSearch]       = useState('')
@@ -133,21 +136,25 @@ export default function AdminPricingRulesPage() {
   async function fetchAll() {
     setLoading(true)
     try {
-      const [rulesRes, prodsRes, catsRes] = await Promise.all([
-        fetch(`${API}/pricing-rules`, { headers: authHeaders() }),
-        fetch(`${API}/products`,      { headers: authHeaders() }),
-        fetch(`${API}/categories`,    { headers: authHeaders() }),
+      const [rulesRes, prodsRes, catsRes, pmRes] = await Promise.all([
+        apiFetch(`//pricing-rules`),
+        apiFetch(`//products`),
+        apiFetch(`//categories`),
+        apiFetch(`//admin/products-master`),
       ])
-      const r: PricingRule[] = rulesRes.ok ? await rulesRes.json() : []
-      const p: Product[]     = prodsRes.ok ? await prodsRes.json() : []
-      const c: Category[]    = catsRes.ok  ? await catsRes.json()  : []
+      const r: PricingRule[]     = rulesRes.ok ? await rulesRes.json() : []
+      const p: Product[]         = prodsRes.ok ? await prodsRes.json() : []
+      const c: Category[]        = catsRes.ok  ? await catsRes.json()  : []
+      const pmData               = pmRes.ok ? await pmRes.json() : {}
+      const pm: ProductMaster[]  = pmData.items || []
       setRules(r)
       setProducts(p)
       setCategories(c)
+      setProductMasters(pm)
       setStats({
         total:    r.length,
         active:   r.filter(x => x.is_active).length,
-        product:  r.filter(x => x.product_id).length,
+        product:  r.filter(x => x.product_id || x.product_master_id).length,
         category: r.filter(x => x.category_id).length,
       })
     } catch {}
@@ -163,15 +170,20 @@ export default function AdminPricingRulesPage() {
   // ── Open modal ──
   function openAdd() {
     setEditRule({ is_active: true })
-    setTargetType('product')
+    setTargetType('product_master')
     setCalcType('price_multiplier')
     setCalcValue('')
+    setSelectedPM(null)
     setModal('add')
   }
 
   function openEdit(rule: PricingRule) {
     setEditRule(rule)
-    setTargetType(rule.product_id ? 'product' : 'category')
+    const tt: TargetType = rule.product_master_id ? 'product_master' : rule.product_id ? 'product' : 'category'
+    setTargetType(tt)
+    if (rule.product_master_id) {
+      setSelectedPM(productMasters.find(pm => pm.id === rule.product_master_id) || null)
+    }
     setCalcType(getCalcType(rule))
     const ct = getCalcType(rule)
     const v = ct === 'price_multiplier' ? rule.price_multiplier
@@ -188,8 +200,9 @@ export default function AdminPricingRulesPage() {
     if (!calcValue)                       { showToast('Утга оруулна уу', 'err'); return }
 
     const body: Partial<PricingRule> = {
-      product_id:       targetType === 'product'  ? (editRule.product_id  || null) : null,
-      category_id:      targetType === 'category' ? (editRule.category_id || null) : null,
+      product_id:        targetType === 'product'         ? (editRule.product_id        || null) : null,
+      product_master_id: targetType === 'product_master'  ? (editRule.product_master_id || null) : null,
+      category_id:       targetType === 'category'        ? (editRule.category_id       || null) : null,
       attribute_key:    editRule.attribute_key,
       attribute_value:  editRule.attribute_value || '',
       label:            editRule.label,
@@ -207,10 +220,10 @@ export default function AdminPricingRulesPage() {
     if (calcType === 'min_quantity')     body.min_quantity      = Math.round(num)
 
     const isEdit = modal === 'edit'
-    const url    = isEdit ? `${API}/pricing-rules/${editRule.id}` : `${API}/pricing-rules`
+    const url    = isEdit ? `/pricing-rules/${editRule.id}` : `/pricing-rules`
     const method = isEdit ? 'PATCH' : 'POST'
     try {
-      const res = await fetch(url, { method, headers: authHeaders(), body: JSON.stringify(body) })
+      const res = await apiFetch(url, { method: , body: body })
       if (!res.ok) throw new Error()
       showToast(isEdit ? 'Дүрэм шинэчлэгдлээ' : 'Дүрэм нэмэгдлээ')
       setModal(null)
@@ -221,10 +234,9 @@ export default function AdminPricingRulesPage() {
   // ── Toggle active ──
   async function toggleActive(rule: PricingRule) {
     try {
-      await fetch(`${API}/pricing-rules/${rule.id}`, {
+      await apiFetch(`//pricing-rules/${rule.id}`, {
         method: 'PATCH',
-        headers: authHeaders(),
-        body: JSON.stringify({ is_active: !rule.is_active }),
+        body: { is_active: !rule.is_active },
       })
       fetchAll()
     } catch {}
@@ -234,7 +246,7 @@ export default function AdminPricingRulesPage() {
   async function deleteRule(id: number) {
     if (!confirm('Дүрэм устгах уу?')) return
     try {
-      const res = await fetch(`${API}/pricing-rules/${id}`, { method: 'DELETE', headers: authHeaders() })
+      const res = await apiFetch(`//pricing-rules/${id}`, { method: 'DELETE'})
       if (!res.ok) throw new Error()
       showToast('Устгагдлаа')
       fetchAll()
@@ -437,9 +449,10 @@ export default function AdminPricingRulesPage() {
           ) : (
             filtered.map((rule, i) => {
               const ct = CALC_TYPES.find(c => c.key === getCalcType(rule))
-              const prodName = products.find(p => p.id === rule.product_id)?.name
-              const catName  = categories.find(c => c.id === rule.category_id)?.name
-              const catIcon  = categories.find(c => c.id === rule.category_id)?.icon
+              const prodName   = products.find(p => p.id === rule.product_id)?.name
+              const pmName     = productMasters.find(p => p.id === rule.product_master_id)?.name_mn
+              const catName    = categories.find(c => c.id === rule.category_id)?.name
+              const catIcon    = categories.find(c => c.id === rule.category_id)?.icon
 
               return (
                 <div key={rule.id} style={{
@@ -453,14 +466,21 @@ export default function AdminPricingRulesPage() {
                 }}>
                   {/* Хамаарал */}
                   <div>
-                    {prodName ? (
+                    {pmName ? (
+                      <div>
+                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 5, background: 'rgba(255,107,0,0.1)', color: '#FF6B00', borderRadius: 6, padding: '2px 8px', fontSize: 12, fontWeight: 600 }}>
+                          🖨️ Хэвлэлийн
+                        </div>
+                        <div style={{ fontSize: 13, marginTop: 4, color: 'var(--text)' }}>{pmName}</div>
+                      </div>
+                    ) : prodName ? (
                       <div>
                         <div style={{
                           display: 'inline-flex', alignItems: 'center', gap: 5,
                           background: 'rgba(59,130,246,0.12)', color: '#3B82F6',
                           borderRadius: 6, padding: '2px 8px', fontSize: 12, fontWeight: 600,
                         }}>
-                          📦 Бүтээгдэхүүн
+                          📦 Дэлгүүр
                         </div>
                         <div style={{ fontSize: 13, marginTop: 4, color: 'var(--text)' }}>{prodName}</div>
                       </div>
@@ -597,29 +617,88 @@ export default function AdminPricingRulesPage() {
 
             {/* ── Section 1: Target ── */}
             <SectionTitle>1. Хаана хамааруулах вэ?</SectionTitle>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 16 }}>
-              {(['product', 'category'] as TargetType[]).map(t => (
-                <button key={t}
-                  onClick={() => setTargetType(t)}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginBottom: 16 }}>
+              {([
+                { key: 'product_master', icon: '🖨️', label: 'Хэвлэлийн бүтээгдэхүүн', desc: 'Quote engine-тэй холбоотой' },
+                { key: 'product',        icon: '📦', label: 'Дэлгүүрийн бүтээгдэхүүн', desc: 'Тогтмол үнэтэй' },
+                { key: 'category',       icon: '🗂️', label: 'Ангилал',                  desc: 'Ангилалын бүх бүтээгдэхүүнд' },
+              ] as const).map(t => (
+                <button key={t.key}
+                  onClick={() => { setTargetType(t.key); setSelectedPM(null) }}
                   style={{
-                    padding: '12px 16px', borderRadius: 10, cursor: 'pointer',
-                    border: targetType === t ? '2px solid #FF6B35' : '1px solid var(--border)',
-                    background: targetType === t ? 'rgba(255,107,53,0.08)' : 'var(--surface2)',
-                    color: targetType === t ? '#FF6B35' : 'var(--text)',
-                    fontWeight: 600, fontSize: 14, textAlign: 'left',
+                    padding: '10px 12px', borderRadius: 10, cursor: 'pointer',
+                    border: targetType === t.key ? '2px solid #FF6B35' : '1px solid var(--border)',
+                    background: targetType === t.key ? 'rgba(255,107,53,0.08)' : 'var(--surface2)',
+                    color: targetType === t.key ? '#FF6B35' : 'var(--text)',
+                    fontWeight: 600, fontSize: 12, textAlign: 'left',
                   }}
                 >
-                  <div>{t === 'product' ? '📦 Бүтээгдэхүүн' : '🗂️ Ангилал'}</div>
-                  <div style={{ fontSize: 11, fontWeight: 400, color: targetType === t ? '#FF6B35aa' : 'var(--text2)', marginTop: 3 }}>
-                    {t === 'product' ? 'Тодорхой нэг бүтээгдэхүүнд' : 'Ангилалын бүх бүтээгдэхүүнд'}
-                  </div>
+                  <div style={{ fontSize: 14, marginBottom: 2 }}>{t.icon} {t.label}</div>
+                  <div style={{ fontSize: 10, fontWeight: 400, color: targetType === t.key ? '#FF6B35aa' : 'var(--text2)' }}>{t.desc}</div>
                 </button>
               ))}
             </div>
 
-            {targetType === 'product' ? (
+            {targetType === 'product_master' && (
               <>
-                <Label>Бүтээгдэхүүн сонгох</Label>
+                <Label>Хэвлэлийн бүтээгдэхүүн сонгох</Label>
+                <select
+                  value={editRule.product_master_id || ''}
+                  onChange={e => {
+                    const id = e.target.value || null
+                    const pm = productMasters.find(p => p.id === id) || null
+                    setEditRule({ ...editRule, product_master_id: id })
+                    setSelectedPM(pm)
+                  }}
+                  style={inputStyle}
+                >
+                  <option value="">— Бүтээгдэхүүн сонгох (хоосон = бүх) —</option>
+                  {productMasters.map(p => (
+                    <option key={p.id} value={p.id}>
+                      {p.name_mn}{p.code ? ` [${p.code}]` : ''}{p.category ? ` — ${p.category}` : ''}
+                    </option>
+                  ))}
+                </select>
+                {/* Attribute hints from selected product_master */}
+                {selectedPM && (
+                  <div style={{ marginTop: 8, padding: 10, background: 'rgba(59,130,246,0.05)', border: '1px solid rgba(59,130,246,0.15)', borderRadius: 8, fontSize: 12 }}>
+                    <div style={{ fontWeight: 600, color: '#3B82F6', marginBottom: 6 }}>💡 Attribute санал — доорхоос сонгох боломжтой:</div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+                      {selectedPM.materials?.map(m => (
+                        <button key={m.material_code}
+                          onClick={() => setEditRule(r => ({ ...r, attribute_key: 'material', attribute_value: m.material_code }))}
+                          style={{ padding: '3px 8px', background: 'rgba(59,130,246,0.1)', color: '#3B82F6', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 11, fontFamily: 'inherit' }}>
+                          material={m.material_code} <span style={{ opacity: 0.6 }}>({m.display_name || m.material_name_mn})</span>
+                        </button>
+                      ))}
+                      {selectedPM.sizes?.map(s => (
+                        <button key={s.size_code}
+                          onClick={() => setEditRule(r => ({ ...r, attribute_key: 'size', attribute_value: s.size_code }))}
+                          style={{ padding: '3px 8px', background: 'rgba(16,185,129,0.1)', color: '#10B981', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 11, fontFamily: 'inherit' }}>
+                          size={s.size_code} <span style={{ opacity: 0.6 }}>({s.size_label})</span>
+                        </button>
+                      ))}
+                      {[
+                        { k: 'color_mode', v: 'color', label: 'Өнгөт' },
+                        { k: 'color_mode', v: 'bw', label: 'Хар цагаан' },
+                        { k: 'finishing', v: 'mat', label: 'Мат ламинат' },
+                        { k: 'finishing', v: 'gloss', label: 'Глосс' },
+                        { k: 'sides', v: 'double', label: '2 тал' },
+                      ].map(h => (
+                        <button key={h.k + h.v}
+                          onClick={() => setEditRule(r => ({ ...r, attribute_key: h.k, attribute_value: h.v }))}
+                          style={{ padding: '3px 8px', background: 'rgba(139,92,246,0.1)', color: '#8B5CF6', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 11, fontFamily: 'inherit' }}>
+                          {h.k}={h.v} <span style={{ opacity: 0.6 }}>({h.label})</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+            {targetType === 'product' && (
+              <>
+                <Label>Дэлгүүрийн бүтээгдэхүүн сонгох</Label>
                 <select
                   value={editRule.product_id || ''}
                   onChange={e => setEditRule({ ...editRule, product_id: e.target.value ? Number(e.target.value) : null })}
@@ -629,7 +708,8 @@ export default function AdminPricingRulesPage() {
                   {products.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                 </select>
               </>
-            ) : (
+            )}
+            {targetType === 'category' && (
               <>
                 <Label>Ангилал сонгох</Label>
                 <select

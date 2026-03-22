@@ -1,5 +1,6 @@
 'use client'
 
+import { apiFetch } from '@/lib/api'
 import { useState, useEffect, useRef } from 'react'
 
 // Types
@@ -23,7 +24,6 @@ interface Ticket {
 }
 
 // Constants
-const API = 'http://localhost:4000'
 const FONT = "'DM Sans','Segoe UI',system-ui,sans-serif"
 
 const STATUS_TABS: { key: string; label: string }[] = [
@@ -52,11 +52,6 @@ const ALL_STATUSES = ['OPEN', 'IN_PROGRESS', 'RESOLVED', 'CLOSED'] as const
 const ALL_PRIORITIES = ['LOW', 'NORMAL', 'HIGH', 'URGENT'] as const
 
 // Helpers
-function getHeaders() {
-  const token = typeof window !== 'undefined' ? localStorage.getItem('token') || '' : ''
-  return { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }
-}
-
 function formatDate(str: string) {
   return new Date(str).toLocaleString('mn-MN', {
     year: 'numeric', month: '2-digit', day: '2-digit',
@@ -102,7 +97,7 @@ export default function AdminSupportPage() {
   async function fetchTickets() {
     setLoading(true)
     try {
-      const res = await fetch(`${API}/admin/support-tickets?status=${statusFilter}`, { headers: getHeaders() })
+      const res = await apiFetch(`/admin/support-tickets?status=${statusFilter}`)
       if (!res.ok) throw new Error()
       const data = await res.json()
       const items: Ticket[] = data.items || []
@@ -111,7 +106,7 @@ export default function AdminSupportPage() {
 
       // Also fetch all to get counts
       if (statusFilter) {
-        const allRes = await fetch(`${API}/admin/support-tickets?status=`, { headers: getHeaders() })
+        const allRes = await apiFetch('/admin/support-tickets?status=')
         if (allRes.ok) {
           const allData = await allRes.json()
           const allItems: Ticket[] = allData.items || []
@@ -139,15 +134,14 @@ export default function AdminSupportPage() {
     if (!selected || !replyText.trim()) return
     setSending(true)
     try {
-      const res = await fetch(`${API}/admin/support-tickets/${selected.id}/reply`, {
+      const res = await apiFetch(`/admin/support-tickets/${selected.id}/reply`, {
         method: 'POST',
-        headers: getHeaders(),
-        body: JSON.stringify({ message: replyText.trim(), sender: 'admin' }),
+        body: { message: replyText.trim(, sender: 'admin' }),
       })
       if (!res.ok) throw new Error()
       setReplyText('')
       // Refresh ticket data
-      const updated = await fetch(`${API}/admin/support-tickets?status=${statusFilter}`, { headers: getHeaders() })
+      const updated = await apiFetch(`/admin/support-tickets?status=${statusFilter}`)
       if (updated.ok) {
         const data = await updated.json()
         const items: Ticket[] = data.items || []
@@ -165,10 +159,9 @@ export default function AdminSupportPage() {
   async function updateTicket(id: number, updates: Partial<{ status: string; priority: string; assigned_to: string }>) {
     setUpdating(true)
     try {
-      const res = await fetch(`${API}/admin/support-tickets/${id}`, {
+      const res = await apiFetch(`/admin/support-tickets/${id}`, {
         method: 'PUT',
-        headers: getHeaders(),
-        body: JSON.stringify(updates),
+        body: updates,
       })
       if (!res.ok) throw new Error()
       await fetchTickets()
@@ -187,11 +180,10 @@ export default function AdminSupportPage() {
     if (!createForm.subject.trim() || !createForm.message.trim()) return
     setCreating(true)
     try {
-      const res = await fetch(`${API}/admin/support-tickets`, {
+      const res = await apiFetch(`/admin/support-tickets`, {
         method: 'POST',
-        headers: getHeaders(),
-        body: JSON.stringify({
-          customer_id: createForm.customer_id ? Number(createForm.customer_id) : undefined,
+        body: {
+          customer_id: createForm.customer_id ? Number(createForm.customer_id : undefined,
           subject: createForm.subject,
           message: createForm.message,
           priority: createForm.priority,

@@ -1,8 +1,6 @@
 'use client'
+import { apiFetch } from '@/lib/api'
 import { useState, useEffect } from 'react'
-
-const API = 'http://localhost:4000'
-const getHeaders = () => ({ 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token')}` })
 
 export default function AdminTemplatesPage() {
   const [items, setItems] = useState<any[]>([])
@@ -10,14 +8,14 @@ export default function AdminTemplatesPage() {
   const [tab, setTab] = useState<'all' | 'pending'>('all')
 
   const load = () => {
-    const url = tab === 'pending' ? `${API}/templates/pending` : `${API}/templates`
-    fetch(url, { headers: getHeaders() }).then(r => r.json()).then(d => setItems(Array.isArray(d) ? d : [])).catch(() => {}).finally(() => setLoading(false))
+    const url = tab === 'pending' ? `/templates/pending` : `/templates`
+    apiFetch(url).then(d => setItems(Array.isArray(d) ? d : [])).catch(() => {}).finally(() => setLoading(false))
   }
   useEffect(load, [tab])
 
-  const approve = async (id: string) => { await fetch(`${API}/templates/${id}/approve`, { method: 'PATCH', headers: getHeaders() }); load() }
-  const reject = async (id: string) => { if (!confirm('Татгалзах уу?')) return; await fetch(`${API}/templates/${id}/reject`, { method: 'PATCH', headers: getHeaders() }); load() }
-  const del = async (id: string) => { if (!confirm('Устгах уу?')) return; await fetch(`${API}/templates/${id}`, { method: 'DELETE', headers: getHeaders() }); load() }
+  const approve = async (id: string) => { await apiFetch(`/templates/${id}/approve`, { method: 'PATCH'}); load() }
+  const reject = async (id: string) => { if (!confirm('Татгалзах уу?')) return; await apiFetch(`/templates/${id}/reject`, { method: 'PATCH'}); load() }
+  const del = async (id: string) => { if (!confirm('Устгах уу?')) return; await apiFetch(`/templates/${id}`, { method: 'DELETE' }); load() }
 
   const STATUS_COLOR: Record<string, string> = { approved: '#10B981', pending: '#F59E0B', rejected: '#EF4444' }
 

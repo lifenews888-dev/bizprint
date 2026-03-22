@@ -1,8 +1,6 @@
 'use client'
+import { apiFetch } from '@/lib/api'
 import { useState, useEffect } from 'react'
-
-const API = 'http://localhost:4000'
-const getHeaders = () => ({ 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token')}` })
 
 const STATUS_COLOR: Record<string, string> = {
   pending: '#F59E0B', paid: '#3B82F6', in_production: '#8B5CF6',
@@ -27,7 +25,7 @@ export default function AdminOrdersPage() {
   const [orderFiles, setOrderFiles] = useState<any[]>([])
 
   const load = () => {
-    fetch(`${API}/orders`, { headers: getHeaders() })
+    apiFetch('/orders')
       .then(r => r.json())
       .then(d => setItems(Array.isArray(d) ? d : []))
       .catch(() => {})
@@ -36,14 +34,14 @@ export default function AdminOrdersPage() {
   useEffect(load, [])
 
   const updateStatus = async (id: string, status: string) => {
-    await fetch(`${API}/orders/${id}/status`, { method: 'PATCH', headers: getHeaders(), body: JSON.stringify({ status }) })
+    await apiFetch(`/orders/${id}/status`, { method: 'PATCH', body: { status } })
     load()
     if (detail?.id === id) setDetail((prev: any) => prev ? { ...prev, status } : null)
   }
 
   const loadFiles = async (orderId: string) => {
     try {
-      const r = await fetch(`${API}/order-files?order_id=${orderId}`, { headers: getHeaders() })
+      const r = await apiFetch(`/order-files?order_id=${orderId}`)
       const d = await r.json()
       setOrderFiles(Array.isArray(d) ? d : [])
     } catch { setOrderFiles([]) }
@@ -201,7 +199,7 @@ export default function AdminOrdersPage() {
               {detail.file_url && (
                 <div style={{ marginBottom: 20 }}>
                   <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 6, color: 'var(--text2)' }}>Хавсаргасан файл</div>
-                  <a href={detail.file_url.startsWith('http') ? detail.file_url : `${API}/${detail.file_url}`} target="_blank" rel="noreferrer" style={{ fontSize: 12, color: '#3B82F6', textDecoration: 'none' }}>
+                  <a href={detail.file_url.startsWith('http') ? detail.file_url : `/${detail.file_url}`} target="_blank" rel="noreferrer" style={{ fontSize: 12, color: '#3B82F6', textDecoration: 'none' }}>
                     📎 {detail.file_url.split('/').pop() || 'Файл татах'}
                   </a>
                 </div>
@@ -224,7 +222,7 @@ export default function AdminOrdersPage() {
                           </div>
                         </div>
                         {f.path && (
-                          <a href={f.path.startsWith('http') ? f.path : `${API}/${f.path}`} target="_blank" rel="noreferrer" style={{ fontSize: 11, padding: '4px 10px', background: 'rgba(59,130,246,0.1)', color: '#3B82F6', borderRadius: 5, textDecoration: 'none', fontWeight: 500 }}>Татах</a>
+                          <a href={f.path.startsWith('http') ? f.path : `/${f.path}`} target="_blank" rel="noreferrer" style={{ fontSize: 11, padding: '4px 10px', background: 'rgba(59,130,246,0.1)', color: '#3B82F6', borderRadius: 5, textDecoration: 'none', fontWeight: 500 }}>Татах</a>
                         )}
                       </div>
                     ))}

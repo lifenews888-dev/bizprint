@@ -1,4 +1,5 @@
 'use client'
+import { apiFetch } from '@/lib/api'
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import DashboardLayout from '@/components/layouts/DashboardLayout'
@@ -6,7 +7,6 @@ import KpiCard from '@/components/dashboard/KpiCard'
 import { useRoleGuard } from '@/lib/use-role-guard'
 import { SALES_MENU } from '@/config/sidebar-config'
 
-const API = 'http://localhost:4000'
 const BASE_URL = 'http://localhost:3000'
 
 interface ReferralData {
@@ -44,9 +44,6 @@ const ST_CLR: Record<string, string> = {
   pending: '#F59E0B', paid: '#378ADD', in_production: '#8B5CF6',
   completed: '#10B981', shipped: '#1D9E75', cancelled: '#e24b4a',
 }
-
-function tok() { return localStorage.getItem('access_token') || '' }
-function hdrs() { return { 'Content-Type': 'application/json', Authorization: 'Bearer ' + tok() } }
 
 function QRCode({ code }: { code: string }) {
   const cells: boolean[] = []
@@ -89,8 +86,8 @@ export default function SalesDashboard() {
     const u = JSON.parse(ud)
     setUser(u)
     Promise.all([
-      fetch(API + '/referral/my', { headers: hdrs() }).then(r => r.ok ? r.json() : null),
-      fetch(API + '/orders/customer/' + u.id, { headers: hdrs() }).then(r => r.ok ? r.json() : []),
+      apiFetch('/referral/my').catch(() => null),
+      apiFetch('//orders/customer/' + u.id).catch(() => []),
     ]).then(([ref, ord]) => {
       if (ref) setReferral(ref)
       setOrders(Array.isArray(ord) ? ord : [])

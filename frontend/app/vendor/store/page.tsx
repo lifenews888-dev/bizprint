@@ -1,8 +1,6 @@
 'use client';
 import { useState, useEffect, useRef, CSSProperties, ChangeEvent } from 'react';
 
-const API = 'http://localhost:4000';
-
 interface Product {
   id: string;
   name: string;
@@ -66,8 +64,7 @@ export default function VendorStorePage() {
   async function loadProducts(t: string) {
     setLoading(true);
     try {
-      const res = await fetch(`${API}/vendor-store/products`, {
-        headers: { Authorization: `Bearer ${t}` },
+      const res = await apiFetch(`//vendor-store/products`, {` },
       });
       const data = await res.json();
       setProducts(Array.isArray(data) ? data : []);
@@ -80,8 +77,7 @@ export default function VendorStorePage() {
 
   async function loadStats(t: string) {
     try {
-      const res = await fetch(`${API}/vendor-store/stats`, {
-        headers: { Authorization: `Bearer ${t}` },
+      const res = await apiFetch(`//vendor-store/stats`, {` },
       });
       const data = await res.json();
       setStats(data);
@@ -121,9 +117,8 @@ export default function VendorStorePage() {
     try {
       const fd = new FormData();
       fd.append('file', file);
-      const res = await fetch(`${API}/upload/file`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
+      const res = await apiFetch(`//upload/file`, {
+        method: 'POST'` },
         body: fd,
       });
       const data = await res.json();
@@ -152,15 +147,10 @@ export default function VendorStorePage() {
     };
     try {
       const url = editProduct
-        ? `${API}/vendor-store/products/${editProduct.id}`
-        : `${API}/vendor-store/products`;
+        ? `/vendor-store/products/${editProduct.id}`
+        : `/vendor-store/products`;
       const method = editProduct ? 'PATCH' : 'POST';
-      const res = await fetch(url, {
-        method,
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify(body),
-      });
-      if (!res.ok) throw new Error('Save failed');
+      await apiFetch(url, { method, body: body });
       setShowModal(false);
       loadProducts(token);
       loadStats(token);
@@ -173,9 +163,8 @@ export default function VendorStorePage() {
 
   async function handleDelete(id: string) {
     if (!token || !confirm('Delete this product?')) return;
-    await fetch(`${API}/vendor-store/products/${id}`, {
-      method: 'DELETE',
-      headers: { Authorization: `Bearer ${token}` },
+    await apiFetch(`//vendor-store/products/${id}`, {
+      method: 'DELETE'` },
     });
     loadProducts(token);
     loadStats(token);
@@ -183,15 +172,14 @@ export default function VendorStorePage() {
 
   async function toggleActive(p: Product) {
     if (!token) return;
-    await fetch(`${API}/vendor-store/products/${p.id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ is_active: !p.is_active }),
+    await apiFetch(`//vendor-store/products/${p.id}`, {
+      method: 'PATCH'` },
+      body: { is_active: !p.is_active },
     });
     loadProducts(token);
   }
 
-  const imgSrc = (url: string) => url.startsWith('http') ? url : `${API}/${url}`;
+  const imgSrc = (url: string) => url.startsWith('http') ? url : `/${url}`;
 
   if (!token) return (
     <div style={{ padding: 40, textAlign: 'center', color: 'var(--text2)' }}>

@@ -1,12 +1,8 @@
 'use client'
+import { apiFetch } from '@/lib/api'
 import { useState, useEffect } from 'react'
 
-const API = 'http://localhost:4000'
 const F = "'DM Sans','Segoe UI',system-ui,sans-serif"
-
-function getHeaders() {
-  return { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token')}` }
-}
 
 export default function AdminBannersPage() {
   const [items, setItems] = useState<any[]>([])
@@ -16,7 +12,7 @@ export default function AdminBannersPage() {
   const [uploading, setUploading] = useState(false)
 
   const load = () => {
-    fetch(`${API}/banners`, { headers: getHeaders() }).then(r => r.json()).then(d => {
+    apiFetch('/banners').then(d => {
       setItems(Array.isArray(d) ? d : [])
     }).catch(() => {}).finally(() => setLoading(false))
   }
@@ -26,14 +22,14 @@ export default function AdminBannersPage() {
 
   const save = async () => {
     const method = editing ? 'PATCH' : 'POST'
-    const url = editing ? `${API}/banners/${editing.id}` : `${API}/banners`
-    await fetch(url, { method, headers: getHeaders(), body: JSON.stringify(form) })
+    const url = editing ? `/banners/${editing.id}` : `/banners`
+    await apiFetch(url, { method: , body: form })
     reset(); load()
   }
 
   const del = async (id: string) => {
     if (!confirm('Устгах уу?')) return
-    await fetch(`${API}/banners/${id}`, { method: 'DELETE', headers: getHeaders() })
+    await apiFetch(`/banners/${id}`, { method: 'DELETE' })
     load()
   }
 
@@ -49,19 +45,18 @@ export default function AdminBannersPage() {
     const fd = new FormData()
     fd.append('file', file)
     try {
-      const res = await fetch(`${API}/upload/file`, {
+      const res = await apiFetch(`/upload/file`, {
         method: 'POST',
-        headers: { Authorization: 'Bearer ' + localStorage.getItem('token') },
         body: fd,
       })
       const data = await res.json()
       const rawUrl = data.url || data.path || data.fileUrl
       const filename = data.filename || data.file_name || data.name
       let fullUrl = ''
-      if (rawUrl) fullUrl = rawUrl.startsWith('http') ? rawUrl : `${API}/${rawUrl}`
+      if (rawUrl) fullUrl = rawUrl.startsWith('http') ? rawUrl : `/${rawUrl}`
       else if (filename) {
         const clean = filename.replace('uploads/', '')
-        fullUrl = filename.startsWith('http') ? filename : `${API}/uploads/${clean}`
+        fullUrl = filename.startsWith('http') ? filename : `/uploads/${clean}`
       }
       if (fullUrl) setForm(f => ({ ...f, imageUrl: fullUrl }))
     } catch {}

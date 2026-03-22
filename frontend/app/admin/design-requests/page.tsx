@@ -1,8 +1,6 @@
 'use client'
+import { apiFetch } from '@/lib/api'
 import { useState, useEffect } from 'react'
-
-const API = 'http://localhost:4000'
-const getHeaders = () => ({ 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token')}` })
 
 const STATUS_CFG: Record<string, { label: string; color: string }> = {
   pending: { label: 'Хүлээгдэж буй', color: '#F59E0B' },
@@ -23,8 +21,8 @@ export default function AdminDesignRequestsPage() {
 
   const load = () => {
     Promise.all([
-      fetch(`${API}/design-requests`, { headers: getHeaders() }).then(r => r.json()).catch(() => []),
-      fetch(`${API}/admin/users`, { headers: getHeaders() }).then(r => r.json()).catch(() => []),
+      apiFetch('/design-requests').catch(() => []),
+      apiFetch('/admin/users').catch(() => []),
     ]).then(([dr, u]) => {
       setItems(Array.isArray(dr) ? dr : [])
       setUsers(Array.isArray(u) ? u : [])
@@ -39,9 +37,9 @@ export default function AdminDesignRequestsPage() {
 
   const assign = async () => {
     if (!assignModal || !assignForm.designer_id) return
-    await fetch(`${API}/design-requests/${assignModal.id}/assign`, {
-      method: 'PATCH', headers: getHeaders(),
-      body: JSON.stringify(assignForm),
+    await apiFetch(`/design-requests/${assignModal.id}/assign`, {
+      method: 'PATCH',
+      body: assignForm,
     })
     setAssignModal(null)
     setAssignForm({ designer_id: '', designer_name: '', designer_phone: '', designer_zoom: '' })
@@ -49,20 +47,20 @@ export default function AdminDesignRequestsPage() {
   }
 
   const approve = async (id: string) => {
-    await fetch(`${API}/design-requests/${id}/approve`, { method: 'PATCH', headers: getHeaders() })
+    await apiFetch(`/design-requests/${id}/approve`, { method: 'PATCH'})
     load()
   }
 
   const reject = async (id: string) => {
     const reason = prompt('Татгалзах шалтгаан:')
     if (!reason) return
-    await fetch(`${API}/design-requests/${id}/reject`, { method: 'PATCH', headers: getHeaders(), body: JSON.stringify({ reason }) })
+    await apiFetch(`/design-requests/${id}/reject`, { method: 'PATCH', body: { reason } })
     load()
   }
 
   const del = async (id: string) => {
     if (!confirm('Устгах уу?')) return
-    await fetch(`${API}/design-requests/${id}`, { method: 'DELETE', headers: getHeaders() })
+    await apiFetch(`/design-requests/${id}`, { method: 'DELETE' })
     load()
   }
 

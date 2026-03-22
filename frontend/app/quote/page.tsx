@@ -3,8 +3,6 @@
 import { useState, useCallback, useMemo, useEffect, FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 
-const API = 'http://localhost:4000';
-
 /* ─── DEFAULT PRICES ─── */
 const DEFAULT_PRICES = {
   tovgor: { 20: 35000, 30: 45000, 40: 60000, 50: 75000, 60: 95000, 70: 140000, 80: 180000, 90: 235000, 100: 290000, 110: 330000, 120: 360000 } as Record<number, number>,
@@ -92,7 +90,7 @@ export default function QuotePage() {
   /* ─ remote config ─ */
   const [prices, setPrices] = useState(DEFAULT_PRICES);
   useEffect(() => {
-    fetch(`${API}/pricing-config/public`).then(r => r.ok ? r.json() : null)
+    apiFetch('/pricing-config/public', { auth: false }).catch(() => null)
       .then(d => { if (d && typeof d === 'object') setPrices({ ...DEFAULT_PRICES, ...d }); })
       .catch(() => {});
   }, []);
@@ -347,16 +345,13 @@ export default function QuotePage() {
       }
 
       const isOffset = tab === 'print' && printSub === 'offset';
-      const fetchUrl = `${API}/quote-engine/${endpoint}`;
 
       if (isOffset) setOffAiLoading(true);
 
-      fetch(fetchUrl, {
+      apiFetch(`/quote-engine/${endpoint}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      })
-        .then(r => r.ok ? r.json() : null)
+        body: body,
+      }).catch(() => null)
         .then(d => {
           if (isOffset) {
             setOffAiLoading(false);
@@ -397,7 +392,7 @@ export default function QuotePage() {
       } else {
         params = `product_type=wide&product_subtype=${wideType}`;
       }
-      fetch(`${API}/pricing-engine/market-analysis?${params}`)
+      apiFetch(`//pricing-engine/market-analysis?${params}`)
         .then(r => r.ok ? r.json() : null)
         .then(d => setMarket(d))
         .catch(() => setMarket(null));
@@ -456,13 +451,13 @@ export default function QuotePage() {
       const storedUser = typeof window !== 'undefined'
         ? (() => { try { return JSON.parse(localStorage.getItem('user') || 'null') } catch { return null } })()
         : null
-      const reqHeaders: Record<string, string> = { 'Content-Type': 'application/json' }
+      const reqHeaders: Record<string, string> = {}
       if (token) reqHeaders['Authorization'] = `Bearer ${token}`
 
-      const res = await fetch(`${API}/quotes-v2`, {
+      const res = await apiFetch(`//quotes-v2`, {
         method: 'POST',
         headers: reqHeaders,
-        body: JSON.stringify({
+        body: {
           user_id: storedUser?.id || undefined,
           customer_name: storedUser?.full_name || mName,
           customer_email: storedUser?.email || mEmail,
@@ -481,7 +476,7 @@ export default function QuotePage() {
           size:       tab === 'sign' ? undefined : printSub === 'offset' ? offSize : `${wideW}×${wideL}м`,
           pages:      printSub === 'offset' ? offPages : undefined,
           paper_gsm:  printSub === 'offset' ? offGsm : undefined,
-          color_mode: printSub === 'offset' ? (offColor === 'full' ? 'color' : 'bw') : undefined,
+          color_mode: printSub === 'offset' ? (offColor === 'full' ? 'color' : 'bw' : undefined,
           sides:      printSub === 'offset' ? offSides : undefined,
           finishing:  printSub === 'offset' ? (offFinish !== 'none' ? offFinish : undefined) : undefined,
           paper_type: printSub === 'offset' ? `${offGsm}gsm` : undefined,

@@ -1,8 +1,6 @@
 'use client'
+import { apiFetch } from '@/lib/api'
 import { useState, useEffect, useRef } from 'react'
-
-const API = 'http://localhost:4000'
-const getHeaders = () => ({ 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token')}` })
 
 const STAGES = [
   { key: 'pending', label: 'Хүлээгдэж буй', color: '#F59E0B', icon: '📋', next: 'designing' },
@@ -45,8 +43,21 @@ const FILE_TYPE_MAP: Record<string, string> = {
   production: '🖨️ Хэвлэл', qc: '✅ QC', final: '📦 Final',
 }
 
+const DESIGN_STATUS_MAP: Record<string, { label: string; color: string; bg: string }> = {
+  pending:            { label: 'Хүлээгдэж буй', color: '#6366F1', bg: '#EEF2FF' },
+  assigned:           { label: 'Дизайнер томилогдсон', color: '#8B5CF6', bg: '#F5F3FF' },
+  in_progress:        { label: 'Хийгдэж байна', color: '#F59E0B', bg: '#FFFBEB' },
+  under_review:       { label: 'Хэрэглэгч шалгаж байна', color: '#3B82F6', bg: '#EFF6FF' },
+  revision_requested: { label: 'Засвар хүсэгдсэн', color: '#EF4444', bg: '#FEF2F2' },
+  updated_version:    { label: 'Шинэчлэгдсэн', color: '#F97316', bg: '#FFF7ED' },
+  zoom_scheduled:     { label: 'Zoom уулзалт', color: '#06B6D4', bg: '#ECFEFF' },
+  approved:           { label: 'Батлагдсан ✓', color: '#10B981', bg: '#ECFDF5' },
+  in_production:      { label: 'Үйлдвэрлэлд', color: '#059669', bg: '#D1FAE5' },
+}
+
 export default function AdminWorkflowPage() {
   const [orders, setOrders] = useState<any[]>([])
+  const [designRequests, setDesignRequests] = useState<any[]>([])
   const [jobs, setJobs] = useState<any[]>([])
   const [deliveries, setDeliveries] = useState<any[]>([])
   const [machines, setMachines] = useState<any[]>([])
@@ -78,26 +89,28 @@ export default function AdminWorkflowPage() {
   const load = () => {
     setLoading(true)
     Promise.all([
-      fetch(`${API}/orders`, { headers: getHeaders() }).then(r => r.json()).catch(() => []),
-      fetch(`${API}/production-jobs`, { headers: getHeaders() }).then(r => r.json()).catch(() => []),
-      fetch(`${API}/delivery`, { headers: getHeaders() }).then(r => r.json()).catch(() => []),
-      fetch(`${API}/machines`, { headers: getHeaders() }).then(r => r.json()).catch(() => []),
-    ]).then(([o, j, d, m]) => {
+      apiFetch('/orders').catch(() => []),
+      apiFetch('/production-jobs').catch(() => []),
+      apiFetch('/delivery').catch(() => []),
+      apiFetch('/machines').catch(() => []),
+      apiFetch('/design-requests').catch(() => []),
+    ]).then(([o, j, d, m, dr]) => {
       setOrders(Array.isArray(o) ? o : []); setJobs(Array.isArray(j) ? j : [])
       setDeliveries(Array.isArray(d) ? d : []); setMachines(Array.isArray(m) ? m : [])
+      setDesignRequests(Array.isArray(dr) ? dr : [])
     }).finally(() => setLoading(false))
   }
   useEffect(load, [])
   useEffect(() => { if (!isLive) return; const i = setInterval(load, 30000); return () => clearInterval(i) }, [isLive])
 
   const loadFiles = async (orderId: string) => {
-    try { const r = await fetch(`${API}/order-files?order_id=${orderId}`, { headers: getHeaders() }); const d = await r.json(); setOrderFiles(Array.isArray(d) ? d : []) } catch { setOrderFiles([]) }
+    try { const d = await apiFetch(`/order-files?order_id=${orderId}`); setOrderFiles(Array.isArray(d) ? d : []) } catch { setOrderFiles([]) }
   }
 
   // DB Audit Trail ачааллах
   const loadAuditTrail = async (orderId: string) => {
     try {
-      const r = await fetch(`${API}/audit-trail/${orderId}`, { headers: getHeaders() })
+      const r = await apiFetch(`/audit-trail/${orderId}`)
       const d = await r.json()
       setAuditTrail(Array.isArray(d) ? d : [])
     } catch { setAuditTrail([]) }
@@ -106,10 +119,9 @@ export default function AdminWorkflowPage() {
   // DB Audit Trail бичих
   const addAuditEntry = async (orderId: string, action: string, file?: string) => {
     try {
-      await fetch(`${API}/audit-trail`, {
+      await apiFetch(`/audit-trail`, {
         method: 'POST',
-        headers: getHeaders(),
-        body: JSON.stringify({ order_id: orderId, user: currentUser, action, file }),
+        body: { order_id: orderId, user: currentUser, action, file },
       })
     } catch (e) { console.log('Audit trail error:', e) }
   }
@@ -118,17 +130,17 @@ export default function AdminWorkflowPage() {
     setUploading(true)
     try {
       const formData = new FormData(); formData.append('file', file)
-      const uploadRes = await fetch(`${API}/upload/file`, { method: 'POST', headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }, body: formData })
+      const uploadRes = await apiFetch(`/upload/file`, { method: 'POST'` }, body: formData })
       const uploadData = await uploadRes.json()
       const filePath = uploadData.url || uploadData.path || uploadData.filename || file.name
-      await fetch(`${API}/order-files`, { method: 'POST', headers: getHeaders(), body: JSON.stringify({ order_id: orderId, filename: file.name, path: filePath, size: file.size, mime_type: file.type, file_type: fileType, uploaded_by: currentUser, uploaded_by_role: 'admin' }) })
+      await apiFetch('/order-files', { method: 'POST', body: { order_id: orderId, filename: file.name, path: filePath, size: file.size, mime_type: file.type, file_type: fileType, uploaded_by: currentUser, uploaded_by_role: 'admin' } })
       if (file.type === 'application/pdf') {
         const inspectForm = new FormData(); inspectForm.append('file', file)
-        const inspectRes = await fetch(`${API}/ai/pdf-inspector/inspect`, { method: 'POST', headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }, body: inspectForm }).catch(() => null)
+        const inspectRes = await apiFetch(`/ai/pdf-inspector/inspect`, { method: 'POST'` }, body: inspectForm }).catch(() => null)
         if (inspectRes?.ok) {
           const analysis = await inspectRes.json()
-          const files = await fetch(`${API}/order-files?order_id=${orderId}`, { headers: getHeaders() }).then(r => r.json())
-          if (files.length > 0) await fetch(`${API}/order-files/${files[0].id}/analysis`, { method: 'PATCH', headers: getHeaders(), body: JSON.stringify({ analysis }) }).catch(() => {})
+          const files = await apiFetch(`/order-files?order_id=${orderId}`)
+          if (files.length > 0) await apiFetch(`/order-files/${files[0].id}/analysis`, { method: 'PATCH', body: { analysis } }).catch(() => {})
         }
       }
       showToast(`📄 ${file.name} амжилттай`)
@@ -140,17 +152,17 @@ export default function AdminWorkflowPage() {
   }
 
   const approveFile = async (fileId: string, orderId: string) => {
-    await fetch(`${API}/order-files/${fileId}/approve`, { method: 'PATCH', headers: getHeaders() })
+    await apiFetch(`/order-files/${fileId}/approve`, { method: 'PATCH'})
     await addAuditEntry(orderId, 'Файл батлагдсан ✅')
     await loadAuditTrail(orderId); await loadFiles(orderId); showToast('Файл батлагдлаа ✅')
   }
   const rejectFile = async (fileId: string, orderId: string) => {
-    await fetch(`${API}/order-files/${fileId}/reject`, { method: 'PATCH', headers: getHeaders(), body: JSON.stringify({ notes: 'Засвар шаардлагатай' }) })
+    await apiFetch(`/order-files/${fileId}/reject`, { method: 'PATCH', body: { notes: 'Засвар шаардлагатай' } })
     await addAuditEntry(orderId, 'Файл буцаагдсан ❌')
     await loadAuditTrail(orderId); await loadFiles(orderId); showToast('Файл буцаагдлаа')
   }
   const setFinalFile = async (fileId: string, orderId: string) => {
-    await fetch(`${API}/order-files/${fileId}/set-final`, { method: 'PATCH', headers: getHeaders() })
+    await apiFetch(`/order-files/${fileId}/set-final`, { method: 'PATCH'})
     await addAuditEntry(orderId, 'Final файл тогтоосон 📦')
     await loadAuditTrail(orderId); await loadFiles(orderId); showToast('Final файл тогтоогдлоо 📦')
   }
@@ -174,14 +186,26 @@ export default function AdminWorkflowPage() {
   const activeOrders = orders.filter(o => !['completed', 'delivered', 'cancelled'].includes(o.status))
 
   const updateOrderStatus = async (id: string, status: string) => {
-    await fetch(`${API}/orders/${id}/status`, { method: 'PATCH', headers: getHeaders(), body: JSON.stringify({ status }) }); load()
+    await apiFetch(`/orders/${id}/status`, { method: 'PATCH', body: { status } }); load()
   }
+
+  const getDesignRequest = (orderId: string) =>
+    designRequests.find((dr: any) => dr.order_id === orderId || dr.orderId === orderId)
 
   const moveToNext = async (order: any) => {
     const cur = getStage(order); const so = STAGES.find(s => s.key === cur); if (!so?.next) return
     const ns = STAGES.find(s => s.key === so.next); if (!ns) return
-    if (so.next === 'printing') { await fetch(`${API}/production-jobs/from-order/${order.id}`, { method: 'POST', headers: getHeaders() }).catch(() => {}); await updateOrderStatus(order.id, 'in_production') }
-    else if (so.next === 'delivering') { await fetch(`${API}/delivery`, { method: 'POST', headers: getHeaders(), body: JSON.stringify({ order_id: order.id, address: order.notes || '', status: 'assigned' }) }).catch(() => {}); await updateOrderStatus(order.id, 'shipped') }
+    // Warn if design not approved when moving designing → prepress
+    if (cur === 'designing') {
+      const dr = getDesignRequest(order.id)
+      if (dr && dr.status !== 'approved' && dr.status !== 'in_production') {
+        const dsm = DESIGN_STATUS_MAP[dr.status]
+        const ok = window.confirm(`⚠️ Дизайн батлагдаагүй байна!\n\nОдоогийн төлөв: ${dsm?.label || dr.status}\n\nГэсэн ч Prepress руу шилжүүлэх үү?`)
+        if (!ok) return
+      }
+    }
+    if (so.next === 'printing') { await apiFetch(`/production-jobs/from-order/${order.id}`, { method: 'POST'}).catch(() => {}); await updateOrderStatus(order.id, 'in_production') }
+    else if (so.next === 'delivering') { await apiFetch('/delivery', { method: 'POST', body: { order_id: order.id, address: order.notes || '', status: 'assigned' } }).catch(() => {}); await updateOrderStatus(order.id, 'shipped') }
     else { await updateOrderStatus(order.id, so.next) }
     await addAuditEntry(order.id, `"${ns.label}" руу шилжүүлсэн`)
     showToast(`${order.product_name || 'Захиалга'} → ${ns.icon} ${ns.label}`)
@@ -201,11 +225,10 @@ export default function AdminWorkflowPage() {
     if (!revertModal || !revertReason.trim()) return
     setReverting(true)
     try {
-      const res = await fetch(`${API}/orders/${revertModal.order.id}/revert`, {
+      const res = await apiFetch(`/orders/${revertModal.order.id}/revert`, {
         method: 'PATCH',
-        headers: getHeaders(),
-        body: JSON.stringify({
-          reason: revertReason.trim(),
+        body: {
+          reason: revertReason.trim(,
           target_stage: revertTarget || undefined,
         }),
       })
@@ -222,7 +245,7 @@ export default function AdminWorkflowPage() {
       load()
       // Detail modal нээлттэй бол шинэчлэх
       if (detail?.id === revertModal.order.id) {
-        const updated = await fetch(`${API}/orders/${revertModal.order.id}`, { headers: getHeaders() }).then(r => r.json())
+        const updated = await apiFetch(`/orders/${revertModal.order.id}`)
         setDetail(updated)
         await loadAuditTrail(revertModal.order.id)
       }
@@ -313,6 +336,9 @@ export default function AdminWorkflowPage() {
                   {stageOrders[stage.key].length === 0 ? <div style={{ padding: 16, textAlign: 'center', color: 'var(--text3)', fontSize: 11 }}>Хоосон</div>
                   : stageOrders[stage.key].map(o => {
                     const canRevert = si > 0 && stage.key !== 'completed'
+                    const dr = stage.key === 'designing' ? getDesignRequest(o.id) : null
+                    const drInfo = dr ? (DESIGN_STATUS_MAP[dr.status] || { label: dr.status, color: '#888', bg: '#f3f4f6' }) : null
+                    const isApproved = dr?.status === 'approved' || dr?.status === 'in_production'
                     return (
                       <div key={o.id} className="wf-card" onClick={() => openDetail(o)} style={{ padding: '8px 8px 6px', marginBottom: 4, background: 'var(--surface2)', borderRadius: 6, fontSize: 11, borderLeft: `3px solid ${stage.color}` }}>
                         <div style={{ fontWeight: 600, fontSize: 12, marginBottom: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{o.product_name || 'Захиалга'}</div>
@@ -321,8 +347,23 @@ export default function AdminWorkflowPage() {
                           <span style={{ color: '#FF6B00', fontWeight: 600 }}>₮{Number(o.total_price || 0).toLocaleString()}</span>
                           <div style={{ display: 'flex', gap: 4 }}>{o.file_url && <span style={{ fontSize: 9, color: '#3B82F6' }}>🔎</span>}</div>
                         </div>
+                        {/* Design approval badge — only for designing stage */}
+                        {stage.key === 'designing' && (
+                          <div style={{ marginTop: 5 }}>
+                            {drInfo ? (
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '3px 6px', borderRadius: 4, background: drInfo.bg, border: `1px solid ${drInfo.color}30` }}>
+                                <span style={{ fontSize: 9, color: drInfo.color, fontWeight: 700 }}>🎨</span>
+                                <span style={{ fontSize: 9, color: drInfo.color, fontWeight: 600, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{drInfo.label}</span>
+                                {isApproved && <span style={{ fontSize: 9, color: '#10B981' }}>✓ Батлагдсан</span>}
+                                {dr.zoom_join_url && <span title="Zoom уулзалт бий" style={{ fontSize: 9 }}>📹</span>}
+                              </div>
+                            ) : (
+                              <div style={{ fontSize: 9, color: 'var(--text3)', padding: '2px 4px', background: 'var(--surface)', borderRadius: 3, border: '1px dashed var(--border)' }}>🎨 Дизайн хүсэлт байхгүй</div>
+                            )}
+                          </div>
+                        )}
                         <div style={{ display: 'flex', gap: 3, marginTop: 4 }}>
-                          {nextStage && <button className="wf-move" onClick={e => { e.stopPropagation(); moveToNext(o) }} style={{ flex: 1, padding: '4px 0', background: nextStage.color + '12', border: `1px solid ${nextStage.color}30`, borderRadius: 4, color: nextStage.color, fontSize: 10, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 3 }}>{nextStage.icon} {nextStage.label} →</button>}
+                          {nextStage && <button className="wf-move" onClick={e => { e.stopPropagation(); moveToNext(o) }} style={{ flex: 1, padding: '4px 0', background: stage.key === 'designing' && dr && !isApproved ? '#FEF3C7' : nextStage.color + '12', border: `1px solid ${stage.key === 'designing' && dr && !isApproved ? '#F59E0B' : nextStage.color}30`, borderRadius: 4, color: stage.key === 'designing' && dr && !isApproved ? '#92400E' : nextStage.color, fontSize: 10, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 3 }}>{stage.key === 'designing' && dr && !isApproved ? '⚠️' : nextStage.icon} {nextStage.label} →</button>}
                           {canRevert && <button className="revert-btn" onClick={e => { e.stopPropagation(); openRevertModal(o) }} style={{ padding: '4px 6px', background: '#FEE2E2', border: '1px solid #FECACA', borderRadius: 4, color: '#DC2626', fontSize: 10, fontWeight: 600 }} title="Буцаах">↩️</button>}
                         </div>
                       </div>
@@ -389,7 +430,7 @@ export default function AdminWorkflowPage() {
                     <td style={{ padding: '6px 10px', color: 'var(--text2)', maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.address || '—'}</td>
                     <td style={{ padding: '6px 10px' }}>{d.courier_name || '—'}</td>
                     <td style={{ padding: '6px 10px' }}>
-                      <select value={d.status} onChange={async e => { await fetch(`${API}/delivery/${d.id}/status`, { method: 'PATCH', headers: getHeaders(), body: JSON.stringify({ status: e.target.value }) }); load() }}
+                      <select value={d.status} onChange={async e => { await apiFetch(`/delivery/${d.id}/status`, { method: 'PATCH', body: { status: e.target.value } }); load() }}
                         style={{ fontSize: 11, padding: '2px 6px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--surface2)', color: 'var(--text)', cursor: 'pointer' }}>
                         {['assigned', 'picked_up', 'on_the_way', 'in_transit', 'delivered'].map(s => <option key={s} value={s}>{s}</option>)}
                       </select>
@@ -503,7 +544,7 @@ export default function AdminWorkflowPage() {
                               )}
                             </div>
                             <div style={{ display: 'flex', gap: 4, flexShrink: 0, marginLeft: 8 }}>
-                              {f.path && <a href={f.path.startsWith('http') ? f.path : `${API}/${f.path}`} target="_blank" className="file-action" style={{ background: 'rgba(59,130,246,0.1)', color: '#3B82F6', textDecoration: 'none' }}>Татах</a>}
+                              {f.path && <a href={f.path.startsWith('http') ? f.path : `/${f.path}`} target="_blank" className="file-action" style={{ background: 'rgba(59,130,246,0.1)', color: '#3B82F6', textDecoration: 'none' }}>Татах</a>}
                               {f.status !== 'approved' && <button onClick={() => approveFile(f.id, detail.id)} className="file-action" style={{ background: 'rgba(16,185,129,0.1)', color: '#10B981' }}>✅</button>}
                               {f.status !== 'rejected' && <button onClick={() => rejectFile(f.id, detail.id)} className="file-action" style={{ background: 'rgba(239,68,68,0.1)', color: '#EF4444' }}>❌</button>}
                               {!f.is_final && f.status === 'approved' && <button onClick={() => setFinalFile(f.id, detail.id)} className="file-action" style={{ background: 'rgba(16,185,129,0.15)', color: '#059669' }}>📦</button>}

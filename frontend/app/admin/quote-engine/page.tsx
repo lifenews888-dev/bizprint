@@ -1,13 +1,7 @@
 'use client'
 
+import { apiFetch } from '@/lib/api'
 import { useState, useEffect, useCallback, Fragment } from 'react'
-
-const API = 'http://localhost:4000'
-
-function getToken() {
-  if (typeof window === 'undefined') return ''
-  return localStorage.getItem('access_token') || localStorage.getItem('token') || ''
-}
 
 function fmt(n: number) {
   return new Intl.NumberFormat('mn-MN').format(Math.round(n))
@@ -101,8 +95,7 @@ function PriceConfigTab() {
   const [toast, setToast] = useState('')
 
   useEffect(() => {
-    fetch(`${API}/pricing-config`, {
-      headers: { Authorization: `Bearer ${getToken()}` },
+    apiFetch(`//pricing-config`, {` },
     })
       .then(r => r.ok ? r.json() : [])
       .then((data: PricingConfig[]) => {
@@ -123,13 +116,10 @@ function PriceConfigTab() {
   async function saveSingle(key: string) {
     setSavingKey(key)
     try {
-      const res = await fetch(`${API}/pricing-config`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${getToken()}`,
+      const res = await apiFetch(`//pricing-config`, {
+        method: 'PUT'`,
         },
-        body: JSON.stringify({ items: [{ key, value: Number(editValues[key]) || 0 }] }),
+        body: { items: [{ key, value: Number(editValues[key] || 0 }] }),
       })
       if (!res.ok) throw new Error()
       setConfigs(prev => prev.map(c => c.key === key ? { ...c, value: Number(editValues[key]) || 0 } : c))
@@ -148,13 +138,10 @@ function PriceConfigTab() {
         key: c.key,
         value: Number(editValues[c.key]) || 0,
       }))
-      const res = await fetch(`${API}/pricing-config`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${getToken()}`,
+      const res = await apiFetch(`//pricing-config`, {
+        method: 'PUT'`,
         },
-        body: JSON.stringify({ items }),
+        body: { items },
       })
       if (!res.ok) throw new Error()
       setConfigs(prev => prev.map(c => ({ ...c, value: Number(editValues[c.key]) || 0 })))
@@ -329,8 +316,7 @@ function QuotesListTab() {
   const fetchQuotes = useCallback(async () => {
     setLoading(true)
     try {
-      const res = await fetch(`${API}/quotes-v2`, {
-        headers: { Authorization: `Bearer ${getToken()}` },
+      const res = await apiFetch(`//quotes-v2`, {` },
       })
       if (!res.ok) throw new Error()
       const data = await res.json()
@@ -346,13 +332,10 @@ function QuotesListTab() {
 
   async function changeStatus(id: number, status: string) {
     try {
-      await fetch(`${API}/quotes-v2/${id}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${getToken()}`,
+      await apiFetch(`//quotes-v2/${id}`, {
+        method: 'PATCH'`,
         },
-        body: JSON.stringify({ status }),
+        body: { status },
       })
       setQuotes(prev => prev.map(q => q.id === id ? { ...q, status } : q))
     } catch {}
@@ -361,13 +344,11 @@ function QuotesListTab() {
   async function resendEmail(id: number) {
     setSendingEmail(id)
     try {
-      await fetch(`${API}/quotes-v2/${id}/resend-email`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${getToken()}` },
+      await apiFetch(`//quotes-v2/${id}/resend-email`, {
+        method: 'POST'` },
       }).catch(() =>
-        fetch(`${API}/quotes-v2/${id}/send-email`, {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${getToken()}` },
+        apiFetch(`//quotes-v2/${id}/send-email`, {
+          method: 'POST'` },
         })
       )
     } catch {}
@@ -564,11 +545,9 @@ function StatsTab() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const headers = { Authorization: `Bearer ${getToken()}` }
-
-    Promise.all([
-      fetch(`${API}/quotes-v2/today`, { headers }).then(r => r.ok ? r.json() : null).catch(() => null),
-      fetch(`${API}/quotes-v2`, { headers }).then(r => r.ok ? r.json() : null).catch(() => null),
+        Promise.all([
+      apiFetch(`//quotes-v2/today`, { headers }).catch(() => null).catch(() => null),
+      apiFetch(`//quotes-v2`, { headers }).catch(() => null).catch(() => null),
     ]).then(([todayData, allData]) => {
       if (todayData) {
         if (typeof todayData === 'number') setTodayCount(todayData)

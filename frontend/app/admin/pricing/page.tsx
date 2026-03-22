@@ -1,5 +1,6 @@
 'use client'
 
+import { apiFetch } from '@/lib/api'
 import { useState, useEffect, useCallback } from 'react'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -70,7 +71,6 @@ interface SimulationResult {
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
-const API = 'http://localhost:4000'
 const FONT = "'DM Sans','Segoe UI',system-ui,sans-serif"
 
 const TABS = ['Үнийн дүрэм', 'Үнийн горим (Tier)', 'Simulation', 'Өрсөлдөгчийн үнэ'] as const
@@ -130,24 +130,12 @@ const PRODUCT_CODES = [
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-function getToken() {
-  if (typeof window === 'undefined') return ''
-  return localStorage.getItem('access_token') || localStorage.getItem('token') || ''
-}
-
 function fmt(n: number) {
   return new Intl.NumberFormat('mn-MN').format(Math.round(n))
 }
 
-function authHeaders(): HeadersInit {
-  return {
-    'Content-Type': 'application/json',
-    Authorization: `Bearer ${getToken()}`,
-  }
-}
-
 async function apiFetch<T>(path: string, opts?: RequestInit): Promise<T> {
-  const res = await fetch(`${API}${path}`, { headers: authHeaders(), ...opts })
+  const res = await apiFetch(`/${path}`, { ...opts })
   if (!res.ok) throw new Error(`API error ${res.status}`)
   return res.json()
 }
@@ -380,7 +368,7 @@ function RulesTab() {
     try {
       await apiFetch(`/pricing-engine/rules/${rule.id}`, {
         method: 'PUT',
-        body: JSON.stringify({ is_active: !rule.is_active }),
+        body: { is_active: !rule.is_active },
       })
       setRules(prev => prev.map(r => (r.id === rule.id ? { ...r, is_active: !r.is_active } : r)))
     } catch (e) {
@@ -405,7 +393,7 @@ function RulesTab() {
         priority: parseInt(form.priority) || 100,
         description: form.description || null,
       }
-      await apiFetch('/pricing-engine/rules', { method: 'POST', body: JSON.stringify(body) })
+      await apiFetch('/pricing-engine/rules', { method: 'POST', body: body })
       setShowForm(false)
       setForm({
         name: '',
@@ -621,9 +609,9 @@ function TiersTab() {
       const marginDecimal = parseFloat(edit.margin_rate) / 100
       await apiFetch(`/pricing-engine/tiers/${tier.id}`, {
         method: 'PUT',
-        body: JSON.stringify({
+        body: {
           margin_rate: marginDecimal,
-          min_order_amount: parseFloat(edit.min_order_amount) || 0,
+          min_order_amount: parseFloat(edit.min_order_amount || 0,
         }),
       })
       loadTiers()
@@ -743,7 +731,7 @@ function SimulationTab() {
       }
       const data = await apiFetch<{ simulations: SimulationResult[] }>('/pricing-engine/simulate', {
         method: 'POST',
-        body: JSON.stringify(body),
+        body: body,
       })
       setResults(data.simulations)
     } catch (e) {
@@ -897,12 +885,12 @@ function CompetitorTab() {
     try {
       await apiFetch('/pricing-engine/competitors', {
         method: 'POST',
-        body: JSON.stringify({
+        body: {
           factory_name: fFactory,
           product_type: fType,
           product_subtype: fSubtype || null,
           size: fSize || null,
-          gsm: fGsm ? Number(fGsm) : null,
+          gsm: fGsm ? Number(fGsm : null,
           quantity_min: Number(fQtyMin) || 1,
           quantity_max: fQtyMax ? Number(fQtyMax) : null,
           unit_price: parseFloat(fUnitPrice),
@@ -934,7 +922,7 @@ function CompetitorTab() {
     try {
       await apiFetch(`/pricing-engine/competitors/${cp.id}`, {
         method: 'PUT',
-        body: JSON.stringify({ is_active: !cp.is_active }),
+        body: { is_active: !cp.is_active },
       })
       loadData()
     } catch (e) {

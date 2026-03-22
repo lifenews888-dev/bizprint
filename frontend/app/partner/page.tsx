@@ -1,8 +1,8 @@
 'use client'
+import { apiFetch } from '@/lib/api'
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 
-const API = 'http://localhost:4000'
 const F = "'DM Sans','Segoe UI',system-ui,sans-serif"
 
 const PARTNERS = [
@@ -86,11 +86,11 @@ export default function PartnerPage() {
 
     setSubmitting(true)
     try {
-      const res = await fetch(`${API}/auth/register`, {
+      const res = await apiFetch(`//auth/register`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: form.email.trim(),
+        headers: {},
+        body: {
+          email: form.email.trim(,
           password: form.password,
           full_name: form.full_name.trim(),
           phone: form.phone.trim(),

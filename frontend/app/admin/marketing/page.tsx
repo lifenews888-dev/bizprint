@@ -1,8 +1,6 @@
 'use client'
+import { apiFetch } from '@/lib/api'
 import { useState, useEffect } from 'react'
-
-const API = 'http://localhost:4000'
-const getHeaders = () => ({ 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token')}` })
 
 export default function AdminMarketingPage() {
   const [orders, setOrders] = useState<any[]>([])
@@ -14,9 +12,9 @@ export default function AdminMarketingPage() {
 
   useEffect(() => {
     Promise.all([
-      fetch(`${API}/orders`, { headers: getHeaders() }).then(r => r.json()).catch(() => []),
-      fetch(`${API}/banners`, { headers: getHeaders() }).then(r => r.json()).catch(() => []),
-      fetch(`${API}/marketing/campaigns`, { headers: getHeaders() }).then(r => r.json()).catch(() => []),
+      apiFetch('/orders').catch(() => []),
+      apiFetch('/banners').catch(() => []),
+      apiFetch('/marketing/campaigns').catch(() => []),
     ]).then(([o, b, c]) => {
       setOrders(Array.isArray(o) ? o : [])
       setBanners(Array.isArray(b) ? b : [])
@@ -27,15 +25,15 @@ export default function AdminMarketingPage() {
   const reset = () => { setEditing(null); setForm({ name: '', type: 'discount', code: '', discount_percent: 0, start_date: '', end_date: '', is_active: true, description: '' }) }
   const save = async () => {
     const method = editing?.id ? 'PATCH' : 'POST'
-    const url = editing?.id ? `${API}/marketing/campaigns/${editing.id}` : `${API}/marketing/campaigns`
-    try { await fetch(url, { method, headers: getHeaders(), body: JSON.stringify(form) }) } catch {}
+    const url = editing?.id ? `/marketing/campaigns/${editing.id}` : `/marketing/campaigns`
+    try { await apiFetch(url, { method: , body: form }) } catch {}
     reset()
-    const c = await fetch(`${API}/marketing/campaigns`, { headers: getHeaders() }).then(r => r.json()).catch(() => [])
+    const c = await apiFetch('/marketing/campaigns').catch(() => [])
     setCampaigns(Array.isArray(c) ? c : [])
   }
   const del = async (id: string) => {
     if (!confirm('Устгах уу?')) return
-    try { await fetch(`${API}/marketing/campaigns/${id}`, { method: 'DELETE', headers: getHeaders() }) } catch {}
+    try { await apiFetch(`/marketing/campaigns/${id}`, { method: 'DELETE' }) } catch {}
     setCampaigns(prev => prev.filter(c => c.id !== id))
   }
 

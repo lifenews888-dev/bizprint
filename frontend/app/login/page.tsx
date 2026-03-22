@@ -1,4 +1,5 @@
 'use client'
+import { apiFetch } from '@/lib/api'
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 
@@ -20,11 +21,9 @@ export default function LoginPage() {
     if (!email || !password) { setError('Имэйл, нууц үг оруулна уу'); return }
     setLoading(true); setError('')
     try {
-      const res = await fetch('http://localhost:4000/auth/login', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
+      const data = await apiFetch<any>('/auth/login', {
+        method: 'POST', body: { email, password }, auth: false,
       })
-      const data = await res.json()
       if (data.access_token) {
         localStorage.setItem('access_token', data.access_token)
         localStorage.setItem('token', data.access_token)

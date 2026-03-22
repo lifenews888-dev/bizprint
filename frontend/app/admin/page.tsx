@@ -1,12 +1,9 @@
 'use client'
+import { apiFetch } from '@/lib/api'
 import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 
-const API = 'http://localhost:4000'
 const F = "'DM Sans','Segoe UI',system-ui,sans-serif"
-
-function getToken() { return typeof window !== 'undefined' ? localStorage.getItem('token') || '' : '' }
-function getHeaders() { return { 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}` } }
 
 const STATUS_CFG: Record<string, { label: string; color: string; bg: string }> = {
   pending:       { label: 'Хүлээгдэж буй', color: '#F59E0B', bg: 'rgba(245,158,11,0.1)' },
@@ -83,10 +80,10 @@ export default function AdminDashboard() {
     try { const u = JSON.parse(localStorage.getItem('user') || '{}'); setUser(u) } catch {}
 
     Promise.all([
-      fetch(`${API}/orders`, { headers: getHeaders() }).then(r => r.json()).catch(() => []),
-      fetch(`${API}/admin/users`, { headers: getHeaders() }).then(r => r.json()).catch(() => []),
-      fetch(`${API}/quotes-v2`, { headers: getHeaders() }).then(r => r.json()).catch(() => []),
-      fetch(`${API}/wallet`, { headers: getHeaders() }).then(r => r.json()).catch(() => []),
+      apiFetch('/orders').catch(() => []),
+      apiFetch('/admin/users').catch(() => []),
+      apiFetch('/quotes-v2').catch(() => []),
+      apiFetch('/wallet').catch(() => []),
     ]).then(([o, u, q, w]) => {
       setOrders(Array.isArray(o) ? o : [])
       setUsers(Array.isArray(u) ? u : [])
