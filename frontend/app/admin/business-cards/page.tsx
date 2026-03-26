@@ -173,6 +173,113 @@ export default function AdminBusinessCardsPage() {
             ))}
           </div>
         )}
+
+        {/* ═══ PRICING SECTION — grid доор шууд харагдана ═══ */}
+        {!loading && allLayouts.length > 0 && (
+          <div style={{ marginTop: 32, background: 'var(--surface)', borderRadius: 16, border: '1px solid var(--border)', padding: 24 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <div>
+                <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)' }}>Үнийн тохиргоо</div>
+                <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 2 }}>Хэвлэлийн төрөл бүрт нэгж үнэ (₮)</div>
+              </div>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                <button onClick={() => setTiers([...tiers, { quantity: 0, standard: 0, laminated: 0, embossed: 0 }])} style={btn('var(--surface2)', 'var(--text)')}>+ Шатлал</button>
+                <button onClick={async () => {
+                  if (!productId) return
+                  try {
+                    await apiFetch(`/admin/business-cards/${productId}/pricing`, { method: 'POST', body: { tiers } })
+                    alert('Үнэ хадгалагдлаа!')
+                  } catch (e: any) { alert(e?.message || 'Алдаа') }
+                }} style={btn('#FF6B00', '#fff')}>Үнэ хадгалах</button>
+              </div>
+            </div>
+
+            {/* 3 төрөл */}
+            <div style={{ display: 'flex', gap: 10, marginBottom: 16 }}>
+              {[
+                { icon: '📄', label: 'Энгийн', desc: '300гр цаас', key: 'standard' },
+                { icon: '✨', label: 'Лактай', desc: 'Гялгар/Мат лак', key: 'laminated' },
+                { icon: '💎', label: 'Бүрэлттэй', desc: 'Тусгай эффект', key: 'embossed' },
+              ].map(ct => (
+                <div key={ct.key} style={{ flex: 1, padding: 12, borderRadius: 10, border: '1px solid var(--border)', background: 'var(--surface2)', textAlign: 'center' }}>
+                  <div style={{ fontSize: 18 }}>{ct.icon}</div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)', marginTop: 4 }}>{ct.label}</div>
+                  <div style={{ fontSize: 10, color: 'var(--text3)', marginTop: 2 }}>{ct.desc}</div>
+                </div>
+              ))}
+            </div>
+
+            {/* Үнийн хүснэгт */}
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr style={{ borderBottom: '2px solid var(--border)' }}>
+                  {['Тоо', '📄 Энгийн (₮)', '✨ Лактай (₮)', '💎 Бүрэлттэй (₮)', ''].map(h => (
+                    <th key={h} style={{ padding: '10px 8px', textAlign: 'left', fontSize: 11, color: 'var(--text3)', fontWeight: 600 }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {tiers.map((t, i) => (
+                  <tr key={i} style={{ borderBottom: '1px solid var(--border)' }}>
+                    <td style={{ padding: 8 }}><input style={{ ...inp, maxWidth: 80 }} type="number" value={t.quantity} onChange={e => { const c = [...tiers]; c[i] = { ...c[i], quantity: Number(e.target.value) }; setTiers(c) }} /></td>
+                    <td style={{ padding: 8 }}><input style={{ ...inp, maxWidth: 80 }} type="number" step="0.5" value={t.standard} onChange={e => { const c = [...tiers]; c[i] = { ...c[i], standard: Number(e.target.value) }; setTiers(c) }} /></td>
+                    <td style={{ padding: 8 }}><input style={{ ...inp, maxWidth: 80 }} type="number" step="0.5" value={t.laminated} onChange={e => { const c = [...tiers]; c[i] = { ...c[i], laminated: Number(e.target.value) }; setTiers(c) }} /></td>
+                    <td style={{ padding: 8 }}><input style={{ ...inp, maxWidth: 80 }} type="number" step="0.5" value={t.embossed} onChange={e => { const c = [...tiers]; c[i] = { ...c[i], embossed: Number(e.target.value) }; setTiers(c) }} /></td>
+                    <td style={{ padding: 8 }}><button onClick={() => setTiers(tiers.filter((_, j) => j !== i))} style={{ background: 'none', border: 'none', color: '#EF4444', cursor: 'pointer', fontSize: 14 }}>✕</button></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+
+            {/* Тооцоолуур */}
+            <div style={{ marginTop: 16, background: 'var(--surface2)', borderRadius: 12, padding: 16 }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', marginBottom: 10 }}>Тооцоолуур</div>
+              <div style={{ display: 'flex', gap: 12, alignItems: 'flex-end', flexWrap: 'wrap', marginBottom: 12 }}>
+                <div>
+                  <label style={lbl}>Тоо</label>
+                  <input style={{ ...inp, maxWidth: 100 }} type="number" value={calcQty} onChange={e => setCalcQty(Number(e.target.value) || 1)} />
+                </div>
+                <div>
+                  <label style={lbl}>Төрөл</label>
+                  <div style={{ display: 'flex', gap: 4 }}>
+                    {([['standard', 'Энгийн'], ['laminated', 'Лактай'], ['embossed', 'Бүрэлттэй']] as const).map(([k, label]) => (
+                      <button key={k} onClick={() => setCalcType(k)} style={{ padding: '6px 12px', borderRadius: 6, fontSize: 11, fontWeight: calcType === k ? 700 : 400, border: calcType === k ? '2px solid #FF6B00' : '1px solid var(--border)', background: calcType === k ? '#FFF7ED' : 'var(--surface)', color: 'var(--text)', cursor: 'pointer' }}>{label}</button>
+                    ))}
+                  </div>
+                </div>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--text)', cursor: 'pointer' }}>
+                  <input type="checkbox" checked={vatEnabled} onChange={e => setVatEnabled(e.target.checked)} /> НӨАТ (10%)
+                </label>
+              </div>
+              {(() => {
+                const closest = [...tiers].sort((a, b) => a.quantity - b.quantity).filter(t => calcQty >= t.quantity).pop() || tiers[0]
+                const unit = closest?.[calcType] || closest?.standard || 30
+                const sub = unit * calcQty
+                const vat = vatEnabled ? Math.round(sub * 0.1) : 0
+                return (
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 10 }}>
+                    <div style={{ background: 'var(--surface)', borderRadius: 8, padding: 10, textAlign: 'center' }}>
+                      <div style={{ fontSize: 10, color: 'var(--text3)' }}>Нэгж</div>
+                      <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)' }}>₮{unit}</div>
+                    </div>
+                    <div style={{ background: 'var(--surface)', borderRadius: 8, padding: 10, textAlign: 'center' }}>
+                      <div style={{ fontSize: 10, color: 'var(--text3)' }}>Дүн</div>
+                      <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)' }}>₮{sub.toLocaleString()}</div>
+                    </div>
+                    <div style={{ background: 'var(--surface)', borderRadius: 8, padding: 10, textAlign: 'center' }}>
+                      <div style={{ fontSize: 10, color: 'var(--text3)' }}>НӨАТ</div>
+                      <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)' }}>₮{vat.toLocaleString()}</div>
+                    </div>
+                    <div style={{ background: '#FF6B00', borderRadius: 8, padding: 10, textAlign: 'center' }}>
+                      <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.7)' }}>Нийт</div>
+                      <div style={{ fontSize: 15, fontWeight: 700, color: '#fff' }}>₮{(sub + vat).toLocaleString()}</div>
+                    </div>
+                  </div>
+                )
+              })()}
+            </div>
+          </div>
+        )}
       </div>
     )
   }
