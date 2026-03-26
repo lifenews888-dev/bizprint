@@ -335,29 +335,46 @@ export default function AdminBusinessCardsPage() {
               ))}
             </div>
 
-            {/* Random layout — structured randomization */}
+            {/* Random layout — одоо байгаа элементүүдийг логиктой дахин байрлуулна */}
             <button onClick={() => {
-              // 5 стандарт бүтэц — санамсаргүй нэгийг сонгоно
-              const patterns = [
-                // Pattern 1: Зүүн — нэр дээр, холбоо барих доор, лого баруун дээр
-                { company_name:[20,15], company_message:[20,38], full_name:[20,65], job_title:[20,100], email:[20,145], phone:[20,167], address1:[20,195], address2:[20,215], website:[20,245], logo:[350,15], social:[355,110], qr:[365,195] },
-                // Pattern 2: Баруун — бүгд баруунд, лого зүүн дээр
-                { logo:[20,20], company_name:[200,15], company_message:[220,40], full_name:[160,75], job_title:[230,110], phone:[270,160], email:[230,182], address1:[220,210], address2:[220,228], website:[270,250], social:[20,100], qr:[20,195] },
-                // Pattern 3: Голд — нэр/компани голд, холбоо барих 2 баганад
-                { company_name:[140,12], full_name:[100,45], job_title:[155,80], company_message:[130,105], phone:[20,170], email:[20,192], address1:[20,220], website:[20,248], address2:[250,170], logo:[190,130], social:[260,195], qr:[370,195] },
-                // Pattern 4: Нэр том дээр, компани доор
-                { full_name:[20,20], job_title:[20,60], company_name:[20,90], company_message:[20,112], phone:[20,175], email:[20,197], website:[20,225], address1:[20,250], address2:[200,250], logo:[355,15], social:[355,100], qr:[365,195] },
-                // Pattern 5: Лого зүүн голд, мэдээлэл баруунд
-                { logo:[20,90], company_name:[120,15], company_message:[120,38], full_name:[120,65], job_title:[120,100], phone:[120,150], email:[120,172], address1:[120,200], address2:[120,218], website:[120,248], social:[20,180], qr:[370,195] },
-              ]
-              const p = patterns[Math.floor(Math.random() * patterns.length)]
-              const result = DEFAULT_ZONES.map(z => {
-                const pos = p[z.key as keyof typeof p]
-                return pos ? { ...z, x: pos[0], y: pos[1] } : z
+              if (currentZones.length === 0) return
+              const CW = 450, CH = 275, PAD = 20
+              const keys = currentZones.map((z: any) => z.key)
+              // Элементүүдийг ангилах
+              const hasLogo = keys.includes('logo')
+              const hasQr = keys.includes('qr')
+              const hasSocial = keys.includes('social')
+              const textKeys = keys.filter((k: string) => !['logo','qr','social'].includes(k))
+              // Лого байрлал variants
+              const logoPositions = [[PAD, PAD], [CW-100, PAD], [CW-100, CH-100], [PAD, CH-100], [(CW-80)/2, PAD]]
+              const logoPos = logoPositions[Math.floor(Math.random() * logoPositions.length)]
+              // Лого баруунд эсвэл зүүнд байна уу → текст эсрэг талд
+              const logoRight = logoPos[0] > CW / 2
+              const textX = logoRight ? PAD : (hasLogo ? 130 : PAD)
+              const textMaxW = logoRight ? CW - 140 : CW - (hasLogo ? 150 : 40)
+              // Текстүүдийг дээрээс доош жигд тараах
+              const textStartY = PAD
+              const gap = Math.min(28, Math.floor((CH - PAD * 2) / Math.max(textKeys.length, 1)))
+              const result = currentZones.map((z: any) => {
+                if (z.type === 'logo') return { ...z, x: logoPos[0], y: logoPos[1], w: 80, h: 80 }
+                if (z.type === 'qr') {
+                  // QR — логотой эсрэг булангийн доод талд
+                  const qx = logoRight ? PAD : CW - 80
+                  return { ...z, x: qx, y: CH - 80 }
+                }
+                if (z.type === 'social') {
+                  // Social — QR-ийн дээр эсвэл лого доор
+                  const sx = hasQr ? (logoRight ? PAD : CW - 80) : (logoRight ? PAD + 80 : CW - 100)
+                  return { ...z, x: sx, y: CH - 140 }
+                }
+                // Текст — дараалуулж жигд байрлуулах
+                const idx = textKeys.indexOf(z.key)
+                const y = textStartY + idx * gap
+                return { ...z, x: textX, y, w: Math.min(z.w || 220, textMaxW) }
               })
               updateLayout(i, zoneKey, result)
             }} style={{ width: '100%', padding: '8px 0', borderRadius: 8, border: '2px dashed #FF6B00', background: '#FFF7ED', cursor: 'pointer', fontSize: 12, fontWeight: 600, color: '#FF6B00', marginBottom: 12 }}>
-              🎲 Random
+              🎲 Random ({currentZones.length} элемент)
             </button>
 
             {/* Add zones */}
