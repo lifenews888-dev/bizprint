@@ -59,8 +59,14 @@ export default function AdminBusinessCardsPage() {
 
   const [form, setForm] = useState({ name: '', name_mn: '', description: '', base_price: '3000', vat_enabled: true, is_active: true })
   const [layouts, setLayouts] = useState<any[]>([])
-  const [tiers, setTiers] = useState([{ quantity: 100, unit_price: 30 }, { quantity: 200, unit_price: 27.5 }, { quantity: 500, unit_price: 24 }, { quantity: 1000, unit_price: 20 }])
+  const [tiers, setTiers] = useState([
+    { quantity: 100, standard: 30, laminated: 45, embossed: 65 },
+    { quantity: 200, standard: 27.5, laminated: 40, embossed: 58 },
+    { quantity: 500, standard: 24, laminated: 35, embossed: 50 },
+    { quantity: 1000, standard: 20, laminated: 30, embossed: 42 },
+  ])
   const [calcQty, setCalcQty] = useState(100)
+  const [calcType, setCalcType] = useState<'standard' | 'laminated' | 'embossed'>('standard')
   const [layoutEditorSide, setLayoutEditorSide] = useState<'front' | 'back'>('front')
   const [selectedZoneKey, setSelectedZoneKey] = useState<string | null>(null)
 
@@ -85,7 +91,12 @@ export default function AdminBusinessCardsPage() {
       front_json: [],
       back_json: [],
     }])
-    setTiers([{ quantity: 100, unit_price: 30 }, { quantity: 200, unit_price: 27.5 }, { quantity: 500, unit_price: 24 }, { quantity: 1000, unit_price: 20 }])
+    setTiers([
+      { quantity: 100, standard: 30, laminated: 45, embossed: 65 },
+      { quantity: 200, standard: 27.5, laminated: 40, embossed: 58 },
+      { quantity: 500, standard: 24, laminated: 35, embossed: 50 },
+      { quantity: 1000, standard: 20, laminated: 30, embossed: 42 },
+    ])
     setModal(true)
   }
 
@@ -93,7 +104,17 @@ export default function AdminBusinessCardsPage() {
     setEditing(p); setTab('layouts')
     setForm({ name: p.name || '', name_mn: p.name_mn || '', description: p.description || '', base_price: String(p.base_price || 3000), vat_enabled: p.vat_enabled !== false, is_active: p.is_active !== false })
     setLayouts((p.layouts || []).map((l: any) => ({ ...l, _canvas: l.canvas_data ? { ...l.canvas_data } : undefined, backgrounds: l.backgrounds || [] })))
-    setTiers(p.pricingTiers?.length ? p.pricingTiers.map((t: any) => ({ quantity: t.quantity, unit_price: Number(t.unit_price) })) : [{ quantity: 100, unit_price: 30 }, { quantity: 200, unit_price: 27.5 }, { quantity: 500, unit_price: 24 }, { quantity: 1000, unit_price: 20 }])
+    setTiers(p.pricingTiers?.length ? p.pricingTiers.map((t: any) => ({
+      quantity: t.quantity,
+      standard: Number(t.standard ?? t.unit_price ?? 30),
+      laminated: Number(t.laminated ?? (t.unit_price ? t.unit_price * 1.5 : 45)),
+      embossed: Number(t.embossed ?? (t.unit_price ? t.unit_price * 2.1 : 65)),
+    })) : [
+      { quantity: 100, standard: 30, laminated: 45, embossed: 65 },
+      { quantity: 200, standard: 27.5, laminated: 40, embossed: 58 },
+      { quantity: 500, standard: 24, laminated: 35, embossed: 50 },
+      { quantity: 1000, standard: 20, laminated: 30, embossed: 42 },
+    ])
     setModal(true)
   }
 
@@ -168,7 +189,7 @@ export default function AdminBusinessCardsPage() {
   }
 
   const closestTier = [...tiers].sort((a, b) => a.quantity - b.quantity).filter(t => calcQty >= t.quantity).pop() || tiers[0]
-  const calcUnit = closestTier?.unit_price || 30
+  const calcUnit = closestTier?.[calcType] || closestTier?.standard || 30
   const calcSubtotal = calcUnit * calcQty
   const calcVat = form.vat_enabled ? Math.round(calcSubtotal * 0.1) : 0
   const calcTotal = calcSubtotal + calcVat
@@ -482,39 +503,44 @@ export default function AdminBusinessCardsPage() {
                   {/* Үнийн шатлал */}
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
                     <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>Үнийн шатлал (нэгж үнэ ₮)</span>
-                    <button onClick={() => setTiers([...tiers, { quantity: 0, unit_price: 0 }])} style={btn('var(--surface2)', 'var(--text)')}>+ Шатлал нэмэх</button>
+                    <button onClick={() => setTiers([...tiers, { quantity: 0, standard: 0, laminated: 0, embossed: 0 }])} style={btn('var(--surface2)', 'var(--text)')}>+ Шатлал нэмэх</button>
                   </div>
                   <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 20 }}>
                     <thead>
                       <tr style={{ borderBottom: '2px solid var(--border)' }}>
-                        {['Тоо ширхэг', 'Нэгж үнэ (₮)', 'Нийт (₮)', 'НӨАТ (10%)', 'Бүгд (₮)', ''].map(h => <th key={h} style={{ padding: '10px 8px', textAlign: 'left', fontSize: 11, color: 'var(--text3)', fontWeight: 600 }}>{h}</th>)}
+                        {['Тоо', '📄 Энгийн (₮)', '✨ Лактай (₮)', '💎 Бүрэлттэй (₮)', ''].map(h => <th key={h} style={{ padding: '10px 8px', textAlign: 'left', fontSize: 11, color: 'var(--text3)', fontWeight: 600 }}>{h}</th>)}
                       </tr>
                     </thead>
                     <tbody>
-                      {tiers.map((t, i) => {
-                        const subtotal = t.quantity * t.unit_price
-                        const vat = form.vat_enabled ? Math.round(subtotal * 0.1) : 0
-                        return (
-                          <tr key={i} style={{ borderBottom: '1px solid var(--border)' }}>
-                            <td style={{ padding: '8px' }}><input style={{ ...inp, maxWidth: 100 }} type="number" value={t.quantity} onChange={e => { const c = [...tiers]; c[i] = { ...c[i], quantity: Number(e.target.value) }; setTiers(c) }} /></td>
-                            <td style={{ padding: '8px' }}><input style={{ ...inp, maxWidth: 100 }} type="number" step="0.5" value={t.unit_price} onChange={e => { const c = [...tiers]; c[i] = { ...c[i], unit_price: Number(e.target.value) }; setTiers(c) }} /></td>
-                            <td style={{ padding: '8px', fontSize: 13, color: 'var(--text)' }}>₮{subtotal.toLocaleString()}</td>
-                            <td style={{ padding: '8px', fontSize: 12, color: 'var(--text3)' }}>{form.vat_enabled ? `₮${vat.toLocaleString()}` : '—'}</td>
-                            <td style={{ padding: '8px', fontSize: 14, fontWeight: 700, color: '#FF6B00' }}>₮{(subtotal + vat).toLocaleString()}</td>
-                            <td style={{ padding: '8px' }}><button onClick={() => setTiers(tiers.filter((_, j) => j !== i))} style={{ background: 'none', border: 'none', color: '#EF4444', cursor: 'pointer', fontSize: 14 }}>✕</button></td>
-                          </tr>
-                        )
-                      })}
+                      {tiers.map((t, i) => (
+                        <tr key={i} style={{ borderBottom: '1px solid var(--border)' }}>
+                          <td style={{ padding: '8px' }}><input style={{ ...inp, maxWidth: 80 }} type="number" value={t.quantity} onChange={e => { const c = [...tiers]; c[i] = { ...c[i], quantity: Number(e.target.value) }; setTiers(c) }} /></td>
+                          <td style={{ padding: '8px' }}><input style={{ ...inp, maxWidth: 80 }} type="number" step="0.5" value={t.standard} onChange={e => { const c = [...tiers]; c[i] = { ...c[i], standard: Number(e.target.value) }; setTiers(c) }} /></td>
+                          <td style={{ padding: '8px' }}><input style={{ ...inp, maxWidth: 80 }} type="number" step="0.5" value={t.laminated} onChange={e => { const c = [...tiers]; c[i] = { ...c[i], laminated: Number(e.target.value) }; setTiers(c) }} /></td>
+                          <td style={{ padding: '8px' }}><input style={{ ...inp, maxWidth: 80 }} type="number" step="0.5" value={t.embossed} onChange={e => { const c = [...tiers]; c[i] = { ...c[i], embossed: Number(e.target.value) }; setTiers(c) }} /></td>
+                          <td style={{ padding: '8px' }}><button onClick={() => setTiers(tiers.filter((_, j) => j !== i))} style={{ background: 'none', border: 'none', color: '#EF4444', cursor: 'pointer', fontSize: 14 }}>✕</button></td>
+                        </tr>
+                      ))}
                     </tbody>
                   </table>
 
                   {/* Тооцоолуур */}
                   <div style={{ background: 'var(--surface2)', borderRadius: 12, padding: 16 }}>
                     <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', marginBottom: 12 }}>Үнийн тооцоолуур</div>
-                    <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 12 }}>
-                      <label style={lbl}>Тоо хэмжээ</label>
-                      <input style={{ ...inp, maxWidth: 120 }} type="number" value={calcQty} onChange={e => setCalcQty(Number(e.target.value) || 1)} />
-                      <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--text)', cursor: 'pointer' }}>
+                    <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 12, flexWrap: 'wrap' }}>
+                      <div>
+                        <label style={lbl}>Тоо хэмжээ</label>
+                        <input style={{ ...inp, maxWidth: 120 }} type="number" value={calcQty} onChange={e => setCalcQty(Number(e.target.value) || 1)} />
+                      </div>
+                      <div>
+                        <label style={lbl}>Төрөл</label>
+                        <div style={{ display: 'flex', gap: 4 }}>
+                          {([['standard', 'Энгийн'], ['laminated', 'Лактай'], ['embossed', 'Бүрэлттэй']] as const).map(([k, label]) => (
+                            <button key={k} onClick={() => setCalcType(k)} style={{ padding: '6px 12px', borderRadius: 6, fontSize: 11, fontWeight: calcType === k ? 700 : 400, border: calcType === k ? '2px solid #FF6B00' : '1px solid var(--border)', background: calcType === k ? '#FFF7ED' : 'var(--surface)', color: 'var(--text)', cursor: 'pointer' }}>{label}</button>
+                          ))}
+                        </div>
+                      </div>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, color: 'var(--text)', cursor: 'pointer', marginTop: 16 }}>
                         <input type="checkbox" checked={form.vat_enabled} onChange={e => setForm({ ...form, vat_enabled: e.target.checked })} /> НӨАТ (10%)
                       </label>
                     </div>
