@@ -343,14 +343,20 @@ export default function AdminBusinessCardsPage() {
               const texts = currentZones.filter((z: any) => !z.type)
               const n = currentZones.length
 
-              // Цөөн элемент (1-4) → голд төвлөрсөн
+              // Цөөн элемент (1-4) → логиктой байрлуулах
               if (n <= 4) {
-                let y = Math.round((CH - n * 35) / 2)
+                const hasLogo = keys.includes('logo')
+                // Текст элементүүд голд, дээрээс доош
+                const tOnly = texts.length
+                const tGap = Math.min(40, Math.floor((CH - 40) / Math.max(tOnly, 1)))
+                const tStartY = hasLogo ? 20 : Math.round((CH - tOnly * tGap) / 2)
+                let ty = tStartY
                 const result = currentZones.map((z: any) => {
-                  if (z.type === 'logo') return { ...z, x: Math.round((CW - 80) / 2), y: Math.round((CH - 80) / 2) }
-                  if (z.type === 'qr') return { ...z, x: Math.round((CW - 60) / 2), y: Math.round((CH - 60) / 2) }
-                  if (z.type === 'social') return { ...z, x: Math.round((CW - 80) / 2), y: Math.round(CH - 60) }
-                  const r = { ...z, x: Math.round((CW - (z.w || 220)) / 2), y }; y += 35; return r
+                  if (z.type === 'logo') return { ...z, x: P, y: P, w: 70, h: 70 }
+                  if (z.type === 'qr') return { ...z, x: CW - 80, y: CH - 80, w: 60, h: 60 }
+                  if (z.type === 'social') return { ...z, x: CW - 100, y: P, w: 80, h: 40 }
+                  const tx = hasLogo ? 100 : Math.round((CW - (z.w || 220)) / 2)
+                  const r = { ...z, x: tx, y: ty }; ty += tGap; return r
                 })
                 updateLayout(i, zoneKey, result); return
               }
