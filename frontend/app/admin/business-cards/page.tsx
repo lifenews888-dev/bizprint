@@ -31,20 +31,40 @@ const PRESET_COLORS = [
 
 const LAYOUT_TYPES = ['minimal', 'corporate', 'creative', 'dark', 'bold', 'business', 'full']
 
-function MiniPreview({ cd }: { cd: any }) {
+function MiniPreview({ cd, zones, w = 180, h = 110 }: { cd: any; zones?: any[]; w?: number; h?: number }) {
   const accent = cd?.accent || '#FF6B00'
   const bg = cd?.bg || '#fff'
   const tl = cd?.textLight || '#6B7280'
+  const td = cd?.textDark || '#111'
   const isDark = ['#111111','#1F2937','#0F0F1A','#0C1929','#0A1A0D','#0F1A2E','#1C1917'].includes(bg)
+  const sx = w / 450, sy = h / 275
+
+  if (zones?.length) {
+    return (
+      <div style={{ width: w, height: h, background: bg, borderRadius: 6, position: 'relative', overflow: 'hidden', border: '1px solid var(--border)', flexShrink: 0, boxShadow: '0 2px 8px rgba(0,0,0,0.08)' }}>
+        {zones.map((z: any) => {
+          const x = Math.round(z.x * sx), y = Math.round(z.y * sy)
+          const zw = Math.round((z.w || 100) * sx), zh = Math.round((z.h || 20) * sy)
+          const fs = Math.max(4, Math.round((z.fontSize || 10) * ((sx + sy) / 2)))
+          if (z.type === 'logo') return <div key={z.key} style={{ position: 'absolute', left: x, top: y, width: zw, height: zh, background: isDark ? 'rgba(255,255,255,0.08)' : '#F3F4F6', borderRadius: 3, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 5, color: isDark ? 'rgba(255,255,255,0.3)' : '#bbb' }}>Logo</div>
+          if (z.type === 'qr') return <div key={z.key} style={{ position: 'absolute', left: x, top: y, width: Math.min(zw, zh), height: Math.min(zw, zh), background: isDark ? 'rgba(255,255,255,0.06)' : '#f9f9f9', borderRadius: 2, border: `1px solid ${isDark ? 'rgba(255,255,255,0.15)' : '#ddd'}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><div style={{ width: '60%', height: '60%', background: `repeating-conic-gradient(${isDark ? '#555' : '#999'} 0% 25%, transparent 0% 50%) 0 0 / 3px 3px`, opacity: 0.4 }} /></div>
+          if (z.type === 'social') return <div key={z.key} style={{ position: 'absolute', left: x, top: y, display: 'flex', gap: 2 }}>{['#1877F2','#E4405F','#0A66C2'].map((c,i) => <div key={i} style={{ width: Math.max(4, zh * 0.4), height: Math.max(4, zh * 0.4), borderRadius: 2, background: c }} />)}</div>
+          const color = z.fill === 'accent' ? accent : z.fill === 'light' ? tl : td
+          const labels: Record<string, string> = { company_name: 'Company', company_message: 'Slogan', full_name: 'Name', job_title: 'Title', email: '@mail', phone: 'Phone', address1: 'Addr', address2: 'Addr2', website: 'Web' }
+          return <div key={z.key} style={{ position: 'absolute', left: x, top: y, fontSize: fs, fontWeight: z.fontWeight === 'bold' ? 700 : 400, color, whiteSpace: 'nowrap', overflow: 'hidden', lineHeight: 1.2, textAlign: z.align || 'left', width: z.align ? zw : undefined }}>{labels[z.key] || z.key}</div>
+        })}
+      </div>
+    )
+  }
+
+  // Fallback: simple preview
   return (
-    <div style={{ width: 160, height: 95, background: bg, borderRadius: 4, position: 'relative', overflow: 'hidden', border: '1px solid var(--border)', flexShrink: 0 }}>
+    <div style={{ width: w, height: h, background: bg, borderRadius: 6, position: 'relative', overflow: 'hidden', border: '1px solid var(--border)', flexShrink: 0, boxShadow: '0 2px 8px rgba(0,0,0,0.08)' }}>
       <div style={{ position: 'absolute', left: 0, top: 0, width: '100%', height: 3, background: accent }} />
-      <div style={{ position: 'absolute', left: 0, top: 0, width: 2, height: '100%', background: accent }} />
       <div style={{ position: 'absolute', left: 8, top: 10, fontSize: 7, fontWeight: 700, color: accent }}>Овог Нэр</div>
-      <div style={{ position: 'absolute', left: 8, top: 20, fontSize: 5, color: tl }}>Захирал · Компани</div>
-      <div style={{ position: 'absolute', left: 8, bottom: 18, fontSize: 5, color: tl }}>+976 9911 2233</div>
-      <div style={{ position: 'absolute', left: 8, bottom: 10, fontSize: 5, color: tl }}>email@company.mn</div>
-      <div style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', width: 24, height: 24, background: isDark ? 'rgba(255,255,255,0.1)' : '#fff', border: `1px solid ${isDark ? 'rgba(255,255,255,0.2)' : '#ddd'}`, borderRadius: 3, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 4, color: isDark ? 'rgba(255,255,255,0.4)' : '#aaa' }}>QR</div>
+      <div style={{ position: 'absolute', left: 8, top: 22, fontSize: 5, color: tl }}>Захирал</div>
+      <div style={{ position: 'absolute', left: 8, bottom: 12, fontSize: 5, color: tl }}>+976 9911 2233</div>
+      <div style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', width: 20, height: 20, background: isDark ? 'rgba(255,255,255,0.1)' : '#f3f3f3', borderRadius: 3 }} />
     </div>
   )
 }
@@ -234,7 +254,7 @@ export default function AdminBusinessCardsPage() {
             <div style={{ padding: '12px 20px', display: 'flex', gap: 10, overflowX: 'auto' }}>
               {(p.layouts || []).filter((l: any) => l.canvas_data).map((l: any) => (
                 <div key={l.id} style={{ flexShrink: 0 }}>
-                  <MiniPreview cd={l.canvas_data} />
+                  <MiniPreview cd={l.canvas_data} zones={l.front_json} w={160} h={98} />
                   <div style={{ fontSize: 10, color: 'var(--text3)', marginTop: 4, textAlign: 'center', maxWidth: 160, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>{l.name_mn || l.name}</div>
                 </div>
               ))}
@@ -297,7 +317,7 @@ export default function AdminBusinessCardsPage() {
                             onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = '#FF6B00'; (e.currentTarget as HTMLElement).style.boxShadow = '0 4px 12px rgba(255,107,0,0.15)' }}
                             onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)'; (e.currentTarget as HTMLElement).style.boxShadow = 'none' }}
                           >
-                            <MiniPreview cd={l.canvas_data} />
+                            <MiniPreview cd={l.canvas_data} zones={l.front_json} />
                             <div style={{ padding: '8px 10px' }}>
                               <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)' }}>{l.name_mn || l.name}</div>
                               <div style={{ fontSize: 10, color: 'var(--text3)', marginTop: 2 }}>{l.type} · {(l.front_json?.length || 0)} элемент</div>
