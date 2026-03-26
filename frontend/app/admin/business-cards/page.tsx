@@ -335,6 +335,20 @@ export default function AdminBusinessCardsPage() {
               ))}
             </div>
 
+            {/* Random layout */}
+            <button onClick={() => {
+              const CW = 450, CH = 275
+              const randomized = DEFAULT_ZONES.map(z => {
+                if (z.type === 'logo') return { ...z, x: Math.round(Math.random() * (CW - 80)), y: Math.round(Math.random() * (CH - 80)) }
+                if (z.type === 'qr') return { ...z, x: Math.round(Math.random() * (CW - 64)), y: Math.round(Math.random() * (CH - 64)) }
+                if (z.type === 'social') return { ...z, x: Math.round(Math.random() * (CW - 80)), y: Math.round(Math.random() * (CH - 60)) }
+                return { ...z, x: Math.round(Math.random() * (CW - (z.w || 200))), y: Math.round(Math.random() * (CH - (z.h || 20))) }
+              })
+              updateLayout(i, zoneKey, randomized)
+            }} style={{ width: '100%', padding: '8px 0', borderRadius: 8, border: '2px dashed #FF6B00', background: '#FFF7ED', cursor: 'pointer', fontSize: 12, fontWeight: 600, color: '#FF6B00', marginBottom: 12 }}>
+              🎲 Random
+            </button>
+
             {/* Add zones */}
             <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text2)', marginBottom: 6 }}>Элемент нэмэх:</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
