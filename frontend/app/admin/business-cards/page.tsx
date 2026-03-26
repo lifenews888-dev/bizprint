@@ -502,15 +502,53 @@ export default function AdminBusinessCardsPage() {
         {/* Хадгалах */}
         <div style={{ marginTop: 16, display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
           <button onClick={() => { setView('grid'); setEditIdx(null) }} style={btn('var(--surface2)', 'var(--text)')}>Болих</button>
+          {/* Template хадгалах — zone байрлал update */}
           <button disabled={saving} onClick={async () => {
             setSaving(true)
             try {
               await saveLayout(i)
-              await savePricing()
+              alert('Загвар хадгалагдлаа')
               setView('grid'); setEditIdx(null)
-            } catch {} finally { setSaving(false) }
-          }} style={{ ...btn('#FF6B00', '#fff'), opacity: saving ? 0.5 : 1 }}>
-            {saving ? 'Хадгалж байна...' : 'Загвар + Үнэ хадгалах'}
+            } catch (e: any) { alert(e?.message || 'Алдаа') } finally { setSaving(false) }
+          }} style={{ ...btn('var(--surface2)', 'var(--text)'), opacity: saving ? 0.5 : 1 }}>
+            {saving ? '...' : 'Загвар хадгалах'}
+          </button>
+          {/* Шинэ бүтээгдэхүүн нийтлэх — layout хуулж шинэ product үүсгэнэ */}
+          <button disabled={saving} onClick={async () => {
+            setSaving(true)
+            try {
+              // 1. Template layout хадгалах
+              await saveLayout(i)
+              // 2. Шинэ бүтээгдэхүүн үүсгэх
+              const product: any = await apiFetch('/admin/business-cards', { method: 'POST', body: {
+                name: l.name || 'Business Card',
+                name_mn: l.name_mn || l.name || 'Нэрийн хуудас',
+                base_price: 3000, vat_enabled: true, is_active: true,
+              }})
+              const pid = product?.id
+              if (!pid) throw new Error('Бүтээгдэхүүн үүсгэж чадсангүй')
+              // 3. Layout хуулах (фон, zone бүгд)
+              const newLayout: any = await apiFetch(`/admin/business-cards/${pid}/layouts`, { method: 'POST', body: {
+                name: l.name, name_mn: l.name_mn || l.name, type: l.type || 'business',
+                canvas_data: l.canvas_data, front_json: l.front_json || [], back_json: l.back_json || [],
+              }})
+              // 4. Background зургуудыг хуулах (хэрэв байвал)
+              if (l.backgrounds?.length && newLayout?.id) {
+                for (const bg of l.backgrounds) {
+                  // Background URL-г шинэ layout руу reference хийх
+                  await apiFetch(`/admin/business-cards/${pid}/layouts/${newLayout.id}/backgrounds`, { method: 'POST', body: { name: bg.name, url: bg.url, side: bg.side } } as any).catch(() => {})
+                }
+              }
+              // 5. Үнэ хадгалах
+              await apiFetch(`/admin/business-cards/${pid}/pricing`, { method: 'POST', body: { tiers } })
+              // 6. Нийтлэх
+              await apiFetch(`/admin/business-cards/${pid}/publish`, { method: 'PATCH' })
+              alert(`"${l.name_mn || l.name}" бүтээгдэхүүн нийтлэгдлээ!`)
+              await load()
+              setView('grid'); setEditIdx(null)
+            } catch (e: any) { alert(e?.message || 'Алдаа гарлаа') } finally { setSaving(false) }
+          }} style={{ ...btn('#10B981', '#fff'), opacity: saving ? 0.5 : 1 }}>
+            {saving ? 'Үүсгэж байна...' : '🚀 Бүтээгдэхүүн нийтлэх'}
           </button>
         </div>
       </div>
