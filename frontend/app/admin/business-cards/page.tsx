@@ -273,15 +273,15 @@ export default function AdminBusinessCardsPage() {
                 const zoneKey = edSide === 'front' ? 'front_json' : 'back_json'
 
                 const DEFAULT_ZONES = [
-                  { key: 'company_name', label: 'Компани', x: 20, y: 20, w: 200, h: 30, fontSize: 14, fontWeight: 'bold', fill: 'accent' },
-                  { key: 'full_name', label: 'Нэр', x: 20, y: 60, w: 200, h: 28, fontSize: 18, fontWeight: 'bold', fill: 'accent' },
-                  { key: 'job_title', label: 'Албан тушаал', x: 20, y: 95, w: 180, h: 20, fontSize: 11, fill: 'light' },
-                  { key: 'phone', label: 'Утас', x: 20, y: 180, w: 150, h: 18, fontSize: 10, fill: 'light' },
-                  { key: 'email', label: 'Имэйл', x: 20, y: 200, w: 180, h: 18, fontSize: 10, fill: 'light' },
-                  { key: 'address1', label: 'Хаяг', x: 20, y: 220, w: 200, h: 18, fontSize: 10, fill: 'light' },
-                  { key: 'website', label: 'Вэбсайт', x: 20, y: 240, w: 150, h: 18, fontSize: 10, fill: 'light' },
-                  { key: 'logo', label: 'Лого', x: 360, y: 20, w: 64, h: 64, type: 'logo' },
-                  { key: 'qr', label: 'QR', x: 370, y: 200, w: 56, h: 56, type: 'qr' },
+                  { key: 'company_name', label: 'Компани', x: 20, y: 15, w: 220, h: 26, fontSize: 16, fontWeight: 'bold', fill: 'accent' },
+                  { key: 'full_name', label: 'Нэр', x: 20, y: 50, w: 240, h: 32, fontSize: 22, fontWeight: 'bold', fill: 'accent' },
+                  { key: 'job_title', label: 'Албан тушаал', x: 20, y: 90, w: 200, h: 22, fontSize: 13, fill: 'light' },
+                  { key: 'phone', label: 'Утас', x: 20, y: 170, w: 170, h: 22, fontSize: 13, fill: 'light' },
+                  { key: 'email', label: 'Имэйл', x: 20, y: 196, w: 200, h: 22, fontSize: 13, fill: 'light' },
+                  { key: 'address1', label: 'Хаяг', x: 20, y: 222, w: 220, h: 22, fontSize: 13, fill: 'light' },
+                  { key: 'website', label: 'Вэбсайт', x: 20, y: 248, w: 170, h: 22, fontSize: 13, fill: 'light' },
+                  { key: 'logo', label: 'Лого', x: 350, y: 15, w: 80, h: 80, type: 'logo' },
+                  { key: 'qr', label: 'QR', x: 360, y: 195, w: 64, h: 64, type: 'qr' },
                 ]
 
                 const addZone = (zone: any) => {
