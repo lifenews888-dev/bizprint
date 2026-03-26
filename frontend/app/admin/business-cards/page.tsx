@@ -62,6 +62,7 @@ export default function AdminBusinessCardsPage() {
   const [tiers, setTiers] = useState([{ quantity: 100, unit_price: 30 }, { quantity: 200, unit_price: 27.5 }, { quantity: 500, unit_price: 24 }, { quantity: 1000, unit_price: 20 }])
   const [calcQty, setCalcQty] = useState(100)
   const [layoutEditorSide, setLayoutEditorSide] = useState<'front' | 'back'>('front')
+  const [selectedZoneKey, setSelectedZoneKey] = useState<string | null>(null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -336,7 +337,7 @@ export default function AdminBusinessCardsPage() {
                         {l.id && !l._new && editing ? (
                           <label style={{ display: 'block', padding: '10px', borderRadius: 8, border: '2px dashed var(--border)', textAlign: 'center', cursor: 'pointer', fontSize: 11, color: '#FF6B00', fontWeight: 600 }}>
                             📤 Зураг оруулах
-                            <input type="file" accept="image/png,image/jpeg,image/webp" hidden onChange={async (e) => {
+                            <input type="file" accept="image/png" hidden onChange={async (e) => {
                               const file = e.target.files?.[0]
                               if (!file || !editing?.id || !l.id) return
                               const fd = new FormData()
@@ -418,9 +419,23 @@ export default function AdminBusinessCardsPage() {
                                 }}
                               >
                                 {isSpecial ? (
-                                  <span style={{ fontSize: 9, color: '#999', textAlign: 'center' }}>{z.type === 'logo' ? '📷 Лого' : '▣ QR'}</span>
+                                  <span style={{ fontSize: 9, color: '#999', textAlign: 'center' }}>{z.type === 'logo' ? '📷 Лого (PNG)' : '▣ QR'}</span>
                                 ) : (
-                                  z.label
+                                  <span onClick={(e) => { e.stopPropagation(); setSelectedZoneKey(selectedZoneKey === z.key ? null : z.key) }} style={{ cursor: 'pointer', width: '100%' }}>{z.label}</span>
+                                )}
+                                {/* Selected zone controls */}
+                                {selectedZoneKey === z.key && !isSpecial && (
+                                  <div onClick={e => e.stopPropagation()} style={{ position: 'absolute', top: -32, left: 0, display: 'flex', gap: 3, alignItems: 'center', background: '#fff', border: '1px solid #ddd', borderRadius: 6, padding: '3px 6px', boxShadow: '0 2px 8px rgba(0,0,0,0.15)', zIndex: 20 }}>
+                                    <span style={{ fontSize: 9, color: '#999' }}>Хэмжээ:</span>
+                                    {[9, 11, 13, 16, 18, 22, 28].map(fs => (
+                                      <button key={fs} onClick={() => {
+                                        const updated = [...currentZones]; updated[zIdx] = { ...z, fontSize: fs }; updateLayout(i, zoneKey, updated)
+                                      }} style={{ width: 22, height: 22, borderRadius: 4, border: z.fontSize === fs ? '2px solid #FF6B00' : '1px solid #ddd', background: z.fontSize === fs ? '#FFF7ED' : '#fff', fontSize: 9, cursor: 'pointer', fontWeight: z.fontSize === fs ? 700 : 400, color: '#333' }}>{fs}</button>
+                                    ))}
+                                    <button onClick={() => {
+                                      const updated = [...currentZones]; updated[zIdx] = { ...z, fontWeight: z.fontWeight === 'bold' ? 'normal' : 'bold' }; updateLayout(i, zoneKey, updated)
+                                    }} style={{ width: 22, height: 22, borderRadius: 4, border: z.fontWeight === 'bold' ? '2px solid #FF6B00' : '1px solid #ddd', background: z.fontWeight === 'bold' ? '#FFF7ED' : '#fff', fontSize: 10, cursor: 'pointer', fontWeight: 700, color: '#333' }}>B</button>
+                                  </div>
                                 )}
                                 {/* Delete button */}
                                 <button onClick={(e) => { e.stopPropagation(); removeZone(zIdx) }} style={{ position: 'absolute', top: -8, right: -8, width: 16, height: 16, borderRadius: 8, background: '#EF4444', color: '#fff', border: 'none', fontSize: 8, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1 }}>×</button>
