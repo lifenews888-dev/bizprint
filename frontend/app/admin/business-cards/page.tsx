@@ -335,16 +335,27 @@ export default function AdminBusinessCardsPage() {
               ))}
             </div>
 
-            {/* Random layout */}
+            {/* Random layout — structured randomization */}
             <button onClick={() => {
-              const CW = 450, CH = 275
-              const randomized = DEFAULT_ZONES.map(z => {
-                if (z.type === 'logo') return { ...z, x: Math.round(Math.random() * (CW - 80)), y: Math.round(Math.random() * (CH - 80)) }
-                if (z.type === 'qr') return { ...z, x: Math.round(Math.random() * (CW - 64)), y: Math.round(Math.random() * (CH - 64)) }
-                if (z.type === 'social') return { ...z, x: Math.round(Math.random() * (CW - 80)), y: Math.round(Math.random() * (CH - 60)) }
-                return { ...z, x: Math.round(Math.random() * (CW - (z.w || 200))), y: Math.round(Math.random() * (CH - (z.h || 20))) }
+              // 5 стандарт бүтэц — санамсаргүй нэгийг сонгоно
+              const patterns = [
+                // Pattern 1: Зүүн — нэр дээр, холбоо барих доор, лого баруун дээр
+                { company_name:[20,15], company_message:[20,38], full_name:[20,65], job_title:[20,100], email:[20,145], phone:[20,167], address1:[20,195], address2:[20,215], website:[20,245], logo:[350,15], social:[355,110], qr:[365,195] },
+                // Pattern 2: Баруун — бүгд баруунд, лого зүүн дээр
+                { logo:[20,20], company_name:[200,15], company_message:[220,40], full_name:[160,75], job_title:[230,110], phone:[270,160], email:[230,182], address1:[220,210], address2:[220,228], website:[270,250], social:[20,100], qr:[20,195] },
+                // Pattern 3: Голд — нэр/компани голд, холбоо барих 2 баганад
+                { company_name:[140,12], full_name:[100,45], job_title:[155,80], company_message:[130,105], phone:[20,170], email:[20,192], address1:[20,220], website:[20,248], address2:[250,170], logo:[190,130], social:[260,195], qr:[370,195] },
+                // Pattern 4: Нэр том дээр, компани доор
+                { full_name:[20,20], job_title:[20,60], company_name:[20,90], company_message:[20,112], phone:[20,175], email:[20,197], website:[20,225], address1:[20,250], address2:[200,250], logo:[355,15], social:[355,100], qr:[365,195] },
+                // Pattern 5: Лого зүүн голд, мэдээлэл баруунд
+                { logo:[20,90], company_name:[120,15], company_message:[120,38], full_name:[120,65], job_title:[120,100], phone:[120,150], email:[120,172], address1:[120,200], address2:[120,218], website:[120,248], social:[20,180], qr:[370,195] },
+              ]
+              const p = patterns[Math.floor(Math.random() * patterns.length)]
+              const result = DEFAULT_ZONES.map(z => {
+                const pos = p[z.key as keyof typeof p]
+                return pos ? { ...z, x: pos[0], y: pos[1] } : z
               })
-              updateLayout(i, zoneKey, randomized)
+              updateLayout(i, zoneKey, result)
             }} style={{ width: '100%', padding: '8px 0', borderRadius: 8, border: '2px dashed #FF6B00', background: '#FFF7ED', cursor: 'pointer', fontSize: 12, fontWeight: 600, color: '#FF6B00', marginBottom: 12 }}>
               🎲 Random
             </button>
