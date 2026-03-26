@@ -38,6 +38,8 @@ const QTY_OPTIONS = [
 
 function EditorInner() {
   const sp = useSearchParams()
+  const bcProductId = sp.get('bc') || ''
+  const initialLayoutId = sp.get('layout') || ''
   const templateId = sp.get('template') || 'minimal-1'
   const [T, setT] = useState(TEMPLATES[templateId] || TEMPLATES['minimal-1'])
 
@@ -65,18 +67,38 @@ function EditorInner() {
     }
   }, [templateId])
 
-  // Fetch business card layouts from API
+  // Fetch business card layouts from API + set initial layout from URL
+  const [bcPricing, setBcPricing] = useState<{ qty: number; unit_price: number }[]>([])
   useEffect(() => {
     apiFetch('/business-cards', { auth: false }).then((data: any) => {
       const products = Array.isArray(data) ? data : (data?.value ?? data?.data ?? [])
       if (products.length > 0) {
-        const product = products.reduce((a: any, b: any) =>
-          (b.layouts?.length || 0) > (a.layouts?.length || 0) ? b : a, products[0])
+        // Find matching product or the one with most layouts
+        const product = bcProductId
+          ? products.find((p: any) => p.id === bcProductId) || products[0]
+          : products.reduce((a: any, b: any) =>
+              (b.layouts?.length || 0) > (a.layouts?.length || 0) ? b : a, products[0])
         const valid = (product.layouts || []).filter((l: any) => l.canvas_data)
         setBcLayouts(valid)
+
+        // Set pricing from product tiers
+        if (product.pricingTiers?.length) {
+          setBcPricing(product.pricingTiers.map((t: any) => ({ qty: Number(t.quantity), unit_price: Number(t.unit_price) })))
+        }
+
+        // Auto-select initial layout from URL param
+        if (initialLayoutId) {
+          const match = valid.find((l: any) => l.id === initialLayoutId)
+          if (match) {
+            setSelectedBcLayout(initialLayoutId)
+            if (match.canvas_data) {
+              setT({ accent: match.canvas_data.accent || '#FF6B00', bg: match.canvas_data.bg || '#FFFFFF', textDark: match.canvas_data.textDark || '#111111', textLight: match.canvas_data.textLight || '#6B7280', dividerY: match.canvas_data.dividerY || 0 })
+            }
+          }
+        }
       }
     }).catch(() => {})
-  }, [])
+  }, [bcProductId, initialLayoutId])
 
   const handleBcLayoutChange = (layoutId: string) => {
     setSelectedBcLayout(layoutId)
@@ -148,14 +170,19 @@ function EditorInner() {
   const apiPricing = usePricing({ product_type: 'digital', material: 'paper_300', quantity: qty, width_mm: 90, height_mm: 55 })
   const fmt = (n: number) => Math.round(n).toLocaleString('mn-MN')
 
-  // Use admin pricing_tiers if available, otherwise fall back to API pricing
+  // Use admin pricing_tiers → bc product pricing → API pricing (fallback chain)
   const pricing = (() => {
     if (pricingTiers?.length) {
-      // Find closest tier (equal or lower qty)
       const sorted = [...pricingTiers].sort((a, b) => a.qty - b.qty)
       const tier = sorted.reduce((best, t) => t.qty <= qty ? t : best, sorted[0])
       const unitPrice = tier[cardType] || tier.standard
-      return { loading: false, data: { total_price: unitPrice * qty, unit_price: unitPrice, production_speed: apiPricing.data?.production_speed || '1 өдөр' } }
+      return { loading: false, data: { total_price: unitPrice * qty, unit_price: unitPrice, production_speed: '1-2 өдөр' } }
+    }
+    if (bcPricing.length > 0) {
+      const sorted = [...bcPricing].sort((a, b) => a.qty - b.qty)
+      const tier = sorted.reduce((best, t) => t.qty <= qty ? t : best, sorted[0])
+      const unitPrice = tier.unit_price
+      return { loading: false, data: { total_price: Math.round(unitPrice * qty), unit_price: unitPrice, production_speed: '1-2 өдөр' } }
     }
     return apiPricing
   })()
