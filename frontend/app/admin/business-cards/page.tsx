@@ -335,55 +335,36 @@ export default function AdminBusinessCardsPage() {
               ))}
             </div>
 
-            {/* Random layout — хязгааргүй, логиктой */}
+            {/* Random layout — давхардалгүй, хязгааргүй байрлал */}
             <button onClick={() => {
               if (currentZones.length === 0) return
               const CW = 450, CH = 275
-              const R = (min: number, max: number) => Math.round(min + Math.random() * (max - min))
-              const zKeys = currentZones.map((z: any) => z.key)
-              const texts = currentZones.filter((z: any) => !z.type)
-              const hasLogo = zKeys.includes('logo')
-              const hasQr = zKeys.includes('qr')
+              const R = (a: number, b: number) => Math.round(a + Math.random() * (b - a))
 
-              // Лого — хаана ч байж болно, хэмжээ хязгааргүй
-              const logoW = R(40, 110), logoH = logoW
-              const logoX = R(10, CW - logoW - 10)
-              const logoY = R(10, CH - logoH - 10)
-              const logoRight = logoX + logoW / 2 > CW / 2
-              const logoTop = logoY + logoH / 2 < CH / 2
+              // Элемент бүрт хязгааргүй байрлал олох — давхардахгүй
+              const placed: { x: number; y: number; w: number; h: number }[] = []
+              const overlaps = (x: number, y: number, w: number, h: number) =>
+                placed.some(p => !(x + w < p.x || x > p.x + p.w || y + h < p.y || y > p.y + p.h))
 
-              // QR — логогийн эсрэг бүсэд
-              const qrS = R(44, 72)
-              const qrX = logoRight ? R(10, Math.max(15, logoX - qrS - 20)) : R(Math.min(CW - qrS - 10, logoX + logoW + 20), CW - qrS - 10)
-              const qrY = logoTop ? R(Math.min(CH - qrS - 10, logoY + logoH + 20), CH - qrS - 10) : R(10, Math.max(15, logoY - qrS - 20))
-
-              // Social — QR ойролцоо эсвэл хаана ч
-              const socX = R(0, 1) ? qrX : R(10, CW - 90)
-              const socY = R(0, 1) ? (logoTop ? qrY - R(35, 55) : qrY + qrS + R(8, 20)) : R(10, CH - 50)
-
-              // Текст бүс — логогийн эсрэг тал
-              const margin = R(15, 28)
-              const textGap = R(22, Math.min(34, Math.floor((CH - 40) / Math.max(texts.length, 1))))
-              let textX: number, textMaxW: number
-              if (hasLogo) {
-                textX = logoRight ? margin : Math.max(logoX + logoW + 15, 110)
-                textMaxW = logoRight ? (logoX - margin - 15) : (CW - textX - margin)
-              } else {
-                textX = margin
-                textMaxW = CW - margin * 2 - (hasQr ? 80 : 0)
+              const findSpot = (w: number, h: number, tries = 80) => {
+                for (let t = 0; t < tries; t++) {
+                  const x = R(8, CW - w - 8), y = R(8, CH - h - 8)
+                  if (!overlaps(x, y, w, h)) return { x, y }
+                }
+                // Fallback: stack доор
+                const lastY = placed.length ? Math.max(...placed.map(p => p.y + p.h)) + 4 : 10
+                return { x: R(10, Math.max(12, CW - w - 10)), y: Math.min(lastY, CH - h - 4) }
               }
-              // Текст эхлэх Y
-              const usedTop = (logoTop && !logoRight) ? logoY + logoH + 10 : margin
-              let ty = usedTop
 
               const result = currentZones.map((z: any) => {
-                if (z.type === 'logo') return { ...z, x: logoX, y: logoY, w: logoW, h: logoH }
-                if (z.type === 'qr') return { ...z, x: qrX, y: qrY, w: qrS, h: qrS }
-                if (z.type === 'social') return { ...z, x: Math.max(10, Math.min(CW - 90, socX)), y: Math.max(10, Math.min(CH - 45, socY)), w: 80, h: 40 }
-                const w = Math.min(z.w || 220, textMaxW)
-                const r = { ...z, x: textX, y: Math.min(ty, CH - 20), w }
-                ty += textGap
-                return r
+                let w: number, h: number
+                if (z.type === 'logo') { w = R(45, 100); h = w }
+                else if (z.type === 'qr') { w = R(44, 70); h = w }
+                else if (z.type === 'social') { w = R(60, 100); h = R(25, 45) }
+                else { w = R(120, 240); h = R(18, 30) }
+                const { x, y } = findSpot(w, h)
+                placed.push({ x, y, w, h })
+                return { ...z, x, y, w, h }
               })
               updateLayout(i, zoneKey, result)
             }} style={{ width: '100%', padding: '8px 0', borderRadius: 8, border: '2px dashed #FF6B00', background: '#FFF7ED', cursor: 'pointer', fontSize: 12, fontWeight: 600, color: '#FF6B00', marginBottom: 12 }}>
