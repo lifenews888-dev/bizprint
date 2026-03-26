@@ -112,21 +112,13 @@ export default function AdminBusinessCardsPage() {
     if (!productId) return
     const l = allLayouts[idx]
     if (!l?.id) return
-    setSaving(true)
-    try {
-      const body = { name: l.name, name_mn: l.name_mn || l.name, type: l.type || 'business', canvas_data: l.canvas_data, front_json: l.front_json || [], back_json: l.back_json || [] }
-      await apiFetch(`/admin/business-cards/${productId}/layouts/${l.id}`, { method: 'PATCH', body })
-      alert('Хадгалагдлаа')
-    } catch (e: any) { alert(e?.message || 'Алдаа гарлаа') } finally { setSaving(false) }
+    const body = { name: l.name, name_mn: l.name_mn || l.name, type: l.type || 'business', canvas_data: l.canvas_data, front_json: l.front_json || [], back_json: l.back_json || [] }
+    await apiFetch(`/admin/business-cards/${productId}/layouts/${l.id}`, { method: 'PATCH', body })
   }
 
   const savePricing = async () => {
     if (!productId) return
-    setSaving(true)
-    try {
-      await apiFetch(`/admin/business-cards/${productId}/pricing`, { method: 'POST', body: { tiers } })
-      alert('Үнэ хадгалагдлаа')
-    } catch (e: any) { alert(e?.message || 'Алдаа гарлаа') } finally { setSaving(false) }
+    await apiFetch(`/admin/business-cards/${productId}/pricing`, { method: 'POST', body: { tiers } })
   }
 
   const closestTier = [...tiers].sort((a, b) => a.quantity - b.quantity).filter(t => calcQty >= t.quantity).pop() || tiers[0]
@@ -144,7 +136,17 @@ export default function AdminBusinessCardsPage() {
             <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--text)', margin: 0 }}>Нэрийн хуудас</h1>
             <p style={{ fontSize: 13, color: 'var(--text3)', margin: '4px 0 0' }}>{allLayouts.length} загвар</p>
           </div>
-          <button onClick={() => setView('pricing')} style={btn('#FF6B00', '#fff')}>Үнэ тохируулах</button>
+          <button onClick={async () => {
+            if (!productId) return
+            try {
+              const res: any = await apiFetch(`/admin/business-cards/${productId}/layouts`, { method: 'POST', body: {
+                name: `Layout ${allLayouts.length + 1}`, name_mn: `Загвар ${allLayouts.length + 1}`,
+                type: 'business', canvas_data: { accent: '#FF6B00', bg: '#FFFFFF', textDark: '#111111', textLight: '#6B7280' },
+                front_json: DEFAULT_ZONES.map(z => ({ ...z })), back_json: [],
+              }})
+              if (res?.id) { await load(); setEditIdx(allLayouts.length); setView('editor') }
+            } catch (e: any) { alert(e?.message || 'Алдаа') }
+          }} style={btn('#FF6B00', '#fff')}>+ Шинэ загвар</button>
         </div>
 
         {loading ? (
@@ -469,6 +471,47 @@ export default function AdminBusinessCardsPage() {
               </div>
             )}
           </div>
+        </div>
+
+        {/* ═══ Үнэ + Хадгалах ═══ */}
+        <div style={{ marginTop: 20, background: 'var(--surface)', borderRadius: 12, border: '1px solid var(--border)', padding: 16 }}>
+          <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)', marginBottom: 12 }}>Үнийн шатлал (нэгж ₮)</div>
+          <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 12 }}>
+            <thead>
+              <tr style={{ borderBottom: '2px solid var(--border)' }}>
+                {['Тоо', '📄 Энгийн', '✨ Лактай', '💎 Бүрэлттэй', ''].map(h => (
+                  <th key={h} style={{ padding: '8px 6px', textAlign: 'left', fontSize: 10, color: 'var(--text3)', fontWeight: 600 }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {tiers.map((t, ti) => (
+                <tr key={ti} style={{ borderBottom: '1px solid var(--border)' }}>
+                  <td style={{ padding: '4px 6px' }}><input style={{ ...inp, maxWidth: 70, padding: '6px 8px', fontSize: 12 }} type="number" value={t.quantity} onChange={e => { const c = [...tiers]; c[ti] = { ...c[ti], quantity: Number(e.target.value) }; setTiers(c) }} /></td>
+                  <td style={{ padding: '4px 6px' }}><input style={{ ...inp, maxWidth: 70, padding: '6px 8px', fontSize: 12 }} type="number" step="0.5" value={t.standard} onChange={e => { const c = [...tiers]; c[ti] = { ...c[ti], standard: Number(e.target.value) }; setTiers(c) }} /></td>
+                  <td style={{ padding: '4px 6px' }}><input style={{ ...inp, maxWidth: 70, padding: '6px 8px', fontSize: 12 }} type="number" step="0.5" value={t.laminated} onChange={e => { const c = [...tiers]; c[ti] = { ...c[ti], laminated: Number(e.target.value) }; setTiers(c) }} /></td>
+                  <td style={{ padding: '4px 6px' }}><input style={{ ...inp, maxWidth: 70, padding: '6px 8px', fontSize: 12 }} type="number" step="0.5" value={t.embossed} onChange={e => { const c = [...tiers]; c[ti] = { ...c[ti], embossed: Number(e.target.value) }; setTiers(c) }} /></td>
+                  <td style={{ padding: '4px 6px' }}><button onClick={() => setTiers(tiers.filter((_, j) => j !== ti))} style={{ background: 'none', border: 'none', color: '#EF4444', cursor: 'pointer' }}>✕</button></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <button onClick={() => setTiers([...tiers, { quantity: 0, standard: 0, laminated: 0, embossed: 0 }])} style={{ ...btn('var(--surface2)', 'var(--text)'), fontSize: 11, padding: '6px 12px' }}>+ Шатлал</button>
+        </div>
+
+        {/* Хадгалах */}
+        <div style={{ marginTop: 16, display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+          <button onClick={() => { setView('grid'); setEditIdx(null) }} style={btn('var(--surface2)', 'var(--text)')}>Болих</button>
+          <button disabled={saving} onClick={async () => {
+            setSaving(true)
+            try {
+              await saveLayout(i)
+              await savePricing()
+              setView('grid'); setEditIdx(null)
+            } catch {} finally { setSaving(false) }
+          }} style={{ ...btn('#FF6B00', '#fff'), opacity: saving ? 0.5 : 1 }}>
+            {saving ? 'Хадгалж байна...' : 'Загвар + Үнэ хадгалах'}
+          </button>
         </div>
       </div>
     )
