@@ -295,14 +295,17 @@ export default function AdminBusinessCardsPage() {
                 const zoneKey = edSide === 'front' ? 'front_json' : 'back_json'
 
                 const DEFAULT_ZONES = [
-                  { key: 'company_name', label: 'Компани', x: 20, y: 15, w: 220, h: 26, fontSize: 16, fontWeight: 'bold', fill: 'accent' },
-                  { key: 'full_name', label: 'Нэр', x: 20, y: 50, w: 240, h: 32, fontSize: 22, fontWeight: 'bold', fill: 'accent' },
-                  { key: 'job_title', label: 'Албан тушаал', x: 20, y: 90, w: 200, h: 22, fontSize: 13, fill: 'light' },
-                  { key: 'phone', label: 'Утас', x: 20, y: 170, w: 170, h: 22, fontSize: 13, fill: 'light' },
-                  { key: 'email', label: 'Имэйл', x: 20, y: 196, w: 200, h: 22, fontSize: 13, fill: 'light' },
-                  { key: 'address1', label: 'Хаяг', x: 20, y: 222, w: 220, h: 22, fontSize: 13, fill: 'light' },
-                  { key: 'website', label: 'Вэбсайт', x: 20, y: 248, w: 170, h: 22, fontSize: 13, fill: 'light' },
-                  { key: 'logo', label: 'Лого', x: 350, y: 15, w: 80, h: 80, type: 'logo' },
+                  { key: 'company_name', label: 'Company Name', x: 20, y: 12, w: 220, h: 26, fontSize: 14, fontWeight: 'bold', fill: 'accent' },
+                  { key: 'company_message', label: 'Company Message', x: 20, y: 38, w: 220, h: 20, fontSize: 11, fill: 'light' },
+                  { key: 'full_name', label: 'Full Name', x: 20, y: 70, w: 240, h: 30, fontSize: 22, fontWeight: 'bold', fill: 'accent' },
+                  { key: 'job_title', label: 'Job Title', x: 20, y: 104, w: 200, h: 20, fontSize: 12, fill: 'light' },
+                  { key: 'email', label: 'Email / Other', x: 20, y: 140, w: 200, h: 20, fontSize: 11, fill: 'light' },
+                  { key: 'phone', label: 'Phone / Other', x: 20, y: 162, w: 170, h: 20, fontSize: 11, fill: 'light' },
+                  { key: 'address1', label: 'Address Line 1', x: 20, y: 194, w: 220, h: 20, fontSize: 11, fill: 'light' },
+                  { key: 'address2', label: 'Address Line 2', x: 20, y: 216, w: 220, h: 20, fontSize: 11, fill: 'light' },
+                  { key: 'website', label: 'Web / Other', x: 20, y: 248, w: 170, h: 20, fontSize: 11, fill: 'light' },
+                  { key: 'logo', label: 'Лого', x: 350, y: 12, w: 80, h: 80, type: 'logo' },
+                  { key: 'social', label: 'Social', x: 350, y: 110, w: 80, h: 60, type: 'social' },
                   { key: 'qr', label: 'QR', x: 360, y: 195, w: 64, h: 64, type: 'qr' },
                 ]
 
@@ -407,7 +410,7 @@ export default function AdminBusinessCardsPage() {
                             const textDark = l.canvas_data?.textDark || '#111'
                             const textLight = l.canvas_data?.textLight || '#6B7280'
                             const color = z.fill === 'accent' ? accent : z.fill === 'light' ? textLight : textDark
-                            const isSpecial = z.type === 'logo' || z.type === 'qr'
+                            const isSpecial = z.type === 'logo' || z.type === 'qr' || z.type === 'social'
 
                             return (
                               <div
@@ -440,7 +443,7 @@ export default function AdminBusinessCardsPage() {
                                 }}
                               >
                                 {isSpecial ? (
-                                  <span style={{ fontSize: 9, color: '#999', textAlign: 'center' }}>{z.type === 'logo' ? '📷 Лого (PNG)' : '▣ QR'}</span>
+                                  <span style={{ fontSize: 9, color: '#999', textAlign: 'center' }}>{z.type === 'logo' ? '📷 Лого (PNG)' : z.type === 'social' ? '🔗 Social' : '▣ QR'}</span>
                                 ) : (
                                   <span onClick={(e) => { e.stopPropagation(); setSelectedZoneKey(selectedZoneKey === z.key ? null : z.key) }} style={{ cursor: 'pointer', width: '100%' }}>{z.label}</span>
                                 )}
