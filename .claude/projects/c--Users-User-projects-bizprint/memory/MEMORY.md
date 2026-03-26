@@ -1,0 +1,5 @@
+- [BizPrint Overview](project_bizprint_overview.md) — tech stack, DB schema, business cards module, API endpoints, pending tasks
+- [Code Patterns](project_code_patterns.md) — apiFetch, apiGet, canvas_data usage, background upload patterns
+- [Mobile Repo](reference_mobile_repo.md) — Expo app at bizprint-customer folder (separate from monorepo)
+- [File Safety](feedback_file_safety.md) — NEVER use byte truncation on UTF-8 files, always backup before transforms
+- [Commit Frequently](feedback_commit_frequently.md) — always commit/backup before risky ops, suggest commits after progress
