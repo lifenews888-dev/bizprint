@@ -72,7 +72,18 @@ export default function AdminBusinessCardsPage() {
   const openCreate = () => {
     setEditing(null); setTab('info')
     setForm({ name: 'Business Card', name_mn: 'Нэрийн хуудас', description: '', base_price: '3000', vat_enabled: true, is_active: true })
-    setLayouts([]); setTiers([{ quantity: 100, unit_price: 30 }, { quantity: 200, unit_price: 27.5 }, { quantity: 500, unit_price: 24 }, { quantity: 1000, unit_price: 20 }])
+    // Нэг default загвар (өвөр + ар тал) автоматаар нэмэх
+    const defaultColor = PRESET_COLORS[0]
+    setLayouts([{
+      _new: true,
+      name: defaultColor.label,
+      name_mn: 'Загвар 1',
+      type: 'business',
+      canvas_data: { accent: defaultColor.accent, bg: defaultColor.bg, textDark: defaultColor.textDark, textLight: defaultColor.textLight },
+      front_json: [],
+      back_json: [],
+    }])
+    setTiers([{ quantity: 100, unit_price: 30 }, { quantity: 200, unit_price: 27.5 }, { quantity: 500, unit_price: 24 }, { quantity: 1000, unit_price: 20 }])
     setModal(true)
   }
 
