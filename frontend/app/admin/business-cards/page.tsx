@@ -69,6 +69,7 @@ export default function AdminBusinessCardsPage() {
   const [calcType, setCalcType] = useState<'standard' | 'laminated' | 'embossed'>('standard')
   const [layoutEditorSide, setLayoutEditorSide] = useState<'front' | 'back'>('front')
   const [selectedZoneKey, setSelectedZoneKey] = useState<string | null>(null)
+  const [editingLayoutIdx, setEditingLayoutIdx] = useState<number | null>(null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -282,11 +283,35 @@ export default function AdminBusinessCardsPage() {
                 </div>
               )}
 
-              {/* LAYOUTS TAB — Visual drag editor */}
+              {/* LAYOUTS TAB — Grid + Visual editor */}
               {tab === 'layouts' && (() => {
-                const l = layouts[0]
-                if (!l) return <div style={{ textAlign: 'center', padding: 40, color: 'var(--text3)' }}>Загвар байхгүй</div>
-                const i = 0
+                // Show grid if no layout selected for editing
+                if (editingLayoutIdx === null) {
+                  return (
+                    <div>
+                      <div style={{ fontSize: 13, color: 'var(--text3)', marginBottom: 12 }}>{layouts.length} загвар — дарж засах</div>
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 12 }}>
+                        {layouts.map((l, idx) => (
+                          <div key={l.id || idx} onClick={() => { setEditingLayoutIdx(idx); setLayoutEditorSide('front'); setSelectedZoneKey(null) }}
+                            style={{ cursor: 'pointer', borderRadius: 10, border: '1px solid var(--border)', overflow: 'hidden', transition: 'all .15s' }}
+                            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = '#FF6B00'; (e.currentTarget as HTMLElement).style.boxShadow = '0 4px 12px rgba(255,107,0,0.15)' }}
+                            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)'; (e.currentTarget as HTMLElement).style.boxShadow = 'none' }}
+                          >
+                            <MiniPreview cd={l.canvas_data} />
+                            <div style={{ padding: '8px 10px' }}>
+                              <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)' }}>{l.name_mn || l.name}</div>
+                              <div style={{ fontSize: 10, color: 'var(--text3)', marginTop: 2 }}>{l.type} · {(l.front_json?.length || 0)} элемент</div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )
+                }
+
+                const l = layouts[editingLayoutIdx]
+                if (!l) { setEditingLayoutIdx(null); return null }
+                const i = editingLayoutIdx
                 const CW = 450, CH = 275 // card canvas size
                 const zones: any[] = l.front_json || []
                 const backZones: any[] = l.back_json || []
@@ -325,6 +350,10 @@ export default function AdminBusinessCardsPage() {
                 }
 
                 return (
+                  <div>
+                    <button onClick={() => setEditingLayoutIdx(null)} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)', cursor: 'pointer', fontSize: 12, color: 'var(--text)', marginBottom: 12 }}>
+                      ← Бүх загвар руу буцах
+                    </button>
                   <div style={{ display: 'flex', gap: 16 }}>
                     {/* Left panel — zone controls */}
                     <div style={{ width: 200, flexShrink: 0 }}>
@@ -478,6 +507,7 @@ export default function AdminBusinessCardsPage() {
                         </div>
                       )}
                     </div>
+                  </div>
                   </div>
                 )
               })()}
