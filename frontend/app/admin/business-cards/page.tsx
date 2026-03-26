@@ -345,20 +345,21 @@ export default function AdminBusinessCardsPage() {
               const hasLogo = zKeys.includes('logo')
               const hasQr = zKeys.includes('qr')
 
-              // Лого — санамсаргүй булан/ирмэг
-              const logoW = R(60, 90), logoH = logoW
-              const logoX = R(0, 1) ? R(15, 30) : R(CW - logoW - 30, CW - logoW - 10)
-              const logoY = R(0, 1) ? R(10, 25) : R(CH - logoH - 25, CH - logoH - 10)
-              const logoRight = logoX > CW / 2
-              const logoTop = logoY < CH / 2
+              // Лого — хаана ч байж болно, хэмжээ хязгааргүй
+              const logoW = R(40, 110), logoH = logoW
+              const logoX = R(10, CW - logoW - 10)
+              const logoY = R(10, CH - logoH - 10)
+              const logoRight = logoX + logoW / 2 > CW / 2
+              const logoTop = logoY + logoH / 2 < CH / 2
 
-              // QR — логогийн диагональ эсрэг
-              const qrS = R(50, 68)
-              const qrX = logoRight ? R(12, 30) : R(CW - qrS - 30, CW - qrS - 10)
-              const qrY = logoTop ? R(CH - qrS - 25, CH - qrS - 8) : R(10, 30)
+              // QR — логогийн эсрэг бүсэд
+              const qrS = R(44, 72)
+              const qrX = logoRight ? R(10, Math.max(15, logoX - qrS - 20)) : R(Math.min(CW - qrS - 10, logoX + logoW + 20), CW - qrS - 10)
+              const qrY = logoTop ? R(Math.min(CH - qrS - 10, logoY + logoH + 20), CH - qrS - 10) : R(10, Math.max(15, logoY - qrS - 20))
 
-              // Social — QR ойролцоо
-              const socX = qrX, socY = logoTop ? qrY - R(40, 55) : qrY + qrS + R(8, 15)
+              // Social — QR ойролцоо эсвэл хаана ч
+              const socX = R(0, 1) ? qrX : R(10, CW - 90)
+              const socY = R(0, 1) ? (logoTop ? qrY - R(35, 55) : qrY + qrS + R(8, 20)) : R(10, CH - 50)
 
               // Текст бүс — логогийн эсрэг тал
               const margin = R(15, 28)
