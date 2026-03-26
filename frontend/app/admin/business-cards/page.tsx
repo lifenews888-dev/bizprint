@@ -61,6 +61,7 @@ export default function AdminBusinessCardsPage() {
   const [layouts, setLayouts] = useState<any[]>([])
   const [tiers, setTiers] = useState([{ quantity: 100, unit_price: 30 }, { quantity: 200, unit_price: 27.5 }, { quantity: 500, unit_price: 24 }, { quantity: 1000, unit_price: 20 }])
   const [calcQty, setCalcQty] = useState(100)
+  const [layoutEditorSide, setLayoutEditorSide] = useState<'front' | 'back'>('front')
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -95,9 +96,18 @@ export default function AdminBusinessCardsPage() {
     setModal(true)
   }
 
-  const addLayout = (preset?: any) => {
-    const cd = preset || { accent: '#FF6B00', bg: '#FFFFFF', textDark: '#111111', textLight: '#6B7280' }
-    setLayouts(prev => [...prev, { _new: true, name: preset?.label || 'Шинэ загвар', name_mn: preset?.label || 'Шинэ загвар', type: 'minimal', canvas_data: cd, _canvas: { ...cd } }])
+  // Загвар нэмэхгүй — зөвхөн 1 загварын өнгийг солино
+  const applyColorToLayout = (preset: any) => {
+    const cd = { accent: preset.accent, bg: preset.bg, textDark: preset.textDark, textLight: preset.textLight }
+    if (layouts.length === 0) {
+      setLayouts([{ _new: true, name: preset.label, name_mn: preset.label, type: 'business', canvas_data: cd, _canvas: { ...cd }, front_json: [], back_json: [] }])
+    } else {
+      setLayouts(prev => {
+        const c = [...prev]
+        c[0] = { ...c[0], name: preset.label, name_mn: preset.label, canvas_data: cd, _canvas: { ...cd } }
+        return c
+      })
+    }
   }
 
   const updateLayout = (idx: number, field: string, value: any) => {
@@ -250,140 +260,188 @@ export default function AdminBusinessCardsPage() {
                 </div>
               )}
 
-              {/* LAYOUTS TAB */}
-              {tab === 'layouts' && (
-                <div>
-                  {/* Preset color buttons */}
-                  <div style={{ marginBottom: 16 }}>
-                    <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text2)', marginBottom: 8 }}>Бэлэн өнгөний схем нэмэх:</div>
-                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                      {PRESET_COLORS.map(p => (
-                        <button key={p.label} onClick={() => addLayout(p)} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 10px', borderRadius: 8, border: '1px solid var(--border)', background: p.bg, cursor: 'pointer', fontSize: 11, color: p.textDark }}>
-                          <span style={{ width: 10, height: 10, borderRadius: '50%', background: p.accent, flexShrink: 0 }} />
-                          {p.label}
-                        </button>
-                      ))}
-                      <button onClick={() => addLayout()} style={{ padding: '5px 12px', borderRadius: 8, border: '2px dashed var(--border)', background: 'transparent', cursor: 'pointer', fontSize: 11, color: 'var(--text3)' }}>
-                        + Хоосон
-                      </button>
-                    </div>
-                  </div>
+              {/* LAYOUTS TAB — Visual drag editor */}
+              {tab === 'layouts' && (() => {
+                const l = layouts[0]
+                if (!l) return <div style={{ textAlign: 'center', padding: 40, color: 'var(--text3)' }}>Загвар байхгүй</div>
+                const i = 0
+                const CW = 450, CH = 275 // card canvas size
+                const zones: any[] = l.front_json || []
+                const backZones: any[] = l.back_json || []
+                const [edSide, setEdSide] = [layoutEditorSide, setLayoutEditorSide]
+                const currentZones = edSide === 'front' ? zones : backZones
+                const zoneKey = edSide === 'front' ? 'front_json' : 'back_json'
 
-                  {/* Layout list */}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                    {layouts.map((l, i) => (
-                      <div key={l.id || i} style={{ background: 'var(--surface2)', borderRadius: 12, padding: 16, border: '1px solid var(--border)' }}>
-                        <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
-                          {/* Mini preview */}
-                          <MiniPreview cd={l.canvas_data} />
+                const DEFAULT_ZONES = [
+                  { key: 'company_name', label: 'Компани', x: 20, y: 20, w: 200, h: 30, fontSize: 14, fontWeight: 'bold', fill: 'accent' },
+                  { key: 'full_name', label: 'Нэр', x: 20, y: 60, w: 200, h: 28, fontSize: 18, fontWeight: 'bold', fill: 'accent' },
+                  { key: 'job_title', label: 'Албан тушаал', x: 20, y: 95, w: 180, h: 20, fontSize: 11, fill: 'light' },
+                  { key: 'phone', label: 'Утас', x: 20, y: 180, w: 150, h: 18, fontSize: 10, fill: 'light' },
+                  { key: 'email', label: 'Имэйл', x: 20, y: 200, w: 180, h: 18, fontSize: 10, fill: 'light' },
+                  { key: 'address1', label: 'Хаяг', x: 20, y: 220, w: 200, h: 18, fontSize: 10, fill: 'light' },
+                  { key: 'website', label: 'Вэбсайт', x: 20, y: 240, w: 150, h: 18, fontSize: 10, fill: 'light' },
+                  { key: 'logo', label: 'Лого', x: 360, y: 20, w: 64, h: 64, type: 'logo' },
+                  { key: 'qr', label: 'QR', x: 370, y: 200, w: 56, h: 56, type: 'qr' },
+                ]
 
-                          {/* Fields */}
-                          <div style={{ flex: 1, display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
-                            <div>
-                              <label style={lbl}>Нэр</label>
-                              <input style={inp} value={l.name || ''} onChange={e => updateLayout(i, 'name', e.target.value)} />
-                            </div>
-                            <div>
-                              <label style={lbl}>Төрөл</label>
-                              <select style={inp} value={l.type || 'minimal'} onChange={e => updateLayout(i, 'type', e.target.value)}>
-                                {LAYOUT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-                              </select>
-                            </div>
-                            <div>
-                              <label style={lbl}>Бэлэн схем</label>
-                              <select style={inp} onChange={e => { const p = PRESET_COLORS.find(c => c.label === e.target.value); if (p) applyPreset(i, p) }} defaultValue="">
-                                <option value="">— сонгох —</option>
-                                {PRESET_COLORS.map(p => <option key={p.label} value={p.label}>{p.label}</option>)}
-                              </select>
-                            </div>
-                            <div>
-                              <label style={lbl}>Accent өнгө</label>
-                              <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                                <input type="color" value={l.canvas_data?.accent || '#FF6B00'} onChange={e => updateCanvas(i, 'accent', e.target.value)} style={{ width: 36, height: 36, borderRadius: 6, border: '1px solid var(--border)', cursor: 'pointer', padding: 2 }} />
-                                <input style={{ ...inp, flex: 1 }} value={l.canvas_data?.accent || ''} onChange={e => updateCanvas(i, 'accent', e.target.value)} placeholder="#FF6B00" />
-                              </div>
-                            </div>
-                            <div>
-                              <label style={lbl}>Дэвсгэр өнгө</label>
-                              <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                                <input type="color" value={l.canvas_data?.bg || '#FFFFFF'} onChange={e => updateCanvas(i, 'bg', e.target.value)} style={{ width: 36, height: 36, borderRadius: 6, border: '1px solid var(--border)', cursor: 'pointer', padding: 2 }} />
-                                <input style={{ ...inp, flex: 1 }} value={l.canvas_data?.bg || ''} onChange={e => updateCanvas(i, 'bg', e.target.value)} placeholder="#FFFFFF" />
-                              </div>
-                            </div>
-                            <div>
-                              <label style={lbl}>Текст өнгө</label>
-                              <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                                <input type="color" value={l.canvas_data?.textDark || '#111111'} onChange={e => updateCanvas(i, 'textDark', e.target.value)} style={{ width: 36, height: 36, borderRadius: 6, border: '1px solid var(--border)', cursor: 'pointer', padding: 2 }} />
-                                <input style={{ ...inp, flex: 1 }} value={l.canvas_data?.textDark || ''} onChange={e => updateCanvas(i, 'textDark', e.target.value)} placeholder="#111111" />
-                              </div>
-                            </div>
+                const addZone = (zone: any) => {
+                  const existing = currentZones.find((z: any) => z.key === zone.key)
+                  if (existing) return
+                  updateLayout(i, zoneKey, [...currentZones, { ...zone }])
+                }
+
+                const moveZone = (zIdx: number, dx: number, dy: number) => {
+                  const updated = currentZones.map((z: any, j: number) => j === zIdx ? { ...z, x: Math.max(0, Math.min(CW - (z.w || 50), z.x + dx)), y: Math.max(0, Math.min(CH - (z.h || 20), z.y + dy)) } : z)
+                  updateLayout(i, zoneKey, updated)
+                }
+
+                const removeZone = (zIdx: number) => {
+                  updateLayout(i, zoneKey, currentZones.filter((_: any, j: number) => j !== zIdx))
+                }
+
+                return (
+                  <div style={{ display: 'flex', gap: 16 }}>
+                    {/* Left panel — zone controls */}
+                    <div style={{ width: 200, flexShrink: 0 }}>
+                      <div style={{ marginBottom: 12 }}>
+                        <label style={lbl}>Загварын нэр</label>
+                        <input style={inp} value={l.name_mn || l.name || ''} onChange={e => { updateLayout(i, 'name', e.target.value); updateLayout(i, 'name_mn', e.target.value) }} />
+                      </div>
+
+                      {/* Side toggle */}
+                      <div style={{ display: 'flex', gap: 4, marginBottom: 12 }}>
+                        {(['front', 'back'] as const).map(s => (
+                          <button key={s} onClick={() => setEdSide(s)} style={{ flex: 1, padding: '8px 0', borderRadius: 8, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600, background: edSide === s ? '#FF6B00' : 'var(--surface2)', color: edSide === s ? '#fff' : 'var(--text3)' }}>
+                            {s === 'front' ? 'Өвөр' : 'Ар тал'}
+                          </button>
+                        ))}
+                      </div>
+
+                      {/* Add zones */}
+                      <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text2)', marginBottom: 6 }}>Элемент нэмэх:</div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                        {DEFAULT_ZONES.map(z => {
+                          const exists = currentZones.some((cz: any) => cz.key === z.key)
+                          return (
+                            <button key={z.key} onClick={() => addZone(z)} disabled={exists} style={{ padding: '6px 10px', borderRadius: 6, border: '1px solid var(--border)', background: exists ? 'var(--surface2)' : 'var(--surface)', cursor: exists ? 'default' : 'pointer', fontSize: 11, color: exists ? 'var(--text3)' : 'var(--text)', textAlign: 'left', opacity: exists ? 0.5 : 1 }}>
+                              {exists ? '✓ ' : '+ '}{z.label}
+                            </button>
+                          )
+                        })}
+                      </div>
+
+                      {/* Background upload */}
+                      <div style={{ marginTop: 16, paddingTop: 12, borderTop: '1px solid var(--border)' }}>
+                        <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text2)', marginBottom: 6 }}>Фон зураг ({edSide === 'front' ? 'Өвөр' : 'Ар'}):</div>
+                        {l.id && !l._new && editing ? (
+                          <label style={{ display: 'block', padding: '10px', borderRadius: 8, border: '2px dashed var(--border)', textAlign: 'center', cursor: 'pointer', fontSize: 11, color: '#FF6B00', fontWeight: 600 }}>
+                            📤 Зураг оруулах
+                            <input type="file" accept="image/png,image/jpeg,image/webp" hidden onChange={async (e) => {
+                              const file = e.target.files?.[0]
+                              if (!file || !editing?.id || !l.id) return
+                              const fd = new FormData()
+                              fd.append('file', file)
+                              fd.append('name', `${edSide}-${file.name}`)
+                              fd.append('side', edSide)
+                              try {
+                                const result: any = await apiFetch(`/admin/business-cards/${editing.id}/layouts/${l.id}/backgrounds`, { method: 'POST', body: fd } as any)
+                                if (result) { result.side = edSide; updateLayout(i, 'backgrounds', [...(l.backgrounds || []), result]) }
+                              } catch (err: any) { alert('Upload алдаа: ' + (err?.message || '')) }
+                            }} />
+                          </label>
+                        ) : (
+                          <div style={{ fontSize: 10, color: 'var(--text3)', textAlign: 'center', padding: 8 }}>Эхлээд хадгалж, дараа нь зураг оруулна</div>
+                        )}
+                        {/* Show uploaded bgs */}
+                        {(l.backgrounds || []).filter((bg: any) => bg.side === edSide).map((bg: any) => (
+                          <div key={bg.id} style={{ position: 'relative', marginTop: 6, borderRadius: 6, overflow: 'hidden', border: '1px solid var(--border)' }}>
+                            <img src={bg.url?.startsWith('http') ? bg.url : `http://localhost:4000${bg.url}`} alt="" style={{ width: '100%', height: 60, objectFit: 'cover' }} />
+                            <button onClick={async () => {
+                              if (!editing?.id || !l.id) return
+                              await apiFetch(`/admin/business-cards/${editing.id}/layouts/${l.id}/backgrounds/${bg.id}`, { method: 'DELETE' }).catch(() => {})
+                              updateLayout(i, 'backgrounds', (l.backgrounds || []).filter((b: any) => b.id !== bg.id))
+                            }} style={{ position: 'absolute', top: 2, right: 2, width: 18, height: 18, borderRadius: 9, background: '#EF4444', color: '#fff', border: 'none', fontSize: 10, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
                           </div>
+                        ))}
+                      </div>
+                    </div>
 
-                          <button onClick={() => removeLayout(i)} style={{ ...btn('#EF4444', '#fff'), fontSize: 11, padding: '6px 12px', flexShrink: 0 }}>Устгах</button>
-                        </div>
+                    {/* Right — visual card canvas */}
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 6, textAlign: 'center' }}>Элементүүдийг чирж байрлуулна уу (90×55 мм)</div>
+                      <div style={{ display: 'flex', justifyContent: 'center' }}>
+                        <div
+                          style={{ width: CW, height: CH, background: l.canvas_data?.bg || '#fff', borderRadius: 6, position: 'relative', overflow: 'hidden', border: '1px solid var(--border)', boxShadow: '0 4px 20px rgba(0,0,0,0.1)', cursor: 'crosshair' }}
+                        >
+                          {/* Background image */}
+                          {(() => {
+                            const bgImg = (l.backgrounds || []).find((bg: any) => bg.side === edSide)
+                            return bgImg ? <img src={bgImg.url?.startsWith('http') ? bgImg.url : `http://localhost:4000${bgImg.url}`} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} /> : null
+                          })()}
 
-                        {/* ── Background: Өвөр + Ар ── */}
-                        <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--border)', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                          {(['front', 'back'] as const).map(side => {
-                            const sideBgs = (l.backgrounds || []).filter((bg: any) => bg.side === side || (!bg.side && side === 'front'))
-                            const sideLabel = side === 'front' ? '📄 Өвөр тал' : '📄 Ар тал'
+                          {/* Zones */}
+                          {currentZones.map((z: any, zIdx: number) => {
+                            const accent = l.canvas_data?.accent || '#FF6B00'
+                            const textDark = l.canvas_data?.textDark || '#111'
+                            const textLight = l.canvas_data?.textLight || '#6B7280'
+                            const color = z.fill === 'accent' ? accent : z.fill === 'light' ? textLight : textDark
+                            const isSpecial = z.type === 'logo' || z.type === 'qr'
+
                             return (
-                              <div key={side} style={{ background: 'var(--surface)', borderRadius: 8, border: '1px solid var(--border)', padding: 10 }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                                  <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text)' }}>{sideLabel}</span>
-                                  {l.id && !l._new && editing ? (
-                                    <label style={{ fontSize: 10, fontWeight: 600, color: '#FF6B00', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 3 }}>
-                                      📤 Upload
-                                      <input type="file" accept="image/png,image/jpeg,image/webp" hidden onChange={async (e) => {
-                                        const file = e.target.files?.[0]
-                                        if (!file || !editing?.id || !l.id) return
-                                        const fd = new FormData()
-                                        fd.append('file', file)
-                                        fd.append('name', `${side}-${file.name}`)
-                                        fd.append('side', side)
-                                        try {
-                                          const result: any = await apiFetch(`/admin/business-cards/${editing.id}/layouts/${l.id}/backgrounds`, { method: 'POST', body: fd } as any)
-                                          if (result) {
-                                            result.side = side
-                                            updateLayout(i, 'backgrounds', [...(l.backgrounds || []), result])
-                                          }
-                                        } catch (err: any) { alert('Upload алдаа: ' + (err?.message || '')) }
-                                      }} />
-                                    </label>
-                                  ) : (
-                                    <span style={{ fontSize: 9, color: 'var(--text3)' }}>Хадгалсны дараа</span>
-                                  )}
-                                </div>
-                                {sideBgs.length > 0 ? (
-                                  <div style={{ display: 'flex', gap: 6, overflowX: 'auto' }}>
-                                    {sideBgs.map((bg: any) => (
-                                      <div key={bg.id} style={{ flexShrink: 0, position: 'relative', width: 100, borderRadius: 4, overflow: 'hidden', border: '1px solid var(--border)' }}>
-                                        <img src={bg.url?.startsWith('http') ? bg.url : `http://localhost:4000${bg.url}`} alt={bg.name} style={{ width: 100, height: 62, objectFit: 'cover' }} />
-                                        <button onClick={async () => {
-                                          if (!editing?.id || !l.id) return
-                                          await apiFetch(`/admin/business-cards/${editing.id}/layouts/${l.id}/backgrounds/${bg.id}`, { method: 'DELETE' }).catch(() => {})
-                                          updateLayout(i, 'backgrounds', (l.backgrounds || []).filter((b: any) => b.id !== bg.id))
-                                        }} style={{ position: 'absolute', top: 2, right: 2, width: 16, height: 16, borderRadius: 8, background: '#EF4444', color: '#fff', border: 'none', fontSize: 10, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1 }}>×</button>
-                                      </div>
-                                    ))}
-                                  </div>
+                              <div
+                                key={z.key}
+                                draggable
+                                onDragStart={e => {
+                                  e.dataTransfer.setData('zoneIdx', String(zIdx))
+                                  e.dataTransfer.setDragImage(e.currentTarget, 0, 0)
+                                  const rect = e.currentTarget.parentElement!.getBoundingClientRect()
+                                  ;(e.currentTarget as any)._startX = e.clientX - rect.left - z.x
+                                  ;(e.currentTarget as any)._startY = e.clientY - rect.top - z.y
+                                }}
+                                onDrag={e => {
+                                  if (e.clientX === 0) return
+                                  const rect = e.currentTarget.parentElement!.getBoundingClientRect()
+                                  const nx = Math.max(0, Math.min(CW - (z.w || 50), e.clientX - rect.left - ((e.currentTarget as any)._startX || 0)))
+                                  const ny = Math.max(0, Math.min(CH - (z.h || 20), e.clientY - rect.top - ((e.currentTarget as any)._startY || 0)))
+                                  const updated = [...currentZones]
+                                  updated[zIdx] = { ...z, x: Math.round(nx), y: Math.round(ny) }
+                                  updateLayout(i, zoneKey, updated)
+                                }}
+                                style={{
+                                  position: 'absolute', left: z.x, top: z.y, width: z.w || 'auto', height: z.h || 'auto',
+                                  border: '1px dashed rgba(0,0,0,0.3)', borderRadius: 3, cursor: 'grab',
+                                  display: 'flex', alignItems: 'center', justifyContent: isSpecial ? 'center' : 'flex-start',
+                                  padding: isSpecial ? 0 : '0 4px',
+                                  fontSize: z.fontSize || 12, fontWeight: z.fontWeight === 'bold' ? 700 : 400, color,
+                                  background: isSpecial ? 'rgba(0,0,0,0.05)' : 'transparent',
+                                  userSelect: 'none',
+                                }}
+                              >
+                                {isSpecial ? (
+                                  <span style={{ fontSize: 9, color: '#999', textAlign: 'center' }}>{z.type === 'logo' ? '📷 Лого' : '▣ QR'}</span>
                                 ) : (
-                                  <div style={{ height: 60, border: '1.5px dashed var(--border)', borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, color: 'var(--text3)' }}>
-                                    Зураг байхгүй
-                                  </div>
+                                  z.label
                                 )}
+                                {/* Delete button */}
+                                <button onClick={(e) => { e.stopPropagation(); removeZone(zIdx) }} style={{ position: 'absolute', top: -8, right: -8, width: 16, height: 16, borderRadius: 8, background: '#EF4444', color: '#fff', border: 'none', fontSize: 8, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1 }}>×</button>
                               </div>
                             )
                           })}
                         </div>
                       </div>
-                    ))}
-                    {layouts.length === 0 && (
-                      <div style={{ textAlign: 'center', padding: 40, color: 'var(--text3)' }}>Дээрх өнгөний схемүүдээс нэмнэ үү</div>
-                    )}
+
+                      {/* Zone list with coordinates */}
+                      {currentZones.length > 0 && (
+                        <div style={{ marginTop: 12, fontSize: 10, color: 'var(--text3)', display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center' }}>
+                          {currentZones.map((z: any) => (
+                            <span key={z.key} style={{ background: 'var(--surface2)', padding: '3px 8px', borderRadius: 4 }}>{z.label}: ({z.x}, {z.y})</span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   </div>
-                </div>
-              )}
+                )
+              })()}
 
               {/* PRICING TAB */}
               {tab === 'pricing' && (
