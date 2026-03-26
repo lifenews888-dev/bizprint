@@ -1,9 +1,19 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import ThemeToggle from '@/components/ThemeToggle'
+import { useRoleGuard } from '@/lib/use-role-guard'
 
 const F = "'DM Sans','Segoe UI',system-ui,sans-serif"
+
+const SUPERADMIN_NAV = [
+  { section: 'Систем (SA)', items: [
+    { label: 'Vendor Tier', href: '/admin/vendors', icon: 'M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z' },
+    { label: 'Ашиг тайлан', href: '/admin/reports', icon: 'M13 7h8m0 0v8m0-8l-8 8-4-4-6 6' },
+    { label: 'API Webhooks', href: '/admin/webhooks', icon: 'M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1' },
+    { label: 'Систем тохиргоо', href: '/admin/settings', icon: 'M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4' },
+  ]},
+]
 
 const NAV = [
   { section: '\u0425\u044f\u043d\u0430\u043b\u0442', items: [
@@ -21,9 +31,10 @@ const NAV = [
   { section: '\u0411\u04af\u0442\u044d\u044d\u0433\u0434\u044d\u0445\u04af\u04af\u043d & \u04ae\u043d\u044d', items: [
     { label: '\u0411\u04af\u0442\u044d\u044d\u0433\u0434\u044d\u0445\u04af\u04af\u043d', href: '/admin/products', icon: 'M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4' },
     { label: '\u04ae\u043d\u0438\u0439\u043d \u0443\u0434\u0438\u0440\u0434\u043b\u0430\u0433\u0430', href: '/admin/pricing', icon: 'M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z' },
-    { label: 'Quote Engine', href: '/admin/quote-engine', icon: 'M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z' },
+    { label: 'Үнийн каталог', href: '/admin/pricing-catalog', icon: 'M4 7v10c0 2 1 3 3 3h10c2 0 3-1 3-3V7c0-2-1-3-3-3H7c-2 0-3 1-3 3zm3 2h10M7 13h6' },
+    { label: 'Нэрийн хуудас', href: '/admin/business-cards', icon: 'M3 10h18M3 6h18M3 14h12M3 18h8' },
+
     { label: '\u0410\u043d\u0433\u0438\u043b\u0430\u043b', href: '/admin/categories', icon: 'M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z' },
-    { label: '\u0417\u0430\u0433\u0432\u0430\u0440', href: '/admin/templates', icon: 'M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z' },
   ]},
   { section: '\u0425\u044d\u0440\u044d\u0433\u043b\u044d\u0433\u0447 & \u041f\u0430\u0440\u0442\u043d\u0435\u0440', items: [
     { label: '\u0425\u044d\u0440\u044d\u0433\u043b\u044d\u0433\u0447\u0438\u0434', href: '/admin/users', icon: 'M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197' },
@@ -43,7 +54,6 @@ const NAV = [
   ]},
   { section: '\u0425\u0430\u0440\u0438\u043b\u0446\u0430\u0430', items: [
     { label: 'Chat', href: '/admin/chat', icon: 'M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z' },
-    { label: 'Webhooks', href: '/admin/webhooks', icon: 'M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1' },
   ]},
 ]
 
@@ -52,17 +62,22 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const path = usePathname()
   const [collapsed, setCollapsed] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
-  const [user, setUser] = useState<any>(null)
+  const { user, loading } = useRoleGuard(['admin', 'superadmin'])
+  const isSuperAdmin = user?.role === 'superadmin'
 
-  useEffect(() => {
-    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null
-    if (!token) { router.push('/login'); return }
-    const stored = localStorage.getItem('user')
-    if (stored) { try { setUser(JSON.parse(stored)) } catch {} }
-  }, [])
+  if (loading) return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', background: 'var(--bg)', fontFamily: F }}>
+      <div style={{ textAlign: 'center' }}>
+        <div style={{ width: 40, height: 40, border: '3px solid var(--border)', borderTopColor: '#FF6B00', borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto 12px' }} />
+        <div style={{ color: 'var(--text3)', fontSize: 13 }}>Уншиж байна...</div>
+        <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
+      </div>
+    </div>
+  )
 
   const W = collapsed ? '56px' : '230px'
-  const activeItem = NAV.flatMap(g => g.items).find(i => i.href === path)
+  const fullNav = isSuperAdmin ? [...SUPERADMIN_NAV, ...NAV] : NAV
+  const activeItem = fullNav.flatMap(g => g.items).find(i => i.href === path)
   const activeLabel = activeItem?.label || 'Dashboard'
 
   const logout = () => { localStorage.clear(); router.push('/') }
@@ -92,7 +107,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text)', lineHeight: 1 }}>
                   <span style={{ color: '#FF6B00' }}>Biz</span>Print
                 </div>
-                <div style={{ fontSize: '10px', color: 'var(--text3)' }}>Admin Panel</div>
+                <div style={{ fontSize: '10px', color: isSuperAdmin ? '#DC2626' : 'var(--text3)' }}>{isSuperAdmin ? 'Super Admin' : 'Admin Panel'}</div>
               </div>
             </a>
           )}
@@ -105,16 +120,16 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
         {!collapsed && (
           <div style={{ padding: '12px 14px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <div style={{ width: '30px', height: '30px', borderRadius: '50%', background: 'linear-gradient(135deg, #FF6B00, #FF8C42)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 700, flexShrink: 0 }}>A</div>
+            <div style={{ width: '30px', height: '30px', borderRadius: '50%', background: isSuperAdmin ? 'linear-gradient(135deg, #DC2626, #EF4444)' : 'linear-gradient(135deg, #FF6B00, #FF8C42)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 700, flexShrink: 0 }}>{isSuperAdmin ? 'SA' : 'A'}</div>
             <div style={{ overflow: 'hidden' }}>
-              <div style={{ fontSize: '13px', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: 'var(--text)' }}>{'\u0421\u0438\u0441\u0442\u0435\u043c\u0438\u0439\u043d \u0410\u0434\u043c\u0438\u043d'}</div>
+              <div style={{ fontSize: '13px', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: isSuperAdmin ? '#DC2626' : 'var(--text)' }}>{isSuperAdmin ? 'Супер Админ' : 'Системийн Админ'}</div>
               <div style={{ fontSize: '10px', color: 'var(--text3)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{user?.email || 'test@bizprint.mn'}</div>
             </div>
           </div>
         )}
 
         <div className="sb" style={{ flex: 1, overflowY: 'auto', padding: '6px' }}>
-          {NAV.map(group => (
+          {fullNav.map(group => (
             <div key={group.section} style={{ marginBottom: '4px' }}>
               {!collapsed && (
                 <div style={{ fontSize: '10px', fontWeight: 600, color: 'var(--text4)', letterSpacing: '0.1em', padding: '10px 10px 4px', textTransform: 'uppercase' }}>
