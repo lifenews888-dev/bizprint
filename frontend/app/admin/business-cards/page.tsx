@@ -335,59 +335,53 @@ export default function AdminBusinessCardsPage() {
               ))}
             </div>
 
-            {/* Random layout — элемент тоогоос хамаарч логиктой байрлуулна */}
+            {/* Random layout — хязгааргүй, логиктой */}
             <button onClick={() => {
               if (currentZones.length === 0) return
-              const CW = 450, CH = 275, P = 20
-              const keys = currentZones.map((z: any) => z.key)
+              const CW = 450, CH = 275
+              const R = (min: number, max: number) => Math.round(min + Math.random() * (max - min))
+              const zKeys = currentZones.map((z: any) => z.key)
               const texts = currentZones.filter((z: any) => !z.type)
-              const n = currentZones.length
+              const hasLogo = zKeys.includes('logo')
+              const hasQr = zKeys.includes('qr')
 
-              // Цөөн элемент (1-4) → логиктой байрлуулах
-              if (n <= 4) {
-                const hasLogo = keys.includes('logo')
-                // Текст элементүүд голд, дээрээс доош
-                const tOnly = texts.length
-                const tGap = Math.min(40, Math.floor((CH - 40) / Math.max(tOnly, 1)))
-                const tStartY = hasLogo ? 20 : Math.round((CH - tOnly * tGap) / 2)
-                let ty = tStartY
-                const result = currentZones.map((z: any) => {
-                  if (z.type === 'logo') return { ...z, x: P, y: P, w: 70, h: 70 }
-                  if (z.type === 'qr') return { ...z, x: CW - 80, y: CH - 80, w: 60, h: 60 }
-                  if (z.type === 'social') return { ...z, x: CW - 100, y: P, w: 80, h: 40 }
-                  const tx = hasLogo ? 100 : Math.round((CW - (z.w || 220)) / 2)
-                  const r = { ...z, x: tx, y: ty }; ty += tGap; return r
-                })
-                updateLayout(i, zoneKey, result); return
+              // Лого — санамсаргүй булан/ирмэг
+              const logoW = R(60, 90), logoH = logoW
+              const logoX = R(0, 1) ? R(15, 30) : R(CW - logoW - 30, CW - logoW - 10)
+              const logoY = R(0, 1) ? R(10, 25) : R(CH - logoH - 25, CH - logoH - 10)
+              const logoRight = logoX > CW / 2
+              const logoTop = logoY < CH / 2
+
+              // QR — логогийн диагональ эсрэг
+              const qrS = R(50, 68)
+              const qrX = logoRight ? R(12, 30) : R(CW - qrS - 30, CW - qrS - 10)
+              const qrY = logoTop ? R(CH - qrS - 25, CH - qrS - 8) : R(10, 30)
+
+              // Social — QR ойролцоо
+              const socX = qrX, socY = logoTop ? qrY - R(40, 55) : qrY + qrS + R(8, 15)
+
+              // Текст бүс — логогийн эсрэг тал
+              const margin = R(15, 28)
+              const textGap = R(22, Math.min(34, Math.floor((CH - 40) / Math.max(texts.length, 1))))
+              let textX: number, textMaxW: number
+              if (hasLogo) {
+                textX = logoRight ? margin : Math.max(logoX + logoW + 15, 110)
+                textMaxW = logoRight ? (logoX - margin - 15) : (CW - textX - margin)
+              } else {
+                textX = margin
+                textMaxW = CW - margin * 2 - (hasQr ? 80 : 0)
               }
+              // Текст эхлэх Y
+              const usedTop = (logoTop && !logoRight) ? logoY + logoH + 10 : margin
+              let ty = usedTop
 
-              // Олон элемент (5+) → 6 layout хэв маяг
-              const variant = Math.floor(Math.random() * 6)
-              // Лого байрлал: 0=зүүн дээр, 1=баруун дээр, 2=зүүн доор, 3=баруун доор, 4=голд дээр, 5=зүүн голд
-              const logoSlots = [[P,P],[CW-95,P],[P,CH-95],[CW-95,CH-95],[(CW-80)/2,P],[P,(CH-80)/2]]
-              const lp = logoSlots[variant]
-              const logoRight = lp[0] > CW * 0.4
-              const logoTop = lp[1] < CH * 0.4
-              // QR — логогийн диагональ эсрэг буланд
-              const qp = [logoRight ? P : CW - 75, logoTop ? CH - 75 : P]
-              // Social — QR-ийн дээр/доор
-              const sp = [qp[0], logoTop ? qp[1] - 50 : qp[1] + 70]
-              // Текст талбай
-              const tArea = logoRight
-                ? { x: P, maxW: CW - 130 }
-                : lp[0] < 100 ? { x: 120, maxW: CW - 140 } : { x: P, maxW: CW - 40 }
-              // Текстүүдийг жигд тараах (logo-гүй бүс)
-              const tStartY = logoTop && !logoRight ? (lp[1] + 95) : P
-              const tEndY = !logoTop && !logoRight ? (lp[1] - 10) : (CH - (keys.includes('qr') && !logoTop ? 0 : P))
-              const tGap = Math.max(22, Math.min(32, Math.floor((tEndY - tStartY) / Math.max(texts.length, 1))))
-
-              let ty = tStartY
               const result = currentZones.map((z: any) => {
-                if (z.type === 'logo') return { ...z, x: lp[0], y: lp[1], w: 80, h: 80 }
-                if (z.type === 'qr') return { ...z, x: qp[0], y: qp[1], w: 64, h: 64 }
-                if (z.type === 'social') return { ...z, x: Math.max(P, Math.min(CW - 90, sp[0])), y: Math.max(P, Math.min(CH - 50, sp[1])), w: 80, h: 40 }
-                const r = { ...z, x: tArea.x, y: Math.round(ty), w: Math.min(z.w || 220, tArea.maxW) }
-                ty += tGap
+                if (z.type === 'logo') return { ...z, x: logoX, y: logoY, w: logoW, h: logoH }
+                if (z.type === 'qr') return { ...z, x: qrX, y: qrY, w: qrS, h: qrS }
+                if (z.type === 'social') return { ...z, x: Math.max(10, Math.min(CW - 90, socX)), y: Math.max(10, Math.min(CH - 45, socY)), w: 80, h: 40 }
+                const w = Math.min(z.w || 220, textMaxW)
+                const r = { ...z, x: textX, y: Math.min(ty, CH - 20), w }
+                ty += textGap
                 return r
               })
               updateLayout(i, zoneKey, result)
