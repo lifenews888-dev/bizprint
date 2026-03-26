@@ -116,21 +116,50 @@ export default function DigitalCardDashboard() {
         </div>
       )}
 
-      {/* Pricing info */}
+      {/* Pricing cards — clickable */}
       <div style={{ marginTop: 24, background: '#fff', borderRadius: 16, padding: 24, border: '1px solid #E5E7EB' }}>
         <div style={{ fontSize: 16, fontWeight: 600, color: '#111', marginBottom: 12 }}>QR дижитал карт — үнийн мэдээлэл</div>
         <div style={{ display: 'flex', gap: 16 }}>
-          <div style={{ flex: 1, padding: 16, background: '#FFF7ED', borderRadius: 12, border: '2px solid #FF6B0030' }}>
+          {/* Туршилт — нэрийн хуудас захиалах руу */}
+          <div
+            onClick={() => window.location.href = '/business-cards'}
+            style={{ flex: 1, padding: 16, background: '#FFF7ED', borderRadius: 12, border: '2px solid #FF6B0030', cursor: 'pointer', transition: 'all .15s' }}
+            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = '#FF6B00'; (e.currentTarget as HTMLElement).style.transform = 'translateY(-2px)'; (e.currentTarget as HTMLElement).style.boxShadow = '0 4px 12px rgba(255,107,0,0.15)' }}
+            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = '#FF6B0030'; (e.currentTarget as HTMLElement).style.transform = 'none'; (e.currentTarget as HTMLElement).style.boxShadow = 'none' }}
+          >
             <div style={{ fontSize: 13, fontWeight: 600, color: '#FF6B00' }}>Туршилт</div>
             <div style={{ fontSize: 28, fontWeight: 800, color: '#111', marginTop: 4 }}>Үнэгүй</div>
             <div style={{ fontSize: 12, color: '#6B7280', marginTop: 4 }}>{settings?.qr_trial_days || 90} хоног</div>
-            <div style={{ fontSize: 11, color: '#9CA3AF', marginTop: 8 }}>Анхны захиалгад автоматаар идэвхжинэ</div>
+            <div style={{ fontSize: 11, color: '#9CA3AF', marginTop: 8 }}>Нэрийн хуудас захиалахад автоматаар идэвхжинэ</div>
+            <div style={{ marginTop: 12, padding: '8px 0', background: '#FF6B00', color: '#fff', borderRadius: 8, textAlign: 'center', fontSize: 13, fontWeight: 600 }}>
+              Нэрийн хуудас захиалах →
+            </div>
           </div>
-          <div style={{ flex: 1, padding: 16, background: '#F0FDF4', borderRadius: 12, border: '2px solid #10B98130' }}>
+          {/* Жилийн эрх — төлбөр төлөх */}
+          <div
+            onClick={async () => {
+              try {
+                const tok = localStorage.getItem('access_token') || localStorage.getItem('token')
+                if (!tok) { window.location.href = '/login'; return }
+                // Карт байхгүй бол эхлээд үүсгэх
+                if (!card) {
+                  await apiFetch('/digital-card', { method: 'POST', body: {} })
+                }
+                await apiFetch('/digital-card/subscribe', { method: 'POST', body: {} })
+                window.location.reload()
+              } catch (e: any) { alert(e.message || 'Алдаа гарлаа') }
+            }}
+            style={{ flex: 1, padding: 16, background: '#F0FDF4', borderRadius: 12, border: '2px solid #10B98130', cursor: 'pointer', transition: 'all .15s' }}
+            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = '#10B981'; (e.currentTarget as HTMLElement).style.transform = 'translateY(-2px)'; (e.currentTarget as HTMLElement).style.boxShadow = '0 4px 12px rgba(16,185,129,0.15)' }}
+            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = '#10B98130'; (e.currentTarget as HTMLElement).style.transform = 'none'; (e.currentTarget as HTMLElement).style.boxShadow = 'none' }}
+          >
             <div style={{ fontSize: 13, fontWeight: 600, color: '#10B981' }}>Жилийн эрх</div>
             <div style={{ fontSize: 28, fontWeight: 800, color: '#111', marginTop: 4 }}>₮{(settings?.qr_price_yearly || 29900).toLocaleString('mn-MN')}</div>
             <div style={{ fontSize: 12, color: '#6B7280', marginTop: 4 }}>12 сар</div>
             <div style={{ fontSize: 11, color: '#9CA3AF', marginTop: 8 }}>QR код + дижитал профайл + статистик</div>
+            <div style={{ marginTop: 12, padding: '8px 0', background: '#10B981', color: '#fff', borderRadius: 8, textAlign: 'center', fontSize: 13, fontWeight: 600 }}>
+              Төлбөр төлөх →
+            </div>
           </div>
         </div>
       </div>
