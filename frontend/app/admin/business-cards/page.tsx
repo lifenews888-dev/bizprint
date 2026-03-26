@@ -335,37 +335,140 @@ export default function AdminBusinessCardsPage() {
               ))}
             </div>
 
-            {/* Random layout — давхардалгүй, хязгааргүй байрлал */}
+            {/* Professional print layout engine */}
             <button onClick={() => {
               if (currentZones.length === 0) return
               const CW = 450, CH = 275
               const R = (a: number, b: number) => Math.round(a + Math.random() * (b - a))
+              const pick = <T,>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)]
 
-              // Элемент бүрт хязгааргүй байрлал олох — давхардахгүй
-              const placed: { x: number; y: number; w: number; h: number }[] = []
-              const overlaps = (x: number, y: number, w: number, h: number) =>
-                placed.some(p => !(x + w < p.x || x > p.x + p.w || y + h < p.y || y > p.y + p.h))
+              // ── Layout style ──
+              const style = pick(['minimal', 'corporate', 'bold', 'centered'])
+              const align = pick(['left', 'right', 'center']) as string
+              const spacing = pick(['compact', 'balanced', 'airy'])
+              const pad = spacing === 'compact' ? R(15, 20) : spacing === 'balanced' ? R(20, 28) : R(28, 36)
 
-              const findSpot = (w: number, h: number, tries = 80) => {
-                for (let t = 0; t < tries; t++) {
-                  const x = R(8, CW - w - 8), y = R(8, CH - h - 8)
-                  if (!overlaps(x, y, w, h)) return { x, y }
-                }
-                // Fallback: stack доор
-                const lastY = placed.length ? Math.max(...placed.map(p => p.y + p.h)) + 4 : 10
-                return { x: R(10, Math.max(12, CW - w - 10)), y: Math.min(lastY, CH - h - 4) }
+              // ── Zone definitions ──
+              const has = (k: string) => currentZones.some((z: any) => z.key === k)
+              const texts = currentZones.filter((z: any) => !z.type)
+              const nameScale = style === 'bold' ? R(24, 32) : style === 'minimal' ? R(16, 20) : R(18, 24)
+              const titleScale = Math.round(nameScale * 0.55)
+              const contactScale = Math.round(nameScale * 0.5)
+              const companyScale = style === 'corporate' ? R(12, 16) : R(10, 13)
+
+              // ── Font size map ──
+              const fsMap: Record<string, number> = {
+                full_name: nameScale, company_name: companyScale, company_message: R(9, 11),
+                job_title: titleScale, email: contactScale, phone: contactScale,
+                address1: contactScale, address2: contactScale, website: contactScale,
               }
 
-              const result = currentZones.map((z: any) => {
-                let w: number, h: number
-                if (z.type === 'logo') { w = R(45, 100); h = w }
-                else if (z.type === 'qr') { w = R(44, 70); h = w }
-                else if (z.type === 'social') { w = R(60, 100); h = R(25, 45) }
-                else { w = R(120, 240); h = R(18, 30) }
-                const { x, y } = findSpot(w, h)
-                placed.push({ x, y, w, h })
-                return { ...z, x, y, w, h }
-              })
+              // ── Logo placement ──
+              const logoS = R(55, 95)
+              type Pos = { x: number; y: number }
+              let logoPos: Pos = { x: pad, y: pad }
+              if (align === 'right') logoPos = { x: CW - logoS - pad, y: pad }
+              else if (align === 'center') logoPos = { x: Math.round((CW - logoS) / 2), y: pad }
+              else logoPos = pick([{ x: pad, y: pad }, { x: pad, y: Math.round((CH - logoS) / 2) }])
+
+              // ── Text area (opposite of logo) ──
+              const logoRight = logoPos.x + logoS / 2 > CW / 2
+              const logoCenter = align === 'center'
+              let tX: number, tW: number
+              if (logoCenter) {
+                tX = pad; tW = CW - pad * 2
+              } else if (logoRight) {
+                tX = pad; tW = logoPos.x - pad - 12
+              } else {
+                tX = logoPos.x + logoS + 15; tW = CW - tX - pad
+              }
+              const tAlign = logoCenter ? 'center' : (logoRight ? 'left' : 'left')
+
+              // ── Vertical rhythm ──
+              const gap = spacing === 'compact' ? R(3, 5) : spacing === 'balanced' ? R(5, 8) : R(8, 14)
+              const sectionGap = gap * 3
+              let curY = logoCenter ? logoPos.y + logoS + sectionGap : pad
+
+              // ── Build result ──
+              const result: any[] = []
+              const place = (z: any, x: number, y: number, w: number, h: number, extra?: any) => {
+                result.push({ ...z, x, y, w, h, fontSize: fsMap[z.key] || z.fontSize, ...extra })
+              }
+
+              // Group 1: Branding — company name, message (top or after logo)
+              for (const z of currentZones) {
+                if (z.key === 'company_name') {
+                  if (style === 'corporate' && !logoCenter) {
+                    // Corporate: company name next to logo
+                    place(z, logoCenter ? tX : logoPos.x + logoS + 12, logoPos.y + R(5, 15), 200, 22, { align: tAlign, fontWeight: 'bold', fill: 'accent' })
+                  } else {
+                    place(z, tX, curY, tW, 22, { align: tAlign, fontWeight: 'bold', fill: 'accent' })
+                    curY += 22 + gap
+                  }
+                }
+                if (z.key === 'company_message') {
+                  if (style === 'corporate' && !logoCenter) {
+                    place(z, logoPos.x + logoS + 12, logoPos.y + R(28, 38), 200, 18, { align: tAlign, fill: 'light' })
+                  } else {
+                    place(z, tX, curY, tW, 18, { align: tAlign, fill: 'light' })
+                    curY += 18 + gap
+                  }
+                }
+              }
+
+              // Group 2: Primary — name, title (dominant)
+              curY += style === 'bold' ? sectionGap : gap
+              for (const z of currentZones) {
+                if (z.key === 'full_name') {
+                  place(z, tX, curY, tW, nameScale + 6, { align: tAlign, fontWeight: 'bold', fill: style === 'bold' ? 'dark' : 'accent' })
+                  curY += nameScale + 6 + gap
+                }
+                if (z.key === 'job_title') {
+                  place(z, tX, curY, tW, titleScale + 6, { align: tAlign, fill: style === 'bold' ? 'accent' : 'light' })
+                  curY += titleScale + 6 + gap
+                }
+              }
+
+              // Group 3: Contact — stacked below with section gap
+              curY += sectionGap
+              const contactKeys = ['phone', 'email', 'address1', 'address2', 'website']
+              for (const z of currentZones) {
+                if (contactKeys.includes(z.key)) {
+                  const fs = fsMap[z.key] || contactScale
+                  place(z, tX, Math.min(curY, CH - fs - 6), tW, fs + 6, { align: tAlign, fill: 'light' })
+                  curY += fs + 6 + gap
+                }
+              }
+
+              // Special: Logo
+              for (const z of currentZones) {
+                if (z.type === 'logo') place(z, logoPos.x, logoPos.y, logoS, logoS)
+              }
+
+              // Special: QR — corners only
+              for (const z of currentZones) {
+                if (z.type === 'qr') {
+                  const qS = R(48, 65)
+                  const corners: Pos[] = [{ x: CW - qS - pad, y: CH - qS - pad }, { x: pad, y: CH - qS - pad }, { x: CW - qS - pad, y: pad }, { x: pad, y: pad }]
+                  // Prefer corner opposite to logo
+                  const best = corners.sort((a, b) => {
+                    const da = Math.abs(a.x - logoPos.x) + Math.abs(a.y - logoPos.y)
+                    const db = Math.abs(b.x - logoPos.x) + Math.abs(b.y - logoPos.y)
+                    return db - da
+                  })[0]
+                  place(z, best.x, best.y, qS, qS)
+                }
+              }
+
+              // Special: Social — small, near bottom
+              for (const z of currentZones) {
+                if (z.type === 'social') {
+                  const sw = R(70, 100), sh = R(20, 35)
+                  const sx = align === 'center' ? Math.round((CW - sw) / 2) : align === 'right' ? CW - sw - pad : pad
+                  place(z, sx, CH - sh - pad, sw, sh)
+                }
+              }
+
               updateLayout(i, zoneKey, result)
             }} style={{ width: '100%', padding: '8px 0', borderRadius: 8, border: '2px dashed #FF6B00', background: '#FFF7ED', cursor: 'pointer', fontSize: 12, fontWeight: 600, color: '#FF6B00', marginBottom: 12 }}>
               🎲 Random ({currentZones.length})
