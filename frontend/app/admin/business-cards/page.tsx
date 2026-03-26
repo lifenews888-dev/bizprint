@@ -335,46 +335,58 @@ export default function AdminBusinessCardsPage() {
               ))}
             </div>
 
-            {/* Random layout — одоо байгаа элементүүдийг логиктой дахин байрлуулна */}
+            {/* Random layout — элемент тоогоос хамаарч логиктой байрлуулна */}
             <button onClick={() => {
               if (currentZones.length === 0) return
-              const CW = 450, CH = 275, PAD = 20
+              const CW = 450, CH = 275, P = 20
               const keys = currentZones.map((z: any) => z.key)
-              // Элементүүдийг ангилах
-              const hasLogo = keys.includes('logo')
-              const hasQr = keys.includes('qr')
-              const hasSocial = keys.includes('social')
-              const textKeys = keys.filter((k: string) => !['logo','qr','social'].includes(k))
-              // Лого байрлал variants
-              const logoPositions = [[PAD, PAD], [CW-100, PAD], [CW-100, CH-100], [PAD, CH-100], [(CW-80)/2, PAD]]
-              const logoPos = logoPositions[Math.floor(Math.random() * logoPositions.length)]
-              // Лого баруунд эсвэл зүүнд байна уу → текст эсрэг талд
-              const logoRight = logoPos[0] > CW / 2
-              const textX = logoRight ? PAD : (hasLogo ? 130 : PAD)
-              const textMaxW = logoRight ? CW - 140 : CW - (hasLogo ? 150 : 40)
-              // Текстүүдийг дээрээс доош жигд тараах
-              const textStartY = PAD
-              const gap = Math.min(28, Math.floor((CH - PAD * 2) / Math.max(textKeys.length, 1)))
+              const texts = currentZones.filter((z: any) => !z.type)
+              const n = currentZones.length
+
+              // Цөөн элемент (1-4) → голд төвлөрсөн
+              if (n <= 4) {
+                let y = Math.round((CH - n * 35) / 2)
+                const result = currentZones.map((z: any) => {
+                  if (z.type === 'logo') return { ...z, x: Math.round((CW - 80) / 2), y: Math.round((CH - 80) / 2) }
+                  if (z.type === 'qr') return { ...z, x: Math.round((CW - 60) / 2), y: Math.round((CH - 60) / 2) }
+                  if (z.type === 'social') return { ...z, x: Math.round((CW - 80) / 2), y: Math.round(CH - 60) }
+                  const r = { ...z, x: Math.round((CW - (z.w || 220)) / 2), y }; y += 35; return r
+                })
+                updateLayout(i, zoneKey, result); return
+              }
+
+              // Олон элемент (5+) → 6 layout хэв маяг
+              const variant = Math.floor(Math.random() * 6)
+              // Лого байрлал: 0=зүүн дээр, 1=баруун дээр, 2=зүүн доор, 3=баруун доор, 4=голд дээр, 5=зүүн голд
+              const logoSlots = [[P,P],[CW-95,P],[P,CH-95],[CW-95,CH-95],[(CW-80)/2,P],[P,(CH-80)/2]]
+              const lp = logoSlots[variant]
+              const logoRight = lp[0] > CW * 0.4
+              const logoTop = lp[1] < CH * 0.4
+              // QR — логогийн диагональ эсрэг буланд
+              const qp = [logoRight ? P : CW - 75, logoTop ? CH - 75 : P]
+              // Social — QR-ийн дээр/доор
+              const sp = [qp[0], logoTop ? qp[1] - 50 : qp[1] + 70]
+              // Текст талбай
+              const tArea = logoRight
+                ? { x: P, maxW: CW - 130 }
+                : lp[0] < 100 ? { x: 120, maxW: CW - 140 } : { x: P, maxW: CW - 40 }
+              // Текстүүдийг жигд тараах (logo-гүй бүс)
+              const tStartY = logoTop && !logoRight ? (lp[1] + 95) : P
+              const tEndY = !logoTop && !logoRight ? (lp[1] - 10) : (CH - (keys.includes('qr') && !logoTop ? 0 : P))
+              const tGap = Math.max(22, Math.min(32, Math.floor((tEndY - tStartY) / Math.max(texts.length, 1))))
+
+              let ty = tStartY
               const result = currentZones.map((z: any) => {
-                if (z.type === 'logo') return { ...z, x: logoPos[0], y: logoPos[1], w: 80, h: 80 }
-                if (z.type === 'qr') {
-                  // QR — логотой эсрэг булангийн доод талд
-                  const qx = logoRight ? PAD : CW - 80
-                  return { ...z, x: qx, y: CH - 80 }
-                }
-                if (z.type === 'social') {
-                  // Social — QR-ийн дээр эсвэл лого доор
-                  const sx = hasQr ? (logoRight ? PAD : CW - 80) : (logoRight ? PAD + 80 : CW - 100)
-                  return { ...z, x: sx, y: CH - 140 }
-                }
-                // Текст — дараалуулж жигд байрлуулах
-                const idx = textKeys.indexOf(z.key)
-                const y = textStartY + idx * gap
-                return { ...z, x: textX, y, w: Math.min(z.w || 220, textMaxW) }
+                if (z.type === 'logo') return { ...z, x: lp[0], y: lp[1], w: 80, h: 80 }
+                if (z.type === 'qr') return { ...z, x: qp[0], y: qp[1], w: 64, h: 64 }
+                if (z.type === 'social') return { ...z, x: Math.max(P, Math.min(CW - 90, sp[0])), y: Math.max(P, Math.min(CH - 50, sp[1])), w: 80, h: 40 }
+                const r = { ...z, x: tArea.x, y: Math.round(ty), w: Math.min(z.w || 220, tArea.maxW) }
+                ty += tGap
+                return r
               })
               updateLayout(i, zoneKey, result)
             }} style={{ width: '100%', padding: '8px 0', borderRadius: 8, border: '2px dashed #FF6B00', background: '#FFF7ED', cursor: 'pointer', fontSize: 12, fontWeight: 600, color: '#FF6B00', marginBottom: 12 }}>
-              🎲 Random ({currentZones.length} элемент)
+              🎲 Random ({currentZones.length})
             </button>
 
             {/* Add zones */}
