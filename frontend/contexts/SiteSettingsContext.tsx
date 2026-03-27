@@ -1,9 +1,9 @@
 'use client'
 
 import { createContext, useContext, useEffect, useState, useCallback, ReactNode } from 'react'
-import { io, Socket } from 'socket.io-client'
+import { useRealtime } from './RealtimeContext'
 
-const API = 'http://localhost:4000'
+const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000'
 
 // Default settings fallback
 const DEFAULT_SETTINGS: Record<string, any> = {
@@ -13,9 +13,9 @@ const DEFAULT_SETTINGS: Record<string, any> = {
   site_phone: '+976 XXXX-XXXX',
   site_email: 'info@bizprint.mn',
   site_address: 'Улаанбаатар, Монгол',
-  site_facebook: '',
-  site_instagram: '',
-  site_youtube: '',
+  site_facebook: 'https://facebook.com/bizprint.mn',
+  site_instagram: 'https://instagram.com/bizprint.mn',
+  site_youtube: 'https://youtube.com/@bizprint',
   site_primary_color: '#FF6B00',
   // header
   header_logo_url: '',
@@ -115,9 +115,21 @@ const DEFAULT_MEGA_MENU = [
     columns: [{ items: [{label:'Үнийн санал',url:'/quote'},{label:'Онлайн дизайн',url:'/designer'},{label:'Хүргэлт',url:'/delivery'},{label:'Партнер хөтөлбөр',url:'/partner'}]}],
     featured: null,
   },
-  { id: '4', nav_label: 'Партнер', nav_url: '/partner', nav_type: 'LINK', is_active: true, sort_order: 4, columns: null, featured: null },
-  { id: '5', nav_label: 'Quote', nav_url: '/quote', nav_type: 'LINK', is_active: true, sort_order: 5, columns: null, featured: null },
-  { id: '6', nav_label: 'Үйлдвэрүүд', nav_url: '/factory', nav_type: 'LINK', is_active: true, sort_order: 6, columns: null, featured: null },
+  {
+    id: '4', nav_label: 'Загвар сан', nav_url: '/templates', nav_type: 'DROPDOWN', is_active: true, sort_order: 4,
+    columns: [{ items: [
+      { label: 'Нэрийн хуудас загвар', url: '/templates?category=business_card', desc: '90×50мм бэлэн загвар' },
+      { label: 'Флаер & Постер загвар', url: '/templates?category=flyer', desc: 'A4, A5, A6 хэмжээт' },
+      { label: 'Баннер загвар', url: '/templates?category=banner', desc: 'Гадна & дотор баннер' },
+      { label: 'Стикер загвар', url: '/templates?category=sticker', desc: 'Өнгөт наалт загвар' },
+      { label: 'Сошиал медиа загвар', url: '/templates?category=social', desc: 'FB, IG постер & story' },
+      { label: '→ Бүх загвар харах', url: '/templates', desc: '' },
+    ]}],
+    featured: null,
+  },
+  { id: '5', nav_label: 'Партнер', nav_url: '/partner', nav_type: 'LINK', is_active: true, sort_order: 5, columns: null, featured: null },
+  { id: '6', nav_label: 'Quote', nav_url: '/quote', nav_type: 'LINK', is_active: true, sort_order: 6, columns: null, featured: null },
+  { id: '7', nav_label: 'Үйлдвэрүүд', nav_url: '/factory', nav_type: 'LINK', is_active: true, sort_order: 7, columns: null, featured: null },
 ]
 
 interface SiteSettingsContextType {
@@ -138,13 +150,23 @@ export function SiteSettingsProvider({ children }: { children: ReactNode }) {
   const [settings, setSettings] = useState<Record<string, any>>(DEFAULT_SETTINGS)
   const [megaMenu, setMegaMenu] = useState<any[]>(DEFAULT_MEGA_MENU)
   const [loading, setLoading] = useState(true)
+  const { subscribe, onReconnect } = useRealtime()
 
   const fetchSettings = useCallback(() => {
     Promise.all([
       fetch(`${API}/cms/settings/public`).then(r => r.ok ? r.json() : null).catch(() => null),
       fetch(`${API}/cms/mega-menu/public`).then(r => r.ok ? r.json() : null).catch(() => null),
     ]).then(([s, m]) => {
-      if (s && typeof s === 'object') setSettings(prev => ({ ...prev, ...s }))
+      if (s && typeof s === 'object') {
+        // Хоосон утгаар default-ийг дарахгүй байх — зөвхөн утгатай талбаруудыг override хийнэ
+        const filtered: Record<string, any> = {}
+        for (const [key, val] of Object.entries(s)) {
+          if (val !== null && val !== undefined && val !== '') {
+            filtered[key] = val
+          }
+        }
+        setSettings(prev => ({ ...prev, ...filtered }))
+      }
       if (Array.isArray(m) && m.length > 0) setMegaMenu(m)
     }).finally(() => setLoading(false))
   }, [])
@@ -153,34 +175,28 @@ export function SiteSettingsProvider({ children }: { children: ReactNode }) {
     // Initial fetch
     fetchSettings()
 
-    // Socket.IO real-time updates from /cms namespace
-    let socket: Socket | null = null
-    try {
-      socket = io(`${API}/cms`, { transports: ['websocket'], reconnection: true, reconnectionDelay: 3000 })
-
-      socket.on('settings_updated', ({ key, value }: { key: string; value: any }) => {
-        setSettings(prev => ({ ...prev, [key]: value }))
-      })
-
-      socket.on('settings_bulk_updated', ({ settings: updated }: { settings: Record<string, any> }) => {
-        setSettings(prev => ({ ...prev, ...updated }))
-      })
-
-      socket.on('menu_updated', ({ menu }: { menu: any[] }) => {
+    // Subscribe to /sync namespace CMS events
+    const unsubs = [
+      subscribe('SETTINGS_UPDATED', ({ key, value }: { key: string; value: any }) => {
+        if (key && value !== undefined && value !== null && value !== '') {
+          setSettings(prev => ({ ...prev, [key]: value }))
+        }
+      }),
+      subscribe('SETTINGS_BULK_UPDATED', ({ settings: updated }: { settings: Record<string, any> }) => {
+        if (updated && typeof updated === 'object') {
+          setSettings(prev => ({ ...prev, ...updated }))
+        }
+      }),
+      subscribe('MENU_UPDATED', ({ menu }: { menu: any[] }) => {
         if (Array.isArray(menu) && menu.length > 0) setMegaMenu(menu)
-      })
-    } catch {
-      // Socket.IO not available, fallback to polling only
-    }
+      }),
+      // Re-fetch on reconnect (in case we missed updates while disconnected)
+      onReconnect(fetchSettings),
+    ]
 
-    // Fallback polling every 60 seconds
-    const interval = setInterval(fetchSettings, 60000)
-
-    return () => {
-      if (socket) socket.disconnect()
-      clearInterval(interval)
-    }
-  }, [fetchSettings])
+    return () => { unsubs.forEach(fn => fn()) }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   return (
     <SiteSettingsContext.Provider value={{ settings, megaMenu, loading, refetch: fetchSettings }}>

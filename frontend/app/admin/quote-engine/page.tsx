@@ -1,6 +1,6 @@
 'use client'
 
-import { apiFetch } from '@/lib/api'
+import { apiFetch, API_URL } from '@/lib/api'
 import { useState, useEffect, useCallback, Fragment } from 'react'
 
 function fmt(n: number) {
@@ -114,7 +114,7 @@ function PriceConfigTab() {
   async function saveSingle(key: string) {
     setSavingKey(key)
     try {
-      await apiFetch('/pricing-config', {
+      await apiFetch<any>('/pricing-config', {
         method: 'PUT',
         body: { items: [{ key, value: Number(editValues[key]) || 0 }] },
       })
@@ -134,7 +134,7 @@ function PriceConfigTab() {
         key: c.key,
         value: Number(editValues[c.key]) || 0,
       }))
-      await apiFetch('/pricing-config', {
+      await apiFetch<any>('/pricing-config', {
         method: 'PUT',
         body: { items },
       })
@@ -310,7 +310,7 @@ function QuotesListTab() {
   const fetchQuotes = useCallback(async () => {
     setLoading(true)
     try {
-      const data = await apiFetch<any>('/quotes-v2')
+      const data = await apiFetch<any>('/quote')
       setQuotes(Array.isArray(data) ? data : data.data || [])
     } catch {
       setQuotes([])
@@ -323,7 +323,7 @@ function QuotesListTab() {
 
   async function changeStatus(id: number, status: string) {
     try {
-      await apiFetch(`/quotes-v2/${id}`, {
+      await apiFetch<any>(`/quote/${id}`, {
         method: 'PATCH',
         body: { status },
       })
@@ -334,10 +334,10 @@ function QuotesListTab() {
   async function resendEmail(id: number) {
     setSendingEmail(id)
     try {
-      await apiFetch(`/quotes-v2/${id}/resend-email`, {
+      await apiFetch<any>(`/quote/${id}/resend-email`, {
         method: 'POST',
       }).catch(() =>
-        apiFetch(`/quotes-v2/${id}/send-email`, {
+        apiFetch<any>(`/quote/${id}/send-email`, {
           method: 'POST',
         })
       )
@@ -457,6 +457,25 @@ function QuotesListTab() {
                             <option key={s} value={s}>{s}</option>
                           ))}
                         </select>
+                        <a
+                          href={`${API_URL}/quote/${q.id}/pdf`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={e => e.stopPropagation()}
+                          style={{
+                            background: 'transparent',
+                            border: '1px solid #FF6B00',
+                            borderRadius: 6,
+                            padding: '4px 10px',
+                            fontSize: 11,
+                            color: '#FF6B00',
+                            cursor: 'pointer',
+                            textDecoration: 'none',
+                            fontWeight: 600,
+                          }}
+                        >
+                          PDF
+                        </a>
                         <button
                           onClick={e => { e.stopPropagation(); resendEmail(q.id) }}
                           disabled={sendingEmail === q.id}
@@ -536,8 +555,8 @@ function StatsTab() {
 
   useEffect(() => {
         Promise.all([
-      apiFetch('/quotes-v2/today').catch(() => null),
-      apiFetch('/quotes-v2').catch(() => null),
+      apiFetch<any>('/quote/today').catch(() => null),
+      apiFetch<any>('/quote').catch(() => null),
     ]).then(([todayData, allData]) => {
       if (todayData) {
         if (typeof todayData === 'number') setTodayCount(todayData)

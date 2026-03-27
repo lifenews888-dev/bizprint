@@ -15,17 +15,17 @@ export default function AdminMachinesPage() {
   const [editing, setEditing] = useState<any>(null)
   const [form, setForm] = useState({ name: '', type: '', speed_per_hour: 0, sheet_width_mm: 0, sheet_height_mm: 0, hour_rate: 0, factory_id: '', status: 'available' })
 
-  const load = () => { apiFetch('/machines').then(d => setItems(Array.isArray(d) ? d : [])).catch(() => {}).finally(() => setLoading(false)) }
+  const load = () => { apiFetch<any>('/machines').then(d => setItems(Array.isArray(d) ? d : [])).catch(() => {}).finally(() => setLoading(false)) }
   useEffect(load, [])
 
   const reset = () => { setEditing(null); setForm({ name: '', type: '', speed_per_hour: 0, sheet_width_mm: 0, sheet_height_mm: 0, hour_rate: 0, factory_id: '', status: 'available' }) }
   const save = async () => {
     const method = editing?.id ? 'PATCH' : 'POST'
     const url = editing?.id ? `/machines/${editing.id}` : `/machines`
-    await apiFetch(url, { method: , body: form })
+    await apiFetch<any>(url, { method, body: form })
     reset(); load()
   }
-  const del = async (id: number) => { if (!confirm('Устгах уу?')) return; await apiFetch(`/machines/${id}`, { method: 'DELETE' }); load() }
+  const del = async (id: number) => { if (!confirm('Устгах уу?')) return; await apiFetch<any>(`/machines/${id}`, { method: 'DELETE' }); load() }
   const edit = (m: any) => { setEditing(m); setForm({ name: m.name || '', type: m.type || '', speed_per_hour: m.speed_per_hour || 0, sheet_width_mm: m.sheet_width_mm || 0, sheet_height_mm: m.sheet_height_mm || 0, hour_rate: m.hour_rate || 0, factory_id: m.factory_id || '', status: m.status || 'available' }) }
 
   const inp: React.CSSProperties = { width: '100%', padding: '10px 14px', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 13, color: 'var(--text)', outline: 'none' }

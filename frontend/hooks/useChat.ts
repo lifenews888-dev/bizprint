@@ -1,9 +1,10 @@
 'use client'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { io, Socket } from 'socket.io-client'
+import { API_URL } from '@/lib/api'
 
-const SOCKET_URL = 'http://localhost:4000'
-const API       = 'http://localhost:4000'
+const SOCKET_URL = API_URL
+const API       = API_URL
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -34,7 +35,10 @@ export function useChat(userId: string, userName: string, role: string) {
   const [messages,   setMessages]   = useState<Record<string, Message[]>>({})
   const [activeRoom, setActiveRoom] = useState<string | null>(null)
   const [connected,  setConnected]  = useState(false)
+  const [typingUsers, setTypingUsers] = useState<Record<string, string[]>>({}) // room_id -> user names
+  const [searchQuery, setSearchQuery] = useState('')
   const socketRef = useRef<Socket | null>(null)
+  const typingTimeoutRef = useRef<Record<string, NodeJS.Timeout>>({})
 
   // ── Helper: read auth token from either key ────────────────────────────────
   function token() {
@@ -114,6 +118,32 @@ export function useChat(userId: string, userName: string, role: string) {
           [data.room_id]: data.messages.map(normalise),
         }))
       }
+    })
+
+    // Typing indicator events
+    socket.on('user_typing', (data: { room_id: string; user_name: string; user_id: string }) => {
+      if (data.user_id === userId) return // ignore own typing
+      setTypingUsers(prev => {
+        const current = prev[data.room_id] || []
+        if (current.includes(data.user_name)) return prev
+        return { ...prev, [data.room_id]: [...current, data.user_name] }
+      })
+      // Auto-clear after 3 seconds
+      const key = `${data.room_id}_${data.user_id}`
+      if (typingTimeoutRef.current[key]) clearTimeout(typingTimeoutRef.current[key])
+      typingTimeoutRef.current[key] = setTimeout(() => {
+        setTypingUsers(prev => {
+          const current = prev[data.room_id] || []
+          return { ...prev, [data.room_id]: current.filter(n => n !== data.user_name) }
+        })
+      }, 3000)
+    })
+
+    socket.on('user_stop_typing', (data: { room_id: string; user_name: string }) => {
+      setTypingUsers(prev => {
+        const current = prev[data.room_id] || []
+        return { ...prev, [data.room_id]: current.filter(n => n !== data.user_name) }
+      })
     })
 
     return () => { socket.disconnect() }
@@ -207,5 +237,42 @@ export function useChat(userId: string, userName: string, role: string) {
     setActiveRoom(roomId)
   }, [rooms, joinRoom])
 
-  return { rooms, messages, activeRoom, connected, joinRoom, sendMessage, createRoom }
+  // ── emitTyping ───────────────────────────────────────────────────────────
+  const emitTyping = useCallback((roomId: string) => {
+    socketRef.current?.emit('typing', {
+      room_id: roomId,
+      user_id: userId,
+      user_name: userName,
+    })
+  }, [userId, userName])
+
+  const emitStopTyping = useCallback((roomId: string) => {
+    socketRef.current?.emit('stop_typing', {
+      room_id: roomId,
+      user_id: userId,
+      user_name: userName,
+    })
+  }, [userId, userName])
+
+  // ── searchMessages ─────────────────────────────────────────────────────
+  const searchMessages = useCallback((query: string) => {
+    setSearchQuery(query)
+  }, [])
+
+  const getFilteredMessages = useCallback((roomId: string) => {
+    const msgs = messages[roomId] || []
+    if (!searchQuery.trim()) return msgs
+    const q = searchQuery.toLowerCase()
+    return msgs.filter(m =>
+      m.message.toLowerCase().includes(q) ||
+      m.sender_name?.toLowerCase().includes(q)
+    )
+  }, [messages, searchQuery])
+
+  return {
+    rooms, messages, activeRoom, connected,
+    joinRoom, sendMessage, createRoom,
+    typingUsers, emitTyping, emitStopTyping,
+    searchQuery, searchMessages, getFilteredMessages,
+  }
 }

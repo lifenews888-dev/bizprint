@@ -1,6 +1,6 @@
 'use client'
 
-import { apiFetch } from '@/lib/api'
+import { apiFetch, getToken } from '@/lib/api'
 /**
  * Customer Design Requests List
  * Shows all design requests with status, links to approval page
@@ -29,22 +29,19 @@ export default function CustomerDesignsPage() {
   const [designs, setDesigns] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const { subscribe, joinRoom } = useRealtime()
-  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null
-  const headers = { Authorization: `Bearer ${token}` }
+  const token = getToken()
 
   useEffect(() => {
     if (!token) { router.push('/login'); return }
-    apiFetch(`/auth/me`, { headers }).catch(() => null).then(u => { if (u) setUser(u) })
+    apiFetch<any>(`/auth/me`).catch(() => null).then(u => { if (u) setUser(u) })
   }, [])
 
   const loadDesigns = async (userId?: string) => {
     const uid = userId || user?.id
     if (!uid) return
     try {
-      const res = await apiFetch(`/design-requests/customer/${uid}`, { headers })
-      const data = res
-        if (Array.isArray(data)) setDesigns(data)
-      }
+      const data = await apiFetch<any>(`/design-requests/customer/${uid}`)
+      if (Array.isArray(data)) setDesigns(data)
     } catch {}
     finally { setLoading(false) }
   }

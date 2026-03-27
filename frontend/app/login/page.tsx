@@ -30,7 +30,7 @@ export default function LoginPage() {
         if (data.refresh_token) localStorage.setItem('refresh_token', data.refresh_token)
         localStorage.setItem('user', JSON.stringify(data.user))
         const role = data.user?.role
-        if (role === 'admin') router.push('/admin')
+        if (role === 'superadmin' || role === 'admin') router.push('/admin')
         else if (role === 'vendor') router.push('/dashboard/vendor')
         else if (role === 'designer') router.push('/designer')
         else if (role === 'sales') router.push('/sales')
@@ -42,7 +42,7 @@ export default function LoginPage() {
   }
 
   return (
-    <main style={{ display: 'flex', minHeight: '100vh', fontFamily: "'Segoe UI',system-ui,sans-serif", background: '#0A0A0A' }}>
+    <div style={{ display: 'flex', minHeight: '100vh', fontFamily: "'Segoe UI',system-ui,sans-serif", background: '#0A0A0A' }}>
 
       {/* Зүүн тал - брэнд (mobile дээр нуугдана) */}
       <div style={{ flex: '0 0 52%', position: 'relative', overflow: 'hidden', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: '48px' }}
@@ -168,6 +168,6 @@ export default function LoginPage() {
           </p>
         </div>
       </div>
-    </main>
+    </div>
   )
 }

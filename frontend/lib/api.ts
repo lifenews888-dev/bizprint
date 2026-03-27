@@ -65,9 +65,9 @@ export async function apiFetch<T = unknown>(
     body: fetchBody,
   })
 
-  // 401 → auto logout + redirect
+  // 401 → auto logout + redirect (зөвхөн auth: true үед)
   if (res.status === 401) {
-    if (typeof window !== 'undefined') {
+    if (auth && typeof window !== 'undefined') {
       localStorage.removeItem('access_token')
       localStorage.removeItem('token')
       localStorage.removeItem('user')

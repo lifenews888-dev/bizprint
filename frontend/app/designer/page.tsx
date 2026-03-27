@@ -1,5 +1,5 @@
 'use client'
-import { apiFetch } from '@/lib/api'
+import { apiFetch, API_URL, getToken } from '@/lib/api'
 import { useEffect, useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import DashboardLayout from '@/components/layouts/DashboardLayout'
@@ -59,7 +59,7 @@ export default function DesignerDashboard() {
   useEffect(() => {
     if (authLoading) return
     const ud = localStorage.getItem('user')
-    const tk = tok()
+    const tk = getToken()
     if (!ud || !tk) { router.push('/login'); return }
     setUser(JSON.parse(ud))
     fetchOrders()
@@ -68,7 +68,7 @@ export default function DesignerDashboard() {
   async function fetchOrders() {
     setLoading(true)
     try {
-      const r = await apiFetch('/admin/orders')
+      const r = await apiFetch<any>('/admin/orders')
       setOrders(r)
     } catch {}
     setLoading(false)
@@ -81,16 +81,14 @@ export default function DesignerDashboard() {
 
   async function updateStatus(order: Order, status: string) {
     try {
-      const r = await apiFetch('/orders/' + order.id, {
+      await apiFetch<any>('/orders/' + order.id, {
         method: 'PATCH',
         body: { status },
       })
-      if (r.ok) {
-        showToast('\u0422\u04e9\u043b\u04e9\u0432 \u0448\u0438\u043d\u044d\u0447\u043b\u044d\u0433\u0434\u043b\u044d\u044d \u2713')
-        const updated = { ...order, status }
-        setOrders(prev => prev.map(o => o.id === order.id ? updated : o))
-        setSelected(updated)
-      } else showToast('\u0410\u043b\u0434\u0430\u0430 \u0433\u0430\u0440\u043b\u0430\u0430', false)
+      showToast('\u0422\u04e9\u043b\u04e9\u0432 \u0448\u0438\u043d\u044d\u0447\u043b\u044d\u0433\u0434\u043b\u044d\u044d \u2713')
+      const updated = { ...order, status }
+      setOrders(prev => prev.map(o => o.id === order.id ? updated : o))
+      setSelected(updated)
     } catch { showToast('\u0410\u043b\u0434\u0430\u0430 \u0433\u0430\u0440\u043b\u0430\u0430', false) }
   }
 
@@ -99,19 +97,17 @@ export default function DesignerDashboard() {
     try {
       const fd = new FormData()
       fd.append('file', file)
-      const r = await apiFetch('/upload/file', { method: 'POST', body: fd })
-      if (!r.ok) throw new Error()
-      const { url } = await r.json()
-      const r2 = await apiFetch('/orders/' + order.id, {
+      const uploadData = await apiFetch<any>('/upload/file', { method: 'POST', body: fd })
+      if (!uploadData) throw new Error()
+      const url = uploadData.url || uploadData.file_url || uploadData.filename
+      await apiFetch<any>('/orders/' + order.id, {
         method: 'PATCH',
         body: { file_url: url },
       })
-      if (r2.ok) {
-        showToast('\u0424\u0430\u0439\u043b \u0430\u043c\u062c\u0438\u043b\u0442\u0430\u0439 \u0438\u043b\u044d\u0433\u0434\u043b\u044d\u044d \u2713')
-        const updated = { ...order, file_url: url }
-        setOrders(prev => prev.map(o => o.id === order.id ? updated : o))
-        setSelected(updated)
-      } else throw new Error()
+      showToast('\u0424\u0430\u0439\u043b \u0430\u043c\u062c\u0438\u043b\u0442\u0430\u0439 \u0438\u043b\u044d\u0433\u0434\u043b\u044d\u044d \u2713')
+      const updated = { ...order, file_url: url }
+      setOrders(prev => prev.map(o => o.id === order.id ? updated : o))
+      setSelected(updated)
     } catch { showToast('\u0424\u0430\u0439\u043b \u0438\u043b\u044d\u0433\u044d\u0445 \u0430\u043b\u0434\u0430\u0430', false) }
     setUploading(false)
   }
@@ -266,7 +262,7 @@ export default function DesignerDashboard() {
                 <div style={{ background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 8, padding: '10px 12px', marginBottom: 8 }}>
                   <div style={{ fontSize: 11, color: 'var(--text2)', marginBottom: 6 }}>Хэрэглэгчийн файл</div>
                   {selected.file_url ? (
-                    <a href={API + '/' + selected.file_url} target="_blank" rel="noreferrer"
+                    <a href={API_URL + '/' + selected.file_url} target="_blank" rel="noreferrer"
                       style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#378ADD', fontSize: 13, textDecoration: 'none' }}>
                       <span>📎</span>
                       <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>

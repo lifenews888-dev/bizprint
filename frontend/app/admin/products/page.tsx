@@ -1,5 +1,5 @@
 'use client'
-import { apiFetch } from '@/lib/api'
+import { apiFetch, getToken } from '@/lib/api'
 import React, { useState, useEffect, useCallback } from 'react'
 import ProductMediaUploader from '@/components/ProductMediaUploader'
 
@@ -76,7 +76,7 @@ function PrintProductsTab() {
       const params = new URLSearchParams()
       if (search) params.set('search', search)
       if (categoryFilter) params.set('category', categoryFilter)
-      const data = await apiFetch(`/admin/products-master?${params}`)
+      const data = await apiFetch<any>(`/admin/products-master?${params}`)
       setItems(data.items || [])
       setTotal(data.total || 0)
     } catch (e: any) {
@@ -112,14 +112,14 @@ function PrintProductsTab() {
     try {
       const payload = { ...form, thumbnail_url: form.images[0] || form.thumbnail_url }
       if (editing?.id) {
-        await apiFetch(`/admin/products-master/${editing.id}`, {
+        await apiFetch<any>(`/admin/products-master/${editing.id}`, {
           method: 'PUT', body: payload,
         })
       } else {
-        await apiFetch(`/admin/products-master`, {
+        const res = await apiFetch<any>(`/admin/products-master`, {
           method: 'POST', body: payload,
         })
-        const created = await res.json()
+        const created = res
         setEditing(created)
         setFormTab(1)  // advance to Materials tab after creating
       }
@@ -136,16 +136,16 @@ function PrintProductsTab() {
     setSaving(true); setError('')
     try {
       if (editingMaterial?.id) {
-        await apiFetch(`/admin/products-master/materials/${editingMaterial.id}`, {
+        const res = await apiFetch<any>(`/admin/products-master/materials/${editingMaterial.id}`, {
           method: 'PUT', body: materialForm,
         })
-        const updated = await res.json()
+        const updated = res
         setMaterials(prev => prev.map(m => m.id === updated.id ? updated : m))
       } else {
-        await apiFetch(`/admin/products-master/${editing.id}/materials`, {
+        const res = await apiFetch<any>(`/admin/products-master/${editing.id}/materials`, {
           method: 'POST', body: materialForm,
         })
-        const created = await res.json()
+        const created = res
         setMaterials(prev => [...prev, created])
       }
       setMaterialForm({ ...emptyMaterial }); setEditingMaterial(null)
@@ -161,16 +161,16 @@ function PrintProductsTab() {
     setSaving(true); setError('')
     try {
       if (editingSize?.id) {
-        await apiFetch(`/admin/products-master/sizes/${editingSize.id}`, {
+        const res = await apiFetch<any>(`/admin/products-master/sizes/${editingSize.id}`, {
           method: 'PUT', body: sizeForm,
         })
-        const updated = await res.json()
+        const updated = res
         setSizes(prev => prev.map(s => s.id === updated.id ? updated : s))
       } else {
-        await apiFetch(`/admin/products-master/${editing.id}/sizes`, {
+        const res = await apiFetch<any>(`/admin/products-master/${editing.id}/sizes`, {
           method: 'POST', body: sizeForm,
         })
-        const created = await res.json()
+        const created = res
         setSizes(prev => [...prev, created])
       }
       setSizeForm({ ...emptySize }); setEditingSize(null)
@@ -181,7 +181,7 @@ function PrintProductsTab() {
 
   const deactivate = async (id: string) => {
     if (!confirm('Устгах уу?')) return
-    await apiFetch(`/admin/products-master/${id}`, { method: 'DELETE' })
+    await apiFetch<any>(`/admin/products-master/${id}`, { method: 'DELETE' })
     await load()
   }
 
@@ -305,7 +305,7 @@ function PrintProductsTab() {
                     <ProductMediaUploader
                       images={form.images}
                       videoUrl={form.video_url}
-                      token={getToken()}
+                      token={getToken() || ''}
                       onChange={(imgs, vid) => setForm(f => ({ ...f, images: imgs, thumbnail_url: imgs[0] || f.thumbnail_url, video_url: vid }))}
                     />
                   </div>
@@ -436,7 +436,7 @@ function ShopProductsTab() {
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const data = await apiFetch('/admin/shop-products?product_type=ready')
+      const data = await apiFetch<any>('/admin/shop-products?product_type=ready')
       setItems(data.items || [])
       setTotal(data.total || 0)
     } catch (e: any) {
@@ -476,9 +476,9 @@ function ShopProductsTab() {
         product_type: 'ready',
       }
       if (editing?.id) {
-        await apiFetch(`/admin/shop-products/${editing.id}`, { method: 'PATCH', body: payload })
+        await apiFetch<any>(`/admin/shop-products/${editing.id}`, { method: 'PATCH', body: payload })
       } else {
-        await apiFetch('/admin/shop-products', { method: 'POST', body: payload })
+        await apiFetch<any>('/admin/shop-products', { method: 'POST', body: payload })
       }
       await load(); closeModal()
     } catch (e: any) { setError('Хадгалахад алдаа: ' + (e.message || '')) }
@@ -487,12 +487,12 @@ function ShopProductsTab() {
 
   const deleteItem = async (id: string) => {
     if (!confirm('Устгах уу?')) return
-    await apiFetch(`/admin/shop-products/${id}`, { method: 'DELETE' })
+    await apiFetch<any>(`/admin/shop-products/${id}`, { method: 'DELETE' })
     await load()
   }
 
   const toggleActive = async (item: any) => {
-    await apiFetch(`/admin/shop-products/${item.id}`, { method: 'PATCH', body: { is_active: !item.is_active } })
+    await apiFetch<any>(`/admin/shop-products/${item.id}`, { method: 'PATCH', body: { is_active: !item.is_active } })
     await load()
   }
 
@@ -588,7 +588,7 @@ function ShopProductsTab() {
               <ProductMediaUploader
                 images={form.images}
                 videoUrl={form.video_url}
-                token={getToken()}
+                token={getToken() || ''}
                 onChange={(imgs, vid) => setForm(f => ({ ...f, images: imgs, thumbnail_url: imgs[0] || f.thumbnail_url, video_url: vid }))}
               />
             </div>
@@ -615,7 +615,7 @@ function TemplatesTab() {
     setLoading(true)
     try {
       const params = statusFilter ? `?status=${statusFilter}` : ''
-      const data = await apiFetch(`/templates${params}`)
+      const data = await apiFetch<any>(`/templates${params}`)
       setItems(Array.isArray(data) ? data : [])
     } catch (e: any) {
       setItems([]); setError('Алдаа: ' + (e.message || ''))
@@ -627,7 +627,7 @@ function TemplatesTab() {
   const approve = async (id: string) => {
     setActionLoading(id)
     try {
-      await apiFetch(`/templates/${id}/approve`, { method: 'PATCH'})
+      await apiFetch<any>(`/templates/${id}/approve`, { method: 'PATCH'})
       await load()
     } finally { setActionLoading(null) }
   }
@@ -636,7 +636,7 @@ function TemplatesTab() {
     if (!confirm('Татгалзах уу?')) return
     setActionLoading(id)
     try {
-      await apiFetch(`/templates/${id}/reject`, { method: 'PATCH'})
+      await apiFetch<any>(`/templates/${id}/reject`, { method: 'PATCH'})
       await load()
     } finally { setActionLoading(null) }
   }

@@ -1,8 +1,23 @@
 @import "tailwindcss";
+@source "../components/**/*.tsx";
+@source "../app/**/*.tsx";
+@source "../contexts/**/*.tsx";
+@source "../hooks/**/*.ts";
 
 :root {
+  /* ── Logo-derived brand palette ── */
+  --primary: #FF6B00;
+  --primary-hover: #E55D00;
+  --primary-light: #FFF3EB;
+  --primary-gradient: linear-gradient(135deg, #FF6B00 0%, #F59E0B 100%);
+  --secondary: #8B5CF6;
+  --secondary-hover: #7C3AED;
+  --secondary-light: #F3F0FF;
+  --secondary-gradient: linear-gradient(135deg, #8B5CF6 0%, #6D28D9 100%);
+
+  /* ── Orange opacity tokens ── */
   --orange: #FF6B00;
-  --orange-hover: #e05d00;
+  --orange-hover: #E55D00;
   --orange-03: rgba(255,107,0,0.03);
   --orange-04: rgba(255,107,0,0.04);
   --orange-05: rgba(255,107,0,0.05);
@@ -19,41 +34,41 @@
   --orange-40: rgba(255,107,0,0.4);
 
   --bg:       #0A0A0A;
-  --surface:  #0F0F0F;
-  --surface2: #141414;
-  --surface3: #1A1A1A;
-  --border:   #1A1A1A;
-  --border2:  #2A2A2A;
+  --surface:  #111111;
+  --surface2: #1A1A1A;
+  --surface3: #222222;
+  --border:   #2A2A2A;
+  --border2:  #333333;
   --text:     #F1F5F9;
-  --text2:    #888888;
-  --text3:    #444444;
-  --text4:    #2A2A2A;
+  --text2:    #94A3B8;
+  --text3:    #64748B;
+  --text4:    #334155;
 }
 
 [data-theme="light"] {
-  --bg:       #F5F5F0;
+  --bg:       #FFFFFF;
   --surface:  #FFFFFF;
-  --surface2: #F0EFEA;
-  --surface3: #E8E7E2;
-  --border:   #E2E0D8;
-  --border2:  #CFCDC4;
-  --text:     #111111;
-  --text2:    #555555;
-  --text3:    #999999;
-  --text4:    #CCCCCC;
+  --surface2: #F8F8F8;
+  --surface3: #F0F0F0;
+  --border:   #E5E7EB;
+  --border2:  #D1D5DB;
+  --text:     #111827;
+  --text2:    #4B5563;
+  --text3:    #9CA3AF;
+  --text4:    #D1D5DB;
 }
 
 [data-theme="dark"] {
   --bg:       #0A0A0A;
-  --surface:  #0F0F0F;
-  --surface2: #141414;
-  --surface3: #1A1A1A;
-  --border:   #1A1A1A;
-  --border2:  #2A2A2A;
+  --surface:  #111111;
+  --surface2: #1A1A1A;
+  --surface3: #222222;
+  --border:   #2A2A2A;
+  --border2:  #333333;
   --text:     #F1F5F9;
-  --text2:    #888888;
-  --text3:    #444444;
-  --text4:    #2A2A2A;
+  --text2:    #94A3B8;
+  --text3:    #64748B;
+  --text4:    #334155;
 }
 
 /* ===== RESPONSIVE UTILITIES ===== */

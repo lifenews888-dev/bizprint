@@ -1,5 +1,5 @@
 'use client'
-import { apiFetch } from '@/lib/api'
+import { apiFetch, getToken } from '@/lib/api'
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import DashboardLayout from '@/components/layouts/DashboardLayout'
@@ -7,7 +7,7 @@ import KpiCard from '@/components/dashboard/KpiCard'
 import { useRoleGuard } from '@/lib/use-role-guard'
 import { SALES_MENU } from '@/config/sidebar-config'
 
-const BASE_URL = 'http://localhost:3000'
+const BASE_URL = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000'
 
 interface ReferralData {
   code: string
@@ -81,13 +81,13 @@ export default function SalesDashboard() {
   useEffect(() => {
     if (authLoading) return
     const ud = localStorage.getItem('user')
-    const tk = tok()
+    const tk = getToken()
     if (!ud || !tk) { router.push('/login'); return }
     const u = JSON.parse(ud)
     setUser(u)
     Promise.all([
-      apiFetch('/referral/my').catch(() => null),
-      apiFetch('/orders/customer/' + u.id).catch(() => []),
+      apiFetch<any>('/referral/my').catch(() => null),
+      apiFetch<any>('/orders/customer/' + u.id).catch(() => []),
     ]).then(([ref, ord]) => {
       if (ref) setReferral(ref)
       setOrders(Array.isArray(ord) ? ord : [])

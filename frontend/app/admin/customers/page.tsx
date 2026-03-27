@@ -16,10 +16,10 @@ const TIERS = ['ALL', 'RETAIL', 'B2B', 'VIP', 'WHOLESALE'] as const
 type Tier = typeof TIERS[number]
 
 const TIER_COLORS: Record<string, { bg: string; color: string }> = {
-  RETAIL: { bg: '#F3F4F6', color: '#6B7280' },
-  B2B: { bg: '#DBEAFE', color: '#1D4ED8' },
-  VIP: { bg: '#FFF3E0', color: '#FF6B00' },
-  WHOLESALE: { bg: '#D1FAE5', color: '#065F46' },
+  RETAIL: { bg: 'var(--surface2)', color: 'var(--text2)' },
+  B2B: { bg: 'rgba(59,130,246,0.1)', color: '#3B82F6' },
+  VIP: { bg: 'rgba(255,107,0,0.1)', color: '#FF6B00' },
+  WHOLESALE: { bg: 'rgba(16,185,129,0.1)', color: '#10B981' },
 }
 
 const TIER_LABELS: Record<string, string> = {
@@ -52,18 +52,18 @@ const DRAWER_TABS = ['Мэдээлэл', 'Quotes', 'Харилцаа', 'Тике
 type DrawerTab = typeof DRAWER_TABS[number]
 
 const TICKET_STATUS_COLORS: Record<string, { bg: string; color: string }> = {
-  open: { bg: '#DBEAFE', color: '#1D4ED8' },
-  in_progress: { bg: '#FFF3E0', color: '#FF6B00' },
-  resolved: { bg: '#D1FAE5', color: '#065F46' },
-  closed: { bg: '#F3F4F6', color: '#6B7280' },
+  open: { bg: 'rgba(59,130,246,0.1)', color: '#3B82F6' },
+  in_progress: { bg: 'rgba(255,107,0,0.1)', color: '#FF6B00' },
+  resolved: { bg: 'rgba(16,185,129,0.1)', color: '#10B981' },
+  closed: { bg: 'var(--surface2)', color: 'var(--text2)' },
 }
 
 const QUOTE_STATUS_COLORS: Record<string, { bg: string; color: string }> = {
-  draft: { bg: '#F3F4F6', color: '#6B7280' },
-  sent: { bg: '#DBEAFE', color: '#1D4ED8' },
-  confirmed: { bg: '#D1FAE5', color: '#065F46' },
-  ordered: { bg: '#FFF3E0', color: '#FF6B00' },
-  expired: { bg: '#FEE2E2', color: '#991B1B' },
+  draft: { bg: 'var(--surface2)', color: 'var(--text2)' },
+  sent: { bg: 'rgba(59,130,246,0.1)', color: '#3B82F6' },
+  confirmed: { bg: 'rgba(16,185,129,0.1)', color: '#10B981' },
+  ordered: { bg: 'rgba(255,107,0,0.1)', color: '#FF6B00' },
+  expired: { bg: 'rgba(239,68,68,0.1)', color: '#DC2626' },
 }
 
 // ─── Styles ───
@@ -132,7 +132,7 @@ export default function AdminCustomersPage() {
       if (search) params.set('search', search)
       if (tierFilter !== 'ALL') params.set('tier', tierFilter)
       params.set('page', String(page))
-      const data = await apiFetch(`/admin/customers?${params}`)
+      const data = await apiFetch<any>(`/admin/customers?${params}`)
       setItems(data.items || [])
       setTotal(data.total || 0)
     } catch {
@@ -309,8 +309,7 @@ function CustomerDrawer({
     if (!customer?.id) return
     setLoadingProfile(true)
     setTab('Мэдээлэл')
-    apiFetch(`/admin/customers/${customer.id}`)
-      .then(r => r.json())
+    apiFetch<any>(`/admin/customers/${customer.id}`)
       .then(d => setProfile(d))
       .catch(() => {})
       .finally(() => setLoadingProfile(false))
@@ -434,7 +433,7 @@ function InfoTab({ profile, customerId, onUpdated }: { profile: any; customerId:
   const save = async () => {
     setSaving(true)
     try {
-      await apiFetch(`/admin/customers/${customerId}`, {
+      await apiFetch<any>(`/admin/customers/${customerId}`, {
         method: 'PUT',
         body: { ...form, tags },
       })
@@ -549,11 +548,10 @@ function QuotesTab({ customerId, profile }: { customerId: string; profile: any }
     setLoading(true)
     const email = profile?.guest_email || profile?.email
     const url = email
-      ? `/quotes-v2/guest?email=${encodeURIComponent(email)}`
-      : `/quotes-v2?customer_id=${customerId}`
-    apiFetch(url)
-      .then(r => r.json())
-      .then(d => setQuotes(Array.isArray(d) ? d : d.items || []))
+      ? `/quote/guest?email=${encodeURIComponent(email)}`
+      : `/quote?customer_id=${customerId}`
+    apiFetch<any>(url)
+      .then(d => setQuotes(Array.isArray(d) ? d : d?.items || []))
       .catch(() => setQuotes([]))
       .finally(() => setLoading(false))
   }, [customerId, profile])
@@ -615,7 +613,7 @@ function InteractionsTab({ customerId }: { customerId: string }) {
   const loadInteractions = useCallback(async () => {
     setLoading(true)
     try {
-      const data = await apiFetch(`/admin/customers/${customerId}/interactions`)
+      const data = await apiFetch<any>(`/admin/customers/${customerId}/interactions`)
       setInteractions(Array.isArray(data) ? data : [])
     } catch {
       setInteractions([])
@@ -629,7 +627,7 @@ function InteractionsTab({ customerId }: { customerId: string }) {
     if (!noteContent.trim()) return
     setSubmitting(true)
     try {
-      await apiFetch(`/admin/customers/${customerId}/interactions`, {
+      await apiFetch<any>(`/admin/customers/${customerId}/interactions`, {
         method: 'POST',
         body: {
           type: noteType,
@@ -761,8 +759,7 @@ function TicketsTab({ customerId }: { customerId: string }) {
 
   useEffect(() => {
     setLoading(true)
-    apiFetch(`/admin/customers/${customerId}/tickets`)
-      .then(r => r.json())
+    apiFetch<any>(`/admin/customers/${customerId}/tickets`)
       .then(d => setTickets(Array.isArray(d) ? d : []))
       .catch(() => setTickets([]))
       .finally(() => setLoading(false))

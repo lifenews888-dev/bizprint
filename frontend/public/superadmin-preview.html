@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="mn">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BizPrint — Super Admin Preview</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'DM Sans','Segoe UI',system-ui,sans-serif; background: #0F0F0F; color: #E2E8F0; display: flex; min-height: 100vh; }
+
+  .sidebar { width: 230px; min-width: 230px; height: 100vh; background: #1A1A1A; border-right: 1px solid #2A2A2A; display: flex; flex-direction: column; position: sticky; top: 0; }
+
+  .sidebar-header { height: 52px; display: flex; align-items: center; justify-content: space-between; padding: 0 14px; border-bottom: 1px solid #2A2A2A; }
+  .logo { display: flex; align-items: center; gap: 8px; text-decoration: none; }
+  .logo-icon { width: 26px; height: 26px; background: #FF6B00; border-radius: 6px; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 12px; font-weight: 700; }
+  .logo-text { font-size: 13px; font-weight: 600; color: #E2E8F0; line-height: 1; }
+  .logo-text span { color: #FF6B00; }
+  .logo-sub { font-size: 10px; color: #DC2626; }
+
+  .user-section { padding: 12px 14px; border-bottom: 1px solid #2A2A2A; display: flex; align-items: center; gap: 8px; }
+  .avatar-sa { width: 30px; height: 30px; border-radius: 50%; background: linear-gradient(135deg, #DC2626, #EF4444); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; flex-shrink: 0; }
+  .avatar-admin { width: 30px; height: 30px; border-radius: 50%; background: linear-gradient(135deg, #FF6B00, #FF8C42); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; flex-shrink: 0; }
+  .user-name-sa { font-size: 13px; font-weight: 600; color: #DC2626; }
+  .user-name-admin { font-size: 13px; font-weight: 600; color: #E2E8F0; }
+  .user-email { font-size: 10px; color: #64748B; }
+
+  .nav { flex: 1; overflow-y: auto; padding: 6px; scrollbar-width: none; }
+  .nav::-webkit-scrollbar { display: none; }
+  .section-label { font-size: 10px; font-weight: 600; color: #475569; letter-spacing: 0.1em; padding: 10px 10px 4px; text-transform: uppercase; }
+  .section-label.sa { color: #DC2626; }
+
+  .nav-item { width: 100%; display: flex; align-items: center; gap: 9px; padding: 8px 10px; border-radius: 8px; border: none; background: transparent; color: #94A3B8; cursor: pointer; font-family: inherit; font-size: 13px; font-weight: 400; margin-bottom: 1px; transition: all .15s; }
+  .nav-item:hover { background: #222; }
+  .nav-item.active { background: rgba(255,107,0,0.1); color: #FF6B00; font-weight: 500; }
+  .nav-item.sa-active { background: rgba(220,38,38,0.1); color: #DC2626; font-weight: 500; }
+
+  .dot { margin-left: auto; width: 5px; height: 5px; border-radius: 50%; background: #FF6B00; }
+  .dot-sa { margin-left: auto; width: 5px; height: 5px; border-radius: 50%; background: #DC2626; }
+
+  .main { flex: 1; display: flex; flex-direction: column; }
+  .topbar { background: #1A1A1A; border-bottom: 1px solid #2A2A2A; padding: 0 24px; height: 52px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 10; }
+  .badge { display: flex; align-items: center; gap: 6px; border-radius: 6px; padding: 3px 10px; font-size: 12px; font-weight: 500; }
+  .badge-orange { background: rgba(255,107,0,0.08); border: 1px solid rgba(255,107,0,0.15); color: #FF6B00; }
+  .badge-green { background: rgba(29,158,117,0.08); border: 1px solid rgba(29,158,117,0.15); color: #1D9E75; }
+  .badge-red { background: rgba(220,38,38,0.08); border: 1px solid rgba(220,38,38,0.15); color: #DC2626; }
+  .dot-sm { width: 5px; height: 5px; border-radius: 50%; }
+
+  .content { flex: 1; padding: 24px; overflow-y: auto; }
+  .content h2 { font-size: 18px; margin-bottom: 16px; color: #F1F5F9; }
+
+  .comparison { display: flex; gap: 40px; margin-top: 32px; }
+  .panel { flex: 1; background: #1A1A1A; border-radius: 12px; padding: 20px; border: 1px solid #2A2A2A; }
+  .panel h3 { font-size: 14px; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid #2A2A2A; }
+  .panel h3.sa { color: #DC2626; }
+  .panel h3.admin { color: #FF6B00; }
+  .feature-list { list-style: none; font-size: 13px; color: #94A3B8; }
+  .feature-list li { padding: 6px 0; display: flex; align-items: center; gap: 8px; }
+  .feature-list li::before { content: ''; display: block; width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+  .feature-list.sa li::before { background: #DC2626; }
+  .feature-list.admin li::before { background: #FF6B00; }
+
+  .tab-switch { display: flex; gap: 0; margin-bottom: 24px; }
+  .tab-btn { padding: 8px 20px; border: 1px solid #2A2A2A; background: transparent; color: #94A3B8; cursor: pointer; font-family: inherit; font-size: 13px; }
+  .tab-btn:first-child { border-radius: 8px 0 0 8px; }
+  .tab-btn:last-child { border-radius: 0 8px 8px 0; }
+  .tab-btn.active-sa { background: rgba(220,38,38,0.1); color: #DC2626; border-color: rgba(220,38,38,0.3); }
+  .tab-btn.active-admin { background: rgba(255,107,0,0.1); color: #FF6B00; border-color: rgba(255,107,0,0.3); }
+</style>
+</head>
+<body>
+
+<!-- ============ SUPERADMIN SIDEBAR ============ -->
+<div class="sidebar" id="sidebar">
+  <div class="sidebar-header">
+    <div class="logo">
+      <div class="logo-icon">B</div>
+      <div>
+        <div class="logo-text"><span>Biz</span>Print</div>
+        <div class="logo-sub" id="logo-sub">Super Admin</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="user-section" id="user-section">
+    <div class="avatar-sa" id="avatar">SA</div>
+    <div>
+      <div class="user-name-sa" id="user-name">Супер Админ</div>
+      <div class="user-email">superadmin@bizprint.mn</div>
+    </div>
+  </div>
+
+  <div class="nav" id="nav-container">
+    <!-- SA-only section -->
+    <div id="sa-section">
+      <div class="section-label sa">СИСТЕМ (SA)</div>
+      <button class="nav-item sa-active">
+        <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+        <span>Vendor Tier</span>
+        <div class="dot-sa"></div>
+      </button>
+      <button class="nav-item">
+        <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"/></svg>
+        <span>Ашиг тайлан</span>
+      </button>
+      <button class="nav-item">
+        <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>
+        <span>API Webhooks</span>
+      </button>
+      <button class="nav-item">
+        <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"/></svg>
+        <span>Систем тохиргоо</span>
+      </button>
+    </div>
+
+    <!-- Regular admin sections -->
+    <div class="section-label">ХЯНАЛТ</div>
+    <button class="nav-item">
+      <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-4 0h4"/></svg>
+      <span>Dashboard</span>
+    </button>
+    <button class="nav-item">
+      <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+      <span>Тайлан</span>
+    </button>
+    <button class="nav-item">
+      <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z"/></svg>
+      <span>Маркетинг</span>
+    </button>
+
+    <div class="section-label">ЗАХИАЛГА & WORKFLOW</div>
+    <button class="nav-item">
+      <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+      <span>Захиалгууд</span>
+    </button>
+    <button class="nav-item">
+      <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
+      <span>Дизайн хүсэлт</span>
+    </button>
+    <button class="nav-item">
+      <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+      <span>Workflow</span>
+    </button>
+
+    <div class="section-label">ХЭРЭГЛЭГЧ & ПАРТНЕР</div>
+    <button class="nav-item">
+      <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197"/></svg>
+      <span>Хэрэглэгчид</span>
+    </button>
+    <button class="nav-item">
+      <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
+      <span>Vendors</span>
+    </button>
+  </div>
+</div>
+
+<!-- ============ MAIN CONTENT ============ -->
+<div class="main">
+  <div class="topbar">
+    <div style="display:flex;align-items:center;gap:12px">
+      <div class="badge badge-red" id="topbar-badge">
+        <div class="dot-sm" style="background:#DC2626"></div>
+        <span>Vendor Tier</span>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px">
+      <div class="badge badge-green">
+        <div class="dot-sm" style="background:#1D9E75"></div>
+        <span>Live</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="content">
+    <div class="tab-switch">
+      <button class="tab-btn active-sa" onclick="showSA()">Супер Админ харагдац</button>
+      <button class="tab-btn" onclick="showAdmin()" id="admin-tab">Энгийн Админ харагдац</button>
+    </div>
+
+    <h2 id="content-title">Супер Админ — Нэмэлт боломжууд</h2>
+    <p style="color:#94A3B8;font-size:14px;margin-bottom:24px" id="content-desc">
+      Superadmin-аар нэвтрэхэд дараах ялгаа харагдана:
+    </p>
+
+    <div class="comparison">
+      <div class="panel">
+        <h3 class="sa">Супер Админ (SA) — Онцгой</h3>
+        <ul class="feature-list sa">
+          <li>Улаан "SA" avatar (бусад админ улбар шар "A")</li>
+          <li>"Супер Админ" гэсэн нэр (vs "Системийн Админ")</li>
+          <li>"Super Admin" subtitle BizPrint лого дор</li>
+          <li>"Систем (SA)" нэмэлт цэс бүлэг</li>
+          <li>Vendor Tier удирдлага</li>
+          <li>Ашиг тайлан (profit reports)</li>
+          <li>API Webhooks удирдлага</li>
+          <li>Систем тохиргоо</li>
+        </ul>
+      </div>
+      <div class="panel">
+        <h3 class="admin">Энгийн Админ — Стандарт</h3>
+        <ul class="feature-list admin">
+          <li>Улбар шар "A" avatar</li>
+          <li>"Системийн Админ" гэсэн нэр</li>
+          <li>"Admin Panel" subtitle</li>
+          <li>Хяналт, Захиалга, Бүтээгдэхүүн цэсүүд</li>
+          <li>Хэрэглэгч, Партнер удирдлага</li>
+          <li>Контент & CMS</li>
+          <li>Санхүү (Commission, Wallet)</li>
+          <li>Харилцаа (Chat, Webhooks)</li>
+        </ul>
+      </div>
+    </div>
+
+    <div style="margin-top:32px;padding:16px;background:#1A1A1A;border:1px solid #2A2A2A;border-radius:12px">
+      <h3 style="font-size:14px;color:#F59E0B;margin-bottom:8px">Superadmin-аар нэвтрэх:</h3>
+      <p style="font-size:13px;color:#94A3B8;line-height:1.6">
+        1. Backend серверийг ажиллуулна (<code style="background:#222;padding:2px 6px;border-radius:4px">npm run start:dev</code>)<br>
+        2. Admin Users хуудас руу очно (<code style="background:#222;padding:2px 6px;border-radius:4px">/admin/users</code>)<br>
+        3. Нэг хэрэглэгчийн role-г "superadmin" болгоно<br>
+        4. Тэр имэйлээр нэвтрэхэд Супер Админ орчин харагдана
+      </p>
+    </div>
+  </div>
+</div>
+
+<script>
+function showSA() {
+  document.getElementById('sa-section').style.display = 'block';
+  document.getElementById('avatar').className = 'avatar-sa';
+  document.getElementById('avatar').textContent = 'SA';
+  document.getElementById('user-name').className = 'user-name-sa';
+  document.getElementById('user-name').textContent = 'Супер Админ';
+  document.getElementById('logo-sub').style.color = '#DC2626';
+  document.getElementById('logo-sub').textContent = 'Super Admin';
+  document.getElementById('topbar-badge').className = 'badge badge-red';
+  document.getElementById('topbar-badge').querySelector('.dot-sm').style.background = '#DC2626';
+  document.getElementById('content-title').textContent = 'Супер Админ — Нэмэлт боломжууд';
+  document.querySelector('.tab-switch .tab-btn:first-child').className = 'tab-btn active-sa';
+  document.getElementById('admin-tab').className = 'tab-btn';
+}
+function showAdmin() {
+  document.getElementById('sa-section').style.display = 'none';
+  document.getElementById('avatar').className = 'avatar-admin';
+  document.getElementById('avatar').textContent = 'A';
+  document.getElementById('user-name').className = 'user-name-admin';
+  document.getElementById('user-name').textContent = 'Системийн Админ';
+  document.getElementById('logo-sub').style.color = '#64748B';
+  document.getElementById('logo-sub').textContent = 'Admin Panel';
+  document.getElementById('topbar-badge').className = 'badge badge-orange';
+  document.getElementById('topbar-badge').querySelector('.dot-sm').style.background = '#FF6B00';
+  document.getElementById('content-title').textContent = 'Энгийн Админ — Стандарт цэсүүд';
+  document.querySelector('.tab-switch .tab-btn:first-child').className = 'tab-btn';
+  document.getElementById('admin-tab').className = 'tab-btn active-admin';
+}
+</script>
+</body>
+</html>

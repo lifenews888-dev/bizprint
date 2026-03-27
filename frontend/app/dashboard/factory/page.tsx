@@ -7,10 +7,7 @@ export default function ҮйлдвэрийнсамбарPage() {
   const [data, setData] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   useEffect(() => {
-    const token = localStorage.getItem('token')
-    const headers: any = {}
-    if (token) headers.Authorization = `Bearer ${token}`
-    apiFetch(`/production-jobs`, { headers })
+    apiFetch<any>(`/production-jobs`)
       .then(d => setData(Array.isArray(d) ? d : []))
       .catch(() => {}).finally(() => setLoading(false))
   }, [])

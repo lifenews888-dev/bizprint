@@ -1,460 +1,358 @@
 'use client'
-import { apiFetch } from '@/lib/api'
-import { useState, useRef, useCallback } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useEffect } from 'react'
+import { apiFetch, apiUpload } from '@/lib/api'
+import QuotePreview from '@/components/QuotePreview'
 
-const FONT = "'DM Sans','Segoe UI',system-ui,sans-serif"
-const fmt = (n: number) => new Intl.NumberFormat('mn-MN').format(Math.round(n)) + '₮'
+/* ═══════════════════════════════════════
+ *  SMART QUOTE — AI-Powered Quote System
+ * ═══════════════════════════════════════ */
 
-const URGENCY = [
-  { value: 'standard', label: '📦 Стандарт', sub: '3-5 хоног' },
-  { value: 'rush_72h', label: '⚡ 72 цаг',   sub: '+5%' },
-  { value: 'rush_48h', label: '🔥 48 цаг',   sub: '+15%' },
-  { value: 'rush_24h', label: '🚀 24 цаг',   sub: '+30%' },
-]
-const GSM_OPTIONS = [80, 100, 130, 150, 200, 250, 300, 350]
-const FINISHING_OPTIONS = [
-  { value: 'none',       label: '—  Байхгүй' },
-  { value: 'mat',        label: '🌫️ Мат ламинат' },
-  { value: 'gloss',      label: '✨ Глосс ламинат' },
-  { value: 'uv',         label: '💫 UV лак' },
-  { value: 'soft_touch', label: '🧤 Soft touch' },
-]
-const BINDING_OPTIONS = [
-  { value: 'none',      label: '—  Байхгүй' },
-  { value: 'staple',    label: '📌 Зүүгдэх' },
-  { value: 'perfect',   label: '📕 Perfect bind' },
-  { value: 'spiral',    label: '🌀 Spiral' },
-  { value: 'hardcover', label: '📚 Хатуу хавтас' },
+const PRODUCT_TYPES = [
+  { key: 'tovgor', label: 'Товгор үсэг', icon: '🔤' },
+  { key: 'nerj', label: 'Нерж үсэг', icon: '✨' },
+  { key: 'd3', label: '3D үсэг', icon: '🎯' },
+  { key: 'sambar', label: 'Гэрэлт самбар', icon: '💡' },
+  { key: 'pvc', label: 'PVC үсэг', icon: '🏷️' },
+  { key: 'offset', label: 'Офсет хэвлэл', icon: '🖨️' },
+  { key: 'wide', label: 'Баннер / Стикер', icon: '🪧' },
 ]
 
-type Stage = 'idle' | 'uploading' | 'done' | 'error'
+const LETTER_SIZES = [20, 30, 40, 50, 60, 70, 80, 100]
 
-const STEPS = ['📄 PDF уншиж байна...', '🤖 Claude AI шинжлэж байна...', '💰 Үнэ тооцоолж байна...']
+export default function SmartQuotePage() {
+  const [productType, setProductType] = useState('tovgor')
+  // 3 tier text system: Том / Дунд / Жижиг
+  const [textLines, setTextLines] = useState([
+    { text: '', size: 50, label: 'Том' },
+    { text: '', size: 30, label: 'Дунд' },
+    { text: '', size: 15, label: 'Жижиг' },
+  ])
+  const [logoUrl, setLogoUrl] = useState<string | null>(null)
+  const [width, setWidth] = useState(2)
+  const [height, setHeight] = useState(1)
+  const [quantity, setQuantity] = useState(1)
+  const [urgency, setUrgency] = useState('normal')
+  const [lit, setLit] = useState(false)
+  const [result, setResult] = useState<any>(null)
+  const [loading, setLoading] = useState(false)
+  const [showPreview, setShowPreview] = useState(false)
+  const [user, setUser] = useState<any>(null)
 
-function Chip({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
+  useEffect(() => {
+    try { const u = JSON.parse(localStorage.getItem('user') || 'null'); if (u?.id) setUser(u) } catch {}
+  }, [])
+
+  const isTovgor = productType === 'tovgor'
+  const isSign = !['offset', 'wide'].includes(productType)
+  // Active text lines (текст бичсэн)
+  const activeLines = textLines.filter(l => l.text.trim())
+  const signText = activeLines.map(l => l.text).join(' ')
+  // Нийт үсгийн тоо (бүх мөрөөс)
+  const totalLetters = activeLines.reduce((sum, l) => sum + l.text.replace(/\s/g, '').length, 0)
+  // Том үсгийн хэмжээ (лого харьцаанд ашиглана)
+  const maxLetterSize = activeLines.length > 0 ? Math.max(...activeLines.map(l => l.size)) : 30
+
+  // Logo: том үсгийн өндрөөс 18% том, квадрат
+  const signHeightM = isTovgor ? maxLetterSize / 100 : height
+  const logoHeightM = signHeightM * 1.18
+  const logoWidthM = logoHeightM
+  const logoArea = logoWidthM * logoHeightM
+  const LOGO_RATE_PER_M2 = 500000 // ₮/м²
+  const logoPrice = logoUrl ? Math.round(Math.max(logoArea * LOGO_RATE_PER_M2, 80000)) : 0
+  const logoWidthCm = Math.round(logoWidthM * 100)
+  const logoHeightCm = Math.round(logoHeightM * 100)
+
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setLoading(true)
+      // Multi-line тооцоолол: мөр бүрийн үсгийн тоо × тухайн хэмжээний үнэ
+      apiFetch<any>('/smart-quote/calculate', {
+        method: 'POST',
+        body: JSON.stringify({
+          product_type: productType, sign_text: signText,
+          width, height, quantity,
+          // Олон мөр: мөр бүрийн үсэг + хэмжээ
+          text_lines: isTovgor ? activeLines.map(l => ({
+            text: l.text, size: l.size,
+            letter_count: l.text.replace(/\s/g, '').length,
+          })) : undefined,
+          letter_size_cm: isTovgor ? maxLetterSize : undefined,
+          letter_count: isTovgor ? totalLetters : undefined,
+          material: lit ? `${productType}_on` : undefined, urgency,
+        }),
+      }).then(r => { if (r) setResult(r) }).catch(() => {}).finally(() => setLoading(false))
+    }, 400)
+    return () => clearTimeout(t)
+  }, [productType, textLines, width, height, quantity, urgency, lit])
+
   return (
-    <button onClick={onClick} style={{
-      padding: '7px 14px', borderRadius: 8, fontSize: 13, cursor: 'pointer', fontFamily: FONT,
-      border: `1.5px solid ${active ? '#FF6B00' : 'var(--border)'}`,
-      background: active ? '#FF6B00' : 'transparent',
-      color: active ? '#fff' : 'var(--text2)', fontWeight: active ? 700 : 400,
-      transition: 'all 0.15s',
-    }}>{children}</button>
-  )
-}
+    <div style={{ fontFamily: "'Segoe UI',system-ui,sans-serif", background: '#FAFAF8', minHeight: '100vh' }}>
+      {/* Hero */}
+      <div style={{ background: 'linear-gradient(135deg, #1C1917, #292524)', padding: '32px 20px', color: '#fff' }}>
+        <div style={{ maxWidth: 1200, margin: '0 auto' }}>
+          <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
+            <span style={{ fontSize: 9, background: '#FF6B00', padding: '2px 8px', borderRadius: 99, fontWeight: 700 }}>AI</span>
+            <span style={{ fontSize: 9, background: 'rgba(255,255,255,0.15)', padding: '2px 8px', borderRadius: 99 }}>SMART QUOTE</span>
+          </div>
+          <h1 style={{ fontSize: 28, fontWeight: 800, marginBottom: 4 }}>Ухаалаг <span style={{ color: '#FF6B00' }}>үнийн санал</span></h1>
+          <p style={{ fontSize: 13, color: '#A8A29E' }}>Шууд тооцоолол · 3 сонголт · Албан ёсны үнийн санал</p>
+        </div>
+      </div>
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, padding: '18px 20px', marginBottom: 14 }}>
-      <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.8, color: 'var(--text2)', marginBottom: 12, textTransform: 'uppercase' }}>{title}</div>
-      {children}
+      <div style={{ maxWidth: 1200, margin: '0 auto', padding: '24px 20px', display: 'flex', gap: 24, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+        {/* LEFT */}
+        <div style={{ flex: '1 1 500px', minWidth: 320, display: 'flex', flexDirection: 'column', gap: 16 }}>
+          {/* Products */}
+          <Card title="Бүтээгдэхүүн">
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+              {PRODUCT_TYPES.map(p => (
+                <Chip key={p.key} active={productType === p.key} onClick={() => setProductType(p.key)}>{p.icon} {p.label}</Chip>
+              ))}
+            </div>
+          </Card>
+
+          {/* Text lines + Logo */}
+          {isSign && (
+            <Card title="Хаягны мэдээлэл">
+              {/* 3-tier text inputs */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 14 }}>
+                {textLines.map((line, idx) => {
+                  const colors = ['#FF6B00', '#3B82F6', '#6B7280']
+                  const icons = ['🔤', '📝', '📋']
+                  const count = line.text.replace(/\s/g, '').length
+                  return (
+                    <div key={idx}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                        <span style={{ fontSize: 12 }}>{icons[idx]}</span>
+                        <span style={{ fontSize: 11, fontWeight: 700, color: colors[idx] }}>{line.label}</span>
+                        <span style={{ fontSize: 10, color: '#BBB' }}>({line.size}см)</span>
+                        {count > 0 && <span style={{ fontSize: 10, color: colors[idx], marginLeft: 'auto' }}>{count} үсэг</span>}
+                      </div>
+                      <div style={{ display: 'flex', gap: 8 }}>
+                        <input value={line.text}
+                          onChange={e => setTextLines(prev => prev.map((l, i) => i === idx ? { ...l, text: e.target.value } : l))}
+                          placeholder={idx === 0 ? '"БИЗ МАРКЕТ"' : idx === 1 ? '"Худалдааны төв"' : '"Ажиллах цаг: 09-21"'}
+                          style={{ flex: 1, padding: '10px 14px', borderRadius: 8, border: `1.5px solid ${line.text ? colors[idx] + '40' : '#E5E7EB'}`, fontSize: idx === 0 ? 16 : idx === 1 ? 14 : 12, fontWeight: idx === 0 ? 800 : idx === 1 ? 600 : 400, background: line.text ? colors[idx] + '06' : '#fff' }} />
+                        {isTovgor && (
+                          <select value={line.size}
+                            onChange={e => setTextLines(prev => prev.map((l, i) => i === idx ? { ...l, size: Number(e.target.value) } : l))}
+                            style={{ width: 75, padding: '8px 4px', borderRadius: 8, border: '1px solid #E5E7EB', fontSize: 12, textAlign: 'center', color: colors[idx], fontWeight: 700 }}>
+                            {[15, 20, 25, 30, 40, 50, 60, 70, 80, 100].map(s => (
+                              <option key={s} value={s}>{s}см</option>
+                            ))}
+                          </select>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+
+              {/* Summary */}
+              {isTovgor && totalLetters > 0 && (
+                <div style={{ padding: '8px 12px', background: '#FFF7ED', borderRadius: 8, border: '1px solid #FFEDD5', marginBottom: 12, fontSize: 11 }}>
+                  {activeLines.map((l, i) => (
+                    <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0' }}>
+                      <span style={{ color: '#888' }}>{l.label}: "{l.text}" ({l.text.replace(/\s/g, '').length} үсэг × {l.size}см)</span>
+                    </div>
+                  ))}
+                  <div style={{ borderTop: '1px solid #FFEDD5', marginTop: 4, paddingTop: 4, fontWeight: 700, color: '#FF6B00' }}>
+                    Нийт: {totalLetters} үсэг
+                  </div>
+                </div>
+              )}
+
+              {/* Logo upload */}
+              <div>
+                <Label>Лого (1 ширхэг)</Label>
+                <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: 12, borderRadius: 8, cursor: 'pointer', border: logoUrl ? '2px solid #10B981' : '1.5px dashed #D1D5DB', background: logoUrl ? '#F0FDF4' : '#fff', fontSize: 12, color: logoUrl ? '#10B981' : '#888' }}>
+                  <input type="file" accept="image/*" style={{ display: 'none' }} onChange={async e => {
+                    if (!e.target.files?.[0]) return
+                    const file = e.target.files[0]
+                    setLogoUrl(URL.createObjectURL(file))
+                    try {
+                      const fd = new FormData(); fd.append('file', file)
+                      const res = await apiUpload<any>('/upload/file', fd)
+                      if (res?.file_url) setLogoUrl(`http://localhost:4000${res.file_url}`)
+                    } catch {}
+                  }} />
+                  {logoUrl ? (
+                    <><img src={logoUrl} alt="" style={{ width: 28, height: 28, objectFit: 'contain', borderRadius: 4 }} /> ✓ Лого оруулсан</>
+                  ) : '📎 Лого оруулах'}
+                </label>
+                {logoUrl && (
+                  <div style={{ fontSize: 10, color: '#888', marginTop: 4 }}>
+                    Лого хэмжээ: {logoWidthCm}×{logoHeightCm}см (том үсгийн өндрөөс 18% том) · ₮{logoPrice.toLocaleString()}
+                  </div>
+                )}
+              </div>
+            </Card>
+          )}
+
+          {/* Size */}
+          <Card title="Хэмжээ">
+            {isTovgor ? (
+              <div style={{ fontSize: 12, color: '#888', padding: '8px 0' }}>
+                Үсгийн хэмжээг мөр бүрт дээрх талбараас тохируулна уу
+              </div>
+            ) : (
+              <div style={{ display: 'flex', gap: 12 }}>
+                <div style={{ flex: 1 }}><Label>Өргөн (м)</Label><NumInput value={width} onChange={setWidth} /></div>
+                <div style={{ flex: 1 }}><Label>Өндөр (м)</Label><NumInput value={height} onChange={setHeight} /></div>
+                {!isSign && <div style={{ flex: 1 }}><Label>Тоо</Label><NumInput value={quantity} onChange={setQuantity} min={1} step={1} /></div>}
+              </div>
+            )}
+            {['nerj', 'd3'].includes(productType) && (
+              <div style={{ marginTop: 10, display: 'flex', gap: 6 }}>
+                <Chip active={!lit} onClick={() => setLit(false)}>Гэрэлгүй</Chip>
+                <Chip active={lit} onClick={() => setLit(true)} color="#F59E0B">💡 Гэрэлтэй</Chip>
+              </div>
+            )}
+          </Card>
+
+          {/* Urgency */}
+          <Card title="Хугацаа">
+            <div style={{ display: 'flex', gap: 6 }}>
+              <Chip active={urgency === 'normal'} onClick={() => setUrgency('normal')}>Энгийн</Chip>
+              <Chip active={urgency === '48h'} onClick={() => setUrgency('48h')}>48 цаг <small style={{ color: '#EF4444' }}>+15%</small></Chip>
+              <Chip active={urgency === '24h'} onClick={() => setUrgency('24h')}>24 цаг <small style={{ color: '#EF4444' }}>+30%</small></Chip>
+            </div>
+          </Card>
+        </div>
+
+        {/* RIGHT */}
+        <div style={{ flex: '0 0 380px', minWidth: 340, position: 'sticky', top: 20, display: 'flex', flexDirection: 'column', gap: 16 }}>
+          {/* Price */}
+          <div style={{ background: '#fff', borderRadius: 14, border: '1px solid #E5E7EB', padding: 20 }}>
+            <h2 style={{ fontSize: 16, fontWeight: 700, marginBottom: 14 }}>Үнийн санал</h2>
+            {result ? (<>
+              {(() => {
+                const lp = logoPrice
+                const sub = (result.subtotal || 0) + lp
+                const vatAmt = Math.round(sub * 0.1)
+                const grand = sub + vatAmt
+                return (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 13 }}>
+                    {isTovgor ? activeLines.map((l, i) => {
+                      const c = l.text.replace(/\s/g, '').length
+                      return c > 0 ? <Row key={i} label={`${l.label}: ${c} үсэг × ${l.size}см`} value={`₮${(c * (result.unit_price || 0)).toLocaleString()}`} /> : null
+                    }) : <Row label="Хаягны үнэ" value={`₮${(result.subtotal || 0).toLocaleString()}`} />}
+                    {logoUrl && <Row label={`Лого хаяг (${logoWidthCm}×${logoHeightCm}см)`} value={`₮${logoPrice.toLocaleString()}`} />}
+                    <div style={{ borderTop: '1px solid #F3F4F6', paddingTop: 6 }} />
+                    <Row label="Дүн" value={`₮${sub.toLocaleString()}`} bold />
+                    <Row label="НӨАТ (10%)" value={`₮${vatAmt.toLocaleString()}`} muted />
+                    <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: 8, borderTop: '2px solid #FF6B00', marginTop: 4 }}>
+                      <span style={{ fontSize: 16, fontWeight: 800, color: '#FF6B00' }}>НИЙТ</span>
+                      <span style={{ fontSize: 22, fontWeight: 800, color: '#FF6B00' }}>₮{grand.toLocaleString()}</span>
+                    </div>
+                  </div>
+                )
+              })()}
+              <div style={{ marginTop: 12, display: 'flex', gap: 8 }}>
+                <div style={{ flex: 1, background: '#F9FAFB', borderRadius: 8, padding: '6px 8px', textAlign: 'center' }}>
+                  <div style={{ fontSize: 8, color: '#888' }}>Машин</div>
+                  <div style={{ fontSize: 10, fontWeight: 600 }}>{result.machine_type}</div>
+                </div>
+                <div style={{ flex: 1, background: '#F9FAFB', borderRadius: 8, padding: '6px 8px', textAlign: 'center' }}>
+                  <div style={{ fontSize: 8, color: '#888' }}>Хугацаа</div>
+                  <div style={{ fontSize: 10, fontWeight: 600 }}>{result.production_speed}</div>
+                </div>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 14 }}>
+                <button onClick={() => setShowPreview(true)} style={{ width: '100%', padding: 12, borderRadius: 10, border: 'none', background: '#1C1917', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>📄 Үнийн санал харах</button>
+                <button style={{ width: '100%', padding: 12, borderRadius: 10, border: 'none', background: '#FF6B00', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>📧 Илгээх</button>
+              </div>
+            </>) : (
+              <div style={{ textAlign: 'center', padding: 24, color: '#BBB', fontSize: 13 }}>{loading ? '⏳ Тооцоолж байна...' : 'Параметр оруулна уу'}</div>
+            )}
+          </div>
+
+          {/* AI */}
+          {result?.ai && (
+            <div style={{ background: '#fff', borderRadius: 14, border: '1px solid #E5E7EB', padding: 20 }}>
+              <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
+                <span style={{ fontSize: 9, background: '#8B5CF6', color: '#fff', padding: '2px 8px', borderRadius: 99, fontWeight: 700 }}>AI</span>
+                <span style={{ fontSize: 13, fontWeight: 700 }}>Зөвлөмж</span>
+              </div>
+              <p style={{ fontSize: 12, color: '#555', lineHeight: 1.7, marginBottom: 8 }}>{result.ai.recommendation}</p>
+              {result.ai.upsell?.map((u: string, i: number) => (
+                <div key={i} style={{ fontSize: 11, color: '#FF6B00', padding: '2px 0' }}>💡 {u}</div>
+              ))}
+            </div>
+          )}
+
+          {/* 3 Options */}
+          {result?.options && (
+            <div style={{ background: '#fff', borderRadius: 14, border: '1px solid #E5E7EB', padding: 20 }}>
+              <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 10 }}>📊 Сонголтууд</div>
+              {result.options.map((opt: any, i: number) => {
+                const c = ['#6B7280', '#FF6B00', '#8B5CF6'][i]
+                const l = ['Economy', 'Standard', 'Premium'][i]
+                return (
+                  <div key={opt.tier} style={{ padding: 10, borderRadius: 10, border: i === 1 ? '2px solid #FF6B00' : '1px solid #E5E7EB', background: i === 1 ? '#FFF7ED' : '#fff', marginBottom: 6, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div>
+                      <span style={{ fontSize: 11, fontWeight: 700, color: c }}>{l}</span>
+                      {i === 1 && <span style={{ fontSize: 8, background: '#FF6B00', color: '#fff', padding: '1px 6px', borderRadius: 99, marginLeft: 6 }}>Санал болгох</span>}
+                      <div style={{ fontSize: 10, color: '#888', marginTop: 1 }}>{opt.material} · {opt.delivery_days} өдөр</div>
+                    </div>
+                    <div style={{ fontSize: 14, fontWeight: 800, color: c }}>₮{Math.round(opt.price * 1.1).toLocaleString()}</div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {showPreview && result && (
+        <QuotePreview open={showPreview} onClose={() => setShowPreview(false)} data={{
+          items: isTovgor ? activeLines.map(l => ({
+            product: `${PRODUCT_TYPES.find(p => p.key === productType)?.label} (${l.label})`,
+            text: l.text, width: l.size * l.text.replace(/\s/g, '').length / 100, height: l.size / 100, unit: 'м',
+            qty: l.text.replace(/\s/g, '').length, unitPrice: result.unit_price || 0, total: 0,
+            isLetterBased: true, letterSize: l.size, letterCount: l.text.replace(/\s/g, '').length,
+          })) : [{
+            product: PRODUCT_TYPES.find(p => p.key === productType)?.label || '', text: signText || '—',
+            width, height, unit: 'м', qty: quantity, unitPrice: result.unit_price, total: result.subtotal,
+          }],
+          logoUrl: logoUrl || undefined, logoItem: logoUrl ? { width: logoWidthCm, height: logoHeightCm, unit: 'см', price: logoPrice } : null,
+          customerName: user?.full_name || '', customerEmail: user?.email || '', customerPhone: user?.phone || '',
+          subtotal: result.subtotal + logoPrice, vat: Math.round((result.subtotal + logoPrice) * 0.1), grandTotal: Math.round((result.subtotal + logoPrice) * 1.1),
+          quoteNumber: 'QT-' + String(Date.now()).slice(-6), date: new Date().toLocaleDateString('mn-MN'), validDays: 7,
+        }} />
+      )}
     </div>
   )
 }
 
-export default function SmartQuotePage() {
-  const router = useRouter()
-  const fileRef = useRef<HTMLInputElement>(null)
-  const [drag, setDrag] = useState(false)
-  const [file, setFile] = useState<File | null>(null)
-
-  // Options
-  const [quantity, setQuantity] = useState(100)
-  const [urgency, setUrgency] = useState('standard')
-  const [hint, setHint] = useState('')
-  const [paperGsm, setPaperGsm] = useState<number | null>(null)
-  const [colorMode, setColorMode] = useState<string | null>(null)
-  const [sides, setSides] = useState<string | null>(null)
-  const [finishing, setFinishing] = useState<string | null>(null)
-  const [binding, setBinding] = useState<string | null>(null)
-
-  const [stage, setStage] = useState<Stage>('idle')
-  const [stepIdx, setStepIdx] = useState(0)
-  const [result, setResult] = useState<any>(null)
-  const [error, setError] = useState('')
-
-  const handleFile = (f: File) => {
-    if (f.type !== 'application/pdf') { setError('Зөвхөн PDF файл зөвшөөрөгдөнө'); return }
-    setFile(f); setError(''); setResult(null); setStage('idle')
-  }
-
-  const onDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault(); setDrag(false)
-    const f = e.dataTransfer.files[0]
-    if (f) handleFile(f)
-  }, [])
-
-  const analyze = async () => {
-    if (!file) return
-    setStage('uploading'); setError(''); setResult(null); setStepIdx(0)
-
-    let si = 0
-    const iv = setInterval(() => { si = Math.min(si + 1, STEPS.length - 1); setStepIdx(si) }, 2000)
-
-    try {
-      const fd = new FormData()
-      fd.append('file', file)
-      fd.append('quantity', String(quantity))
-      fd.append('urgency', urgency)
-      if (hint)       fd.append('hint', hint)
-      if (paperGsm)   fd.append('paper_gsm', String(paperGsm))
-      if (colorMode)  fd.append('color_mode', colorMode)
-      if (sides)      fd.append('sides', sides)
-      if (finishing)  fd.append('finishing', finishing)
-      if (binding)    fd.append('binding', binding)
-
-      const res = await apiFetch(`/ai/smart-quote/from-pdf`, { method: 'POST', body: fd })
-      clearInterval(iv)
-      if (!res.ok) {
-        const e = await res.json().catch(() => ({}))
-        throw new Error(e.message || 'Серверт алдаа гарлаа')
-      }
-      const data = await res.json()
-      setResult(data.data || data)
-      setStage('done')
-    } catch (e: any) {
-      clearInterval(iv)
-      setError(e.message || 'Алдаа гарлаа')
-      setStage('error')
-    }
-  }
-
-  const reset = () => { setFile(null); setResult(null); setStage('idle'); setError('') }
-
-  const ai = result?.ai_analysis
-  const q  = result?.quote
-
+/* ── Helper Components ── */
+function Card({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--bg)', fontFamily: FONT }}>
-      {/* Hero */}
-      <div style={{ background: 'linear-gradient(135deg,#FF6B00,#FF8C38)', padding: '48px 24px 40px', textAlign: 'center', color: '#fff' }}>
-        <div style={{ fontSize: 44, marginBottom: 10 }}>🤖</div>
-        <h1 style={{ fontSize: 28, fontWeight: 800, margin: '0 0 8px', letterSpacing: -0.5 }}>AI Smart Quote</h1>
-        <p style={{ fontSize: 14, opacity: 0.9, margin: 0 }}>PDF файл upload → Claude AI шинжлэнэ → Хэвлэлийн үнэ 3 секундэд</p>
-      </div>
-
-      <div style={{ maxWidth: 820, margin: '0 auto', padding: '28px 20px' }}>
-        {(stage === 'idle' || stage === 'error') && (
-          <>
-            {/* Drop zone */}
-            <div
-              onDragOver={e => { e.preventDefault(); setDrag(true) }}
-              onDragLeave={() => setDrag(false)}
-              onDrop={onDrop}
-              onClick={() => fileRef.current?.click()}
-              style={{
-                border: `2.5px dashed ${drag ? '#FF6B00' : file ? '#10B981' : 'var(--border2)'}`,
-                borderRadius: 16, padding: '36px 24px', textAlign: 'center',
-                background: drag ? '#FFF7ED' : file ? '#F0FDF4' : 'var(--surface)',
-                cursor: 'pointer', transition: 'all 0.2s', marginBottom: 14,
-              }}
-            >
-              <input ref={fileRef} type="file" accept=".pdf" style={{ display: 'none' }}
-                onChange={e => e.target.files?.[0] && handleFile(e.target.files[0])} />
-              {file ? (
-                <div>
-                  <div style={{ fontSize: 36, marginBottom: 8 }}>✅</div>
-                  <div style={{ fontWeight: 700, fontSize: 16, color: '#059669' }}>{file.name}</div>
-                  <div style={{ fontSize: 13, color: 'var(--text2)', marginTop: 4 }}>{(file.size / 1024).toFixed(1)} KB · PDF</div>
-                </div>
-              ) : (
-                <div>
-                  <div style={{ fontSize: 48, marginBottom: 10 }}>📄</div>
-                  <div style={{ fontWeight: 700, fontSize: 17, marginBottom: 6 }}>PDF файл оруулна уу</div>
-                  <div style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 14 }}>Drag & Drop эсвэл дарж сонгоно уу</div>
-                  <span style={{ background: '#FF6B00', color: '#fff', padding: '9px 22px', borderRadius: 10, fontSize: 13, fontWeight: 600 }}>📂 Файл сонгох</span>
-                </div>
-              )}
-            </div>
-
-            {/* 2 column layout */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
-              {/* Left column */}
-              <div>
-                {/* Quantity */}
-                <Section title="ТОО ШИРХЭГ">
-                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                    {[50, 100, 250, 500, 1000, 2000].map(q => (
-                      <Chip key={q} active={quantity === q} onClick={() => setQuantity(q)}>{q}</Chip>
-                    ))}
-                    <input type="number" min={1} value={quantity}
-                      onChange={e => setQuantity(Number(e.target.value))}
-                      style={{ width: 72, padding: '6px 10px', borderRadius: 8, border: '1.5px solid var(--border)', background: 'var(--surface2)', color: 'var(--text)', fontSize: 13 }}
-                    />
-                  </div>
-                </Section>
-
-                {/* Color mode */}
-                <Section title="ӨНГӨ">
-                  <div style={{ display: 'flex', gap: 6 }}>
-                    <Chip active={colorMode === null} onClick={() => setColorMode(null)}>🤖 AI тодорхойлно</Chip>
-                    <Chip active={colorMode === 'color'} onClick={() => setColorMode('color')}>🎨 Өнгөт</Chip>
-                    <Chip active={colorMode === 'bw'} onClick={() => setColorMode('bw')}>⬛ Хар цагаан</Chip>
-                  </div>
-                </Section>
-
-                {/* Sides */}
-                <Section title="ТАЛ">
-                  <div style={{ display: 'flex', gap: 6 }}>
-                    <Chip active={sides === null} onClick={() => setSides(null)}>🤖 AI тодорхойлно</Chip>
-                    <Chip active={sides === 'single'} onClick={() => setSides('single')}>1 тал</Chip>
-                    <Chip active={sides === 'double'} onClick={() => setSides('double')}>2 тал</Chip>
-                  </div>
-                </Section>
-
-                {/* Urgency */}
-                <Section title="ЯАРАЛТАЙ БАЙДАЛ">
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
-                    {URGENCY.map(u => (
-                      <button key={u.value} onClick={() => setUrgency(u.value)} style={{
-                        padding: '8px 10px', borderRadius: 8, cursor: 'pointer', textAlign: 'left',
-                        border: `1.5px solid ${urgency === u.value ? '#FF6B00' : 'var(--border)'}`,
-                        background: urgency === u.value ? '#FFF7ED' : 'transparent',
-                        color: urgency === u.value ? '#FF6B00' : 'var(--text2)', fontFamily: FONT,
-                      }}>
-                        <div style={{ fontWeight: 700, fontSize: 13 }}>{u.label}</div>
-                        <div style={{ fontSize: 11, opacity: 0.8 }}>{u.sub}</div>
-                      </button>
-                    ))}
-                  </div>
-                </Section>
-              </div>
-
-              {/* Right column */}
-              <div>
-                {/* Paper GSM */}
-                <Section title="ЦААСНЫ ГРАММАЖ (GSM)">
-                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                    <Chip active={paperGsm === null} onClick={() => setPaperGsm(null)}>🤖 AI</Chip>
-                    {GSM_OPTIONS.map(g => (
-                      <Chip key={g} active={paperGsm === g} onClick={() => setPaperGsm(g)}>{g}</Chip>
-                    ))}
-                  </div>
-                  <div style={{ marginTop: 10, fontSize: 12, color: 'var(--text2)', lineHeight: 1.7 }}>
-                    <b>80-100</b> Хэвлэлийн цаас · <b>130-150</b> Флаер · <b>200-250</b> Визит карт · <b>300-350</b> Зузаан
-                  </div>
-                </Section>
-
-                {/* Finishing */}
-                <Section title="FINISHING / ЛААЗ">
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                    <Chip active={finishing === null} onClick={() => setFinishing(null)}>🤖 AI тодорхойлно</Chip>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                      {FINISHING_OPTIONS.map(f => (
-                        <Chip key={f.value} active={finishing === f.value} onClick={() => setFinishing(f.value)}>{f.label}</Chip>
-                      ))}
-                    </div>
-                  </div>
-                </Section>
-
-                {/* Binding */}
-                <Section title="ХАВЧИХ / BINDING">
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                    <Chip active={binding === null} onClick={() => setBinding(null)}>🤖 AI</Chip>
-                    {BINDING_OPTIONS.map(b => (
-                      <Chip key={b.value} active={binding === b.value} onClick={() => setBinding(b.value)}>{b.label}</Chip>
-                    ))}
-                  </div>
-                </Section>
-
-                {/* Hint */}
-                <Section title="НЭМЭЛТ ТАЙЛБАР">
-                  <textarea value={hint} onChange={e => setHint(e.target.value)}
-                    placeholder='жш: "A4 флаер, Монгол хэл, хоёр хэл"'
-                    rows={3} style={{
-                      width: '100%', padding: '10px 12px', border: '1.5px solid var(--border)',
-                      borderRadius: 8, background: 'var(--surface2)', color: 'var(--text)',
-                      fontSize: 13, resize: 'none', fontFamily: FONT, boxSizing: 'border-box',
-                    }}
-                  />
-                </Section>
-              </div>
-            </div>
-
-            {error && (
-              <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 12, padding: '14px 18px', marginBottom: 14, color: '#DC2626', fontSize: 14 }}>
-                ⚠️ {error}
-              </div>
-            )}
-
-            <button onClick={analyze} disabled={!file} style={{
-              width: '100%', padding: '16px', fontSize: 16, fontWeight: 700, fontFamily: FONT,
-              background: file ? 'linear-gradient(135deg,#FF6B00,#FF8C38)' : 'var(--border)',
-              color: file ? '#fff' : 'var(--text2)', border: 'none', borderRadius: 14, cursor: file ? 'pointer' : 'default',
-            }}>
-              🤖 AI-аар үнэ тооцоолох
-            </button>
-          </>
-        )}
-
-        {/* Loading */}
-        {stage === 'uploading' && (
-          <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 20, padding: '56px 32px', textAlign: 'center' }}>
-            <div style={{ width: 60, height: 60, border: '5px solid #FF6B00', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite', margin: '0 auto 24px' }} />
-            <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
-            <p style={{ fontWeight: 700, fontSize: 20, margin: '0 0 10px' }}>{STEPS[stepIdx]}</p>
-            <p style={{ fontSize: 14, color: 'var(--text2)', margin: 0 }}>claude-haiku-4-5 · BizPrint Quote Engine</p>
-            <div style={{ marginTop: 24, display: 'flex', justifyContent: 'center', gap: 8 }}>
-              {STEPS.map((_, i) => (
-                <div key={i} style={{ width: 8, height: 8, borderRadius: '50%', background: i <= stepIdx ? '#FF6B00' : 'var(--border)', transition: 'background 0.3s' }} />
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Result */}
-        {stage === 'done' && result && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-
-            {/* AI Analysis */}
-            <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, overflow: 'hidden' }}>
-              <div style={{ background: 'linear-gradient(135deg,#6366F1,#8B5CF6)', padding: '14px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <h3 style={{ margin: 0, color: '#fff', fontSize: 15, fontWeight: 700 }}>🤖 AI Шинжилгээ</h3>
-                <span style={{ background: 'rgba(255,255,255,0.2)', color: '#fff', padding: '3px 10px', borderRadius: 99, fontSize: 12, fontWeight: 700 }}>
-                  {ai?.confidence}% итгэлтэй
-                </span>
-              </div>
-              <div style={{ padding: '16px 20px' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 10, marginBottom: 14 }}>
-                  {[
-                    { label: 'Бүтээгдэхүүн', value: ai?.product_name_mn || '—', icon: '📦' },
-                    { label: 'Хэмжээ',        value: `${ai?.width_mm}×${ai?.height_mm}мм`, icon: '📐' },
-                    { label: 'Хуудас',        value: `${ai?.pages} хуудас`, icon: '📄' },
-                    { label: 'Цаас',           value: `${ai?.paper_gsm} GSM`, icon: '🗒️' },
-                    { label: 'Өнгө',           value: ai?.color_mode === 'color' ? 'Өнгөт' : 'Хар цагаан', icon: '🎨' },
-                    { label: 'Тал',            value: ai?.sides === 'double' ? '2 тал' : '1 тал', icon: '↔️' },
-                    { label: 'Finishing',      value: ai?.finishing !== 'none' ? ai?.finishing?.toUpperCase() : '—', icon: '✨' },
-                    { label: 'Binding',        value: ai?.binding !== 'none' ? ai?.binding : '—', icon: '📌' },
-                  ].map(item => (
-                    <div key={item.label} style={{ background: 'var(--surface2)', borderRadius: 10, padding: '10px 12px' }}>
-                      <div style={{ fontSize: 10, color: 'var(--text2)', marginBottom: 3 }}>{item.icon} {item.label}</div>
-                      <div style={{ fontSize: 13, fontWeight: 700 }}>{item.value}</div>
-                    </div>
-                  ))}
-                </div>
-                {ai?.reasoning && (
-                  <div style={{ background: '#EEF2FF', border: '1px solid #C7D2FE', borderRadius: 10, padding: '11px 14px', fontSize: 13, color: '#3730A3', lineHeight: 1.6 }}>
-                    💬 {ai.reasoning}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Preflight */}
-            {result.preflight && (
-              <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden' }}>
-                <div style={{ padding: '12px 18px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700 }}>🔍 PDF Чанарын шалгалт</h3>
-                  <span style={{
-                    padding: '4px 12px', borderRadius: 99, fontSize: 12, fontWeight: 700,
-                    background: result.preflight.risk === 'LOW' ? '#D1FAE5' : result.preflight.risk === 'MEDIUM' ? '#FEF3C7' : '#FEE2E2',
-                    color: result.preflight.risk === 'LOW' ? '#059669' : result.preflight.risk === 'MEDIUM' ? '#D97706' : '#DC2626',
-                  }}>
-                    {result.preflight.risk === 'LOW' ? '✅ Сайн' : result.preflight.risk === 'MEDIUM' ? '⚠️ Дунд' : '❌ Асуудалтай'} · {result.preflight.score}/100
-                  </span>
-                </div>
-                <div style={{ padding: '12px 18px' }}>
-                  {result.preflight.issues?.length > 0 ? (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                      {result.preflight.issues.map((issue: any, i: number) => (
-                        <div key={i} style={{ fontSize: 13, color: 'var(--text2)', display: 'flex', gap: 8 }}>
-                          <span>{issue.severity === 'error' ? '❌' : issue.severity === 'warning' ? '⚠️' : 'ℹ️'}</span>
-                          <span>{issue.message}</span>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p style={{ margin: 0, fontSize: 13, color: '#059669' }}>✅ Асуудал илрэгдсэнгүй — хэвлэхэд бэлэн</p>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* Quote */}
-            <div style={{ background: 'var(--surface)', border: '2px solid #FF6B00', borderRadius: 16, overflow: 'hidden' }}>
-              <div style={{ background: 'linear-gradient(135deg,#FF6B00,#FF8C38)', padding: '18px 22px' }}>
-                <h3 style={{ margin: '0 0 2px', color: '#fff', fontSize: 15, fontWeight: 700 }}>💰 Үнийн тооцоолол</h3>
-                <p style={{ margin: 0, color: 'rgba(255,255,255,0.85)', fontSize: 12 }}>{result.file?.name} · {q?.quantity} ширхэг · {result.processing_ms}мс</p>
-              </div>
-              <div style={{ padding: '20px 22px' }}>
-                {/* Main price */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 20, paddingBottom: 20, borderBottom: '1px solid var(--border)' }}>
-                  <div>
-                    <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 4 }}>Нэгжийн үнэ (1 ширхэг)</div>
-                    <div style={{ fontSize: 32, fontWeight: 800, color: '#FF6B00', lineHeight: 1 }}>{fmt(q?.unit_price || 0)}</div>
-                  </div>
-                  <div style={{ textAlign: 'right' }}>
-                    <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 4 }}>Нийт ({q?.quantity} ш)</div>
-                    <div style={{ fontSize: 22, fontWeight: 800 }}>{fmt(q?.total_price || 0)}</div>
-                  </div>
-                </div>
-
-                {/* Cost breakdown */}
-                <div style={{ background: 'var(--surface2)', borderRadius: 12, padding: '14px 16px', marginBottom: 18 }}>
-                  <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.8, color: 'var(--text2)', marginBottom: 12, textTransform: 'uppercase' }}>Зардлын задаргаа</div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
-                    {[
-                      { label: '🖨️ Машин', value: q?.machine },
-                      { label: '📄 Цаасны зардал', value: q?.paper_cost != null ? fmt(q.paper_cost) : null },
-                      { label: '🖨️ Хэвлэлийн зардал', value: q?.print_cost != null ? fmt(q.print_cost) : null },
-                      { label: '✨ Finishing зардал', value: q?.finishing_cost != null && q.finishing_cost > 0 ? fmt(q.finishing_cost) : null },
-                      { label: '📌 Binding зардал', value: q?.binding_cost != null && q.binding_cost > 0 ? fmt(q.binding_cost) : null },
-                      { label: '🔧 Тохируулгын зардал', value: q?.setup_cost != null ? fmt(q.setup_cost) : null },
-                    ].filter(r => r.value).map(({ label, value }) => (
-                      <div key={label} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
-                        <span style={{ color: 'var(--text2)' }}>{label}</span>
-                        <span style={{ fontWeight: 600 }}>{value}</span>
-                      </div>
-                    ))}
-                    <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
-                    {/* Smart adjustments */}
-                    {q?.smart_adjustments?.map((adj: any, i: number) => (
-                      <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
-                        <span style={{ color: adj.type === 'discount' ? '#059669' : adj.type === 'fee' ? 'var(--text2)' : '#DC2626' }}>
-                          {adj.type === 'discount' ? '✅' : adj.type === 'fee' ? '📊' : '⬆️'} {adj.name === 'quantity_discount' ? 'Тоо ширхэгийн хөнгөлөлт' : adj.name === 'overhead' ? 'Нэмэлт зардал' : adj.name === 'margin' ? 'Ашиг' : adj.name}
-                        </span>
-                        <span style={{ fontWeight: 700, color: adj.type === 'discount' ? '#059669' : adj.type === 'fee' ? 'var(--text)' : '#DC2626' }}>
-                          {adj.type === 'discount' ? '-' : '+'}{fmt(Math.abs(adj.value))}
-                        </span>
-                      </div>
-                    ))}
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14, fontWeight: 800, paddingTop: 4 }}>
-                      <span>Нийт</span>
-                      <span style={{ color: '#FF6B00' }}>{fmt(q?.total_price || 0)}</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Print specs summary */}
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 18 }}>
-                  {[
-                    `📐 ${ai?.width_mm}×${ai?.height_mm}мм`,
-                    `🗒️ ${ai?.paper_gsm}gsm`,
-                    `🎨 ${ai?.color_mode === 'color' ? 'Өнгөт' : 'Хар цагаан'}`,
-                    `↔️ ${ai?.sides === 'double' ? '2 тал' : '1 тал'}`,
-                    ai?.finishing !== 'none' ? `✨ ${ai?.finishing}` : null,
-                    ai?.binding !== 'none' ? `📌 ${ai?.binding}` : null,
-                  ].filter(Boolean).map(tag => (
-                    <span key={tag!} style={{ background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 99, padding: '4px 12px', fontSize: 12, color: 'var(--text2)' }}>{tag}</span>
-                  ))}
-                </div>
-
-                {/* Buttons */}
-                <div style={{ display: 'flex', gap: 10 }}>
-                  <button onClick={reset} style={{ flex: 1, padding: '13px', background: 'var(--surface2)', color: 'var(--text)', border: '1px solid var(--border)', borderRadius: 12, fontWeight: 600, fontSize: 14, cursor: 'pointer', fontFamily: FONT }}>
-                    ↩️ Дахин тооцоолох
-                  </button>
-                  <button onClick={() => router.push('/checkout')} style={{ flex: 2, padding: '13px', background: 'linear-gradient(135deg,#FF6B00,#FF8C38)', color: '#fff', border: 'none', borderRadius: 12, fontWeight: 700, fontSize: 15, cursor: 'pointer', fontFamily: FONT }}>
-                    🛍️ Захиалах
-                  </button>
-                </div>
-              </div>
-            </div>
-
-          </div>
-        )}
-      </div>
+    <div style={{ background: '#fff', borderRadius: 14, border: '1px solid #E5E7EB', padding: 20 }}>
+      <label style={{ fontSize: 12, fontWeight: 700, color: '#555', marginBottom: 8, display: 'block' }}>{title}</label>
+      {children}
+    </div>
+  )
+}
+function Label({ children }: { children: React.ReactNode }) {
+  return <label style={{ fontSize: 11, fontWeight: 600, color: '#888', marginBottom: 4, display: 'block' }}>{children}</label>
+}
+function Chip({ active, onClick, children, color = '#FF6B00' }: { active: boolean; onClick: () => void; children: React.ReactNode; color?: string }) {
+  return (
+    <button onClick={onClick} style={{ padding: '7px 14px', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer', border: active ? `2px solid ${color}` : '1px solid #E5E7EB', background: active ? color + '12' : '#fff', color: active ? color : '#888' }}>
+      {children}
+    </button>
+  )
+}
+function NumInput({ value, onChange, min = 0.1, step = 0.1 }: { value: number; onChange: (v: number) => void; min?: number; step?: number }) {
+  return <input type="number" min={min} step={step} value={value} onChange={e => onChange(Number(e.target.value) || min)}
+    style={{ width: '100%', padding: '10px 14px', borderRadius: 8, border: '1px solid #E5E7EB', fontSize: 14 }} />
+}
+function Row({ label, value, bold, muted }: { label: string; value: string; bold?: boolean; muted?: boolean }) {
+  return (
+    <div style={{ display: 'flex', justifyContent: 'space-between', color: muted ? '#888' : undefined }}>
+      <span style={{ fontWeight: bold ? 600 : undefined }}>{label}</span>
+      <span style={{ fontWeight: bold ? 700 : 600 }}>{value}</span>
     </div>
   )
 }

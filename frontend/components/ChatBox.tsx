@@ -1,6 +1,7 @@
 'use client'
 import { useState, useRef, useEffect } from 'react'
-import { useChat } from '@/hooks/useChat'
+import { useChat, Message } from '@/hooks/useChat'
+import { API_URL } from '@/lib/api'
 
 interface Props {
   userId: string
@@ -8,7 +9,9 @@ interface Props {
   role: string
 }
 
-const API = 'http://localhost:4000'
+const API = API_URL
+
+const EMOJI_QUICK = ['👍', '❤️', '😊', '🙏', '👏', '🔥', '✅', '😂']
 
 const ROLE_CONFIG: Record<string, { color: string; bg: string; label: string; emoji: string }> = {
   admin:    { color: '#FF6B00', bg: 'rgba(255,107,0,0.12)',  label: 'Админ',     emoji: '👑' },
@@ -40,16 +43,19 @@ function formatTime(dateStr: string) {
 type View = 'closed' | 'list' | 'chat' | 'new'
 
 export default function ChatBox({ userId, userName, role }: Props) {
-  const { rooms, messages, activeRoom, connected, joinRoom, sendMessage, createRoom } = useChat(userId, userName, role)
+  const { rooms, messages, activeRoom, connected, joinRoom, sendMessage, createRoom, typingUsers, emitTyping, emitStopTyping } = useChat(userId, userName, role)
   const [view, setView] = useState<View>('closed')
   const [text, setText] = useState('')
   const [rows, setRows] = useState(1)
   const [uploading, setUploading] = useState(false)
   const [dragOver, setDragOver] = useState(false)
   const [previewFile, setPreviewFile] = useState<string | null>(null)
+  const [replyTo, setReplyTo] = useState<any>(null)
+  const [showEmoji, setShowEmoji] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const typingTimerRef = useRef<NodeJS.Timeout | null>(null)
 
   const totalUnread = rooms.reduce((s, r) => s + (r.unread_count || 0), 0)
   const activeMessages = activeRoom ? (messages[activeRoom] || []) : []
@@ -113,9 +119,27 @@ export default function ChatBox({ userId, userName, role }: Props) {
 
   function send() {
     if (!activeRoom || !text.trim()) return
-    sendMessage(activeRoom, text.trim())
+    let content = text.trim()
+    if (replyTo) {
+      content = `[REPLY:${replyTo.sender_name || replyTo.sender_id}:${replyTo.message.slice(0, 60)}]\n${content}`
+    }
+    sendMessage(activeRoom, content)
     setText('')
     setRows(1)
+    setReplyTo(null)
+    setShowEmoji(false)
+    emitStopTyping(activeRoom)
+  }
+
+  function handleTextChange(val: string) {
+    setText(val)
+    setRows(Math.min(val.split('\n').length, 4))
+    if (!activeRoom) return
+    emitTyping(activeRoom)
+    if (typingTimerRef.current) clearTimeout(typingTimerRef.current)
+    typingTimerRef.current = setTimeout(() => {
+      if (activeRoom) emitStopTyping(activeRoom)
+    }, 2000)
   }
 
   function handleKeyDown(e: React.KeyboardEvent) {
@@ -124,6 +148,8 @@ export default function ChatBox({ userId, userName, role }: Props) {
       send()
     }
   }
+
+  const currentTyping = activeRoom ? (typingUsers[activeRoom] || []) : []
 
   function startChatWith(targetRole: string, targetLabel: string) {
     createRoom({
@@ -142,7 +168,13 @@ export default function ChatBox({ userId, userName, role }: Props) {
 
   function renderMessage(msg: any) {
     const isMe = msg.sender_id === userId
-    const content = msg.message
+    let content = msg.message
+
+    // Parse reply
+    const replyMatch = content.match(/^\[REPLY:(.+?):(.+?)\]\n([\s\S]*)$/)
+    const replyName = replyMatch?.[1]
+    const replyText = replyMatch?.[2]
+    if (replyMatch) content = replyMatch[3]
 
     if (content.startsWith('[IMAGE]')) {
       const url = content.replace('[IMAGE]', '')
@@ -190,6 +222,17 @@ export default function ChatBox({ userId, userName, role }: Props) {
         boxShadow: isMe ? '0 2px 12px rgba(255,107,0,0.2)' : 'none',
         wordBreak: 'break-word', whiteSpace: 'pre-wrap',
       }}>
+        {replyName && (
+          <div style={{
+            padding: '4px 8px', borderRadius: 6, marginBottom: 6,
+            background: isMe ? 'rgba(255,255,255,0.15)' : 'rgba(255,107,0,0.06)',
+            borderLeft: '2px solid ' + (isMe ? 'rgba(255,255,255,0.5)' : '#FF6B00'),
+            fontSize: 11, color: isMe ? 'rgba(255,255,255,0.85)' : 'var(--text2)',
+          }}>
+            <div style={{ fontWeight: 600, fontSize: 10 }}>{replyName}</div>
+            <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{replyText}</div>
+          </div>
+        )}
         {content}
       </div>
     )
@@ -364,7 +407,9 @@ export default function ChatBox({ userId, userName, role }: Props) {
                   const showTime = !activeMessages[i + 1] || activeMessages[i + 1].sender_id !== msg.sender_id
 
                   return (
-                    <div key={msg.id || i}>
+                    <div key={msg.id || i} style={{ position: 'relative' }}
+                      onMouseEnter={e => { const btn = e.currentTarget.querySelector('.reply-btn') as HTMLElement; if (btn) btn.style.opacity = '1' }}
+                      onMouseLeave={e => { const btn = e.currentTarget.querySelector('.reply-btn') as HTMLElement; if (btn) btn.style.opacity = '0' }}>
                       {showName && (
                         <div style={{ fontSize: 10, fontWeight: 700, color: '#FF6B00', marginBottom: 3, marginLeft: 40 }}>
                           {msg.sender_name}
@@ -391,6 +436,14 @@ export default function ChatBox({ userId, userName, role }: Props) {
                           </div>
                         )}
                       </div>
+                      {/* Reply button */}
+                      <button className="reply-btn" onClick={() => { setReplyTo(msg); textareaRef.current?.focus() }}
+                        style={{
+                          position: 'absolute', top: 2, ...(isMe ? { left: 2 } : { right: 2 }),
+                          background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 6,
+                          width: 22, height: 22, cursor: 'pointer', fontSize: 10, display: 'flex',
+                          alignItems: 'center', justifyContent: 'center', opacity: 0, transition: 'opacity 0.15s',
+                        }}>↩</button>
                     </div>
                   )
                 })}
@@ -402,14 +455,51 @@ export default function ChatBox({ userId, userName, role }: Props) {
                     </div>
                   </div>
                 )}
+                {/* Typing indicator */}
+                {currentTyping.length > 0 && (
+                  <div style={{ alignSelf: 'flex-start', display: 'flex', alignItems: 'center', gap: 8, padding: '6px 12px', background: 'var(--surface2)', borderRadius: 12, fontSize: 11, color: 'var(--text3)' }}>
+                    <span style={{ display: 'flex', gap: 2 }}>
+                      <span style={{ width: 4, height: 4, borderRadius: '50%', background: '#FF6B00', animation: 'typeBounce 1.4s ease-in-out infinite', animationDelay: '0s' }} />
+                      <span style={{ width: 4, height: 4, borderRadius: '50%', background: '#FF6B00', animation: 'typeBounce 1.4s ease-in-out infinite', animationDelay: '0.2s' }} />
+                      <span style={{ width: 4, height: 4, borderRadius: '50%', background: '#FF6B00', animation: 'typeBounce 1.4s ease-in-out infinite', animationDelay: '0.4s' }} />
+                    </span>
+                    {currentTyping.join(', ')} бичиж байна...
+                  </div>
+                )}
                 <div ref={bottomRef} />
               </div>
 
+              {/* Reply bar */}
+              {replyTo && (
+                <div style={{ padding: '6px 12px', borderTop: '1px solid var(--border)', background: 'rgba(255,107,0,0.04)', display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <div style={{ flex: 1, fontSize: 11, color: 'var(--text2)', borderLeft: '2px solid #FF6B00', paddingLeft: 8 }}>
+                    <div style={{ fontWeight: 600, color: '#FF6B00', fontSize: 10 }}>↩ {replyTo.sender_name || replyTo.sender_id}</div>
+                    <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 250 }}>{replyTo.message}</div>
+                  </div>
+                  <button onClick={() => setReplyTo(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 14, color: 'var(--text3)', padding: 2 }}>✕</button>
+                </div>
+              )}
+
               {/* INPUT */}
-              <div style={{ padding: '10px 12px 12px', borderTop: '1px solid var(--border)', background: 'var(--surface)', flexShrink: 0 }}>
+              <div style={{ padding: '10px 12px 12px', borderTop: replyTo ? 'none' : '1px solid var(--border)', background: 'var(--surface)', flexShrink: 0 }}>
                 <input ref={fileInputRef} type="file" accept="image/*,.pdf,.ai,.psd,.zip,.doc,.docx" onChange={handleFileInput} style={{ display: 'none' }} />
 
+                {/* Emoji quick bar */}
+                {showEmoji && (
+                  <div style={{ display: 'flex', gap: 3, flexWrap: 'wrap', marginBottom: 6 }}>
+                    {EMOJI_QUICK.map(e => (
+                      <button key={e} onClick={() => { setText(prev => prev + e); setShowEmoji(false) }}
+                        style={{ background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 6, padding: '3px 6px', cursor: 'pointer', fontSize: 16 }}>{e}</button>
+                    ))}
+                  </div>
+                )}
+
                 <div style={{ display: 'flex', gap: 7, alignItems: 'flex-end', background: 'var(--surface2)', border: '1.5px solid var(--border)', borderRadius: 14, padding: '7px 7px 7px 12px', transition: 'border-color 0.2s' }}>
+                  <button onClick={() => setShowEmoji(!showEmoji)}
+                    title="Emoji"
+                    style={{ width: 32, height: 32, borderRadius: 9, border: 'none', background: showEmoji ? 'rgba(255,107,0,0.1)' : 'var(--surface)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text3)', fontSize: 16, flexShrink: 0, transition: 'all 0.2s' }}>
+                    😊
+                  </button>
                   <button onClick={() => fileInputRef.current?.click()}
                     title="Файл/зураг илгээх"
                     style={{ width: 32, height: 32, borderRadius: 9, border: 'none', background: 'var(--surface)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text3)', fontSize: 16, flexShrink: 0, transition: 'all 0.2s' }}
@@ -421,10 +511,10 @@ export default function ChatBox({ userId, userName, role }: Props) {
                   <textarea
                     ref={textareaRef}
                     value={text}
-                    onChange={e => { setText(e.target.value); setRows(Math.min(e.target.value.split('\n').length, 4)) }}
+                    onChange={e => handleTextChange(e.target.value)}
                     onKeyDown={handleKeyDown}
                     rows={rows}
-                    placeholder="Мессеж бичнэ үү..."
+                    placeholder={replyTo ? `${replyTo.sender_name}-д хариулах...` : 'Мессеж бичнэ үү...'}
                     style={{ flex: 1, background: 'transparent', border: 'none', color: 'var(--text)', fontSize: 13, outline: 'none', resize: 'none', padding: '3px 0', lineHeight: 1.5, fontFamily: 'inherit', minHeight: 24, maxHeight: 100 }}
                   />
 
@@ -451,6 +541,12 @@ export default function ChatBox({ userId, userName, role }: Props) {
                   <div style={{ fontSize: 10, color: 'var(--text3)' }}>Enter илгээх</div>
                 </div>
               </div>
+              <style>{`
+                @keyframes typeBounce {
+                  0%, 80%, 100% { transform: scale(0.6); opacity: 0.4 }
+                  40% { transform: scale(1); opacity: 1 }
+                }
+              `}</style>
             </>
           )}
         </div>

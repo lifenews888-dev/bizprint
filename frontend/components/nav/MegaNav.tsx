@@ -4,7 +4,34 @@ import { useState, useRef, useEffect } from 'react'
 import { usePathname } from 'next/navigation'
 import { useSiteSettings } from '@/contexts/SiteSettingsContext'
 
-const F = "'DM Sans','Segoe UI',system-ui,sans-serif"
+/* ─── SVG Icons ─── */
+const SearchIcon = () => (
+  <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+)
+const UserIcon = () => (
+  <svg width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.6" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+)
+const HeartIcon = () => (
+  <svg width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.6" viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+)
+const CartIcon = () => (
+  <svg width="22" height="22" fill="none" stroke="currentColor" strokeWidth="1.6" viewBox="0 0 24 24"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+)
+const PhoneIcon = () => (
+  <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07A19.5 19.5 0 013.07 9.61 19.79 19.79 0 01.02 1 2 2 0 012 0h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L6.91 7.91a16 16 0 006.18 6.18l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 15v1.92z"/></svg>
+)
+const MenuIcon = () => (
+  <svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+)
+const CloseIcon = () => (
+  <svg width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg>
+)
+const ChevronDown = () => (
+  <svg width="10" height="10" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
+)
+const ChevronRight = () => (
+  <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg>
+)
 
 export default function MegaNav() {
   const pathname = usePathname()
@@ -12,20 +39,18 @@ export default function MegaNav() {
   const [openId, setOpenId] = useState<string | null>(null)
   const [mobileOpen, setMobileOpen] = useState(false)
   const [mobileAccordion, setMobileAccordion] = useState<string | null>(null)
+  const [searchOpen, setSearchOpen] = useState(false)
+  const [catMenuOpen, setCatMenuOpen] = useState(false)
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const headerLogoUrl = settings.header_logo_url || ''
-  const showSearch = settings.header_show_search !== false
-  const showLogin = settings.header_show_login !== false
-  const ctaText = settings.header_cta_text || 'Start →'
-  const ctaUrl = settings.header_cta_url || '/quote'
   const siteName = settings.site_name || 'BizPrint'
+  const phone = settings.site_phone || '+976 7000-1234'
 
   const activeItems = megaMenu
     .filter((item: any) => item.is_active !== false)
     .sort((a: any, b: any) => (a.sort_order || 0) - (b.sort_order || 0))
 
-  // Close mobile menu on route change
   useEffect(() => {
     setMobileOpen(false)
     setMobileAccordion(null)
@@ -35,50 +60,153 @@ export default function MegaNav() {
     if (closeTimer.current) clearTimeout(closeTimer.current)
     setOpenId(id)
   }
-
   function handleMouseLeave() {
     closeTimer.current = setTimeout(() => setOpenId(null), 150)
   }
-
   function toggleMobileAccordion(id: string) {
     setMobileAccordion(prev => prev === id ? null : id)
   }
 
+  /* ═══════════════════════════════════════════════
+     ROW 1 — TOP BAR: Logo | Phone | Search | Account/Heart/Cart
+     ═══════════════════════════════════════════════ */
   return (
     <>
-      <nav style={{
-        background: 'var(--surface, #fff)',
-        borderBottom: '1px solid var(--border, #EBEBEB)',
-        position: 'sticky',
-        top: 0,
-        zIndex: 200,
-        fontFamily: F,
-      }}>
-        <div style={{ maxWidth: 1200, margin: '0 auto', padding: '0 24px', height: 64, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+      <div className="bg-white border-b border-[#EBEBEB] hidden md:block">
+        <div className="max-w-[1280px] mx-auto px-6 h-[72px] flex items-center gap-6">
 
-          {/* Logo */}
-          <a href="/" style={{ display: 'flex', alignItems: 'center', gap: 10, textDecoration: 'none', flexShrink: 0 }}>
+          {/* ── Logo ── */}
+          <a href="/" className="flex items-center gap-2.5 no-underline flex-shrink-0 mr-2">
             {headerLogoUrl ? (
-              <img src={headerLogoUrl} alt={siteName} style={{ height: 32 }} />
+              <img src={headerLogoUrl} alt={siteName} className="h-10" />
             ) : (
               <>
-                <div style={{ width: 32, height: 32, background: '#FF6B00', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <svg width="16" height="16" fill="none" viewBox="0 0 18 18">
-                    <rect x="2" y="2" width="6" height="6" rx="1.5" fill="white"/>
-                    <rect x="10" y="2" width="6" height="6" rx="1.5" fill="white" opacity=".5"/>
-                    <rect x="2" y="10" width="6" height="6" rx="1.5" fill="white" opacity=".5"/>
-                    <rect x="10" y="10" width="6" height="6" rx="1.5" fill="white"/>
-                  </svg>
-                </div>
-                <span style={{ fontSize: 16, fontWeight: 700, color: 'var(--text, #0F0F0F)' }}>
-                  <span style={{ color: '#FF6B00' }}>{siteName.substring(0, 3)}</span>{siteName.substring(3)}
+                <svg width="38" height="38" viewBox="0 0 48 48" fill="none" className="flex-shrink-0">
+                  <defs>
+                    <linearGradient id="nav-og" x1="0" y1="0" x2="48" y2="24" gradientUnits="userSpaceOnUse">
+                      <stop stopColor="#FF6B00"/><stop offset="1" stopColor="#F59E0B"/>
+                    </linearGradient>
+                    <linearGradient id="nav-pp" x1="0" y1="24" x2="48" y2="48" gradientUnits="userSpaceOnUse">
+                      <stop stopColor="#8B5CF6"/><stop offset="1" stopColor="#6D28D9"/>
+                    </linearGradient>
+                  </defs>
+                  <path d="M4 14C4 8.477 8.477 4 14 4h6c5.523 0 10 4.477 10 10v4c0 2.21-1.79 4-4 4H14c-5.523 0-10-4.477-10-10z" fill="url(#nav-og)"/>
+                  <path d="M30 8a10 10 0 0114 0 10 10 0 010 14c-2 2-6 2-8 0l-6-6a10 10 0 010-8z" fill="url(#nav-og)" opacity="0.8"/>
+                  <path d="M4 30c0-2.21 1.79-4 4-4h10c5.523 0 10 4.477 10 10v4c0 2.21-1.79 4-4 4H14c-5.523 0-10-4.477-10-10v-4z" fill="url(#nav-pp)"/>
+                  <path d="M30 30c0-2.21 1.79-4 4-4h4c2.21 0 4 1.79 4 4v4c0 5.523-4.477 10-10 10h-2c-2.21 0-4-1.79-4-4v-6c0-2.21 1.79-4 4-4z" fill="url(#nav-pp)" opacity="0.8"/>
+                </svg>
+                <span className="text-[22px] font-extrabold text-[#111] tracking-tight leading-none">
+                  <span className="text-[#FF6B00]">{siteName.substring(0, 3)}</span>{siteName.substring(3)}
                 </span>
               </>
             )}
           </a>
 
-          {/* Desktop nav links */}
-          <div className="nav-desktop" style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+          {/* ── Phone ── */}
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <span className="text-[#FF6B00]"><PhoneIcon /></span>
+            <div className="leading-tight">
+              <div className="text-[11px] text-[#888]">Холбоо барих 24/7</div>
+              <div className="text-[13px] font-bold text-[#111]">{phone}</div>
+            </div>
+          </div>
+
+          {/* ── Search bar (Merto-style: category dropdown + input + button) ── */}
+          <div className="flex-1 max-w-[540px] mx-auto">
+            <div className="flex items-stretch h-[44px] border-2 border-[#EBEBEB] rounded-lg overflow-hidden focus-within:border-[#FF6B00] transition-colors">
+              <select className="bg-[#F8F8F8] text-[13px] font-medium text-[#555] px-3 border-r border-[#EBEBEB] outline-none cursor-pointer" style={{ appearance: 'auto', minWidth: 130 }}>
+                <option>Бүх ангилал</option>
+                <option>Нэрийн хуудас</option>
+                <option>Флаер & Постер</option>
+                <option>Стикер</option>
+                <option>Баннер</option>
+                <option>Ном & Каталог</option>
+              </select>
+              <input
+                type="text"
+                placeholder="Бүтээгдэхүүн хайх..."
+                className="flex-1 bg-white text-[14px] text-[#111] px-4 outline-none placeholder:text-[#BBB]"
+              />
+              <button className="bg-[#FF6B00] hover:bg-[#E55D00] text-white px-5 transition-colors flex items-center justify-center flex-shrink-0">
+                <SearchIcon />
+              </button>
+            </div>
+          </div>
+
+          {/* ── Right: Language, Currency, Account, Wishlist, Cart ── */}
+          <div className="flex items-center gap-5 flex-shrink-0">
+            <select className="bg-transparent text-[13px] font-medium text-[#555] outline-none cursor-pointer" style={{ appearance: 'auto' }}>
+              <option>🇲🇳 Монгол</option>
+              <option>🇬🇧 English</option>
+            </select>
+            <select className="bg-transparent text-[13px] font-medium text-[#555] outline-none cursor-pointer" style={{ appearance: 'auto' }}>
+              <option>₮ MNT</option>
+              <option>$ USD</option>
+            </select>
+
+            {/* Account */}
+            <a href="/login" className="flex items-center gap-2 text-[#333] hover:text-[#FF6B00] transition-colors no-underline">
+              <UserIcon />
+              <span className="text-[13px] font-medium">Нэвтрэх</span>
+            </a>
+
+            {/* Wishlist */}
+            <a href="/dashboard/customer/wishlist" className="relative text-[#333] hover:text-[#FF6B00] transition-colors">
+              <HeartIcon />
+              <span className="absolute -top-2 -right-2 min-w-[18px] h-[18px] bg-[#FF6B00] text-white text-[10px] font-bold rounded-full flex items-center justify-center px-1">0</span>
+            </a>
+
+            {/* Cart */}
+            <a href="/cart" className="relative text-[#333] hover:text-[#FF6B00] transition-colors">
+              <CartIcon />
+              <span className="absolute -top-2 -right-2 min-w-[18px] h-[18px] bg-[#FF6B00] text-white text-[10px] font-bold rounded-full flex items-center justify-center px-1">0</span>
+            </a>
+          </div>
+        </div>
+      </div>
+
+      {/* ═══════════════════════════════════════════════
+         ROW 2 — NAV BAR: Categories button | Nav links
+         ═══════════════════════════════════════════════ */}
+      <nav className="bg-white border-b border-[#EBEBEB] sticky top-0 z-[200]">
+        <div className="max-w-[1280px] mx-auto px-6 h-[50px] flex items-center">
+
+          {/* ── Desktop: SHOP BY CATEGORIES button ── */}
+          <div className="relative hidden md:block mr-6">
+            <button
+              onClick={() => setCatMenuOpen(!catMenuOpen)}
+              onBlur={() => setTimeout(() => setCatMenuOpen(false), 200)}
+              className="flex items-center gap-2.5 h-[50px] text-[13px] font-bold text-[#111] uppercase tracking-wide bg-transparent border-none cursor-pointer hover:text-[#FF6B00] transition-colors"
+            >
+              <MenuIcon />
+              <span>Ангилал</span>
+              <ChevronDown />
+            </button>
+            {catMenuOpen && (
+              <div className="absolute top-full left-0 bg-white border border-[#EBEBEB] rounded-b-xl shadow-xl z-[300] py-2 min-w-[240px]">
+                {[
+                  { label: 'Нэрийн хуудас', url: '/shop?cat=business-card', icon: '🪪' },
+                  { label: 'Флаер & Постер', url: '/shop?cat=flyer', icon: '📄' },
+                  { label: 'Стикер & Шошго', url: '/shop?cat=sticker', icon: '🏷️' },
+                  { label: 'Баннер', url: '/shop?cat=banner', icon: '🪧' },
+                  { label: 'Ном & Каталог', url: '/shop?cat=book', icon: '📗' },
+                  { label: 'Өргөн формат', url: '/shop?cat=wide-format', icon: '🖼️' },
+                  { label: 'Загвар сан', url: '/templates', icon: '🎨' },
+                ].map(c => (
+                  <a key={c.label} href={c.url} className="flex items-center gap-3 px-5 py-2.5 text-[14px] text-[#333] no-underline hover:bg-[#F8F8F8] hover:text-[#FF6B00] transition-colors">
+                    <span className="text-lg">{c.icon}</span>
+                    {c.label}
+                  </a>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* ── Divider ── */}
+          <div className="hidden md:block w-px h-6 bg-[#EBEBEB] mr-4" />
+
+          {/* ── Desktop nav links ── */}
+          <div className="hidden md:flex items-center gap-0 flex-1 h-[50px]">
             {activeItems.map((item: any) => {
               const isActive = pathname === item.nav_url
               const hasDropdown = item.nav_type === 'MEGA' || item.nav_type === 'DROPDOWN'
@@ -86,34 +214,29 @@ export default function MegaNav() {
               return (
                 <div
                   key={item.id}
-                  style={{ position: 'relative' }}
+                  className="relative flex items-stretch h-[50px]"
                   onMouseEnter={() => hasDropdown ? handleMouseEnter(item.id) : undefined}
                   onMouseLeave={() => hasDropdown ? handleMouseLeave() : undefined}
                 >
                   {hasDropdown ? (
                     <button
-                      style={{
-                        padding: '8px 14px', border: 'none', background: 'transparent',
-                        fontSize: 14, fontWeight: 500,
-                        color: isActive ? '#FF6B00' : 'var(--text, #333)',
-                        cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4,
-                        fontFamily: F, borderRadius: 8,
-                      }}
+                      className={`px-4 h-[50px] bg-transparent border-none text-[14px] flex items-center gap-1.5 cursor-pointer transition-colors ${
+                        isActive
+                          ? 'text-[#FF6B00] font-semibold'
+                          : 'text-[#333] hover:text-[#FF6B00] font-medium'
+                      }`}
                     >
                       {item.nav_label}
-                      <svg width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                        <path d="M6 9l6 6 6-6"/>
-                      </svg>
+                      <ChevronDown />
                     </button>
                   ) : (
                     <a
                       href={item.nav_url || '#'}
-                      style={{
-                        padding: '8px 14px', fontSize: 14, fontWeight: 500,
-                        color: isActive ? '#FF6B00' : 'var(--text, #333)',
-                        textDecoration: 'none', borderRadius: 8,
-                        background: isActive ? 'rgba(255,107,0,0.06)' : 'transparent',
-                      }}
+                      className={`px-4 h-[50px] flex items-center text-[14px] no-underline transition-colors ${
+                        isActive
+                          ? 'text-[#FF6B00] font-semibold'
+                          : 'text-[#333] hover:text-[#FF6B00] font-medium'
+                      }`}
                     >
                       {item.nav_label}
                     </a>
@@ -124,66 +247,36 @@ export default function MegaNav() {
                     <div
                       onMouseEnter={() => handleMouseEnter(item.id)}
                       onMouseLeave={handleMouseLeave}
-                      style={{
-                        position: 'fixed', top: 64, left: 0, right: 0,
-                        background: 'var(--surface, #fff)',
-                        borderBottom: '1px solid var(--border, #EBEBEB)',
-                        boxShadow: '0 8px 32px rgba(0,0,0,0.08)',
-                        zIndex: 300, padding: '28px 0',
-                      }}
+                      className="fixed top-[122px] left-0 right-0 bg-white border-b border-[#EBEBEB] shadow-xl z-[300] py-7"
                     >
-                      <div style={{
-                        maxWidth: 1200, margin: '0 auto', padding: '0 32px',
-                        display: 'grid',
-                        gridTemplateColumns: `repeat(${Math.min((item.columns?.length || 0) + (item.featured ? 1 : 0), 6)}, 1fr)`,
-                        gap: 32,
-                      }}>
+                      <div className="max-w-[1280px] mx-auto px-8 grid gap-8" style={{ gridTemplateColumns: `repeat(${Math.min((item.columns?.length || 0) + (item.featured ? 1 : 0), 6)}, 1fr)` }}>
                         {item.columns.map((col: any, ci: number) => (
                           <div key={ci}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14, paddingBottom: 10, borderBottom: `2px solid ${(col.color || '#FF6B00')}30` }}>
-                              {col.icon && <span style={{ fontSize: 18 }}>{col.icon}</span>}
-                              <span style={{ fontSize: 12, fontWeight: 700, color: col.color || '#FF6B00', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                            <div className="flex items-center gap-2 mb-4 pb-2.5" style={{ borderBottom: `2px solid ${(col.color || '#FF6B00')}30` }}>
+                              {col.icon && <span className="text-lg">{col.icon}</span>}
+                              <span className="text-[11px] font-bold uppercase tracking-widest" style={{ color: col.color || '#FF6B00' }}>
                                 {col.title}
                               </span>
                             </div>
                             {Array.isArray(col.items) && col.items.map((link: any, li: number) => (
-                              <a
-                                key={li}
-                                href={link.url || '#'}
-                                style={{ display: 'block', padding: '8px 0', textDecoration: 'none', transition: 'padding-left 0.15s' }}
-                                onMouseEnter={e => { e.currentTarget.style.paddingLeft = '6px' }}
-                                onMouseLeave={e => { e.currentTarget.style.paddingLeft = '0' }}
-                              >
-                                <div style={{ fontSize: 14, fontWeight: 500, color: 'var(--text, #0F0F0F)' }}>{link.label}</div>
-                                {link.desc && <div style={{ fontSize: 12, color: 'var(--text3, #999)', marginTop: 2 }}>{link.desc}</div>}
+                              <a key={li} href={link.url || '#'} className="block py-2 no-underline hover:pl-1.5 transition-all">
+                                <div className="text-[14px] font-medium text-[#333] hover:text-[#FF6B00]">{link.label}</div>
+                                {link.desc && <div className="text-[12px] text-[#999] mt-0.5">{link.desc}</div>}
                               </a>
                             ))}
                           </div>
                         ))}
                         {item.featured && (
-                          <div style={{ background: item.featured.bg_color || '#1a1a1a', borderRadius: 12, padding: 20, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                          <div className="rounded-xl p-5 flex flex-col justify-between" style={{ background: item.featured.bg_color || '#1a1a1a' }}>
                             <div>
                               {item.featured.badge && (
-                                <div style={{ fontSize: 11, color: '#FF6B00', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>
-                                  {item.featured.badge}
-                                </div>
+                                <div className="text-[11px] text-[#FF6B00] font-bold uppercase tracking-widest mb-2">{item.featured.badge}</div>
                               )}
-                              <div style={{ fontSize: 16, fontWeight: 700, color: '#fff', lineHeight: 1.4, marginBottom: 8 }}>
-                                {item.featured.title}
-                              </div>
-                              <div style={{ fontSize: 12, color: '#888', lineHeight: 1.6 }}>
-                                {item.featured.description}
-                              </div>
+                              <div className="text-[16px] font-bold text-white leading-snug mb-2">{item.featured.title}</div>
+                              <div className="text-[12px] text-gray-400 leading-relaxed">{item.featured.description}</div>
                             </div>
-                            <a
-                              href={item.featured.cta_url || '/quote'}
-                              style={{
-                                marginTop: 16, display: 'block', background: '#FF6B00', color: '#fff',
-                                textAlign: 'center', padding: '10px', borderRadius: 8,
-                                textDecoration: 'none', fontSize: 13, fontWeight: 700,
-                              }}
-                            >
-                              {item.featured.cta_text || 'Learn more'}
+                            <a href={item.featured.cta_url || '/quote'} className="mt-4 block bg-[#FF6B00] text-white text-center py-2.5 rounded-lg no-underline text-[13px] font-bold hover:bg-[#E55D00] transition-colors">
+                              {item.featured.cta_text || 'Дэлгэрэнгүй'}
                             </a>
                           </div>
                         )}
@@ -196,29 +289,10 @@ export default function MegaNav() {
                     <div
                       onMouseEnter={() => handleMouseEnter(item.id)}
                       onMouseLeave={handleMouseLeave}
-                      style={{
-                        position: 'absolute', top: '100%', left: 0,
-                        background: 'var(--surface, #fff)',
-                        border: '1px solid var(--border, #EBEBEB)',
-                        borderRadius: 12,
-                        boxShadow: '0 8px 24px rgba(0,0,0,0.08)',
-                        zIndex: 300, padding: '8px 0',
-                        minWidth: 200, marginTop: 4,
-                      }}
+                      className="absolute top-full left-0 bg-white border border-[#EBEBEB] rounded-xl shadow-xl z-[300] py-2 min-w-[200px] mt-0.5"
                     >
                       {item.columns.flatMap((col: any) => col.items || []).map((link: any, li: number) => (
-                        <a
-                          key={li}
-                          href={link.url || '#'}
-                          style={{
-                            display: 'block', padding: '10px 16px',
-                            fontSize: 14, fontWeight: 500,
-                            color: 'var(--text, #333)', textDecoration: 'none',
-                            transition: 'background 0.15s',
-                          }}
-                          onMouseEnter={e => { e.currentTarget.style.background = 'var(--surface2, #f5f5f5)' }}
-                          onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
-                        >
+                        <a key={li} href={link.url || '#'} className="block px-4 py-2.5 text-[14px] font-medium text-[#333] no-underline hover:bg-[#F8F8F8] hover:text-[#FF6B00] transition-colors">
                           {link.label}
                         </a>
                       ))}
@@ -229,228 +303,185 @@ export default function MegaNav() {
             })}
           </div>
 
-          {/* Desktop actions */}
-          <div className="nav-desktop" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            {showSearch && (
-              <div style={{ position: 'relative' }}>
-                <input
-                  placeholder="Хайх..."
-                  style={{
-                    padding: '8px 14px 8px 36px',
-                    border: '1px solid var(--border, #EBEBEB)',
-                    borderRadius: 10, fontSize: 13, outline: 'none',
-                    background: 'var(--surface2, #F5F5F0)',
-                    color: 'var(--text, #333)',
-                    width: 180, fontFamily: F,
-                  }}
-                />
-                <svg style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)' }} width="14" height="14" fill="none" stroke="var(--text3, #999)" strokeWidth="2" viewBox="0 0 24 24">
-                  <circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>
-                </svg>
-              </div>
-            )}
-            {showLogin && (
-              <a href="/login" style={{
-                fontSize: 14, fontWeight: 500, color: 'var(--text, #333)',
-                textDecoration: 'none', padding: '8px 16px', borderRadius: 8,
-                border: '1px solid var(--border, #EBEBEB)',
-              }}>
-                Нэвтрэх
-              </a>
-            )}
-            <a href={ctaUrl} style={{
-              fontSize: 14, fontWeight: 700, color: '#fff',
-              textDecoration: 'none', padding: '9px 20px', borderRadius: 10,
-              background: '#FF6B00',
-            }}>
-              {ctaText}
+          {/* ── Desktop right: 3 systems ── */}
+          <div className="hidden md:flex items-center gap-1 ml-auto">
+            <a href="/shop" className="flex items-center gap-1.5 text-[12px] font-semibold px-3 py-1.5 rounded-lg hover:bg-[#FFF7ED] text-[#555] hover:text-[#FF6B00] no-underline transition-colors">
+              🛒 <span>Дэлгүүр</span>
+            </a>
+            <a href="/quote" className="flex items-center gap-1.5 text-[12px] font-semibold px-3 py-1.5 rounded-lg hover:bg-[#F5F3FF] text-[#555] hover:text-[#8B5CF6] no-underline transition-colors">
+              🖨️ <span>Хэвлэл</span>
+            </a>
+            <a href="/smart-quote" className="flex items-center gap-1.5 text-[12px] font-semibold px-3 py-1.5 rounded-lg hover:bg-[#EFF6FF] text-[#555] hover:text-[#3B82F6] no-underline transition-colors">
+              🤖 <span>AI Quote</span>
+            </a>
+            <a href="/marketplace" className="flex items-center gap-1.5 text-[12px] font-semibold px-3 py-1.5 rounded-lg hover:bg-[#FDF2F8] text-[#555] hover:text-[#EC4899] no-underline transition-colors">
+              🎨 <span>Marketplace</span>
             </a>
           </div>
 
-          {/* Mobile right side */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <a href={ctaUrl} className="nav-mobile" style={{
-              display: 'none', fontSize: 13, fontWeight: 700, color: '#fff',
-              textDecoration: 'none', padding: '7px 14px', borderRadius: 8,
-              background: '#FF6B00',
-            }}>
-              {ctaText.replace(' →', '')}
-            </a>
-            {/* Hamburger */}
-            <button
-              className="nav-mobile"
-              onClick={() => setMobileOpen(!mobileOpen)}
-              style={{
-                display: 'none', background: 'transparent', border: 'none',
-                cursor: 'pointer', padding: 4, borderRadius: 8,
-                color: 'var(--text, #333)',
-              }}
-            >
-              {mobileOpen ? (
-                <svg width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                  <path d="M18 6L6 18M6 6l12 12"/>
-                </svg>
+          {/* ═══ MOBILE TOP BAR ═══ */}
+          <div className="flex md:hidden items-center justify-between w-full">
+            {/* Logo */}
+            <a href="/" className="flex items-center gap-2 no-underline flex-shrink-0">
+              {headerLogoUrl ? (
+                <img src={headerLogoUrl} alt={siteName} className="h-8" />
               ) : (
-                <svg width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                  <path d="M4 6h16M4 12h16M4 18h16"/>
-                </svg>
+                <>
+                  <svg width="30" height="30" viewBox="0 0 48 48" fill="none">
+                    <defs>
+                      <linearGradient id="m-og" x1="0" y1="0" x2="48" y2="24" gradientUnits="userSpaceOnUse">
+                        <stop stopColor="#FF6B00"/><stop offset="1" stopColor="#F59E0B"/>
+                      </linearGradient>
+                      <linearGradient id="m-pp" x1="0" y1="24" x2="48" y2="48" gradientUnits="userSpaceOnUse">
+                        <stop stopColor="#8B5CF6"/><stop offset="1" stopColor="#6D28D9"/>
+                      </linearGradient>
+                    </defs>
+                    <path d="M4 14C4 8.477 8.477 4 14 4h6c5.523 0 10 4.477 10 10v4c0 2.21-1.79 4-4 4H14c-5.523 0-10-4.477-10-10z" fill="url(#m-og)"/>
+                    <path d="M30 8a10 10 0 0114 0 10 10 0 010 14c-2 2-6 2-8 0l-6-6a10 10 0 010-8z" fill="url(#m-og)" opacity="0.8"/>
+                    <path d="M4 30c0-2.21 1.79-4 4-4h10c5.523 0 10 4.477 10 10v4c0 2.21-1.79 4-4 4H14c-5.523 0-10-4.477-10-10v-4z" fill="url(#m-pp)"/>
+                    <path d="M30 30c0-2.21 1.79-4 4-4h4c2.21 0 4 1.79 4 4v4c0 5.523-4.477 10-10 10h-2c-2.21 0-4-1.79-4-4v-6c0-2.21 1.79-4 4-4z" fill="url(#m-pp)" opacity="0.8"/>
+                  </svg>
+                  <span className="text-[17px] font-extrabold text-[#111] tracking-tight">
+                    <span className="text-[#FF6B00]">{siteName.substring(0, 3)}</span>{siteName.substring(3)}
+                  </span>
+                </>
               )}
-            </button>
+            </a>
+
+            {/* Mobile right icons */}
+            <div className="flex items-center gap-2">
+              <button onClick={() => setSearchOpen(!searchOpen)} className="w-9 h-9 rounded-lg bg-[#F8F8F8] flex items-center justify-center text-[#555] border-none cursor-pointer">
+                <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+              </button>
+              <a href="/cart" className="relative w-9 h-9 rounded-lg bg-[#F8F8F8] flex items-center justify-center text-[#555]">
+                <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/></svg>
+                <span className="absolute -top-1 -right-1 w-4 h-4 bg-[#FF6B00] text-white text-[9px] font-bold rounded-full flex items-center justify-center">0</span>
+              </a>
+              <button
+                onClick={() => setMobileOpen(!mobileOpen)}
+                className="w-9 h-9 rounded-lg flex items-center justify-center text-[#111] bg-transparent border-none cursor-pointer"
+              >
+                {mobileOpen ? <CloseIcon /> : <MenuIcon />}
+              </button>
+            </div>
           </div>
         </div>
+
+        {/* Mobile search bar */}
+        {searchOpen && (
+          <div className="md:hidden border-t border-[#EBEBEB] px-4 py-3 bg-white">
+            <div className="flex items-stretch h-[40px] border border-[#EBEBEB] rounded-lg overflow-hidden focus-within:border-[#FF6B00] transition-colors">
+              <input
+                type="text"
+                placeholder="Бүтээгдэхүүн хайх..."
+                className="flex-1 bg-white text-[14px] text-[#111] px-4 outline-none placeholder:text-[#BBB]"
+                autoFocus
+              />
+              <button className="bg-[#FF6B00] text-white px-4 border-none">
+                <SearchIcon />
+              </button>
+            </div>
+          </div>
+        )}
       </nav>
 
-      {/* Mobile menu overlay */}
+      {/* ═══ MOBILE MENU OVERLAY ═══ */}
       {mobileOpen && (
-        <div style={{
-          position: 'fixed', top: 64, left: 0, right: 0, bottom: 0,
-          background: 'var(--surface, #fff)', zIndex: 190, overflowY: 'auto',
-          padding: '16px 24px 32px', fontFamily: F,
-        }}>
-          {/* Search */}
-          {showSearch && (
-            <div style={{ position: 'relative', marginBottom: 20 }}>
-              <input
-                placeholder="Хайх..."
-                style={{
-                  width: '100%', padding: '10px 14px 10px 38px',
-                  border: '1px solid var(--border, #EBEBEB)',
-                  borderRadius: 10, fontSize: 14, outline: 'none',
-                  background: 'var(--surface2, #F5F5F0)',
-                  color: 'var(--text, #333)',
-                  fontFamily: F, boxSizing: 'border-box',
-                }}
-              />
-              <svg style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)' }} width="16" height="16" fill="none" stroke="var(--text3, #999)" strokeWidth="2" viewBox="0 0 24 24">
-                <circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>
-              </svg>
-            </div>
-          )}
-
-          {/* Nav links with accordion */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginBottom: 24 }}>
-            {activeItems.map((item: any) => {
-              const hasChildren = (item.nav_type === 'MEGA' || item.nav_type === 'DROPDOWN') && Array.isArray(item.columns)
-              const isOpen = mobileAccordion === item.id
-              const isActivePath = pathname === item.nav_url
-
-              if (!hasChildren) {
-                return (
-                  <a
-                    key={item.id}
-                    href={item.nav_url || '#'}
-                    onClick={() => setMobileOpen(false)}
-                    style={{
-                      padding: '14px 16px', fontSize: 15, fontWeight: 500,
-                      color: isActivePath ? '#FF6B00' : 'var(--text, #0F0F0F)',
-                      textDecoration: 'none', borderRadius: 10,
-                      background: isActivePath ? 'rgba(255,107,0,0.06)' : 'transparent',
-                      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                    }}
-                  >
-                    {item.nav_label}
-                    <svg width="16" height="16" fill="none" stroke="var(--text3, #999)" strokeWidth="2" viewBox="0 0 24 24">
-                      <path d="M9 18l6-6-6-6"/>
-                    </svg>
-                  </a>
-                )
-              }
-
-              // Accordion for MEGA / DROPDOWN
-              const allLinks = item.nav_type === 'MEGA'
-                ? item.columns.flatMap((col: any) => (col.items || []).map((it: any) => ({ ...it, section: col.title, color: col.color })))
-                : item.columns.flatMap((col: any) => col.items || [])
-
-              return (
-                <div key={item.id}>
-                  <button
-                    onClick={() => toggleMobileAccordion(item.id)}
-                    style={{
-                      width: '100%', padding: '14px 16px', fontSize: 15, fontWeight: 500,
-                      color: 'var(--text, #0F0F0F)', background: 'transparent',
-                      border: 'none', borderRadius: 10, cursor: 'pointer',
-                      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                      fontFamily: F, textAlign: 'left',
-                    }}
-                  >
-                    {item.nav_label}
-                    <svg
-                      width="16" height="16" fill="none" stroke="var(--text3, #999)" strokeWidth="2" viewBox="0 0 24 24"
-                      style={{ transition: 'transform 0.2s', transform: isOpen ? 'rotate(90deg)' : 'rotate(0deg)' }}
-                    >
-                      <path d="M9 18l6-6-6-6"/>
-                    </svg>
-                  </button>
-                  {isOpen && (
-                    <div style={{ paddingLeft: 16, paddingBottom: 8 }}>
-                      {item.nav_type === 'MEGA' ? (
-                        // Group by section
-                        item.columns.map((col: any, ci: number) => (
-                          <div key={ci} style={{ marginBottom: 12 }}>
-                            <div style={{ fontSize: 11, fontWeight: 700, color: col.color || '#FF6B00', textTransform: 'uppercase', letterSpacing: '0.05em', padding: '6px 16px', display: 'flex', alignItems: 'center', gap: 6 }}>
-                              {col.icon && <span>{col.icon}</span>}
-                              {col.title}
-                            </div>
-                            {(col.items || []).map((link: any, li: number) => (
-                              <a
-                                key={li}
-                                href={link.url || '#'}
-                                onClick={() => setMobileOpen(false)}
-                                style={{
-                                  display: 'block', padding: '10px 16px',
-                                  fontSize: 14, color: 'var(--text, #333)',
-                                  textDecoration: 'none',
-                                }}
-                              >
-                                {link.label}
-                                {link.desc && <span style={{ fontSize: 12, color: 'var(--text3, #999)', marginLeft: 8 }}>{link.desc}</span>}
-                              </a>
-                            ))}
-                          </div>
-                        ))
-                      ) : (
-                        allLinks.map((link: any, li: number) => (
-                          <a
-                            key={li}
-                            href={link.url || '#'}
-                            onClick={() => setMobileOpen(false)}
-                            style={{
-                              display: 'block', padding: '10px 16px',
-                              fontSize: 14, color: 'var(--text, #333)',
-                              textDecoration: 'none',
-                            }}
-                          >
-                            {link.label}
-                          </a>
-                        ))
-                      )}
-                    </div>
-                  )}
-                </div>
-              )
-            })}
-          </div>
-
-          {/* CTA buttons */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            <a href={ctaUrl} onClick={() => setMobileOpen(false)} style={{
-              padding: '14px', background: '#FF6B00', color: '#fff',
-              textDecoration: 'none', borderRadius: 12, textAlign: 'center',
-              fontSize: 15, fontWeight: 700,
-            }}>
-              {ctaText}
-            </a>
-            {showLogin && (
-              <a href="/login" onClick={() => setMobileOpen(false)} style={{
-                padding: '14px', background: 'transparent',
-                color: 'var(--text, #333)',
-                textDecoration: 'none', borderRadius: 12, textAlign: 'center',
-                fontSize: 15, fontWeight: 500,
-                border: '1px solid var(--border, #EBEBEB)',
-              }}>
-                Нэвтрэх
+        <div className="fixed top-[50px] left-0 right-0 bottom-0 bg-white z-[190] overflow-y-auto md:hidden">
+          <div className="p-5">
+            {/* User actions */}
+            <div className="flex gap-3 mb-5 pb-5 border-b border-[#EBEBEB]">
+              <a href="/login" className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl border border-[#EBEBEB] text-[14px] font-medium text-[#333] no-underline hover:border-[#FF6B00] transition-colors">
+                <UserIcon /> Нэвтрэх
               </a>
-            )}
+              <a href="/dashboard/customer/wishlist" className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl border border-[#EBEBEB] text-[14px] font-medium text-[#333] no-underline hover:border-[#FF6B00] transition-colors">
+                <HeartIcon /> Хадгалсан
+              </a>
+            </div>
+
+            {/* Nav links */}
+            <div className="flex flex-col gap-0.5 mb-6">
+              {activeItems.map((item: any) => {
+                const hasChildren = (item.nav_type === 'MEGA' || item.nav_type === 'DROPDOWN') && Array.isArray(item.columns)
+                const isOpen = mobileAccordion === item.id
+                const isActivePath = pathname === item.nav_url
+
+                if (!hasChildren) {
+                  return (
+                    <a key={item.id} href={item.nav_url || '#'} onClick={() => setMobileOpen(false)}
+                      className={`flex items-center justify-between px-4 py-3.5 rounded-xl text-[15px] font-medium no-underline transition-colors ${isActivePath ? 'text-[#FF6B00] bg-[#FFF3EB]' : 'text-[#111]'}`}>
+                      {item.nav_label}
+                      <ChevronRight />
+                    </a>
+                  )
+                }
+
+                return (
+                  <div key={item.id}>
+                    <button onClick={() => toggleMobileAccordion(item.id)}
+                      className="w-full flex items-center justify-between px-4 py-3.5 rounded-xl text-[15px] font-medium text-[#111] bg-transparent border-none cursor-pointer text-left">
+                      {item.nav_label}
+                      <svg width="16" height="16" fill="none" stroke="#999" strokeWidth="2" viewBox="0 0 24 24"
+                        className={`transition-transform duration-200 ${isOpen ? 'rotate-90' : ''}`}>
+                        <path d="M9 18l6-6-6-6"/>
+                      </svg>
+                    </button>
+                    {isOpen && (
+                      <div className="pl-4 pb-2">
+                        {item.nav_type === 'MEGA' ? (
+                          item.columns.map((col: any, ci: number) => (
+                            <div key={ci} className="mb-3">
+                              <div className="flex items-center gap-1.5 px-4 py-1.5 text-[11px] font-bold uppercase tracking-widest" style={{ color: col.color || '#FF6B00' }}>
+                                {col.icon && <span>{col.icon}</span>}
+                                {col.title}
+                              </div>
+                              {(col.items || []).map((link: any, li: number) => (
+                                <a key={li} href={link.url || '#'} onClick={() => setMobileOpen(false)}
+                                  className="block px-4 py-2.5 text-[14px] text-[#333] no-underline hover:text-[#FF6B00]">
+                                  {link.label}
+                                </a>
+                              ))}
+                            </div>
+                          ))
+                        ) : (
+                          item.columns.flatMap((col: any) => col.items || []).map((link: any, li: number) => (
+                            <a key={li} href={link.url || '#'} onClick={() => setMobileOpen(false)}
+                              className="block px-4 py-2.5 text-[14px] text-[#333] no-underline hover:text-[#FF6B00]">
+                              {link.label}
+                            </a>
+                          ))
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+
+            {/* Quick categories */}
+            <div className="border-t border-[#EBEBEB] pt-4 mb-4">
+              <div className="text-[11px] font-bold text-[#999] uppercase tracking-widest mb-3 px-1">Ангилал</div>
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  { label: 'Нэрийн хуудас', url: '/shop?cat=business-card', icon: '🪪' },
+                  { label: 'Флаер & Постер', url: '/shop?cat=flyer', icon: '📄' },
+                  { label: 'Стикер', url: '/shop?cat=sticker', icon: '🏷️' },
+                  { label: 'Баннер', url: '/shop?cat=banner', icon: '🪧' },
+                  { label: 'Ном & Каталог', url: '/shop?cat=book', icon: '📗' },
+                  { label: 'Загвар сан', url: '/templates', icon: '🎨' },
+                ].map(c => (
+                  <a key={c.label} href={c.url} onClick={() => setMobileOpen(false)}
+                    className="flex items-center gap-2 px-3 py-2.5 rounded-lg border border-[#EBEBEB] text-[13px] text-[#333] no-underline hover:border-[#FF6B00] transition-colors">
+                    <span>{c.icon}</span> {c.label}
+                  </a>
+                ))}
+              </div>
+            </div>
+
+            {/* Phone */}
+            <a href={`tel:${phone}`} className="flex items-center gap-2 px-4 py-3 text-[14px] font-bold text-[#111] no-underline">
+              <span className="text-[#FF6B00]"><PhoneIcon /></span> {phone}
+            </a>
           </div>
         </div>
       )}

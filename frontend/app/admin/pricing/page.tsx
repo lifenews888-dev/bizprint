@@ -134,11 +134,6 @@ function fmt(n: number) {
   return new Intl.NumberFormat('mn-MN').format(Math.round(n))
 }
 
-async function apiFetch<T>(path: string, opts?: RequestInit): Promise<T> {
-  await apiFetch(`/${path}`, { ...opts })
-  return res.json()
-}
-
 // ─── Shared Styles ───────────────────────────────────────────────────────────
 
 const s = {
@@ -318,7 +313,7 @@ const s = {
       width: 16,
       height: 16,
       borderRadius: '50%',
-      background: '#fff',
+      background: 'var(--surface)',
       position: 'absolute' as const,
       top: 3,
       left: active ? 21 : 3,
@@ -350,7 +345,7 @@ function RulesTab() {
   const loadRules = useCallback(async () => {
     try {
       setLoading(true)
-      const data = await apiFetch<PricingRule[]>('/pricing-engine/rules')
+      const data = await apiFetch<PricingRule[]>('/quote/pricing/rules')
       setRules(data)
     } catch (e) {
       console.error('Failed to load rules', e)
@@ -365,7 +360,7 @@ function RulesTab() {
 
   const toggleActive = async (rule: PricingRule) => {
     try {
-      await apiFetch(`/pricing-engine/rules/${rule.id}`, {
+      await apiFetch<any>(`/quote/pricing/rules/${rule.id}`, {
         method: 'PUT',
         body: { is_active: !rule.is_active },
       })
@@ -392,7 +387,7 @@ function RulesTab() {
         priority: parseInt(form.priority) || 100,
         description: form.description || null,
       }
-      await apiFetch('/pricing-engine/rules', { method: 'POST', body: body })
+      await apiFetch<any>('/quote/pricing/rules', { method: 'POST', body: body })
       setShowForm(false)
       setForm({
         name: '',
@@ -524,38 +519,50 @@ function RulesTab() {
               <tr>
                 <th style={s.th}>Нэр</th>
                 <th style={s.th}>Бүтээгдэхүүн</th>
-                <th style={s.th}>Төрөл</th>
                 <th style={s.th}>Нөхцөл</th>
-                <th style={s.th}>Үйлдэл</th>
-                <th style={s.th}>Эрэмбэ</th>
+                <th style={s.th}>Үржүүлэгч</th>
+                <th style={s.th}>Нэмэлт ₮</th>
+                <th style={s.th}>Мин тоо</th>
                 <th style={s.th}>Идэвхтэй</th>
               </tr>
             </thead>
             <tbody>
-              {rules.map(rule => (
+              {rules.map((rule: any) => (
                 <tr key={rule.id}>
                   <td style={s.td}>
-                    <div style={{ fontWeight: 600 }}>{rule.name}</div>
-                    {rule.description && <div style={{ fontSize: 11, color: 'var(--text4)', marginTop: 2 }}>{rule.description}</div>}
+                    <div style={{ fontWeight: 600 }}>{rule.label || rule.name || rule.attribute_key || '—'}</div>
                   </td>
                   <td style={s.td}>
                     <span style={s.badge('var(--surface2)', 'var(--text2)')}>
-                      {rule.product_code || 'Бүгд'}
+                      {rule.product_code || rule.product_id?.slice(0, 8) || 'Бүгд'}
                     </span>
                   </td>
-                  <td style={s.td}>{ruleTypeLabel(rule.rule_type)}</td>
                   <td style={s.td}>
-                    <code style={{ fontSize: 12, background: 'var(--surface2)', padding: '2px 6px', borderRadius: 4 }}>
-                      {rule.condition_field} {opLabel(rule.condition_operator)} {rule.condition_value}
-                      {rule.condition_operator === 'BETWEEN' && rule.condition_value2 != null ? ` ~ ${rule.condition_value2}` : ''}
-                    </code>
+                    {(rule.attribute_key || rule.condition_field) ? (
+                      <code style={{ fontSize: 12, background: 'var(--surface2)', padding: '2px 6px', borderRadius: 4 }}>
+                        {rule.attribute_key || rule.condition_field}{rule.attribute_value ? ` = ${rule.attribute_value}` : ''}
+                      </code>
+                    ) : '—'}
                   </td>
                   <td style={s.td}>
-                    <code style={{ fontSize: 12, background: 'var(--surface2)', padding: '2px 6px', borderRadius: 4 }}>
-                      {effectLabel(rule.effect_type)} {rule.effect_value}
-                    </code>
+                    {rule.price_multiplier != null ? (
+                      <code style={{ fontSize: 12, background: '#FEF3C7', padding: '2px 6px', borderRadius: 4, color: '#92400E' }}>
+                        ×{Number(rule.price_multiplier).toFixed(2)}
+                      </code>
+                    ) : rule.effect_value != null ? (
+                      <code style={{ fontSize: 12, background: '#FEF3C7', padding: '2px 6px', borderRadius: 4, color: '#92400E' }}>
+                        {rule.effect_type === 'MULTIPLY' ? '×' : ''}{rule.effect_value}
+                      </code>
+                    ) : '—'}
                   </td>
-                  <td style={{ ...s.td, textAlign: 'center' }}>{rule.priority}</td>
+                  <td style={s.td}>
+                    {rule.price_addition != null && Number(rule.price_addition) !== 0 ? (
+                      <code style={{ fontSize: 12, background: '#DBEAFE', padding: '2px 6px', borderRadius: 4, color: '#1D4ED8' }}>
+                        +₮{fmt(Number(rule.price_addition))}
+                      </code>
+                    ) : '—'}
+                  </td>
+                  <td style={{ ...s.td, textAlign: 'center' }}>{rule.min_quantity || rule.priority || '—'}</td>
                   <td style={s.td}>
                     <button style={s.toggle(rule.is_active)} onClick={() => toggleActive(rule)}>
                       <div style={s.toggleDot(rule.is_active)} />
@@ -582,11 +589,31 @@ function TiersTab() {
   const loadTiers = useCallback(async () => {
     try {
       setLoading(true)
-      const data = await apiFetch<PricingTier[]>('/pricing-engine/tiers')
-      setTiers(data)
+      // Try catalog margins first (DB-backed), fallback to legacy tiers
+      let data: any[] = []
+      try {
+        const margins = await apiFetch<any[]>('/pricing-catalog/margins')
+        if (Array.isArray(margins) && margins.length > 0) {
+          data = margins.map(m => ({
+            id: m.id,
+            code: (m.key || '').toUpperCase(),
+            name_mn: m.name || m.key,
+            margin_rate: Number(m.margin_rate),
+            min_order_amount: 0,
+            description: m.description,
+            is_active: m.is_active,
+          }))
+        }
+      } catch {}
+      if (data.length === 0) {
+        try {
+          data = await apiFetch<PricingTier[]>('/quote/pricing/tiers')
+        } catch {}
+      }
+      setTiers(Array.isArray(data) ? data : [])
       const e: Record<string, { margin_rate: string; min_order_amount: string }> = {}
-      data.forEach(t => {
-        e[t.id] = { margin_rate: String(Number(t.margin_rate) * 100), min_order_amount: String(t.min_order_amount) }
+      ;(Array.isArray(data) ? data : []).forEach((t: any) => {
+        e[t.id] = { margin_rate: String(Math.round(Number(t.margin_rate) * 100)), min_order_amount: String(t.min_order_amount || 0) }
       })
       setEdits(e)
     } catch (e) {
@@ -606,13 +633,18 @@ function TiersTab() {
     setSavingId(tier.id)
     try {
       const marginDecimal = parseFloat(edit.margin_rate) / 100
-      await apiFetch(`/pricing-engine/tiers/${tier.id}`, {
-        method: 'PUT',
-        body: {
-          margin_rate: marginDecimal,
-          min_order_amount: parseFloat(edit.min_order_amount || 0,
-        }),
-      })
+      // Try catalog margins first, fallback to legacy tiers
+      try {
+        await apiFetch<any>(`/pricing-catalog/margins/${tier.id}`, {
+          method: 'PATCH',
+          body: JSON.stringify({ margin_rate: marginDecimal }),
+        })
+      } catch {
+        await apiFetch<any>(`/quote/pricing/tiers/${tier.id}`, {
+          method: 'PUT',
+          body: JSON.stringify({ margin_rate: marginDecimal, min_order_amount: parseFloat(edit.min_order_amount || '0') }),
+        })
+      }
       loadTiers()
     } catch (e) {
       console.error('Failed to save tier', e)
@@ -716,7 +748,16 @@ function SimulationTab() {
   const [simulating, setSimulating] = useState(false)
 
   useEffect(() => {
-    apiFetch<PricingTier[]>('/pricing-engine/tiers').then(setTiers).catch(console.error)
+    // Load tiers from catalog margins or legacy
+    apiFetch<any[]>('/pricing-catalog/margins').then(margins => {
+      if (Array.isArray(margins) && margins.length > 0) {
+        setTiers(margins.map(m => ({ id: m.id, code: (m.key || '').toUpperCase(), name_mn: m.name, margin_rate: Number(m.margin_rate), min_order_amount: 0, description: m.description, is_active: true })))
+      } else {
+        apiFetch<PricingTier[]>('/quote/pricing/tiers').then(setTiers).catch(() => {})
+      }
+    }).catch(() => {
+      apiFetch<PricingTier[]>('/quote/pricing/tiers').then(setTiers).catch(() => {})
+    })
   }, [])
 
   const simulate = async () => {
@@ -728,7 +769,7 @@ function SimulationTab() {
         rush_hours: parseInt(form.rush_hours) || 0,
         pricing_tier: form.pricing_tier,
       }
-      const data = await apiFetch<{ simulations: SimulationResult[] }>('/pricing-engine/simulate', {
+      const data = await apiFetch<{ simulations: SimulationResult[] }>('/quote/pricing/simulate', {
         method: 'POST',
         body: body,
       })
@@ -867,7 +908,7 @@ function CompetitorTab() {
   const loadData = useCallback(async () => {
     try {
       setLoading(true)
-      const comps = await apiFetch<CompetitorPrice[]>('/pricing-engine/competitors')
+      const comps = await apiFetch<CompetitorPrice[]>('/quote/pricing/competitors')
       setCompetitors(comps)
     } catch (e) {
       console.error('Failed to load competitor data', e)
@@ -882,14 +923,14 @@ function CompetitorTab() {
     if (!fFactory || !fUnitPrice) return
     setSaving(true)
     try {
-      await apiFetch('/pricing-engine/competitors', {
+      await apiFetch<any>('/quote/pricing/competitors', {
         method: 'POST',
         body: {
           factory_name: fFactory,
           product_type: fType,
           product_subtype: fSubtype || null,
           size: fSize || null,
-          gsm: fGsm ? Number(fGsm : null,
+          gsm: fGsm ? Number(fGsm) : null,
           quantity_min: Number(fQtyMin) || 1,
           quantity_max: fQtyMax ? Number(fQtyMax) : null,
           unit_price: parseFloat(fUnitPrice),
@@ -897,7 +938,7 @@ function CompetitorTab() {
           notes: fNotes || null,
           date_collected: new Date().toISOString().split('T')[0],
           is_active: true,
-        }),
+        },
       })
       setFFactory(''); setFSubtype(''); setFSize(''); setFGsm(''); setFQtyMin('1'); setFQtyMax(''); setFUnitPrice(''); setFTotalPrice(''); setFNotes('')
       loadData()
@@ -910,7 +951,7 @@ function CompetitorTab() {
 
   const deletePrice = async (id: string) => {
     try {
-      await apiFetch(`/pricing-engine/competitors/${id}`, { method: 'DELETE' })
+      await apiFetch<any>(`/quote/pricing/competitors/${id}`, { method: 'DELETE' })
       loadData()
     } catch (e) {
       console.error('Failed to delete', e)
@@ -919,7 +960,7 @@ function CompetitorTab() {
 
   const toggleActive = async (cp: CompetitorPrice) => {
     try {
-      await apiFetch(`/pricing-engine/competitors/${cp.id}`, {
+      await apiFetch<any>(`/quote/pricing/competitors/${cp.id}`, {
         method: 'PUT',
         body: { is_active: !cp.is_active },
       })

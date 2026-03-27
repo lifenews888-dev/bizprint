@@ -1,13 +1,19 @@
 'use client'
 import { apiFetch } from '@/lib/api'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import EmptyState from '@/components/ui/EmptyState'
 
 const F = "'DM Sans','Segoe UI',system-ui,sans-serif"
 const fmt = (n: number) => new Intl.NumberFormat('mn-MN').format(Math.round(n)) + '₮'
 
-type Step = 'cart' | 'quote' | 'confirmed'
+type Step = 'cart' | 'quote' | 'payment' | 'confirmed'
+
+const PAYMENT_METHODS = [
+  { value: 'bank', label: '🏦 Банк шилжүүлэг', desc: 'ХХБ дансаар шилжүүлэх' },
+  { value: 'qr', label: '📱 QR Код', desc: 'QR уншуулж төлөх' },
+  { value: 'cash', label: '💵 Бэлэн мөнгө', desc: 'Хүргэлтийн үед төлөх' },
+]
 
 export default function CartPage() {
   const router = useRouter()
@@ -19,6 +25,29 @@ export default function CartPage() {
   const [quoting, setQuoting] = useState(false)
   const [confirming, setConfirming] = useState(false)
   const [error, setError] = useState('')
+  const [payMethod, setPayMethod] = useState('bank')
+  const [order, setOrder] = useState<any>(null)
+  const [paymentData, setPaymentData] = useState<any>(null)
+  const [paymentStatus, setPaymentStatus] = useState('pending')
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  useEffect(() => {
+    return () => { if (pollRef.current) clearInterval(pollRef.current) }
+  }, [])
+
+  const startPolling = (invoiceCode: string) => {
+    if (pollRef.current) clearInterval(pollRef.current)
+    pollRef.current = setInterval(async () => {
+      try {
+        const res = await apiFetch<any>(`/payment/status/${invoiceCode}`)
+        if (res?.status === 'paid' || res?.status === 1 || res?.status === 'PAID') {
+          setPaymentStatus('paid')
+          if (pollRef.current) clearInterval(pollRef.current)
+          setTimeout(() => setStep('confirmed'), 1500)
+        }
+      } catch {}
+    }, 5000)
+  }
 
   const loadCart = async () => {
     try {
@@ -33,13 +62,12 @@ export default function CartPage() {
   const removeItem = async (itemId: string) => {
     setRemoving(itemId)
     try {
-      await apiFetch(`/cart/items/${itemId}`, { method: 'DELETE' })
+      await apiFetch<any>(`/cart/items/${itemId}`, { method: 'DELETE' })
       await loadCart()
     } catch {}
     setRemoving(null)
   }
 
-  // POST /cart/quote — generate quotation
   const handleQuote = async () => {
     setQuoting(true); setError('')
     try {
@@ -52,17 +80,39 @@ export default function CartPage() {
     setQuoting(false)
   }
 
-  // POST /cart/quote/confirm — convert to order
   const handleConfirm = async () => {
     if (!quotation) return
     setConfirming(true); setError('')
     try {
-      const order = await apiFetch<any>('/cart/quote/confirm', {
+      const orderData = await apiFetch<any>('/cart/quote/confirm', {
         method: 'POST',
-        body: { quotation_id: quotation.id },
+        body: { quotation_id: quotation.id, payment_method: payMethod },
       })
-      setStep('confirmed')
-      setTimeout(() => router.push(`/dashboard/orders`), 2000)
+      const o = orderData?.data || orderData
+      setOrder(o)
+
+      // Create payment
+      if (o?.id && (o?.total_price || quotation.total_price)) {
+        try {
+          const payRes = await apiFetch<any>('/payment/create', {
+            method: 'POST',
+            body: {
+              orderId: o.id,
+              amount: Number(o.total_price || quotation.total_price),
+              method: payMethod,
+            },
+          })
+          setPaymentData(payRes)
+          const invoiceCode = payRes?.invoice_code || payRes?.invoiceNo
+          if (invoiceCode && payMethod !== 'cash') {
+            startPolling(invoiceCode)
+          }
+        } catch (e) {
+          console.log('Payment creation note:', (e as any).message)
+        }
+      }
+
+      setStep('payment')
     } catch (e: any) {
       setError(e.message || 'Захиалга үүсгэхэд алдаа гарлаа')
     }
@@ -75,7 +125,8 @@ export default function CartPage() {
   const stepLabels = [
     { key: 'cart', label: '1. Сагс', icon: '🛒' },
     { key: 'quote', label: '2. Үнийн санал', icon: '📋' },
-    { key: 'confirmed', label: '3. Захиалга', icon: '✅' },
+    { key: 'payment', label: '3. Төлбөр', icon: '💳' },
+    { key: 'confirmed', label: '4. Баталгаа', icon: '✅' },
   ]
   const stepIdx = stepLabels.findIndex(s => s.key === step)
 
@@ -112,9 +163,139 @@ export default function CartPage() {
       {/* STEP: Confirmed */}
       {step === 'confirmed' && (
         <div style={{ textAlign: 'center', padding: '60px 20px' }}>
-          <div style={{ fontSize: 64, marginBottom: 16 }}>🎉</div>
-          <h2 style={{ fontSize: 24, fontWeight: 800, margin: '0 0 12px' }}>Захиалга амжилттай үүслээ!</h2>
-          <p style={{ color: '#888', marginBottom: 24 }}>Захиалгын хуудас руу шилжиж байна...</p>
+          <div style={{ fontSize: 64, marginBottom: 16 }}>✅</div>
+          <h2 style={{ fontSize: 24, fontWeight: 800, margin: '0 0 12px' }}>Төлбөр баталгаажлаа!</h2>
+          <p style={{ color: '#888', marginBottom: 24 }}>Таны захиалга үйлдвэрт шилжинэ.</p>
+          <div style={{ display: 'flex', gap: 12, justifyContent: 'center' }}>
+            <button onClick={() => router.push('/dashboard/orders')} style={{
+              padding: '14px 28px', background: '#FF6B00', color: '#fff', border: 'none',
+              borderRadius: 12, fontWeight: 700, fontSize: 14, cursor: 'pointer',
+            }}>📦 Захиалга харах</button>
+            <button onClick={() => router.push('/')} style={{
+              padding: '14px 28px', background: 'var(--surface2, #f5f5f0)', color: 'var(--text, #333)',
+              border: '1px solid var(--border, #ddd)', borderRadius: 12, fontWeight: 600, fontSize: 14, cursor: 'pointer',
+            }}>🏠 Нүүр хуудас</button>
+          </div>
+        </div>
+      )}
+
+      {/* STEP: Payment */}
+      {step === 'payment' && (
+        <div style={{ maxWidth: 560, margin: '0 auto' }}>
+          <div style={{ background: 'var(--surface, #fff)', border: '1px solid var(--border, #E5E7EB)', borderRadius: 20, padding: 32 }}>
+            <div style={{ textAlign: 'center', marginBottom: 24 }}>
+              <div style={{ fontSize: 48, marginBottom: 12 }}>🎉</div>
+              <h2 style={{ fontSize: 22, fontWeight: 800, margin: '0 0 8px' }}>Захиалга үүслээ!</h2>
+              <p style={{ color: '#888', fontSize: 14, margin: 0 }}>
+                Дугаар: <strong>#{(order?.id || '').slice(-8).toUpperCase()}</strong>
+              </p>
+            </div>
+
+            <div style={{ textAlign: 'center', fontSize: 32, fontWeight: 800, color: '#FF6B00', marginBottom: 24 }}>
+              {fmt(order?.total_price || quotation?.total_price || 0)}
+            </div>
+
+            {/* Bank transfer details */}
+            {payMethod === 'bank' && paymentData && (
+              <div style={{ background: '#EFF6FF', border: '1px solid #BFDBFE', borderRadius: 14, padding: 20, marginBottom: 20 }}>
+                <p style={{ fontWeight: 700, fontSize: 15, margin: '0 0 14px', color: '#1E40AF' }}>🏦 Банк шилжүүлгийн мэдээлэл</p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10, fontSize: 14 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ color: '#3B82F6' }}>Банк:</span>
+                    <span style={{ fontWeight: 600, color: '#1E3A5F' }}>{paymentData.bank || 'ХХБ'}</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ color: '#3B82F6' }}>IBAN:</span>
+                    <span style={{ fontWeight: 600, color: '#1E3A5F' }}>{paymentData.iban || '—'}</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ color: '#3B82F6' }}>Данс:</span>
+                    <span style={{ fontWeight: 700, color: '#1E3A5F', letterSpacing: 1 }}>{paymentData.accountNumber || '—'}</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ color: '#3B82F6' }}>Нэр:</span>
+                    <span style={{ fontWeight: 600, color: '#1E3A5F' }}>{paymentData.accountName || '—'}</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ color: '#3B82F6' }}>Дүн:</span>
+                    <span style={{ fontWeight: 800, color: '#1E3A5F' }}>{fmt(paymentData.amount || order?.total_price)}</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', background: '#DBEAFE', borderRadius: 8, padding: '8px 12px' }}>
+                    <span style={{ color: '#3B82F6' }}>Гүйлгээний утга:</span>
+                    <span style={{ fontWeight: 800, color: '#1E40AF' }}>{paymentData.description || paymentData.invoice_code}</span>
+                  </div>
+                </div>
+                <p style={{ fontSize: 12, color: '#3B82F6', marginTop: 12, marginBottom: 0 }}>
+                  ⚠️ Гүйлгээний утга дээр дээрх кодыг заавал бичнэ үү!
+                </p>
+              </div>
+            )}
+
+            {/* QR */}
+            {payMethod === 'qr' && paymentData && (
+              <div style={{ background: '#F0FDF4', border: '1px solid #86EFAC', borderRadius: 14, padding: 20, marginBottom: 20, textAlign: 'center' }}>
+                <p style={{ fontWeight: 700, fontSize: 15, margin: '0 0 12px', color: '#166534' }}>📱 QR кодоор төлөх</p>
+                {paymentData.qrImage ? (
+                  <img src={`data:image/png;base64,${paymentData.qrImage}`} alt="QR" style={{ width: 200, height: 200, margin: '0 auto 12px', display: 'block', borderRadius: 8 }} />
+                ) : (
+                  <p style={{ fontSize: 13, color: '#166534' }}>QR код үүсгэгдэж байна...</p>
+                )}
+              </div>
+            )}
+
+            {/* Cash */}
+            {payMethod === 'cash' && (
+              <div style={{ background: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: 14, padding: 20, marginBottom: 20 }}>
+                <p style={{ fontWeight: 700, fontSize: 15, margin: '0 0 8px', color: '#92400E' }}>💵 Бэлэн төлбөр</p>
+                <p style={{ fontSize: 13, color: '#92400E', margin: '0 0 16px' }}>Хүргэлтийн үед бэлэн мөнгөөр төлнө</p>
+                {paymentStatus !== 'paid' && paymentData?.invoice_code && (
+                  <button onClick={async () => {
+                    try {
+                      await apiFetch<any>(`/payment/confirm/${paymentData.invoice_code}`, { method: 'POST' })
+                      setPaymentStatus('paid')
+                      setTimeout(() => setStep('confirmed'), 1500)
+                    } catch (e: any) { alert(e.message) }
+                  }} style={{
+                    width: '100%', padding: '14px', background: '#059669', color: '#fff', border: 'none',
+                    borderRadius: 12, fontWeight: 700, fontSize: 14, cursor: 'pointer',
+                  }}>
+                    ✅ Бэлэн мөнгө төлсөн — Баталгаажуулах
+                  </button>
+                )}
+              </div>
+            )}
+
+            {/* Payment status */}
+            {payMethod !== 'cash' && (
+              <div style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                padding: '12px', borderRadius: 10,
+                background: paymentStatus === 'paid' ? '#DCFCE7' : '#FEF9C3',
+                marginBottom: 20,
+              }}>
+                {paymentStatus === 'paid' ? (
+                  <span style={{ fontSize: 14, color: '#166534', fontWeight: 600 }}>✅ Төлбөр баталгаажсан</span>
+                ) : (
+                  <>
+                    <div style={{ width: 16, height: 16, border: '2px solid #F59E0B', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+                    <span style={{ fontSize: 14, color: '#92400E', fontWeight: 600 }}>Төлбөр хүлээж байна...</span>
+                  </>
+                )}
+              </div>
+            )}
+
+            <div style={{ display: 'flex', gap: 12 }}>
+              <button onClick={() => router.push('/dashboard/orders')} style={{
+                flex: 1, padding: '14px', background: '#FF6B00', color: '#fff', border: 'none',
+                borderRadius: 12, fontWeight: 700, fontSize: 14, cursor: 'pointer',
+              }}>📦 Захиалга харах</button>
+              <button onClick={() => router.push('/')} style={{
+                flex: 1, padding: '14px', background: 'var(--surface2, #f5f5f0)', color: 'var(--text, #333)',
+                border: '1px solid var(--border, #ddd)', borderRadius: 12, fontWeight: 600, fontSize: 14, cursor: 'pointer',
+              }}>🏠 Нүүр хуудас</button>
+            </div>
+          </div>
+          <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
         </div>
       )}
 
@@ -140,6 +321,34 @@ export default function CartPage() {
               <span style={{ fontSize: 20, fontWeight: 800, color: '#FF6B00' }}>{fmt(quotation.total_price)}</span>
             </div>
           </div>
+
+          {/* Payment method */}
+          <div style={{ background: 'var(--surface, #fff)', border: '1px solid var(--border, #E5E7EB)', borderRadius: 16, padding: 24, marginBottom: 20 }}>
+            <h3 style={{ margin: '0 0 16px', fontSize: 16, fontWeight: 700 }}>💳 Төлбөрийн арга</h3>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {PAYMENT_METHODS.map(m => (
+                <div key={m.value} onClick={() => setPayMethod(m.value)} style={{
+                  border: `2px solid ${payMethod === m.value ? '#FF6B00' : 'var(--border, #E5E7EB)'}`,
+                  borderRadius: 12, padding: '14px 18px', cursor: 'pointer',
+                  background: payMethod === m.value ? '#FFF7ED' : 'var(--surface2, #f9f9f7)',
+                  display: 'flex', alignItems: 'center', gap: 14,
+                }}>
+                  <div style={{
+                    width: 18, height: 18, borderRadius: '50%',
+                    border: `2px solid ${payMethod === m.value ? '#FF6B00' : '#ccc'}`,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                  }}>
+                    {payMethod === m.value && <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#FF6B00' }} />}
+                  </div>
+                  <div>
+                    <div style={{ fontWeight: 700, fontSize: 14 }}>{m.label}</div>
+                    <div style={{ fontSize: 12, color: '#888', marginTop: 2 }}>{m.desc}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
           <div style={{ display: 'flex', gap: 12 }}>
             <button onClick={() => setStep('cart')} style={{
               flex: 1, padding: '14px', background: 'transparent', border: '1px solid var(--border, #ddd)',
@@ -152,7 +361,7 @@ export default function CartPage() {
               borderRadius: 12, fontWeight: 700, fontSize: 15, cursor: 'pointer', fontFamily: F,
               opacity: confirming ? 0.7 : 1,
             }}>
-              {confirming ? '⏳ Захиалга үүсгэж байна...' : '✅ Захиалга батлах'}
+              {confirming ? '⏳ Захиалга үүсгэж байна...' : '✅ Захиалга батлах & Төлбөр хийх'}
             </button>
           </div>
         </div>

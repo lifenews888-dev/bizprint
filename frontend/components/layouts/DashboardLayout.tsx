@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import ThemeToggle from '@/components/ThemeToggle'
 
@@ -9,17 +9,48 @@ interface NavGroup { section: string; items: NavItem[] }
 interface Props {
   children: React.ReactNode
   navGroups: NavGroup[]
+  /** Optional: alternate nav groups when user switches to creator mode */
+  creatorNavGroups?: NavGroup[]
   user?: { full_name?: string; email?: string; role?: string }
   onLogout?: () => void
 }
 
-export default function DashboardLayout({ children, navGroups, user, onLogout }: Props) {
+export default function DashboardLayout({ children, navGroups, creatorNavGroups, user, onLogout }: Props) {
   const router    = useRouter()
   const path      = usePathname()
   const [collapsed, setCollapsed] = useState(false)
+  const [isCreator, setIsCreator] = useState(false)
+  const [creatorMode, setCreatorMode] = useState(false)
   const W = collapsed ? '56px' : '224px'
 
-  const activeLabel = navGroups.flatMap(g => g.items).find(i => i.href === path)?.label || 'Dashboard'
+  // Check if user is an approved creator
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('user')
+      if (stored) {
+        const u = JSON.parse(stored)
+        setIsCreator(!!u.is_creator)
+        const mode = localStorage.getItem('bizprint_role_mode')
+        if (mode === 'creator' && u.is_creator) {
+          setCreatorMode(true)
+        }
+      }
+    } catch {}
+  }, [])
+
+  const handleModeSwitch = (toCreator: boolean) => {
+    setCreatorMode(toCreator)
+    localStorage.setItem('bizprint_role_mode', toCreator ? 'creator' : 'customer')
+    // Navigate to appropriate dashboard
+    if (toCreator) {
+      router.push('/creator')
+    } else {
+      router.push('/dashboard')
+    }
+  }
+
+  const activeNavGroups = (creatorMode && creatorNavGroups) ? creatorNavGroups : navGroups
+  const activeLabel = activeNavGroups.flatMap(g => g.items).find(i => i.href === path)?.label || 'Dashboard'
 
   const logout = () => {
     localStorage.clear()
@@ -37,7 +68,7 @@ export default function DashboardLayout({ children, navGroups, user, onLogout }:
         {/* Logo */}
         <div style={{ height: '54px', display: 'flex', alignItems: 'center', justifyContent: collapsed ? 'center' : 'space-between', padding: collapsed ? '0' : '0 14px', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
           {!collapsed && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div onClick={() => router.push('/')} style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
               <div style={{ width: '26px', height: '26px', background: '#FF6B00', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                 <svg width="13" height="13" fill="#fff" viewBox="0 0 18 18">
                   <rect x="2" y="2" width="6" height="6" rx="1.5"/>
@@ -51,7 +82,7 @@ export default function DashboardLayout({ children, navGroups, user, onLogout }:
                   <span style={{ color: '#FF6B00' }}>Biz</span>Print
                 </div>
                 <div style={{ fontSize: '10px', color: 'var(--text3)', marginTop: '1px' }}>
-                  {user?.role || 'Dashboard'}
+                  {creatorMode ? 'Creator' : (user?.role || 'Dashboard')}
                 </div>
               </div>
             </div>
@@ -77,15 +108,69 @@ export default function DashboardLayout({ children, navGroups, user, onLogout }:
                 {user.full_name || user.email}
               </div>
               <span style={{ fontSize: '10px', color: '#FF6B00', background: 'rgba(255,107,0,0.1)', padding: '1px 6px', borderRadius: '20px' }}>
-                {user.role}
+                {creatorMode ? 'creator' : user.role}
               </span>
             </div>
           </div>
         )}
 
+        {/* ── MODE SWITCHER ── */}
+        {isCreator && !collapsed && (
+          <div style={{ padding: '8px 10px', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
+            <div style={{
+              display: 'flex', borderRadius: '8px', overflow: 'hidden',
+              background: 'var(--surface2)', border: '1px solid var(--border)',
+            }}>
+              <button
+                onClick={() => handleModeSwitch(false)}
+                style={{
+                  flex: 1, padding: '6px 0', border: 'none', cursor: 'pointer',
+                  fontSize: '11px', fontWeight: 600, borderRadius: '7px',
+                  fontFamily: "'Segoe UI',system-ui,sans-serif",
+                  transition: 'all .15s',
+                  background: !creatorMode ? '#FF6B00' : 'transparent',
+                  color: !creatorMode ? '#fff' : 'var(--text3)',
+                }}
+              >
+                Захиалагч
+              </button>
+              <button
+                onClick={() => handleModeSwitch(true)}
+                style={{
+                  flex: 1, padding: '6px 0', border: 'none', cursor: 'pointer',
+                  fontSize: '11px', fontWeight: 600, borderRadius: '7px',
+                  fontFamily: "'Segoe UI',system-ui,sans-serif",
+                  transition: 'all .15s',
+                  background: creatorMode ? '#8B5CF6' : 'transparent',
+                  color: creatorMode ? '#fff' : 'var(--text3)',
+                }}
+              >
+                Creator
+              </button>
+            </div>
+          </div>
+        )}
+        {isCreator && collapsed && (
+          <div style={{ padding: '6px', borderBottom: '1px solid var(--border)', flexShrink: 0, display: 'flex', justifyContent: 'center' }}>
+            <button
+              onClick={() => handleModeSwitch(!creatorMode)}
+              title={creatorMode ? 'Захиалагч руу шилжих' : 'Creator руу шилжих'}
+              style={{
+                width: '32px', height: '32px', borderRadius: '8px', border: 'none', cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: '14px',
+                background: creatorMode ? 'rgba(139,92,246,0.15)' : 'rgba(255,107,0,0.1)',
+                transition: 'all .15s',
+              }}
+            >
+              {creatorMode ? '🎨' : '🛒'}
+            </button>
+          </div>
+        )}
+
         {/* Nav */}
         <div className="sb" style={{ flex: 1, overflowY: 'auto', padding: '6px' }}>
-          {navGroups.map(group => (
+          {activeNavGroups.map(group => (
             <div key={group.section} style={{ marginBottom: '2px' }}>
               {!collapsed && (
                 <div style={{ fontSize: '10px', fontWeight: 600, color: 'var(--text4)', letterSpacing: '0.1em', padding: '10px 10px 4px', textTransform: 'uppercase' }}>
@@ -143,6 +228,14 @@ export default function DashboardLayout({ children, navGroups, user, onLogout }:
               <div style={{ width: '5px', height: '5px', borderRadius: '50%', background: '#FF6B00' }}/>
               <span style={{ fontSize: '12px', color: '#FF6B00', fontWeight: 500 }}>{activeLabel}</span>
             </div>
+            {isCreator && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: creatorMode ? 'rgba(139,92,246,0.08)' : 'rgba(107,114,128,0.08)', border: `1px solid ${creatorMode ? 'rgba(139,92,246,0.15)' : 'rgba(107,114,128,0.15)'}`, borderRadius: '6px', padding: '3px 10px' }}>
+                <div style={{ width: '5px', height: '5px', borderRadius: '50%', background: creatorMode ? '#8B5CF6' : '#6B7280' }}/>
+                <span style={{ fontSize: '12px', color: creatorMode ? '#8B5CF6' : '#6B7280', fontWeight: 500 }}>
+                  {creatorMode ? 'Creator Mode' : 'Customer Mode'}
+                </span>
+              </div>
+            )}
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(29,158,117,0.08)', border: '1px solid rgba(29,158,117,0.15)', borderRadius: '6px', padding: '3px 10px' }}>

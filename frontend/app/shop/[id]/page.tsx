@@ -1,5 +1,5 @@
 'use client'
-import { apiFetch } from '@/lib/api'
+import { apiFetch, getToken } from '@/lib/api'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 
@@ -52,8 +52,8 @@ export default function ProductConfiguratorPage() {
     if (!id) return
     setLoading(true)
     Promise.all([
-      apiFetch(`/products/${id}`, { auth: false }).catch(() => null),
-      apiFetch(`/product-attributes?product_id=${id}`, { auth: false }).catch(() => []),
+      apiFetch<any>(`/products/${id}`, { auth: false }).catch(() => null),
+      apiFetch<any>(`/product-attributes?product_id=${id}`, { auth: false }).catch(() => []),
     ]).then(([p, attrs]) => {
       setProduct(p)
       const attrList = Array.isArray(attrs) ? attrs : []
@@ -83,7 +83,7 @@ export default function ProductConfiguratorPage() {
           height_mm: selectedOptions[sizeAttr?.name]?.height || product.height_mm || 50,
           apply_vat: true,
         }
-        const res = await apiFetch('/pricing-catalog/quote', { method: 'POST', body: body })
+        const res = await apiFetch<any>('/pricing-catalog/quote', { method: 'POST', body: body })
         setPriceResult(res)
       } catch {}
       setPriceLoading(false)
@@ -101,7 +101,7 @@ export default function ProductConfiguratorPage() {
       const fd = new FormData()
       fd.append('file', file)
       fd.append('quantity', String(quantity))
-      const res = await apiFetch(`/ai/smart-quote/from-pdf`, {
+      const res = await apiFetch<any>(`/ai/smart-quote/from-pdf`, {
         method: 'POST',
         body: fd,
       })
@@ -260,7 +260,7 @@ export default function ProductConfiguratorPage() {
             <div style={{ fontSize: 13, fontWeight: 700, color: '#111', marginBottom: 12 }}>Дизайн хэрхэн хийх вэ?</div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 14 }}>
               <a href={`/designer?product_id=${id}`} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, padding: '16px 14px', background: '#FF6B00', borderRadius: 12, textDecoration: 'none', color: '#fff', textAlign: 'center', transition: 'background 0.15s' }}
-                onMouseEnter={e => (e.currentTarget.style.background = '#e05500')}
+                onMouseEnter={e => (e.currentTarget.style.background = '#E55D00')}
                 onMouseLeave={e => (e.currentTarget.style.background = '#FF6B00')}
               >
                 <span style={{ fontSize: 24 }}>🎨</span>
@@ -324,10 +324,10 @@ export default function ProductConfiguratorPage() {
           {/* Add to cart */}
           <div style={{ display: 'flex', gap: 10 }}>
             <button style={{ flex: 1, padding: '14px 0', background: '#FF6B00', color: '#fff', border: 'none', borderRadius: 12, fontSize: 15, fontWeight: 700, cursor: 'pointer', fontFamily: F, transition: 'background 0.15s' }}
-              onMouseEnter={e => (e.currentTarget.style.background = '#e05500')}
+              onMouseEnter={e => (e.currentTarget.style.background = '#E55D00')}
               onMouseLeave={e => (e.currentTarget.style.background = '#FF6B00')}
               onClick={() => {
-                const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null
+                const token = getToken()
                 if (!token) { router.push('/login'); return }
                 // TODO: POST /cart/items
                 router.push(`/checkout?product_id=${id}&qty=${quantity}`)

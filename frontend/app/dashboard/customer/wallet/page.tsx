@@ -1,6 +1,6 @@
 'use client'
 
-import { apiFetch } from '@/lib/api'
+import { apiFetch, getToken } from '@/lib/api'
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 
@@ -93,14 +93,14 @@ export default function WalletPage() {
   async function fetchAll() {
     setLoading(true)
     try {
-      const [meRes, balRes, txRes] = await Promise.all([
-        apiFetch(`/auth/me`),
-        apiFetch(`/wallet/balance`),
-        apiFetch(`/wallet/transactions`),
+      const [meData, balData, txData] = await Promise.all([
+        apiFetch<any>(`/auth/me`).catch(() => null),
+        apiFetch<any>(`/wallet/balance`).catch(() => null),
+        apiFetch<any>(`/wallet/transactions`).catch(() => []),
       ])
-      if (meRes.ok)  setUser(await meRes.json())
-      if (balRes.ok) setBalance(await balRes.json())
-      if (txRes.ok)  setTransactions(await txRes.json())
+      if (meData)  setUser(meData)
+      if (balData) setBalance(balData)
+      setTransactions(Array.isArray(txData) ? txData : [])
     } catch {}
     setLoading(false)
   }
@@ -124,7 +124,7 @@ export default function WalletPage() {
     }
     setWithdrawing(true)
     try {
-      await apiFetch(`/wallet/withdraw`, {
+      await apiFetch<any>(`/wallet/withdraw`, {
         method: 'POST',
         body: { amount, note: withdrawNote },
       })

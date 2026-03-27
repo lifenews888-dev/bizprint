@@ -97,21 +97,18 @@ export default function AdminSupportPage() {
   async function fetchTickets() {
     setLoading(true)
     try {
-      const data = await apiFetch(`/admin/support-tickets?status=${statusFilter}`)
+      const data = await apiFetch<any>(`/admin/support-tickets?status=${statusFilter}`)
       const items: Ticket[] = data.items || []
       setTickets(items)
       setTotal(data.total || items.length)
 
       // Also fetch all to get counts
       if (statusFilter) {
-        const allRes = await apiFetch('/admin/support-tickets?status=')
-        if (allRes.ok) {
-          const allData = await allRes.json()
-          const allItems: Ticket[] = allData.items || []
-          const c: Record<string, number> = { '': allItems.length }
-          allItems.forEach(t => { c[t.status] = (c[t.status] || 0) + 1 })
-          setCounts(c)
-        }
+        const allData = await apiFetch<any>('/admin/support-tickets?status=')
+        const allItems: Ticket[] = allData?.items || (Array.isArray(allData) ? allData : [])
+        const c: Record<string, number> = { '': allItems.length }
+        allItems.forEach(t => { c[t.status] = (c[t.status] || 0) + 1 })
+        setCounts(c)
       } else {
         const c: Record<string, number> = { '': items.length }
         items.forEach(t => { c[t.status] = (c[t.status] || 0) + 1 })
@@ -132,20 +129,17 @@ export default function AdminSupportPage() {
     if (!selected || !replyText.trim()) return
     setSending(true)
     try {
-      await apiFetch(`/admin/support-tickets/${selected.id}/reply`, {
+      await apiFetch<any>(`/admin/support-tickets/${selected.id}/reply`, {
         method: 'POST',
-        body: { message: replyText.trim(, sender: 'admin' }),
+        body: { message: replyText.trim(), sender: 'admin' },
       })
       setReplyText('')
       // Refresh ticket data
-      const updated = await apiFetch(`/admin/support-tickets?status=${statusFilter}`)
-      if (updated.ok) {
-        const data = await updated.json()
-        const items: Ticket[] = data.items || []
-        setTickets(items)
-        const refreshed = items.find(t => t.id === selected.id)
-        if (refreshed) setSelected(refreshed)
-      }
+      const data = await apiFetch<any>(`/admin/support-tickets?status=${statusFilter}`)
+      const refreshedItems: Ticket[] = data?.items || (Array.isArray(data) ? data : [])
+      setTickets(refreshedItems)
+      const refreshed = refreshedItems.find(t => t.id === selected.id)
+      if (refreshed) setSelected(refreshed)
       showToast('Хариу илгээлээ')
     } catch {
       showToast('Хариу илгээхэд алдаа гарлаа', 'err')
@@ -156,7 +150,7 @@ export default function AdminSupportPage() {
   async function updateTicket(id: number, updates: Partial<{ status: string; priority: string; assigned_to: string }>) {
     setUpdating(true)
     try {
-      await apiFetch(`/admin/support-tickets/${id}`, {
+      await apiFetch<any>(`/admin/support-tickets/${id}`, {
         method: 'PUT',
         body: updates,
       })
@@ -176,14 +170,14 @@ export default function AdminSupportPage() {
     if (!createForm.subject.trim() || !createForm.message.trim()) return
     setCreating(true)
     try {
-      await apiFetch(`/admin/support-tickets`, {
+      await apiFetch<any>(`/admin/support-tickets`, {
         method: 'POST',
         body: {
-          customer_id: createForm.customer_id ? Number(createForm.customer_id : undefined,
+          customer_id: createForm.customer_id ? Number(createForm.customer_id) : undefined,
           subject: createForm.subject,
           message: createForm.message,
           priority: createForm.priority,
-        }),
+        },
       })
       setShowCreate(false)
       setCreateForm({ customer_id: '', subject: '', message: '', priority: 'NORMAL' })

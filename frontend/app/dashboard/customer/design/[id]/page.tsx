@@ -47,9 +47,6 @@ export default function CustomerDesignApproval() {
   const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' } | null>(null)
   const { subscribe, joinRoom, leaveRoom, onReconnect } = useRealtime()
 
-  const token = typeof window !== 'undefined' ? (localStorage.getItem('access_token') || localStorage.getItem('token')) : null
-  const authHeaders = { Authorization: `Bearer ${token}`}
-
   const showToast = (msg: string, type: 'success' | 'error' = 'success') => {
     setToast({ msg, type })
     setTimeout(() => setToast(null), 4000)
@@ -60,8 +57,8 @@ export default function CustomerDesignApproval() {
   const loadDesign = useCallback(async () => {
     if (!id) return
     try {
-      const res = await apiFetch(`/design-requests/${id}`)
-      const data = res
+      const data = await apiFetch<any>(`/design-requests/${id}`)
+      if (data) {
         setDesign(data)
       }
     } catch {}
@@ -110,17 +107,13 @@ export default function CustomerDesignApproval() {
   const handleRequestRevision = async () => {
     if (!revisionReason.trim()) { showToast('Засах шалтгааныг бичнэ үү', 'error'); return }
     try {
-      const res = await apiFetch(`/design-requests/${id}/request-revision`, {
+      const res = await apiFetch<any>(`/design-requests/${id}/request-revision`, {
         method: 'PATCH',
         body: { reason: revisionReason },
       })
-      if (res.ok) {
-        showToast('Засах хүсэлт илгээгдлээ ✓')
-        setRevisionReason('')
-        loadDesign()
-      } else {
-        showToast('Алдаа гарлаа', 'error')
-      }
+      showToast('Засах хүсэлт илгээгдлээ ✓')
+      setRevisionReason('')
+      loadDesign()
     } catch { showToast('Алдаа', 'error') }
   }
 
@@ -129,16 +122,12 @@ export default function CustomerDesignApproval() {
   const handleApprove = async () => {
     setApproving(true)
     try {
-      const res = await apiFetch(`/design-requests/${id}/approve`, {
+      const res = await apiFetch<any>(`/design-requests/${id}/approve`, {
         method: 'PATCH',
       })
-      if (res.ok) {
-        showToast('✅ Загвар амжилттай батлагдлаа! Үйлдвэрлэл эхэлж байна.')
-        setShowApproveModal(false)
-        loadDesign()
-      } else {
-        showToast('Алдаа гарлаа', 'error')
-      }
+      showToast('✅ Загвар амжилттай батлагдлаа! Үйлдвэрлэл эхэлж байна.')
+      setShowApproveModal(false)
+      loadDesign()
     } catch { showToast('Алдаа', 'error') }
     finally { setApproving(false) }
   }
@@ -150,18 +139,13 @@ export default function CustomerDesignApproval() {
     try {
       const body: any = {}
       if (zoomPreferredAt) body.preferred_at = zoomPreferredAt
-      const res = await apiFetch(`/design-requests/${id}/request-zoom`, {
+      const res = await apiFetch<any>(`/design-requests/${id}/request-zoom`, {
         method: 'PATCH',
-        headers: { ...(authHeaders as any)},
         body: body,
       })
-      if (res.ok) {
-        showToast('📹 Zoom хүсэлт дизайнерт илгээгдлээ!')
-        setZoomPreferredAt('')
-        loadDesign()
-      } else {
-        showToast('Алдаа гарлаа', 'error')
-      }
+      showToast('📹 Zoom хүсэлт дизайнерт илгээгдлээ!')
+      setZoomPreferredAt('')
+      loadDesign()
     } catch { showToast('Алдаа', 'error') }
     finally { setZoomRequesting(false) }
   }
@@ -171,7 +155,7 @@ export default function CustomerDesignApproval() {
   const handleAddComment = async () => {
     if (!commentText.trim()) return
     try {
-      await apiFetch(`/design-requests/${id}/comments`, {
+      await apiFetch<any>(`/design-requests/${id}/comments`, {
         method: 'POST',
         body: { content: commentText, author_role: 'customer', type: 'comment' },
       })

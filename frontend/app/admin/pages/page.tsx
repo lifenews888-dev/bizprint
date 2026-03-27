@@ -8,17 +8,17 @@ export default function AdminPagesPage() {
   const [editing, setEditing] = useState<any>(null)
   const [form, setForm] = useState({ title: '', slug: '', content: '', isActive: true })
 
-  const load = () => { apiFetch('/pages').then(d => setItems(Array.isArray(d) ? d : [])).catch(() => {}).finally(() => setLoading(false)) }
+  const load = () => { apiFetch<any>('/pages').then(d => setItems(Array.isArray(d) ? d : [])).catch(() => {}).finally(() => setLoading(false)) }
   useEffect(load, [])
 
   const reset = () => { setEditing(null); setForm({ title: '', slug: '', content: '', isActive: true }) }
   const save = async () => {
     const method = editing?.id ? 'PATCH' : 'POST'
     const url = editing?.id ? `/pages/${editing.id}` : `/pages`
-    await apiFetch(url, { method: , body: form })
+    await apiFetch<any>(url, { method, body: form })
     reset(); load()
   }
-  const del = async (id: string) => { if (!confirm('Устгах уу?')) return; await apiFetch(`/pages/${id}`, { method: 'DELETE' }); load() }
+  const del = async (id: string) => { if (!confirm('Устгах уу?')) return; await apiFetch<any>(`/pages/${id}`, { method: 'DELETE' }); load() }
   const edit = (item: any) => { setEditing(item); setForm({ title: item.title || '', slug: item.slug || '', content: item.content || '', isActive: item.isActive !== false }) }
 
   const inp: React.CSSProperties = { width: '100%', padding: '10px 14px', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 13, color: 'var(--text)', outline: 'none' }

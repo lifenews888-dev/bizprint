@@ -12,7 +12,7 @@ export default function AdminBannersPage() {
   const [uploading, setUploading] = useState(false)
 
   const load = () => {
-    apiFetch('/banners').then(d => {
+    apiFetch<any>('/banners').then(d => {
       setItems(Array.isArray(d) ? d : [])
     }).catch(() => {}).finally(() => setLoading(false))
   }
@@ -23,13 +23,13 @@ export default function AdminBannersPage() {
   const save = async () => {
     const method = editing ? 'PATCH' : 'POST'
     const url = editing ? `/banners/${editing.id}` : `/banners`
-    await apiFetch(url, { method: , body: form })
+    await apiFetch<any>(url, { method, body: form })
     reset(); load()
   }
 
   const del = async (id: string) => {
     if (!confirm('Устгах уу?')) return
-    await apiFetch(`/banners/${id}`, { method: 'DELETE' })
+    await apiFetch<any>(`/banners/${id}`, { method: 'DELETE' })
     load()
   }
 
@@ -45,7 +45,7 @@ export default function AdminBannersPage() {
     const fd = new FormData()
     fd.append('file', file)
     try {
-      const data = await apiFetch(`/upload/file`, {
+      const data = await apiFetch<any>(`/upload/file`, {
         method: 'POST',
         body: fd,
       })

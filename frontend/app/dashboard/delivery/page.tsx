@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
+import { apiFetch, getToken } from '@/lib/api';
 
 interface Delivery {
   id: number;
@@ -44,38 +45,34 @@ export default function DeliveryTrackingPage() {
   const [delivery, setDelivery] = useState<Delivery | null>(null);
   const [loading, setLoading] = useState(true);
   const [trackLoading, setTrackLoading] = useState(false);
-  const [token, setToken] = useState<string | null>(null);
-  const [userId, setUserId] = useState<string | null>(null);
+  const [hasAuth, setHasAuth] = useState(false);
 
   useEffect(() => {
-    const t = localStorage.getItem('token');
-    setToken(t);
+    const t = getToken();
     if (t) {
-      fetchMe(t);
+      setHasAuth(true);
+      fetchMe();
     } else {
       setLoading(false);
     }
   }, []);
 
-  async function fetchMe(t: string) {
+  async function fetchMe() {
     try {
-      const data = await apiFetch(`/auth/me`,
-      });
-      setUserId(data.id);
-      fetchOrders(t, data.id);
+      const data = await apiFetch<any>(`/auth/me`);
+      fetchOrders();
     } catch {
       setLoading(false);
     }
   }
 
-  async function fetchOrders(t: string, uid: string) {
+  async function fetchOrders() {
     try {
-      const data = await apiFetch(`/customer-dashboard/${uid}/orders`,
-      });
+      const data = await apiFetch<any>(`/orders/my`);
       const list = Array.isArray(data) ? data : (data.orders || []);
       setOrders(list);
       if (list.length > 0) {
-        selectOrder(list[0].id, t);
+        selectOrder(list[0].id);
       }
     } catch {
     } finally {
@@ -83,20 +80,13 @@ export default function DeliveryTrackingPage() {
     }
   }
 
-  async function selectOrder(orderId: string, t?: string) {
-    const tok = t || token;
-    if (!tok) return;
+  async function selectOrder(orderId: string) {
     setSelectedOrder(orderId);
     setDelivery(null);
     setTrackLoading(true);
     try {
-      const res = await apiFetch(`/delivery/order/${orderId}`,
-      });
-      const data = res;
-        setDelivery(data);
-      } else {
-        setDelivery(null);
-      }
+      const data = await apiFetch<any>(`/delivery/order/${orderId}`);
+      setDelivery(data || null);
     } catch {
       setDelivery(null);
     } finally {
@@ -107,7 +97,7 @@ export default function DeliveryTrackingPage() {
   const currentStep = delivery ? (STATUS_INDEX[delivery.status] ?? 0) : -1;
   const isFailed = delivery?.status === 'failed';
 
-  if (!token) return (
+  if (!hasAuth) return (
     <div style={{ padding: 40, textAlign: 'center', color: 'var(--text2)' }}>
       <p>Please login to track your delivery.</p>
     </div>
@@ -139,7 +129,7 @@ export default function DeliveryTrackingPage() {
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {orders.map(o => (
-                <div key={o.id} onClick={() => selectOrder(o.id)} style={{
+                <div key={o.id} onClick={() => selectOrder(o.id as string)} style={{
                   padding: '12px 14px', borderRadius: 10,
                   border: `2px solid ${selectedOrder === o.id ? 'var(--orange)' : 'var(--border)'}`,
                   background: selectedOrder === o.id ? 'rgba(255,107,0,0.06)' : 'var(--surface)',

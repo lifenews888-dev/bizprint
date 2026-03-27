@@ -32,7 +32,9 @@ export function useRoleGuard(allowedRoles: string[]): { user: User | null; loadi
 
       const parsed = JSON.parse(stored)
 
-      if (!rolesRef.current.includes(parsed.role)) {
+      // superadmin & admin can access ALL pages
+      const isAdmin = parsed.role === 'superadmin' || parsed.role === 'admin'
+      if (!isAdmin && !rolesRef.current.includes(parsed.role)) {
         router.push(getDashboardRoute(parsed.role))
         return
       }

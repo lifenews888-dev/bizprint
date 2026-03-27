@@ -1,6 +1,6 @@
 'use client'
 
-import { apiFetch, API_URL } from '@/lib/api'
+import { apiFetch, API_URL, getToken } from '@/lib/api'
 /**
  * Designer Dashboard — Print Design Approval System
  *
@@ -17,6 +17,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRealtime } from '@/contexts/RealtimeContext'
 import DashboardLayout from '@/components/layouts/DashboardLayout'
 import { DESIGNER_MENU } from '@/config/sidebar-config'
+import { useRoleGuard } from '@/lib/use-role-guard'
 
 type DesignStatus =
   | 'pending' | 'assigned' | 'in_progress' | 'under_review'
@@ -60,6 +61,7 @@ const STATUS_LABEL: Record<string, { label: string; color: string }> = {
 }
 
 export default function DesignerDashboard() {
+  const { user: guardUser, loading: guardLoading } = useRoleGuard(['designer', 'admin', 'superadmin'])
   const [user, setUser] = useState<any>(null)
   const [requests, setRequests] = useState<DesignRequest[]>([])
   const [selected, setSelected] = useState<DesignRequest | null>(null)
@@ -75,23 +77,16 @@ export default function DesignerDashboard() {
   const [activeTab, setActiveTab] = useState<'overview' | 'versions' | 'comments' | 'zoom'>('overview')
   const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' } | null>(null)
   const { subscribe, joinRoom, leaveRoom } = useRealtime()
-  const token = typeof window !== 'undefined'
-    ? (localStorage.getItem('access_token') || localStorage.getItem('token'))
-    : null
-
   const showToast = (msg: string, type: 'success' | 'error' = 'success') => {
     setToast({ msg, type })
     setTimeout(() => setToast(null), 3500)
   }
 
-  const authHeaders = { Authorization: `Bearer ${token}`}
-
   // ── Load user ─────────────────────────────────────────────────────────────
 
   useEffect(() => {
-    if (!token) { window.location.href = '/login'; return }
-    apiFetch(`/auth/me`, {} })
-      .then(r => r.ok ? r.json() : null)
+    if (!getToken()) { window.location.href = '/login'; return }
+    apiFetch<any>(`/auth/me`)
       .then(u => { if (u) setUser(u) })
       .catch(() => {})
   }, [])
@@ -101,7 +96,7 @@ export default function DesignerDashboard() {
   const loadRequests = useCallback(async () => {
     if (!user?.id) return
     try {
-      const data = await apiFetch(`/design-requests/designer/${user.id}`)
+      const data = await apiFetch<any>(`/design-requests/designer/${user.id}`)
       if (Array.isArray(data)) setRequests(data)
     } catch {}
   }, [user?.id])
@@ -148,7 +143,7 @@ export default function DesignerDashboard() {
 
   const loadDetail = useCallback(async (id: string) => {
     try {
-      const data = await apiFetch(`/design-requests/${id}`)
+      const data = await apiFetch<any>(`/design-requests/${id}`)
       setSelected(data)
     } catch {}
   }, [])
@@ -167,7 +162,7 @@ export default function DesignerDashboard() {
     try {
       const formData = new FormData()
       formData.append('file', file)
-      const data = await apiFetch(`/upload/file`, {
+      const data = await apiFetch<any>(`/upload/file`, {
         method: 'POST',
         body: formData,
       })
@@ -193,15 +188,13 @@ export default function DesignerDashboard() {
     if (!selected || !fileUrl) { showToast('Файлын URL оруулна уу', 'error'); return }
     setUploading(true)
     try {
-      const res = await apiFetch(`/design-requests/${selected.id}/versions`, {
+      const res = await apiFetch<any>(`/design-requests/${selected.id}/versions`, {
         method: 'POST',
         body: { file_url: fileUrl, preview_url: previewUrl, version_note: versionNote },
       })
-      if (res.ok) {
-        showToast(`v${(selected.current_version || 0) + 1} байршуулагдлаа ✓`)
-        setFileUrl(''); setPreviewUrl(''); setVersionNote('')
-        loadDetail(selected.id); loadRequests()
-      }
+      showToast(`v${(selected.current_version || 0) + 1} байршуулагдлаа ✓`)
+      setFileUrl(''); setPreviewUrl(''); setVersionNote('')
+      loadDetail(selected.id); loadRequests()
     } catch { showToast('Алдаа гарлаа', 'error') }
     finally { setUploading(false) }
   }
@@ -211,10 +204,10 @@ export default function DesignerDashboard() {
   const handleSubmitForReview = async () => {
     if (!selected) return
     try {
-      const res = await apiFetch(`/design-requests/${selected.id}/submit-for-review`, {
+      const res = await apiFetch<any>(`/design-requests/${selected.id}/submit-for-review`, {
         method: 'PATCH',
       })
-      if (res.ok) { showToast('Хянуулахаар илгээлээ ✓'); loadDetail(selected.id); loadRequests() }
+      showToast('Хянуулахаар илгээлээ ✓'); loadDetail(selected.id); loadRequests()
     } catch { showToast('Алдаа', 'error') }
   }
 
@@ -223,11 +216,11 @@ export default function DesignerDashboard() {
   const handleAddComment = async () => {
     if (!selected || !comment.trim()) return
     try {
-      const res = await apiFetch(`/design-requests/${selected.id}/comments`, {
+      const res = await apiFetch<any>(`/design-requests/${selected.id}/comments`, {
         method: 'POST',
         body: { content: comment, author_role: 'designer', type: 'comment' },
       })
-      if (res.ok) { setComment(''); loadDetail(selected.id) }
+      setComment(''); loadDetail(selected.id)
     } catch {}
   }
 
@@ -238,11 +231,11 @@ export default function DesignerDashboard() {
     try {
       const body: any = {}
       if (scheduledAt) body.scheduled_at = scheduledAt
-      const data = await apiFetch(`/design-requests/${selected.id}/zoom`, {
+      const data = await apiFetch<any>(`/design-requests/${selected.id}/zoom`, {
         method: 'POST',
         body: body,
       })
-      if (res.ok) {
+      if (data) {
         showToast('Zoom уулзалт товлогдлоо ✓')
         setScheduledAt('')
         loadDetail(selected.id)
@@ -253,6 +246,12 @@ export default function DesignerDashboard() {
   // ── Render ────────────────────────────────────────────────────────────────
 
   const st = selected ? STATUS_LABEL[selected.status] : null
+
+  if (guardLoading) return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh', background: 'var(--bg)' }}>
+      <div style={{ color: 'var(--text3)', fontSize: 13 }}>Уншиж байна...</div>
+    </div>
+  )
 
   return (
     <DashboardLayout navGroups={DESIGNER_MENU} user={user}>

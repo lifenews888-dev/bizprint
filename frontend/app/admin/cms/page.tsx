@@ -120,9 +120,9 @@ export default function AdminCmsPage() {
 
   const loadSettings = useCallback(async () => {
     try {
-      const res = await apiFetch('/cms/settings')
-      const data: Setting[] = await res.json()
-      const map = (Array.isArray(data) ? data : []).reduce<Record<string, string>>((acc, s) => {
+      const data = await apiFetch<any>('/cms/settings')
+      const items: Setting[] = Array.isArray(data) ? data : []
+      const map = items.reduce<Record<string, string>>((acc, s) => {
         acc[s.key] = s.value ?? ''
         return acc
       }, {})
@@ -134,7 +134,7 @@ export default function AdminCmsPage() {
 
   const loadMenu = useCallback(async () => {
     try {
-      const data = await apiFetch('/cms/mega-menu')
+      const data = await apiFetch<any>('/cms/mega-menu')
       setMenuItems(Array.isArray(data) ? data : [])
     } catch { /* ignore */ }
   }, [])
@@ -149,7 +149,7 @@ export default function AdminCmsPage() {
   const saveBulk = async (keys: string[]) => {
     const items = keys.map(key => ({ key, value: form[key] ?? '' }))
     try {
-      await apiFetch(`/cms/settings/bulk`, {
+      await apiFetch<any>(`/cms/settings/bulk`, {
         method: 'POST', body: { items },
       })
       setToast('Амжилттай хадгалагдлаа!')
@@ -165,7 +165,7 @@ export default function AdminCmsPage() {
     const url = editingMenuId ? `/cms/mega-menu/${editingMenuId}` : `/cms/mega-menu`
     const method = editingMenuId ? 'PUT' : 'POST'
     try {
-      await apiFetch(url, { method: , body: menuForm })
+      await apiFetch<any>(url, { method, body: menuForm })
       setMenuForm(null)
       setEditingMenuId(null)
       setToast('Амжилттай хадгалагдлаа!')
@@ -177,12 +177,12 @@ export default function AdminCmsPage() {
 
   const deleteMenuItem = async (id: string) => {
     if (!confirm('Устгах уу?')) return
-    await apiFetch(`/cms/mega-menu/${id}`, { method: 'DELETE' })
+    await apiFetch<any>(`/cms/mega-menu/${id}`, { method: 'DELETE' })
     loadMenu()
   }
 
   const updateSortOrder = async (id: string, sort_order: number) => {
-    await apiFetch(`/cms/mega-menu/${id}`, {
+    await apiFetch<any>(`/cms/mega-menu/${id}`, {
       method: 'PUT', body: { sort_order },
     })
     loadMenu()
@@ -347,7 +347,7 @@ export default function AdminCmsPage() {
                   </td>
                   <td style={{ padding: '8px 14px' }}>
                     <Toggle label="" value={item.is_active} onChange={async (v) => {
-                      await apiFetch(`/cms/mega-menu/${item.id}`, {
+                      await apiFetch<any>(`/cms/mega-menu/${item.id}`, {
                         method: 'PUT', body: { is_active: v },
                       })
                       loadMenu()

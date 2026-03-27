@@ -1,6 +1,7 @@
 'use client'
-import { apiFetch } from '@/lib/api'
+import { apiFetch, API_URL } from '@/lib/api'
 import { useState, useEffect, useRef } from 'react'
+import PdfViewer from '@/components/PdfViewer'
 
 const STAGES = [
   { key: 'pending', label: 'Хүлээгдэж буй', color: '#F59E0B', icon: '📋', next: 'designing' },
@@ -13,6 +14,19 @@ const STAGES = [
   { key: 'delivering', label: 'Хүргэлтэнд', color: '#6366F1', icon: '🚚', next: 'completed' },
   { key: 'completed', label: 'Дууссан', color: '#059669', icon: '🎉', next: null },
 ]
+
+// Frontend stage key → Backend OrderStatus mapping
+const STAGE_TO_BACKEND: Record<string, string> = {
+  pending: 'CONFIRMED',
+  designing: 'PENDING_FILE',
+  prepress: 'FILE_REVIEW',
+  printing: 'IN_PRODUCTION',
+  finishing: 'FINISHING',
+  qc: 'PARTIALLY_DISPATCHED',
+  ready: 'DISPATCHED',
+  delivering: 'DELIVERED',
+  completed: 'COMPLETED',
+}
 
 const ORDER_STATUS: Record<string, { label: string; color: string }> = {}
 STAGES.forEach(s => { ORDER_STATUS[s.key] = { label: s.label, color: s.color } })
@@ -78,6 +92,8 @@ export default function AdminWorkflowPage() {
 
   // Revert modal state
   const [revertModal, setRevertModal] = useState<any>(null)
+  // PDF preview state
+  const [previewFile, setPreviewFile] = useState<any>(null)
   const [revertReason, setRevertReason] = useState('')
   const [revertTarget, setRevertTarget] = useState('')
   const [reverting, setReverting] = useState(false)
@@ -89,11 +105,11 @@ export default function AdminWorkflowPage() {
   const load = () => {
     setLoading(true)
     Promise.all([
-      apiFetch('/orders').catch(() => []),
-      apiFetch('/production-jobs').catch(() => []),
-      apiFetch('/delivery').catch(() => []),
-      apiFetch('/machines').catch(() => []),
-      apiFetch('/design-requests').catch(() => []),
+      apiFetch<any>('/orders').catch(() => []),
+      apiFetch<any>('/production-jobs').catch(() => []),
+      apiFetch<any>('/delivery').catch(() => []),
+      apiFetch<any>('/machines').catch(() => []),
+      apiFetch<any>('/design-requests').catch(() => []),
     ]).then(([o, j, d, m, dr]) => {
       setOrders(Array.isArray(o) ? o : []); setJobs(Array.isArray(j) ? j : [])
       setDeliveries(Array.isArray(d) ? d : []); setMachines(Array.isArray(m) ? m : [])
@@ -104,13 +120,13 @@ export default function AdminWorkflowPage() {
   useEffect(() => { if (!isLive) return; const i = setInterval(load, 30000); return () => clearInterval(i) }, [isLive])
 
   const loadFiles = async (orderId: string) => {
-    try { const d = await apiFetch(`/order-files?order_id=${orderId}`); setOrderFiles(Array.isArray(d) ? d : []) } catch { setOrderFiles([]) }
+    try { const d = await apiFetch<any>(`/order-files?order_id=${orderId}`); setOrderFiles(Array.isArray(d) ? d : []) } catch { setOrderFiles([]) }
   }
 
   // DB Audit Trail ачааллах
   const loadAuditTrail = async (orderId: string) => {
     try {
-      const d = await apiFetch(`/audit-trail/${orderId}`)
+      const d = await apiFetch<any>(`/audit-trail/${orderId}`)
       setAuditTrail(Array.isArray(d) ? d : [])
     } catch { setAuditTrail([]) }
   }
@@ -118,7 +134,7 @@ export default function AdminWorkflowPage() {
   // DB Audit Trail бичих
   const addAuditEntry = async (orderId: string, action: string, file?: string) => {
     try {
-      await apiFetch(`/audit-trail`, {
+      await apiFetch<any>(`/audit-trail`, {
         method: 'POST',
         body: { order_id: orderId, user: currentUser, action, file },
       })
@@ -129,17 +145,15 @@ export default function AdminWorkflowPage() {
     setUploading(true)
     try {
       const formData = new FormData(); formData.append('file', file)
-      const uploadRes = await apiFetch(`/upload/file`, { method: 'POST', body: formData })
-      const uploadData = await uploadRes.json()
-      const filePath = uploadData.url || uploadData.path || uploadData.filename || file.name
-      await apiFetch('/order-files', { method: 'POST', body: { order_id: orderId, filename: file.name, path: filePath, size: file.size, mime_type: file.type, file_type: fileType, uploaded_by: currentUser, uploaded_by_role: 'admin' } })
+      const uploadData = await apiFetch<any>(`/upload/file`, { method: 'POST', body: formData })
+      const filePath = uploadData?.url || uploadData?.path || uploadData?.filename || file.name
+      await apiFetch<any>('/order-files', { method: 'POST', body: { order_id: orderId, filename: file.name, path: filePath, size: file.size, mime_type: file.type, file_type: fileType, uploaded_by: currentUser, uploaded_by_role: 'admin' } })
       if (file.type === 'application/pdf') {
         const inspectForm = new FormData(); inspectForm.append('file', file)
-        const inspectRes = await apiFetch(`/ai/pdf-inspector/inspect`, { method: 'POST', body: inspectForm }).catch(() => null)
-        if (inspectRes?.ok) {
-          const analysis = await inspectRes.json()
-          const files = await apiFetch(`/order-files?order_id=${orderId}`)
-          if (files.length > 0) await apiFetch(`/order-files/${files[0].id}/analysis`, { method: 'PATCH', body: { analysis } }).catch(() => {})
+        const analysis = await apiFetch<any>(`/ai/pdf-inspector/inspect`, { method: 'POST', body: inspectForm }).catch(() => null)
+        if (analysis) {
+          const files = await apiFetch<any>(`/order-files?order_id=${orderId}`)
+          if (files.length > 0) await apiFetch<any>(`/order-files/${files[0].id}/analysis`, { method: 'PATCH', body: { analysis } }).catch(() => {})
         }
       }
       showToast(`📄 ${file.name} амжилттай`)
@@ -151,30 +165,33 @@ export default function AdminWorkflowPage() {
   }
 
   const approveFile = async (fileId: string, orderId: string) => {
-    await apiFetch(`/order-files/${fileId}/approve`, { method: 'PATCH'})
+    await apiFetch<any>(`/order-files/${fileId}/approve`, { method: 'PATCH'})
     await addAuditEntry(orderId, 'Файл батлагдсан ✅')
     await loadAuditTrail(orderId); await loadFiles(orderId); showToast('Файл батлагдлаа ✅')
   }
   const rejectFile = async (fileId: string, orderId: string) => {
-    await apiFetch(`/order-files/${fileId}/reject`, { method: 'PATCH', body: { notes: 'Засвар шаардлагатай' } })
+    await apiFetch<any>(`/order-files/${fileId}/reject`, { method: 'PATCH', body: { notes: 'Засвар шаардлагатай' } })
     await addAuditEntry(orderId, 'Файл буцаагдсан ❌')
     await loadAuditTrail(orderId); await loadFiles(orderId); showToast('Файл буцаагдлаа')
   }
   const setFinalFile = async (fileId: string, orderId: string) => {
-    await apiFetch(`/order-files/${fileId}/set-final`, { method: 'PATCH'})
+    await apiFetch<any>(`/order-files/${fileId}/set-final`, { method: 'PATCH'})
     await addAuditEntry(orderId, 'Final файл тогтоосон 📦')
     await loadAuditTrail(orderId); await loadFiles(orderId); showToast('Final файл тогтоогдлоо 📦')
   }
 
   const getStage = (o: any) => {
-    const s = o.status
+    const s = (o.status || '').toLowerCase()
     if (s === 'cancelled') return 'cancelled'
     if (s === 'delivered' || s === 'completed') return 'completed'
-    if (s === 'shipped' || s === 'delivering') return 'delivering'
-    if (s === 'ready') return 'ready'; if (s === 'qc') return 'qc'; if (s === 'finishing') return 'finishing'
-    if (s === 'in_production' || s === 'printing') return 'printing'; if (s === 'prepress') return 'prepress'
-    if (s === 'in_design' || s === 'designing') return 'designing'
-    if (s === 'paid' || s === 'scheduled') return 'pending'
+    if (s === 'shipped' || s === 'delivering' || s === 'dispatched') return 'delivering'
+    if (s === 'ready' || s === 'partially_dispatched') return 'ready'
+    if (s === 'qc') return 'qc'
+    if (s === 'finishing') return 'finishing'
+    if (s === 'in_production' || s === 'printing') return 'printing'
+    if (s === 'prepress' || s === 'file_review') return 'prepress'
+    if (s === 'in_design' || s === 'designing' || s === 'pending_file' || s === 'file_rejected') return 'designing'
+    if (s === 'paid' || s === 'scheduled' || s === 'confirmed' || s === 'quotation_sent' || s === 'draft' || s === 'on_hold') return 'pending'
     return 'pending'
   }
 
@@ -185,7 +202,7 @@ export default function AdminWorkflowPage() {
   const activeOrders = orders.filter(o => !['completed', 'delivered', 'cancelled'].includes(o.status))
 
   const updateOrderStatus = async (id: string, status: string) => {
-    await apiFetch(`/orders/${id}/status`, { method: 'PATCH', body: { status } }); load()
+    await apiFetch<any>(`/orders/${id}/status`, { method: 'PATCH', body: { status } }); load()
   }
 
   const getDesignRequest = (orderId: string) =>
@@ -203,9 +220,10 @@ export default function AdminWorkflowPage() {
         if (!ok) return
       }
     }
-    if (so.next === 'printing') { await apiFetch(`/production-jobs/from-order/${order.id}`, { method: 'POST'}).catch(() => {}); await updateOrderStatus(order.id, 'in_production') }
-    else if (so.next === 'delivering') { await apiFetch('/delivery', { method: 'POST', body: { order_id: order.id, address: order.notes || '', status: 'assigned' } }).catch(() => {}); await updateOrderStatus(order.id, 'shipped') }
-    else { await updateOrderStatus(order.id, so.next) }
+    const backendStatus = STAGE_TO_BACKEND[so.next] || so.next
+    if (so.next === 'printing') { await apiFetch<any>(`/production-jobs/from-order/${order.id}`, { method: 'POST'}).catch(() => {}); await updateOrderStatus(order.id, 'IN_PRODUCTION') }
+    else if (so.next === 'delivering') { await apiFetch<any>('/delivery', { method: 'POST', body: { order_id: order.id, address: order.notes || '', status: 'assigned' } }).catch(() => {}); await updateOrderStatus(order.id, 'DELIVERED') }
+    else { await updateOrderStatus(order.id, backendStatus) }
     await addAuditEntry(order.id, `"${ns.label}" руу шилжүүлсэн`)
     showToast(`${order.product_name || 'Захиалга'} → ${ns.icon} ${ns.label}`)
   }
@@ -224,17 +242,15 @@ export default function AdminWorkflowPage() {
     if (!revertModal || !revertReason.trim()) return
     setReverting(true)
     try {
-      await apiFetch(`/orders/${revertModal.order.id}/revert`, {
+      const backendTarget = revertTarget ? (STAGE_TO_BACKEND[revertTarget] || revertTarget) : undefined
+      await apiFetch<any>(`/orders/${revertModal.order.id}/revert`, {
         method: 'PATCH',
         body: {
-          reason: revertReason.trim(,
-          target_stage: revertTarget || undefined,
-        }),
+          reason: revertReason.trim(),
+          target_stage: backendTarget,
+          status: backendTarget,
+        },
       })
-        const err = await res.json().catch(() => ({}))
-        showToast(`❌ ${err.message || 'Буцаахад алдаа гарлаа'}`)
-        return
-      }
       const targetLabel = STAGES.find(s => s.key === revertTarget)?.label || 'Өмнөх'
       showToast(`↩️ Буцаагдлаа: "${targetLabel}" руу`)
       setRevertModal(null)
@@ -243,7 +259,7 @@ export default function AdminWorkflowPage() {
       load()
       // Detail modal нээлттэй бол шинэчлэх
       if (detail?.id === revertModal.order.id) {
-        const updated = await apiFetch(`/orders/${revertModal.order.id}`)
+        const updated = await apiFetch<any>(`/orders/${revertModal.order.id}`)
         setDetail(updated)
         await loadAuditTrail(revertModal.order.id)
       }
@@ -428,7 +444,7 @@ export default function AdminWorkflowPage() {
                     <td style={{ padding: '6px 10px', color: 'var(--text2)', maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.address || '—'}</td>
                     <td style={{ padding: '6px 10px' }}>{d.courier_name || '—'}</td>
                     <td style={{ padding: '6px 10px' }}>
-                      <select value={d.status} onChange={async e => { await apiFetch(`/delivery/${d.id}/status`, { method: 'PATCH', body: { status: e.target.value } }); load() }}
+                      <select value={d.status} onChange={async e => { await apiFetch<any>(`/delivery/${d.id}/status`, { method: 'PATCH', body: { status: e.target.value } }); load() }}
                         style={{ fontSize: 11, padding: '2px 6px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--surface2)', color: 'var(--text)', cursor: 'pointer' }}>
                         {['assigned', 'picked_up', 'on_the_way', 'in_transit', 'delivered'].map(s => <option key={s} value={s}>{s}</option>)}
                       </select>
@@ -542,7 +558,10 @@ export default function AdminWorkflowPage() {
                               )}
                             </div>
                             <div style={{ display: 'flex', gap: 4, flexShrink: 0, marginLeft: 8 }}>
-                              {f.path && <a href={f.path.startsWith('http') ? f.path : `/${f.path}`} target="_blank" className="file-action" style={{ background: 'rgba(59,130,246,0.1)', color: '#3B82F6', textDecoration: 'none' }}>Татах</a>}
+                              {f.path && (/\.(pdf|jpg|jpeg|png|gif|webp)$/i.test(f.filename || f.path)) && (
+                                <button onClick={() => setPreviewFile(f)} className="file-action" style={{ background: 'rgba(99,102,241,0.1)', color: '#6366F1' }} title="Preview">👁️</button>
+                              )}
+                              {f.path && <a href={f.path.startsWith('http') ? f.path : `${API_URL}${f.path}`} target="_blank" className="file-action" style={{ background: 'rgba(59,130,246,0.1)', color: '#3B82F6', textDecoration: 'none' }}>Татах</a>}
                               {f.status !== 'approved' && <button onClick={() => approveFile(f.id, detail.id)} className="file-action" style={{ background: 'rgba(16,185,129,0.1)', color: '#10B981' }}>✅</button>}
                               {f.status !== 'rejected' && <button onClick={() => rejectFile(f.id, detail.id)} className="file-action" style={{ background: 'rgba(239,68,68,0.1)', color: '#EF4444' }}>❌</button>}
                               {!f.is_final && f.status === 'approved' && <button onClick={() => setFinalFile(f.id, detail.id)} className="file-action" style={{ background: 'rgba(16,185,129,0.15)', color: '#059669' }}>📦</button>}
@@ -551,6 +570,20 @@ export default function AdminWorkflowPage() {
                         </div>
                       )
                     })}
+                  </div>
+                )}
+
+                {/* PDF/Image Preview Panel */}
+                {previewFile && (
+                  <div style={{ marginTop: 12 }}>
+                    <PdfViewer
+                      fileUrl={previewFile.path}
+                      filename={previewFile.filename}
+                      analysis={previewFile.analysis}
+                      height={500}
+                      showAnalysis={true}
+                      onClose={() => setPreviewFile(null)}
+                    />
                   </div>
                 )}
               </>}

@@ -56,7 +56,7 @@ export default function CourierDashboard() {
   async function fetchOrders() {
     setLoading(true)
     try {
-      const r = await apiFetch('/admin/orders')
+      const r = await apiFetch<any>('/admin/orders')
       setOrders(r)
     } catch {}
     setLoading(false)
@@ -69,16 +69,14 @@ export default function CourierDashboard() {
 
   async function updateStatus(order: Order, status: string) {
     try {
-      const r = await apiFetch('/orders/' + order.id, {
+      await apiFetch<any>('/orders/' + order.id, {
         method: 'PATCH',
         body: { status },
       })
-      if (r.ok) {
-        showToast('\u0422\u04e9\u043b\u04e9\u0432 \u0448\u0438\u043d\u044d\u0447\u043b\u044d\u0433\u0434\u043b\u044d\u044d \u2713')
-        const updated = { ...order, status }
-        setOrders(prev => prev.map(o => o.id === order.id ? updated : o))
-        setSelected(updated)
-      } else showToast('\u0410\u043b\u0434\u0430\u0430 \u0433\u0430\u0440\u043b\u0430\u0430', false)
+      showToast('\u0422\u04e9\u043b\u04e9\u0432 \u0448\u0438\u043d\u044d\u0447\u043b\u044d\u0433\u0434\u043b\u044d\u044d \u2713')
+      const updated = { ...order, status }
+      setOrders(prev => prev.map(o => o.id === order.id ? updated : o))
+      setSelected(updated)
     } catch { showToast('\u0410\u043b\u0434\u0430\u0430 \u0433\u0430\u0440\u043b\u0430\u0430', false) }
   }
 

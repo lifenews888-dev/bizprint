@@ -1,193 +1,221 @@
 'use client'
 import { apiFetch } from '@/lib/api'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 
-const STATUS_CFG: Record<string, { label: string; color: string }> = {
-  pending: { label: 'Хүлээгдэж буй', color: '#F59E0B' },
-  assigned: { label: 'Дизайнер оноогдсон', color: '#8B5CF6' },
-  in_progress: { label: 'Хийгдэж байна', color: '#3B82F6' },
-  approved: { label: 'Батлагдсан', color: '#10B981' },
-  rejected: { label: 'Татгалзсан', color: '#EF4444' },
+/* ═══════════════════════════════════════
+ *  CREATIVE PRODUCTION PIPELINE
+ *  KPI → Pipeline → Table → Detail Panel (versions, comments, actions)
+ * ═══════════════════════════════════════ */
+
+const STATUS_CFG: Record<string, { label: string; color: string; icon: string }> = {
+  pending:              { label: 'Хүлээгдэж буй',   color: '#F59E0B', icon: '📋' },
+  assigned:             { label: 'Оноогдсон',        color: '#8B5CF6', icon: '👩‍🎨' },
+  in_progress:          { label: 'Хийгдэж байна',    color: '#3B82F6', icon: '✏️' },
+  under_review:         { label: 'Шалгалтад',        color: '#06B6D4', icon: '🔍' },
+  revision_requested:   { label: 'Засвар хүссэн',    color: '#F97316', icon: '🔄' },
+  updated_version:      { label: 'Шинэ хувилбар',    color: '#6366F1', icon: '🆕' },
+  zoom_scheduled:       { label: 'Zoom товлосон',     color: '#0EA5E9', icon: '📹' },
+  approved:             { label: 'Батлагдсан',        color: '#10B981', icon: '✅' },
+  in_production:        { label: 'Үйлдвэрт',         color: '#059669', icon: '🏭' },
+  rejected:             { label: 'Татгалзсан',        color: '#EF4444', icon: '❌' },
 }
+
+const PIPELINE_STAGES = ['pending', 'assigned', 'in_progress', 'under_review', 'approved', 'in_production']
 
 export default function AdminDesignRequestsPage() {
   const [items, setItems] = useState<any[]>([])
+  const [stats, setStats] = useState<any>(null)
   const [users, setUsers] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState('')
+  const [search, setSearch] = useState('')
+  const [detail, setDetail] = useState<any>(null)
+  const [detailTab, setDetailTab] = useState<'info' | 'versions' | 'comments'>('info')
   const [assignModal, setAssignModal] = useState<any>(null)
   const [assignForm, setAssignForm] = useState({ designer_id: '', designer_name: '', designer_phone: '', designer_zoom: '' })
-  const [detail, setDetail] = useState<any>(null)
+  const [newComment, setNewComment] = useState('')
 
-  const load = () => {
-    Promise.all([
-      apiFetch('/design-requests').catch(() => []),
-      apiFetch('/admin/users').catch(() => []),
-    ]).then(([dr, u]) => {
+  const load = useCallback(async () => {
+    try {
+      const [dr, st, u] = await Promise.all([
+        apiFetch('/design-requests'),
+        apiFetch('/design-requests/stats').catch(() => null),
+        apiFetch('/admin/users').catch(() => []),
+      ])
       setItems(Array.isArray(dr) ? dr : [])
+      setStats(st)
       setUsers(Array.isArray(u) ? u : [])
-    }).finally(() => setLoading(false))
-  }
-  useEffect(load, [])
+    } catch {} finally { setLoading(false) }
+  }, [])
+
+  useEffect(() => { load() }, [load])
 
   const designers = users.filter(u => u.role === 'designer')
-  const filtered = filter ? items.filter(i => i.status === filter) : items
-  const counts: Record<string, number> = {}
-  items.forEach(i => { counts[i.status] = (counts[i.status] || 0) + 1 })
+
+  const openDetail = async (dr: any) => {
+    try {
+      const full = await apiFetch(`/design-requests/${dr.id}`)
+      setDetail(full)
+      setDetailTab('info')
+    } catch { setDetail(dr) }
+  }
 
   const assign = async () => {
     if (!assignModal || !assignForm.designer_id) return
-    await apiFetch(`/design-requests/${assignModal.id}/assign`, {
-      method: 'PATCH',
-      body: assignForm,
-    })
+    await apiFetch(`/design-requests/${assignModal.id}/assign`, { method: 'PATCH', body: JSON.stringify(assignForm) })
     setAssignModal(null)
     setAssignForm({ designer_id: '', designer_name: '', designer_phone: '', designer_zoom: '' })
     load()
   }
 
   const approve = async (id: string) => {
-    await apiFetch(`/design-requests/${id}/approve`, { method: 'PATCH'})
+    if (!confirm('Батлах уу? Үйлдвэрт автоматаар илгээгдэнэ.')) return
+    await apiFetch(`/design-requests/${id}/approve`, { method: 'PATCH' })
+    setDetail(null)
     load()
   }
 
   const reject = async (id: string) => {
     const reason = prompt('Татгалзах шалтгаан:')
     if (!reason) return
-    await apiFetch(`/design-requests/${id}/reject`, { method: 'PATCH', body: { reason } })
+    await apiFetch(`/design-requests/${id}/reject`, { method: 'PATCH', body: JSON.stringify({ reason }) })
+    setDetail(null)
     load()
   }
 
-  const del = async (id: string) => {
-    if (!confirm('Устгах уу?')) return
-    await apiFetch(`/design-requests/${id}`, { method: 'DELETE' })
-    load()
+  const addComment = async (id: string) => {
+    if (!newComment.trim()) return
+    await apiFetch(`/design-requests/${id}/comments`, { method: 'POST', body: JSON.stringify({ content: newComment, author_name: 'Админ', author_role: 'admin', type: 'comment' }) })
+    setNewComment('')
+    openDetail({ id })
   }
+
+  // Filter + Search
+  const filtered = items.filter(o => {
+    if (filter && o.status !== filter) return false
+    if (search) {
+      const s = search.toLowerCase()
+      return (o.customer_name || '').toLowerCase().includes(s) || (o.product_name || '').toLowerCase().includes(s) || (o.designer_name || '').toLowerCase().includes(s)
+    }
+    return true
+  })
+
+  const st = (status: string) => STATUS_CFG[status] || { label: status, color: '#888', icon: '•' }
+  const fmt = (n: number) => n?.toLocaleString?.() ?? '0'
+
+  // Pipeline counts
+  const pipelineCounts: Record<string, number> = {}
+  items.forEach(d => { pipelineCounts[d.status] = (pipelineCounts[d.status] || 0) + 1 })
 
   return (
     <div style={{ padding: 24, fontFamily: "'DM Sans','Segoe UI',system-ui,sans-serif" }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+      <style>{`
+        @keyframes fadeIn{from{opacity:0}to{opacity:1}}
+        @keyframes slideIn{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:translateX(0)}}
+        .dr-row{transition:background .15s}.dr-row:hover{background:var(--surface2)!important}
+      `}</style>
+
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
         <div>
           <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>Дизайн хүсэлтүүд</h1>
-          <p style={{ color: 'var(--text2)', fontSize: 13, margin: '4px 0 0' }}>Дизайнер оноох, ажлын явц хянах, батлах/татгалзах</p>
+          <p style={{ color: 'var(--text2)', fontSize: 13, margin: '4px 0 0' }}>Creative Production Pipeline · {items.length} хүсэлт</p>
         </div>
-        <div style={{ fontSize: 13, color: 'var(--text2)' }}>Нийт: <strong style={{ color: '#FF6B00' }}>{items.length}</strong></div>
+        <button onClick={load} style={{ padding: '8px 16px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)', cursor: 'pointer', fontSize: 13 }}>🔄 Шинэчлэх</button>
       </div>
 
-      {/* Pipeline stats */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 10, marginBottom: 20 }}>
-        {Object.entries(STATUS_CFG).map(([key, cfg]) => (
-          <div key={key} onClick={() => setFilter(filter === key ? '' : key)} style={{ background: filter === key ? cfg.color + '15' : 'var(--surface)', borderLeft: `1px solid ${filter === key ? cfg.color + '40' : 'var(--border)'}`, borderRight: `1px solid ${filter === key ? cfg.color + '40' : 'var(--border)'}`, borderBottom: `1px solid ${filter === key ? cfg.color + '40' : 'var(--border)'}`, borderTop: `3px solid ${cfg.color}`, borderRadius: 10, padding: '12px 14px', cursor: 'pointer', transition: 'all 0.15s' }}>
-            <div style={{ fontSize: 22, fontWeight: 700, color: cfg.color }}>{counts[key] || 0}</div>
-            <div style={{ fontSize: 11, color: 'var(--text2)', marginTop: 2 }}>{cfg.label}</div>
-          </div>
-        ))}
-      </div>
-
-      {/* Assign Modal */}
-      {assignModal && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 999, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => setAssignModal(null)}>
-          <div style={{ background: 'var(--surface)', borderRadius: 16, padding: 32, width: '100%', maxWidth: 460, border: '1px solid var(--border)' }} onClick={e => e.stopPropagation()}>
-            <h3 style={{ fontSize: 18, fontWeight: 600, margin: '0 0 6px' }}>Дизайнер оноох</h3>
-            <p style={{ fontSize: 13, color: 'var(--text2)', margin: '0 0 20px' }}>Хүсэлт: {assignModal.product_name || assignModal.id?.slice(0, 8)}</p>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-              <div>
-                <label style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 6, display: 'block' }}>Дизайнер</label>
-                <select value={assignForm.designer_id} onChange={e => {
-                  const d = designers.find(d => d.id === e.target.value)
-                  setAssignForm({ ...assignForm, designer_id: e.target.value, designer_name: d?.full_name || d?.email || '' })
-                }} style={{ width: '100%', padding: '10px 14px', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 13, color: 'var(--text)' }}>
-                  <option value="">-- Дизайнер сонгох --</option>
-                  {designers.map(d => <option key={d.id} value={d.id}>{d.full_name || d.email} ({d.email})</option>)}
-                  {designers.length === 0 && <option disabled>Дизайнер бүртгэгдээгүй</option>}
-                </select>
-              </div>
-              <div>
-                <label style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 6, display: 'block' }}>Утас (заавал биш)</label>
-                <input value={assignForm.designer_phone} onChange={e => setAssignForm({ ...assignForm, designer_phone: e.target.value })} placeholder="99001122"
-                  style={{ width: '100%', padding: '10px 14px', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 13, color: 'var(--text)' }} />
-              </div>
-              <div>
-                <label style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 6, display: 'block' }}>Zoom link (заавал биш)</label>
-                <input value={assignForm.designer_zoom} onChange={e => setAssignForm({ ...assignForm, designer_zoom: e.target.value })} placeholder="https://zoom.us/j/..."
-                  style={{ width: '100%', padding: '10px 14px', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 13, color: 'var(--text)' }} />
-              </div>
+      {/* KPI CARDS */}
+      {stats && (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(150px,1fr))', gap: 10, marginBottom: 20 }}>
+          {[
+            { label: 'Нийт', value: stats.total, color: '#64748B', icon: '📋' },
+            { label: 'Хүлээгдэж буй', value: stats.by_status?.pending || 0, color: '#F59E0B', icon: '⏳' },
+            { label: 'Хийгдэж буй', value: (stats.by_status?.in_progress || 0) + (stats.by_status?.assigned || 0), color: '#3B82F6', icon: '✏️' },
+            { label: 'Батлагдсан', value: (stats.by_status?.approved || 0) + (stats.by_status?.in_production || 0), color: '#10B981', icon: '✅' },
+            { label: 'Дундаж засвар', value: stats.avg_revisions, color: '#F97316', icon: '🔄' },
+            { label: 'Дундаж цаг', value: `${stats.avg_design_hours}ц`, color: '#8B5CF6', icon: '⏱️' },
+            { label: 'Батлалт %', value: `${stats.approval_rate}%`, color: '#059669', icon: '📊' },
+            { label: 'Хоцорсон', value: stats.overdue || 0, color: '#EF4444', icon: '🔴' },
+          ].map(k => (
+            <div key={k.label} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: '12px 14px', borderLeft: `4px solid ${k.color}` }}>
+              <div style={{ fontSize: 11, color: 'var(--text3)' }}>{k.icon} {k.label}</div>
+              <div style={{ fontSize: 20, fontWeight: 700, color: k.color, marginTop: 2 }}>{k.value}</div>
             </div>
-            <div style={{ display: 'flex', gap: 10, marginTop: 20 }}>
-              <button onClick={assign} disabled={!assignForm.designer_id} style={{ flex: 1, padding: '10px', background: assignForm.designer_id ? '#8B5CF6' : '#666', color: '#fff', border: 'none', borderRadius: 8, cursor: assignForm.designer_id ? 'pointer' : 'not-allowed', fontSize: 13, fontWeight: 600 }}>Оноох</button>
-              <button onClick={() => setAssignModal(null)} style={{ padding: '10px 20px', background: 'var(--surface2)', color: 'var(--text2)', border: '1px solid var(--border)', borderRadius: 8, cursor: 'pointer', fontSize: 13 }}>Болих</button>
-            </div>
-          </div>
+          ))}
         </div>
       )}
 
-      {/* Detail Modal */}
-      {detail && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 999, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => setDetail(null)}>
-          <div style={{ background: 'var(--surface)', borderRadius: 16, padding: 32, width: '100%', maxWidth: 520, border: '1px solid var(--border)', maxHeight: '80vh', overflow: 'auto' }} onClick={e => e.stopPropagation()}>
-            <h3 style={{ fontSize: 18, fontWeight: 600, margin: '0 0 16px' }}>Дэлгэрэнгүй</h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, fontSize: 13 }}>
-              {[
-                ['ID', detail.id?.slice(0, 12)],
-                ['Бүтээгдэхүүн', detail.product_name],
-                ['Хэрэглэгч', `${detail.customer_name || '—'} (${detail.customer_email || '—'})`],
-                ['Утас', detail.customer_phone],
-                ['Дизайнер', detail.designer_name || '—'],
-                ['Төлөв', STATUS_CFG[detail.status]?.label || detail.status],
-                ['Тайлбар', detail.description],
-                ['Файл', detail.file_url],
-                ['Preview', detail.preview_url],
-                ['Огноо', detail.created_at ? new Date(detail.created_at).toLocaleString() : '—'],
-              ].map(([k, v]) => v ? (
-                <div key={k as string} style={{ display: 'flex', gap: 12, borderBottom: '1px solid var(--border)', paddingBottom: 8 }}>
-                  <span style={{ color: 'var(--text2)', minWidth: 100 }}>{k}</span>
-                  <span style={{ fontWeight: 500, wordBreak: 'break-all' }}>{v as string}</span>
-                </div>
-              ) : null)}
+      {/* PIPELINE VIEW */}
+      <div style={{ display: 'flex', gap: 4, marginBottom: 20, overflowX: 'auto', paddingBottom: 4 }}>
+        {PIPELINE_STAGES.map((stage, i) => {
+          const cfg = st(stage)
+          const count = pipelineCounts[stage] || 0
+          return (
+            <div key={stage} onClick={() => setFilter(filter === stage ? '' : stage)} style={{
+              flex: 1, minWidth: 120, padding: '10px 14px', borderRadius: 10, cursor: 'pointer',
+              background: filter === stage ? cfg.color + '18' : 'var(--surface)',
+              border: `1px solid ${filter === stage ? cfg.color + '50' : 'var(--border)'}`,
+              borderTop: `3px solid ${cfg.color}`, textAlign: 'center', transition: 'all .15s',
+            }}>
+              <div style={{ fontSize: 10, color: 'var(--text3)' }}>{cfg.icon}</div>
+              <div style={{ fontSize: 22, fontWeight: 700, color: cfg.color }}>{count}</div>
+              <div style={{ fontSize: 10, color: 'var(--text2)' }}>{cfg.label}</div>
             </div>
-            <button onClick={() => setDetail(null)} style={{ marginTop: 20, padding: '10px 24px', background: 'var(--surface2)', color: 'var(--text2)', border: '1px solid var(--border)', borderRadius: 8, cursor: 'pointer', fontSize: 13, width: '100%' }}>Хаах</button>
-          </div>
-        </div>
-      )}
+          )
+        })}
+      </div>
 
-      {/* Table */}
+      {/* SEARCH + FILTER */}
+      <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' }}>
+        <input placeholder="Хайх..." value={search} onChange={e => setSearch(e.target.value)} style={{ padding: '8px 14px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)', fontSize: 13, width: 240 }} />
+        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+          <button onClick={() => setFilter('')} style={{ padding: '5px 10px', borderRadius: 6, border: 'none', fontSize: 11, cursor: 'pointer', background: !filter ? '#FF6B00' : 'var(--surface2)', color: !filter ? '#fff' : 'var(--text2)' }}>Бүгд</button>
+          {Object.entries(STATUS_CFG).map(([k, v]) => (
+            <button key={k} onClick={() => setFilter(filter === k ? '' : k)} style={{ padding: '5px 10px', borderRadius: 6, border: 'none', fontSize: 11, cursor: 'pointer', background: filter === k ? v.color : 'var(--surface2)', color: filter === k ? '#fff' : 'var(--text2)' }}>{v.icon} {v.label}</button>
+          ))}
+        </div>
+      </div>
+
+      {/* TABLE */}
       <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
           <thead><tr style={{ background: 'var(--surface2)' }}>
-            {['Хэрэглэгч', 'Бүтээгдэхүүн', 'Дизайнер', 'Төлөв', 'Огноо', 'Үйлдэл'].map(h =>
-              <th key={h} style={{ padding: '10px 14px', textAlign: 'left', color: 'var(--text2)', fontWeight: 500, fontSize: 12, whiteSpace: 'nowrap' }}>{h}</th>
+            {['Хэрэглэгч', 'Бүтээгдэхүүн', 'Дизайнер', 'Версия', 'Төлөв', 'Огноо', 'Үйлдэл'].map(h =>
+              <th key={h} style={{ padding: '10px 12px', textAlign: 'left', color: 'var(--text2)', fontWeight: 500, fontSize: 11, textTransform: 'uppercase' }}>{h}</th>
             )}
           </tr></thead>
           <tbody>
-            {loading ? <tr><td colSpan={6} style={{ padding: 32, textAlign: 'center', color: 'var(--text2)' }}>Уншиж байна...</td></tr>
-            : filtered.length === 0 ? <tr><td colSpan={6} style={{ padding: 32, textAlign: 'center', color: 'var(--text2)' }}>Хүсэлт байхгүй</td></tr>
+            {loading ? <tr><td colSpan={7} style={{ padding: 40, textAlign: 'center', color: 'var(--text2)' }}>Уншиж байна...</td></tr>
+            : filtered.length === 0 ? <tr><td colSpan={7} style={{ padding: 40, textAlign: 'center', color: 'var(--text2)' }}>Хүсэлт байхгүй</td></tr>
             : filtered.map(dr => {
-              const st = STATUS_CFG[dr.status] || { label: dr.status, color: '#888' }
+              const cfg = st(dr.status)
+              const hasZoom = !!dr.zoom_join_url
               return (
-                <tr key={dr.id} style={{ borderTop: '1px solid var(--border)' }}>
-                  <td style={{ padding: '10px 14px' }}>
-                    <div style={{ fontWeight: 500, fontSize: 13 }}>{dr.customer_name || '—'}</div>
+                <tr key={dr.id} className="dr-row" style={{ borderTop: '1px solid var(--border)', cursor: 'pointer' }} onClick={() => openDetail(dr)}>
+                  <td style={{ padding: '10px 12px' }}>
+                    <div style={{ fontWeight: 500 }}>{dr.customer_name || '—'}</div>
                     <div style={{ fontSize: 11, color: 'var(--text3)' }}>{dr.customer_email || ''}</div>
                   </td>
-                  <td style={{ padding: '10px 14px', color: 'var(--text2)' }}>{dr.product_name || '—'}</td>
-                  <td style={{ padding: '10px 14px' }}>
+                  <td style={{ padding: '10px 12px', color: 'var(--text2)' }}>{dr.product_name || '—'}</td>
+                  <td style={{ padding: '10px 12px' }}>
                     {dr.designer_name ? (
                       <span style={{ fontSize: 12, color: '#8B5CF6', fontWeight: 500 }}>{dr.designer_name}</span>
                     ) : (
-                      <span style={{ fontSize: 11, color: 'var(--text3)' }}>Оноогдоогүй</span>
+                      <span style={{ fontSize: 11, color: '#F59E0B', fontWeight: 500 }}>Оноогдоогүй</span>
                     )}
                   </td>
-                  <td style={{ padding: '10px 14px' }}>
-                    <span style={{ fontSize: 11, padding: '3px 10px', borderRadius: 99, background: st.color + '15', color: st.color, fontWeight: 600 }}>{st.label}</span>
+                  <td style={{ padding: '10px 12px' }}>
+                    <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text2)' }}>v{dr.current_version || 1}</span>
+                    {hasZoom && <span style={{ marginLeft: 6 }} title="Zoom">📹</span>}
                   </td>
-                  <td style={{ padding: '10px 14px', color: 'var(--text3)', fontSize: 12 }}>{dr.created_at ? new Date(dr.created_at).toLocaleDateString() : '—'}</td>
-                  <td style={{ padding: '10px 14px' }}>
-                    <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
-                      <button onClick={() => setDetail(dr)} style={{ padding: '4px 10px', background: 'rgba(59,130,246,0.1)', color: '#3B82F6', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 11 }}>Харах</button>
-                      {dr.status === 'pending' && <button onClick={() => setAssignModal(dr)} style={{ padding: '4px 10px', background: 'rgba(139,92,246,0.1)', color: '#8B5CF6', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 11 }}>Оноох</button>}
-                      {(dr.status === 'in_progress' || dr.status === 'assigned') && <button onClick={() => approve(dr.id)} style={{ padding: '4px 10px', background: 'rgba(16,185,129,0.1)', color: '#10B981', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 11 }}>Батлах</button>}
-                      {(dr.status === 'in_progress' || dr.status === 'assigned') && <button onClick={() => reject(dr.id)} style={{ padding: '4px 10px', background: 'rgba(239,68,68,0.1)', color: '#EF4444', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 11 }}>Татгалзах</button>}
-                      <button onClick={() => del(dr.id)} style={{ padding: '4px 10px', background: 'rgba(239,68,68,0.1)', color: '#EF4444', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 11 }}>Устгах</button>
+                  <td style={{ padding: '10px 12px' }}>
+                    <span style={{ fontSize: 10, padding: '3px 8px', borderRadius: 99, background: cfg.color + '18', color: cfg.color, fontWeight: 600 }}>{cfg.icon} {cfg.label}</span>
+                  </td>
+                  <td style={{ padding: '10px 12px', color: 'var(--text3)', fontSize: 12 }}>{dr.created_at ? new Date(dr.created_at).toLocaleDateString('mn-MN') : '—'}</td>
+                  <td style={{ padding: '10px 12px' }} onClick={e => e.stopPropagation()}>
+                    <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                      {dr.status === 'pending' && <button onClick={() => setAssignModal(dr)} style={btnStyle('#8B5CF6')}>Оноох</button>}
+                      {['under_review', 'updated_version', 'zoom_scheduled'].includes(dr.status) && <button onClick={() => approve(dr.id)} style={btnStyle('#10B981')}>Батлах</button>}
+                      {!['approved', 'in_production', 'rejected'].includes(dr.status) && <button onClick={() => reject(dr.id)} style={btnStyle('#EF4444')}>Татгалзах</button>}
                     </div>
                   </td>
                 </tr>
@@ -196,6 +224,193 @@ export default function AdminDesignRequestsPage() {
           </tbody>
         </table>
       </div>
+
+      {/* ASSIGN MODAL */}
+      {assignModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 999, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => setAssignModal(null)}>
+          <div style={{ background: 'var(--surface)', borderRadius: 16, padding: 28, width: '100%', maxWidth: 440, border: '1px solid var(--border)' }} onClick={e => e.stopPropagation()}>
+            <h3 style={{ fontSize: 18, fontWeight: 600, margin: '0 0 4px' }}>Дизайнер оноох</h3>
+            <p style={{ fontSize: 13, color: 'var(--text2)', margin: '0 0 16px' }}>{assignModal.product_name || '—'}</p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <div>
+                <label style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 4, display: 'block' }}>Дизайнер</label>
+                <select value={assignForm.designer_id} onChange={e => {
+                  const d = designers.find(d => d.id === e.target.value)
+                  setAssignForm({ ...assignForm, designer_id: e.target.value, designer_name: d?.full_name || d?.email || '' })
+                }} style={inputStyle}>
+                  <option value="">-- Сонгох --</option>
+                  {designers.map(d => <option key={d.id} value={d.id}>{d.full_name || d.email}</option>)}
+                </select>
+              </div>
+              {stats?.designer_load?.length > 0 && (
+                <div style={{ fontSize: 11, color: 'var(--text3)', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  {stats.designer_load.map((d: any, i: number) => (
+                    <span key={i} style={{ padding: '2px 8px', background: 'var(--surface2)', borderRadius: 6 }}>{d.name}: {d.active} идэвхтэй</span>
+                  ))}
+                </div>
+              )}
+              <div>
+                <label style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 4, display: 'block' }}>Zoom link</label>
+                <input value={assignForm.designer_zoom} onChange={e => setAssignForm({ ...assignForm, designer_zoom: e.target.value })} placeholder="https://zoom.us/j/..." style={inputStyle} />
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
+              <button onClick={assign} disabled={!assignForm.designer_id} style={{ flex: 1, padding: 10, background: assignForm.designer_id ? '#8B5CF6' : '#94A3B8', color: '#fff', border: 'none', borderRadius: 8, cursor: assignForm.designer_id ? 'pointer' : 'not-allowed', fontSize: 13, fontWeight: 600 }}>Оноох</button>
+              <button onClick={() => setAssignModal(null)} style={{ padding: '10px 20px', background: 'var(--surface2)', color: 'var(--text2)', border: '1px solid var(--border)', borderRadius: 8, cursor: 'pointer', fontSize: 13 }}>Болих</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* DETAIL PANEL (slide-in) */}
+      {detail && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 999, display: 'flex', justifyContent: 'flex-end' }} onClick={() => setDetail(null)}>
+          <div style={{ background: 'var(--surface)', width: '100%', maxWidth: 560, height: '100%', overflow: 'auto', borderLeft: '1px solid var(--border)', boxShadow: '-8px 0 30px rgba(0,0,0,0.15)', animation: 'slideIn .2s ease', padding: 24 }} onClick={e => e.stopPropagation()}>
+
+            {/* Header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: 16 }}>
+              <div>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 4 }}>
+                  <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 99, background: st(detail.status).color + '18', color: st(detail.status).color, fontWeight: 600 }}>
+                    {st(detail.status).icon} {st(detail.status).label}
+                  </span>
+                  <span style={{ fontSize: 11, color: 'var(--text3)' }}>v{detail.current_version || 1}</span>
+                </div>
+                <div style={{ fontSize: 18, fontWeight: 700 }}>{detail.product_name || 'Дизайн хүсэлт'}</div>
+                <div style={{ fontSize: 12, color: 'var(--text2)' }}>{detail.customer_name} · {detail.designer_name || 'Оноогдоогүй'}</div>
+              </div>
+              <button onClick={() => setDetail(null)} style={{ background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 8, width: 32, height: 32, cursor: 'pointer', fontSize: 16 }}>✕</button>
+            </div>
+
+            {/* Tabs */}
+            <div style={{ display: 'flex', gap: 4, marginBottom: 16, borderBottom: '1px solid var(--border)', paddingBottom: 8 }}>
+              {(['info', 'versions', 'comments'] as const).map(t => (
+                <button key={t} onClick={() => setDetailTab(t)} style={{ padding: '6px 14px', borderRadius: 8, border: 'none', fontSize: 12, cursor: 'pointer', background: detailTab === t ? '#FF6B00' : 'transparent', color: detailTab === t ? '#fff' : 'var(--text2)', fontWeight: detailTab === t ? 600 : 400 }}>
+                  {t === 'info' ? 'Мэдээлэл' : t === 'versions' ? `Хувилбар (${detail.versions?.length || 0})` : `Сэтгэгдэл (${detail.comments?.length || 0})`}
+                </button>
+              ))}
+            </div>
+
+            {/* INFO TAB */}
+            {detailTab === 'info' && (
+              <div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px 16px', marginBottom: 20 }}>
+                  {[
+                    ['Хэрэглэгч', detail.customer_name],
+                    ['И-мэйл', detail.customer_email],
+                    ['Утас', detail.customer_phone],
+                    ['Дизайнер', detail.designer_name || '—'],
+                    ['Дуусах хугацаа', detail.deadline ? new Date(detail.deadline).toLocaleDateString('mn-MN') : '—'],
+                    ['Огноо', detail.created_at ? new Date(detail.created_at).toLocaleString('mn-MN') : '—'],
+                    ['Захиалга', detail.order_id?.slice(0, 8) || '—'],
+                    ['Төлбөр', detail.design_fee ? `₮${fmt(Number(detail.design_fee))}` : '—'],
+                  ].map(([k, v]) => (
+                    <div key={k as string} style={{ fontSize: 12 }}>
+                      <span style={{ color: 'var(--text3)' }}>{k}: </span>
+                      <span style={{ fontWeight: 500 }}>{v as string}</span>
+                    </div>
+                  ))}
+                </div>
+
+                {detail.requirements && (
+                  <div style={{ marginBottom: 16 }}>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text2)', marginBottom: 4 }}>Шаардлага</div>
+                    <div style={{ fontSize: 12, background: 'var(--surface2)', padding: 12, borderRadius: 8, lineHeight: 1.5 }}>{detail.requirements}</div>
+                  </div>
+                )}
+
+                {/* Zoom */}
+                {detail.zoom_join_url && (
+                  <div style={{ marginBottom: 16, padding: 14, background: '#EFF6FF', border: '1px solid #BFDBFE', borderRadius: 10 }}>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: '#1D4ED8', marginBottom: 6 }}>📹 Zoom уулзалт</div>
+                    <a href={detail.zoom_join_url} target="_blank" rel="noreferrer" style={{ fontSize: 12, color: '#2563EB', textDecoration: 'none' }}>Нэгдэх →</a>
+                    {detail.zoom_password && <span style={{ fontSize: 11, marginLeft: 8, color: '#64748B' }}>Нууц: {detail.zoom_password}</span>}
+                  </div>
+                )}
+
+                {/* File preview */}
+                {detail.file_url && (
+                  <div style={{ marginBottom: 16 }}>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text2)', marginBottom: 6 }}>Одоогийн файл</div>
+                    <a href={detail.file_url.startsWith('http') ? detail.file_url : `/${detail.file_url}`} target="_blank" rel="noreferrer" style={{ fontSize: 12, color: '#3B82F6' }}>📎 Файл татах (v{detail.current_version})</a>
+                  </div>
+                )}
+
+                {/* Actions */}
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 16 }}>
+                  {detail.status === 'pending' && <button onClick={() => { setDetail(null); setAssignModal(detail) }} style={actionBtn('#8B5CF6')}>👩‍🎨 Оноох</button>}
+                  {['under_review', 'updated_version', 'zoom_scheduled'].includes(detail.status) && <button onClick={() => approve(detail.id)} style={actionBtn('#10B981')}>✅ Батлах</button>}
+                  {!['approved', 'in_production', 'rejected'].includes(detail.status) && <button onClick={() => reject(detail.id)} style={actionBtn('#EF4444')}>❌ Татгалзах</button>}
+                </div>
+              </div>
+            )}
+
+            {/* VERSIONS TAB */}
+            {detailTab === 'versions' && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {(detail.versions || []).length === 0 ? (
+                  <div style={{ padding: 20, textAlign: 'center', color: 'var(--text3)', fontSize: 13 }}>Хувилбар байхгүй</div>
+                ) : detail.versions.map((v: any) => (
+                  <div key={v.id} style={{ border: '1px solid var(--border)', borderRadius: 10, padding: 14, background: v.is_current ? '#F0FDF4' : 'var(--surface)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div>
+                        <span style={{ fontWeight: 700, fontSize: 14, color: v.is_current ? '#16A34A' : 'var(--text)' }}>v{v.version_number}</span>
+                        {v.is_current && <span style={{ fontSize: 10, marginLeft: 8, padding: '2px 6px', borderRadius: 4, background: '#DCFCE7', color: '#16A34A', fontWeight: 600 }}>CURRENT</span>}
+                      </div>
+                      <span style={{ fontSize: 11, color: 'var(--text3)' }}>{new Date(v.created_at).toLocaleString('mn-MN')}</span>
+                    </div>
+                    <div style={{ fontSize: 11, color: 'var(--text2)', marginTop: 4 }}>
+                      {v.uploaded_by_name || v.uploaded_by_role} оруулсан
+                    </div>
+                    {v.version_note && <div style={{ fontSize: 12, marginTop: 4, color: 'var(--text)' }}>{v.version_note}</div>}
+                    {v.file_url && (
+                      <a href={v.file_url.startsWith('http') ? v.file_url : `/${v.file_url}`} target="_blank" rel="noreferrer" style={{ fontSize: 11, color: '#3B82F6', marginTop: 6, display: 'inline-block' }}>📎 Файл татах</a>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* COMMENTS TAB */}
+            {detailTab === 'comments' && (
+              <div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16, maxHeight: 400, overflow: 'auto' }}>
+                  {(detail.comments || []).length === 0 ? (
+                    <div style={{ padding: 20, textAlign: 'center', color: 'var(--text3)', fontSize: 13 }}>Сэтгэгдэл байхгүй</div>
+                  ) : detail.comments.map((c: any) => {
+                    const roleColor = c.author_role === 'customer' ? '#3B82F6' : c.author_role === 'designer' ? '#8B5CF6' : c.type === 'system' ? '#94A3B8' : '#FF6B00'
+                    return (
+                      <div key={c.id} style={{ padding: 10, borderRadius: 8, background: c.type === 'system' ? 'var(--surface2)' : 'var(--surface)', border: '1px solid var(--border)' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                          <span style={{ fontSize: 12, fontWeight: 600, color: roleColor }}>{c.author_name || c.author_role}</span>
+                          <span style={{ fontSize: 10, color: 'var(--text3)' }}>{new Date(c.created_at).toLocaleString('mn-MN')}</span>
+                        </div>
+                        <div style={{ fontSize: 12, lineHeight: 1.5 }}>{c.content}</div>
+                      </div>
+                    )
+                  })}
+                </div>
+                {/* Add comment */}
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <input value={newComment} onChange={e => setNewComment(e.target.value)} placeholder="Сэтгэгдэл бичих..." onKeyDown={e => e.key === 'Enter' && addComment(detail.id)} style={{ flex: 1, padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 13 }} />
+                  <button onClick={() => addComment(detail.id)} style={{ padding: '8px 16px', borderRadius: 8, border: 'none', background: '#FF6B00', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>Илгээх</button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   )
+}
+
+/* ── Shared styles ── */
+const inputStyle: React.CSSProperties = { width: '100%', padding: '10px 14px', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 13, color: 'var(--text)' }
+
+function btnStyle(color: string): React.CSSProperties {
+  return { padding: '4px 10px', background: color + '12', color, border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 11, fontWeight: 500 }
+}
+
+function actionBtn(color: string): React.CSSProperties {
+  return { padding: '8px 16px', background: color, color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 600 }
 }

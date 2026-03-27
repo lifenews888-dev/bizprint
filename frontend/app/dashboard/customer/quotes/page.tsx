@@ -1,10 +1,8 @@
 'use client'
-import { apiFetch } from '@/lib/api'
+import { apiFetch, getToken, API_URL } from '@/lib/api'
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 
-    ? localStorage.getItem('access_token') || localStorage.getItem('token') || ''
-    : ''
 const STATUS_MAP: Record<string, { label: string; color: string; bg: string }> = {
   draft:     { label: 'Ноорог',       color: '#6B7280', bg: '#F3F4F6' },
   sent:      { label: 'Илгээгдсэн',   color: '#FF6B00', bg: '#FFF7ED' },
@@ -22,9 +20,8 @@ export default function MyQuotesPage() {
     const token = getToken()
     if (!token) { router.push('/login'); return }
 
-    // ✅ Correct endpoint: /quotes-v2/my (filters by JWT user)
-    apiFetch('/quotes-v2/my')
-      .then(r => r.json())
+    // ✅ Correct endpoint: /quote/my (filters by JWT user)
+    apiFetch<any>('/quote/my')
       .then(d => setQuotes(Array.isArray(d) ? d : []))
       .catch(() => {})
       .finally(() => setLoading(false))
@@ -85,22 +82,32 @@ export default function MyQuotesPage() {
                   <span style={{ fontSize: 22, fontWeight: 700, color: '#FF6B00' }}>
                     {fmt(Number(q.total_price) || 0)}
                   </span>
-                  {q.status === 'sent' && (
-                    <button
-                      onClick={() => router.push('/dashboard?section=quotes')}
-                      style={{ background: '#FF6B00', color: '#fff', border: 'none', borderRadius: 10, padding: '8px 20px', fontWeight: 600, fontSize: 13, cursor: 'pointer' }}
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    <a
+                      href={`${API_URL}/quote/${q.id}/pdf`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: 4, background: 'var(--surface2)', border: '1px solid var(--border2)', color: '#FF6B00', borderRadius: 10, padding: '8px 16px', fontWeight: 600, fontSize: 13, textDecoration: 'none', cursor: 'pointer' }}
                     >
-                      Захиалах →
-                    </button>
-                  )}
-                  {q.status === 'ordered' && (
-                    <button
-                      onClick={() => router.push('/dashboard?section=orders')}
-                      style={{ background: '#059669', color: '#fff', border: 'none', borderRadius: 10, padding: '8px 20px', fontWeight: 600, fontSize: 13, cursor: 'pointer' }}
-                    >
-                      Захиалга харах →
-                    </button>
-                  )}
+                      📄 PDF
+                    </a>
+                    {q.status === 'sent' && (
+                      <button
+                        onClick={() => router.push('/dashboard?section=quotes')}
+                        style={{ background: '#FF6B00', color: '#fff', border: 'none', borderRadius: 10, padding: '8px 20px', fontWeight: 600, fontSize: 13, cursor: 'pointer' }}
+                      >
+                        Захиалах →
+                      </button>
+                    )}
+                    {q.status === 'ordered' && (
+                      <button
+                        onClick={() => router.push('/dashboard?section=orders')}
+                        style={{ background: '#059669', color: '#fff', border: 'none', borderRadius: 10, padding: '8px 20px', fontWeight: 600, fontSize: 13, cursor: 'pointer' }}
+                      >
+                        Захиалга харах →
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
             )

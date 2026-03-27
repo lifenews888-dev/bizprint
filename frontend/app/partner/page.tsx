@@ -86,24 +86,18 @@ export default function PartnerPage() {
 
     setSubmitting(true)
     try {
-      const res = await apiFetch(`/auth/register`, {
+      const res = await apiFetch<any>(`/auth/register`, {
         method: 'POST',
         headers: {},
         body: {
-          email: form.email.trim(,
+          email: form.email.trim(),
           password: form.password,
           full_name: form.full_name.trim(),
           phone: form.phone.trim(),
           company_name: form.company.trim() || undefined,
           role: selected,
-        }),
+        },
       })
-      const data = await res.json()
-      if (!res.ok) {
-        setError(data.message || 'Бүртгэлд алдаа гарлаа')
-        setSubmitting(false)
-        return
-      }
       setSubmitted(true)
     } catch {
       setError('Серверт холбогдож чадсангүй. Дахин оролдоно уу.')

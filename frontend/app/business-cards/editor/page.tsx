@@ -5,6 +5,7 @@ import { Suspense } from 'react'
 import { QRCodeSVG } from 'qrcode.react'
 import { usePricing } from '@/hooks/usePricing'
 import { apiFetch, API_URL } from '@/lib/api'
+import { jsPDF } from 'jspdf'
 
 // RGB ↔ CMYK хөрвүүлэгч
 function hexToCmyk(hex: string): [number, number, number, number] {
@@ -1073,72 +1074,61 @@ function EditorInner() {
                   {(lacquerFront.size > 0 || lacquerBack.size > 0) && (
                     <div style={{ display: 'flex', gap: 4, marginTop: 6 }}>
                       <button onClick={() => {
-                        // Лак mask PNG үүсгэх — хар = лактай, цагаан = лакгүй
-                        const generateMask = (zones: Set<string>, zoneList: any[], label: string) => {
-                          if (zones.size === 0) return
+                        const generateCanvas = (zones: Set<string>, zoneList: any[]) => {
                           const canvas = document.createElement('canvas')
                           canvas.width = W; canvas.height = H
                           const ctx = canvas.getContext('2d')
-                          if (!ctx) return
-                          // Цагаан дэвсгэр = лакгүй
+                          if (!ctx) return canvas
                           ctx.fillStyle = '#FFFFFF'
                           ctx.fillRect(0, 0, W, H)
                           ctx.fillStyle = '#000000'
                           for (const z of zoneList) {
                             if (!zones.has(z.key)) continue
                             if (z.type === 'logo' || z.type === 'qr') {
-                              // Лого/QR — тэгш өнцөгт хэлбэр
-                              const r = z.type === 'logo' ? 6 : 4
-                              ctx.beginPath()
-                              ctx.roundRect(z.x, z.y, z.w || 72, z.h || 72, r)
-                              ctx.fill()
+                              ctx.beginPath(); ctx.roundRect(z.x, z.y, z.w || 72, z.h || 72, z.type === 'logo' ? 6 : 4); ctx.fill()
                             } else if (z.type === 'icon') {
-                              // Icon — дугуй
-                              const s = Math.min(z.w || 14, z.h || 14)
-                              ctx.beginPath()
-                              ctx.arc(z.x + s / 2, z.y + s / 2, s / 2, 0, Math.PI * 2)
-                              ctx.fill()
+                              const s = Math.min(z.w || 14, z.h || 14); ctx.beginPath(); ctx.arc(z.x + s / 2, z.y + s / 2, s / 2, 0, Math.PI * 2); ctx.fill()
                             } else if (z.type === 'social') {
-                              // Social — жижиг дугуйнууд
                               ctx.fillRect(z.x, z.y, z.w || 80, z.h || 30)
                             } else {
-                              // Текст — бодит үсэг хэлбэрээр
                               const text = (form as any)[z.key] || z.label || z.key || ''
                               if (!text) continue
-                              const fs = z.fontSize || 12
-                              const fw = z.fontWeight === 'bold' ? 'bold' : 'normal'
-                              const ff = z.fontFamily || "'DM Sans', sans-serif"
-                              ctx.font = `${fw} ${fs}px ${ff}`
-                              ctx.textBaseline = 'top'
-                              ctx.fillText(text, z.x, z.y)
+                              ctx.font = `${z.fontWeight === 'bold' ? 'bold' : 'normal'} ${z.fontSize || 12}px ${z.fontFamily || "'DM Sans', sans-serif"}`
+                              ctx.textBaseline = 'top'; ctx.fillText(text, z.x, z.y)
                             }
                           }
-                          // Pattern нэмэх
                           if (lacquerPattern !== 'none') {
                             ctx.fillStyle = '#000000'
                             if (lacquerPattern === 'stripes') { for (let x = 0; x < W; x += 12) ctx.fillRect(x, 0, 2, H) }
                             if (lacquerPattern === 'dots') { for (let x = 8; x < W; x += 14) for (let y = 8; y < H; y += 14) { ctx.beginPath(); ctx.arc(x, y, 2, 0, Math.PI * 2); ctx.fill() } }
-                            if (lacquerPattern === 'diagonal') { ctx.save(); ctx.translate(0, 0); for (let i = -H; i < W + H; i += 10) { ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i + H, H); ctx.lineWidth = 2; ctx.strokeStyle = '#000'; ctx.stroke() } ctx.restore() }
+                            if (lacquerPattern === 'diagonal') { for (let i = -H; i < W + H; i += 10) { ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i + H, H); ctx.lineWidth = 2; ctx.strokeStyle = '#000'; ctx.stroke() } }
                             if (lacquerPattern === 'frame') { ctx.fillRect(0, 0, W, 4); ctx.fillRect(0, H - 4, W, 4); ctx.fillRect(0, 0, 4, H); ctx.fillRect(W - 4, 0, 4, H) }
                             if (lacquerPattern === 'corner') { ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(60, 0); ctx.lineTo(0, 60); ctx.fill(); ctx.beginPath(); ctx.moveTo(W, H); ctx.lineTo(W - 60, H); ctx.lineTo(W, H - 60); ctx.fill() }
-                            if (lacquerPattern === 'waves') { for (let y = 10; y < H; y += 16) { ctx.beginPath(); for (let x = 0; x < W; x += 2) { ctx.lineTo(x, y + Math.sin(x / 10) * 3) } ctx.lineWidth = 2; ctx.strokeStyle = '#000'; ctx.stroke() } }
+                            if (lacquerPattern === 'waves') { for (let y = 10; y < H; y += 16) { ctx.beginPath(); for (let x = 0; x < W; x += 2) ctx.lineTo(x, y + Math.sin(x / 10) * 3); ctx.lineWidth = 2; ctx.strokeStyle = '#000'; ctx.stroke() } }
                           }
-                          const link = document.createElement('a')
-                          link.download = `lacquer-mask-${label}.png`
-                          link.href = canvas.toDataURL('image/png')
-                          link.click()
+                          return canvas
                         }
-                        if (lacquerFront.size > 0) generateMask(lacquerFront, zoneLayout, 'front')
-                        if (lacquerBack.size > 0) generateMask(lacquerBack, backZoneLayout, 'back')
-                        // localStorage-д бас хадгалах
-                        localStorage.setItem('bizprint_lacquer', JSON.stringify({
-                          front: Array.from(lacquerFront),
-                          back: Array.from(lacquerBack),
-                          cardType,
-                        }))
-                        alert('Лак mask PNG татагдлаа!')
+                        // PDF үүсгэх — 90x55мм
+                        const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: [90, 55] })
+                        let hasPage = false
+                        if (lacquerFront.size > 0) {
+                          const c = generateCanvas(lacquerFront, zoneLayout)
+                          pdf.setFillColor(255, 255, 255); pdf.rect(0, 0, 90, 55, 'F')
+                          pdf.addImage(c.toDataURL('image/png'), 'PNG', 0, 0, 90, 55)
+                          pdf.setFontSize(6); pdf.setTextColor(150); pdf.text('Өвөр тал — лак mask', 2, 3)
+                          hasPage = true
+                        }
+                        if (lacquerBack.size > 0) {
+                          if (hasPage) pdf.addPage([90, 55], 'landscape')
+                          const c = generateCanvas(lacquerBack, backZoneLayout)
+                          pdf.setFillColor(255, 255, 255); pdf.rect(0, 0, 90, 55, 'F')
+                          pdf.addImage(c.toDataURL('image/png'), 'PNG', 0, 0, 90, 55)
+                          pdf.setFontSize(6); pdf.setTextColor(150); pdf.text('Ар тал — лак mask', 2, 3)
+                        }
+                        pdf.save('lacquer-mask-90x55.pdf')
+                        localStorage.setItem('bizprint_lacquer', JSON.stringify({ front: Array.from(lacquerFront), back: Array.from(lacquerBack), pattern: lacquerPattern, cardType }))
                       }} style={{ flex: 1, padding: '6px 0', borderRadius: 6, border: 'none', background: '#7C3AED', color: '#fff', fontSize: 10, fontWeight: 600, cursor: 'pointer' }}>
-                        💾 Лак mask PNG татах
+                        📄 Лак mask PDF татах
                       </button>
                     </div>
                   )}

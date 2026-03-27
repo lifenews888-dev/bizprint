@@ -2,11 +2,8 @@ import type { Metadata } from 'next'
 import './globals.css'
 import { SiteSettingsProvider } from '@/contexts/SiteSettingsContext'
 import { RealtimeProvider } from '@/contexts/RealtimeContext'
-import MegaNav from '@/components/nav/MegaNav'
-import AnnouncementBar from '@/components/AnnouncementBar'
-import Footer from '@/components/Footer'
-import ChatWidget from '@/components/ChatWidget'
-import MobileBottomNav from '@/components/MobileBottomNav'
+import LayoutShell from '@/components/LayoutShell'
+import ErrorBoundary from '@/components/ErrorBoundary'
 
 export const metadata: Metadata = {
   title: 'BizPrint — Хэвлэл, Дизайн, Бизнес Платформ',
@@ -22,14 +19,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
       </head>
       <body suppressHydrationWarning>
+        <ErrorBoundary />
         <RealtimeProvider>
           <SiteSettingsProvider>
-            <AnnouncementBar />
-            <MegaNav />
-            <main>{children}</main>
-            <ChatWidget />
-            <Footer />
-            <MobileBottomNav />
+            <LayoutShell>{children}</LayoutShell>
           </SiteSettingsProvider>
         </RealtimeProvider>
       </body>

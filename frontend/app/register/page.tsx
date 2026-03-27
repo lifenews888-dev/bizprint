@@ -39,17 +39,21 @@ export default function RegisterPage() {
         if (data.refresh_token) localStorage.setItem('refresh_token', data.refresh_token)
         localStorage.setItem('user', JSON.stringify(data.user))
         router.push('/dashboard')
-      } else if (res.status === 409) {
-        setError('Энэ имэйл бүртгэлтэй байна')
       } else {
         setError(data.message || 'Бүртгэл амжилтгүй боллоо')
       }
-    } catch { setError('Серверт холбогдож чадсангүй') }
+    } catch (e: any) {
+      if (e.message && e.message.includes('409')) {
+        setError('Энэ имэйл бүртгэлтэй байна')
+      } else {
+        setError('Серверт холбогдож чадсангүй')
+      }
+    }
     setLoading(false)
   }
 
   return (
-    <main style={{ display: 'flex', minHeight: '100vh', fontFamily: "'Segoe UI',system-ui,sans-serif", background: '#0A0A0A' }}>
+    <div style={{ display: 'flex', minHeight: '100vh', fontFamily: "'Segoe UI',system-ui,sans-serif", background: '#0A0A0A' }}>
 
       {/* Зүүн тал - брэнд (mobile дээр нуугдана) */}
       <div style={{ flex: '0 0 52%', position: 'relative', overflow: 'hidden', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', padding: '48px' }}
@@ -199,6 +203,6 @@ export default function RegisterPage() {
           </p>
         </div>
       </div>
-    </main>
+    </div>
   )
 }

@@ -1,5 +1,6 @@
 'use client';
 import { useState, useEffect, useRef, CSSProperties, ChangeEvent } from 'react';
+import { apiFetch, getToken } from '@/lib/api';
 
 interface Product {
   id: string;
@@ -51,21 +52,20 @@ export default function VendorStorePage() {
   const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    const t = localStorage.getItem('token');
+    const t = getToken();
     setToken(t);
     if (t) {
-      loadProducts(t);
-      loadStats(t);
+      loadProducts();
+      loadStats();
     } else {
       setLoading(false);
     }
   }, []);
 
-  async function loadProducts(t: string) {
+  async function loadProducts() {
     setLoading(true);
     try {
-      const data = await apiFetch(`/vendor-store/products`,
-      });
+      const data = await apiFetch<any>(`/vendor-store/products`);
       setProducts(Array.isArray(data) ? data : []);
     } catch {
       setError('Failed to load products');
@@ -74,10 +74,9 @@ export default function VendorStorePage() {
     }
   }
 
-  async function loadStats(t: string) {
+  async function loadStats() {
     try {
-      const data = await apiFetch(`/vendor-store/stats`,
-      });
+      const data = await apiFetch<any>(`/vendor-store/stats`);
       setStats(data);
     } catch {}
   }
@@ -115,7 +114,7 @@ export default function VendorStorePage() {
     try {
       const fd = new FormData();
       fd.append('file', file);
-      const data = await apiFetch(`/upload/file`, {
+      const data = await apiFetch<any>(`/upload/file`, {
         method: 'POST',
         body: fd,
       });
@@ -147,10 +146,10 @@ export default function VendorStorePage() {
         ? `/vendor-store/products/${editProduct.id}`
         : `/vendor-store/products`;
       const method = editProduct ? 'PATCH' : 'POST';
-      await apiFetch(url, { method, body: body });
+      await apiFetch<any>(url, { method, body: body });
       setShowModal(false);
-      loadProducts(token);
-      loadStats(token);
+      loadProducts();
+      loadStats();
     } catch {
       setError('Failed to save product');
     } finally {
@@ -160,20 +159,20 @@ export default function VendorStorePage() {
 
   async function handleDelete(id: string) {
     if (!token || !confirm('Delete this product?')) return;
-    await apiFetch(`/vendor-store/products/${id}`, {
+    await apiFetch<any>(`/vendor-store/products/${id}`, {
       method: 'DELETE',
     });
-    loadProducts(token);
-    loadStats(token);
+    loadProducts();
+    loadStats();
   }
 
   async function toggleActive(p: Product) {
     if (!token) return;
-    await apiFetch(`/vendor-store/products/${p.id}`, {
+    await apiFetch<any>(`/vendor-store/products/${p.id}`, {
       method: 'PATCH',
       body: { is_active: !p.is_active },
     });
-    loadProducts(token);
+    loadProducts();
   }
 
   const imgSrc = (url: string) => url.startsWith('http') ? url : `/${url}`;

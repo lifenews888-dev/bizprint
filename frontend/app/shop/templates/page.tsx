@@ -30,22 +30,19 @@ function TemplatesShopInner() {
 
   useEffect(() => {
     const token = getToken()
-    apiFetch(`/templates`)
-      .then(r => r.json())
+    apiFetch<any>(`/templates`, { auth: false })
       .then(d => setTemplates(Array.isArray(d) ? d : []))
       .catch(() => setTemplates([]))
       .finally(() => setLoading(false))
 
     if (token) {
-      apiFetch(`/auth/me`, {} })
-        .then(r => r.json())
+      apiFetch<any>(`/auth/me`)
         .then(u => {
           if (u?.id) {
             setUser(u)
-            return apiFetch(`/templates/my/purchases`, {} })
+            return apiFetch<any>(`/templates/my/purchases`)
           }
         })
-        .then(r => r?.json())
         .then(ids => {
           if (Array.isArray(ids)) setOwnedIds(new Set(ids))
         })
@@ -75,15 +72,11 @@ function TemplatesShopInner() {
     }
     setPurchasing(templateId)
     try {
-      const r = await apiFetch(`/templates/${templateId}/purchase`, {
+      await apiFetch<any>(`/templates/${templateId}/purchase`, {
         method: 'POST',
       })
-      if (r.ok) {
-        setOwnedIds(prev => new Set([...prev, templateId]))
-        showToast('Амжилттай худалдан авлаа!')
-      } else {
-        showToast('Худалдан авахад алдаа гарлаа')
-      }
+      setOwnedIds(prev => new Set([...prev, templateId]))
+      showToast('Амжилттай худалдан авлаа!')
     } catch {
       showToast('Худалдан авахад алдаа гарлаа')
     }
@@ -97,15 +90,11 @@ function TemplatesShopInner() {
     }
     setDownloading(templateId)
     try {
-      const r = await apiFetch(`/templates/${templateId}/download`)
-      const data = r
-        if (data.file_url) {
-          window.open(data.file_url, '_blank')
-        } else {
-          showToast('Файлын хаяг олдсонгүй')
-        }
+      const data = await apiFetch<any>(`/templates/${templateId}/download`)
+      if (data.file_url) {
+        window.open(data.file_url, '_blank')
       } else {
-        showToast('Татан авахад алдаа гарлаа')
+        showToast('Файлын хаяг олдсонгүй')
       }
     } catch {
       showToast('Татан авахад алдаа гарлаа')
