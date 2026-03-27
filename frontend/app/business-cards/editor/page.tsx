@@ -749,38 +749,48 @@ function EditorInner() {
                       } : undefined}
                       style={{ position: 'absolute', left: z.x, top: z.y, fontSize: z.fontSize || 10, fontWeight: z.fontWeight === 'bold' ? 700 : 400, color, fontFamily: z.fontFamily || 'inherit', textAlign: (z.align || 'left') as any, whiteSpace: 'nowrap', overflow: 'visible', maxWidth: W - z.x - 16, ...(isMultiSelected ? { outline: '2px solid #3B82F6', outlineOffset: 2, borderRadius: 2 } : {}), ...dragProps.style }}>
                       {value}
-                      {/* ── Zone toolbar ── */}
+                      {/* ── Vistaprint-style toolbar ── */}
                       {isSelected && (
-                        <div onClick={e => e.stopPropagation()} style={{ position: 'absolute', bottom: '100%', left: 0, marginBottom: 6, display: 'flex', gap: 3, background: '#fff', borderRadius: 8, padding: '4px 6px', boxShadow: '0 4px 16px rgba(0,0,0,0.18)', border: '1px solid #E5E7EB', zIndex: 50, whiteSpace: 'nowrap' }}>
-                          {/* Font size */}
-                          {[8, 10, 12, 14, 18, 22, 28].map(fs => (
-                            <button key={fs} onClick={() => setZoneLayout(prev => prev.map((zz, ii) => ii === idx ? { ...zz, fontSize: fs } : zz))}
-                              style={{ width: 24, height: 24, borderRadius: 4, border: z.fontSize === fs ? '2px solid #FF6B00' : '1px solid #ddd', background: z.fontSize === fs ? '#FFF7ED' : '#fff', fontSize: 9, cursor: 'pointer', color: '#333', fontWeight: z.fontSize === fs ? 700 : 400 }}>{fs}</button>
-                          ))}
-                          <div style={{ width: 1, background: '#E5E7EB', margin: '0 2px' }} />
+                        <div onClick={e => e.stopPropagation()} style={{ position: 'absolute', bottom: '100%', left: '50%', transform: 'translateX(-50%)', marginBottom: 8, display: 'flex', gap: 0, alignItems: 'center', background: '#fff', borderRadius: 10, padding: '5px 8px', boxShadow: '0 6px 24px rgba(0,0,0,0.2)', border: '1px solid #E5E7EB', zIndex: 50, whiteSpace: 'nowrap' }}>
+                          {/* Font family */}
+                          <select value={z.fontFamily || ''} onChange={e => setZoneLayout(prev => prev.map((zz, ii) => ii === idx ? { ...zz, fontFamily: e.target.value } : zz))}
+                            style={{ height: 28, borderRadius: 5, border: '1px solid #E5E7EB', fontSize: 11, padding: '0 6px', cursor: 'pointer', maxWidth: 90, color: '#374151', background: '#F9FAFB' }}>
+                            <option value="">Sans Serif</option>
+                            <option value="Georgia, serif">Serif</option>
+                            <option value="Courier New, monospace">Mono</option>
+                            <option value="Arial Black, sans-serif">Black</option>
+                            <option value="Times New Roman, serif">Times</option>
+                          </select>
+                          <div style={{ width: 1, height: 20, background: '#E5E7EB', margin: '0 6px' }} />
+                          {/* Size − / select / + */}
+                          <button onClick={() => setZoneLayout(prev => prev.map((zz, ii) => ii === idx ? { ...zz, fontSize: Math.max(7, (zz.fontSize || 12) - 1) } : zz))}
+                            style={{ width: 26, height: 28, borderRadius: '5px 0 0 5px', border: '1px solid #E5E7EB', background: '#F9FAFB', fontSize: 14, cursor: 'pointer', color: '#374151', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>−</button>
+                          <select value={z.fontSize || 12} onChange={e => setZoneLayout(prev => prev.map((zz, ii) => ii === idx ? { ...zz, fontSize: Number(e.target.value) } : zz))}
+                            style={{ width: 42, height: 28, border: '1px solid #E5E7EB', borderLeft: 'none', borderRight: 'none', fontSize: 11, textAlign: 'center', cursor: 'pointer', color: '#374151', background: '#fff', appearance: 'none', padding: '0 4px' }}>
+                            {[7, 8, 9, 10, 11, 12, 13, 14, 16, 18, 20, 22, 24, 28, 32].map(s => <option key={s} value={s}>{s}</option>)}
+                          </select>
+                          <button onClick={() => setZoneLayout(prev => prev.map((zz, ii) => ii === idx ? { ...zz, fontSize: Math.min(40, (zz.fontSize || 12) + 1) } : zz))}
+                            style={{ width: 26, height: 28, borderRadius: '0 5px 5px 0', border: '1px solid #E5E7EB', background: '#F9FAFB', fontSize: 14, cursor: 'pointer', color: '#374151', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>+</button>
+                          <div style={{ width: 1, height: 20, background: '#E5E7EB', margin: '0 6px' }} />
+                          {/* Color */}
+                          <input type="color" value={z.color || color} onChange={e => setZoneLayout(prev => prev.map((zz, ii) => ii === idx ? { ...zz, color: e.target.value } : zz))}
+                            style={{ width: 26, height: 26, borderRadius: '50%', border: '2px solid #E5E7EB', cursor: 'pointer', padding: 0 }} />
+                          <div style={{ width: 1, height: 20, background: '#E5E7EB', margin: '0 6px' }} />
                           {/* Bold */}
                           <button onClick={() => setZoneLayout(prev => prev.map((zz, ii) => ii === idx ? { ...zz, fontWeight: zz.fontWeight === 'bold' ? 'normal' : 'bold' } : zz))}
-                            style={{ width: 24, height: 24, borderRadius: 4, border: z.fontWeight === 'bold' ? '2px solid #FF6B00' : '1px solid #ddd', background: z.fontWeight === 'bold' ? '#FFF7ED' : '#fff', fontSize: 11, cursor: 'pointer', fontWeight: 800, color: '#333' }}>B</button>
-                          <div style={{ width: 1, background: '#E5E7EB', margin: '0 2px' }} />
-                          {/* Font family buttons */}
-                          {[
-                            { label: 'Aa', value: '', title: 'Default' },
-                            { label: 'Se', value: 'Georgia, serif', title: 'Serif' },
-                            { label: 'Mo', value: 'Courier New, monospace', title: 'Mono' },
-                            { label: 'Bk', value: 'Arial Black, sans-serif', title: 'Black' },
-                            { label: 'Tm', value: 'Times New Roman, serif', title: 'Times' },
-                          ].map(f => (
-                            <button key={f.label} title={f.title} onClick={() => setZoneLayout(prev => prev.map((zz, ii) => ii === idx ? { ...zz, fontFamily: f.value } : zz))}
-                              style={{ minWidth: 26, height: 24, borderRadius: 4, border: (z.fontFamily || '') === f.value ? '2px solid #FF6B00' : '1px solid #ddd', background: (z.fontFamily || '') === f.value ? '#FFF7ED' : '#fff', fontSize: 9, cursor: 'pointer', color: '#333', fontFamily: f.value || 'inherit', fontWeight: (z.fontFamily || '') === f.value ? 700 : 400, padding: '0 3px' }}>{f.label}</button>
+                            style={{ width: 28, height: 28, borderRadius: 5, border: z.fontWeight === 'bold' ? '2px solid #FF6B00' : '1px solid #E5E7EB', background: z.fontWeight === 'bold' ? '#FFF7ED' : '#fff', fontSize: 13, cursor: 'pointer', fontWeight: 800, color: '#374151' }}>B</button>
+                          <div style={{ width: 1, height: 20, background: '#E5E7EB', margin: '0 6px' }} />
+                          {/* Align */}
+                          {(['left', 'center', 'right'] as const).map(al => (
+                            <button key={al} onClick={() => setZoneLayout(prev => prev.map((zz, ii) => ii === idx ? { ...zz, align: al } : zz))}
+                              style={{ width: 28, height: 28, borderRadius: 5, border: (z.align || 'left') === al ? '2px solid #FF6B00' : '1px solid #E5E7EB', background: (z.align || 'left') === al ? '#FFF7ED' : '#fff', fontSize: 12, cursor: 'pointer', color: '#374151', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                              {al === 'left' ? '≡' : al === 'center' ? '≡' : '≡'}
+                            </button>
                           ))}
-                          <div style={{ width: 1, background: '#E5E7EB', margin: '0 2px' }} />
-                          {/* Text color */}
-                          <input type="color" value={z.color || color} onChange={e => setZoneLayout(prev => prev.map((zz, ii) => ii === idx ? { ...zz, color: e.target.value } : zz))}
-                            title="Текст өнгө" style={{ width: 24, height: 24, borderRadius: 4, border: '1px solid #ddd', cursor: 'pointer', padding: 1 }} />
-                          <div style={{ width: 1, background: '#E5E7EB', margin: '0 2px' }} />
-                          {/* Delete zone */}
+                          <div style={{ width: 1, height: 20, background: '#E5E7EB', margin: '0 6px' }} />
+                          {/* Delete */}
                           <button onClick={() => { setZoneLayout(prev => prev.filter((_, ii) => ii !== idx)); setSelectedZoneIdx(-1) }}
-                            style={{ width: 24, height: 24, borderRadius: 4, border: '1px solid #FCA5A5', background: '#FEF2F2', fontSize: 12, cursor: 'pointer', color: '#EF4444', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
+                            style={{ width: 28, height: 28, borderRadius: 5, border: '1px solid #FCA5A5', background: '#FEF2F2', fontSize: 13, cursor: 'pointer', color: '#EF4444', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>🗑</button>
                         </div>
                       )}
                     </div>
