@@ -654,7 +654,8 @@ function EditorInner() {
                       </div>
                     }
                     // Text zones
-                    const value = (form as any)[z.key] || z.key.replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase())
+                    if (!z.key) return null
+                    const value = (form as any)[z.key] || (z.key || '').replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase())
                     const isAccent = z.fill === 'accent'
                     const color = isAccent ? T.accent : T.textLight
                     const isSelected = editMode && selectedZoneIdx === idx
