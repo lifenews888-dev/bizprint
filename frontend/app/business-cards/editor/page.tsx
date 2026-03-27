@@ -747,8 +747,27 @@ function EditorInner() {
                           setSelectedZones(new Set([idx]))
                         }
                       } : undefined}
-                      style={{ position: 'absolute', left: z.x, top: z.y, fontSize: z.fontSize || 10, fontWeight: z.fontWeight === 'bold' ? 700 : 400, color, fontFamily: z.fontFamily || 'inherit', textAlign: (z.align || 'left') as any, whiteSpace: 'nowrap', overflow: 'visible', maxWidth: W - z.x - 16, ...(isMultiSelected ? { outline: '2px solid #3B82F6', outlineOffset: 2, borderRadius: 2 } : {}), ...dragProps.style }}>
+                      style={{ position: 'absolute', left: z.x, top: z.y, fontSize: z.fontSize || 10, fontWeight: z.fontWeight === 'bold' ? 700 : 400, color, fontFamily: z.fontFamily || 'inherit', textAlign: (z.align || 'left') as any, whiteSpace: 'nowrap', overflow: 'visible', maxWidth: W - z.x - 16, ...(isMultiSelected && !isSelected ? { outline: '2px solid #3B82F6', outlineOffset: 2, borderRadius: 2 } : {}), ...dragProps.style }}>
                       {value}
+                      {/* ── Selection box with handles ── */}
+                      {isSelected && (
+                        <div style={{ position: 'absolute', inset: -4, border: '2px solid #0EA5E9', borderRadius: 1, pointerEvents: 'none' }}>
+                          {/* 8 resize handles */}
+                          {[
+                            { t: -5, l: -5 }, { t: -5, l: '50%', ml: -4 }, { t: -5, r: -5 },
+                            { t: '50%', mt: -4, l: -5 }, { t: '50%', mt: -4, r: -5 },
+                            { b: -5, l: -5 }, { b: -5, l: '50%', ml: -4 }, { b: -5, r: -5 },
+                          ].map((pos, hi) => (
+                            <div key={hi} style={{ position: 'absolute', width: 8, height: 8, borderRadius: '50%', background: '#fff', border: '2px solid #0EA5E9', top: pos.t, left: pos.l, right: pos.r, bottom: pos.b, marginLeft: pos.ml, marginTop: pos.mt, pointerEvents: 'auto', cursor: 'nwse-resize' } as any} />
+                          ))}
+                          {/* Move + rotate icons at bottom center */}
+                          <div style={{ position: 'absolute', bottom: -24, left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: 4, pointerEvents: 'auto' }}>
+                            <div style={{ width: 20, height: 20, borderRadius: '50%', background: '#0EA5E9', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'move' }}>
+                              <span style={{ fontSize: 10, color: '#fff' }}>⊕</span>
+                            </div>
+                          </div>
+                        </div>
+                      )}
                       {/* ── Vistaprint-style toolbar ── */}
                       {isSelected && (
                         <div onClick={e => e.stopPropagation()} style={{ position: 'absolute', bottom: '100%', left: '50%', transform: 'translateX(-50%)', marginBottom: 8, display: 'flex', gap: 0, alignItems: 'center', background: '#fff', borderRadius: 10, padding: '5px 8px', boxShadow: '0 6px 24px rgba(0,0,0,0.2)', border: '1px solid #E5E7EB', zIndex: 50, whiteSpace: 'nowrap' }}>
