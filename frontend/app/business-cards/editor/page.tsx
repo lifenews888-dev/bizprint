@@ -6,6 +6,27 @@ import { QRCodeSVG } from 'qrcode.react'
 import { usePricing } from '@/hooks/usePricing'
 import { apiFetch, API_URL } from '@/lib/api'
 
+// RGB ↔ CMYK хөрвүүлэгч
+function hexToCmyk(hex: string): [number, number, number, number] {
+  const r = parseInt(hex.slice(1, 3), 16) / 255
+  const g = parseInt(hex.slice(3, 5), 16) / 255
+  const b = parseInt(hex.slice(5, 7), 16) / 255
+  const k = 1 - Math.max(r, g, b)
+  if (k === 1) return [0, 0, 0, 100]
+  return [
+    Math.round(((1 - r - k) / (1 - k)) * 100),
+    Math.round(((1 - g - k) / (1 - k)) * 100),
+    Math.round(((1 - b - k) / (1 - k)) * 100),
+    Math.round(k * 100),
+  ]
+}
+function cmykToHex(c: number, m: number, y: number, k: number): string {
+  const r = Math.round(255 * (1 - c / 100) * (1 - k / 100))
+  const g = Math.round(255 * (1 - m / 100) * (1 - k / 100))
+  const b = Math.round(255 * (1 - y / 100) * (1 - k / 100))
+  return '#' + [r, g, b].map(v => Math.max(0, Math.min(255, v)).toString(16).padStart(2, '0')).join('')
+}
+
 /* ═══════════════════════════════════════
  *  Business Card Editor — Vistaprint-style
  *  Form-driven: type info → see it on card instantly
@@ -845,9 +866,27 @@ function EditorInner() {
                           <button onClick={() => setZoneLayout(prev => prev.map((zz, ii) => ii === idx ? { ...zz, fontSize: Math.min(40, (zz.fontSize || 12) + 1) } : zz))}
                             style={{ width: 26, height: 28, borderRadius: '0 5px 5px 0', border: '1px solid #E5E7EB', background: '#F9FAFB', fontSize: 14, cursor: 'pointer', color: '#374151', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>+</button>
                           <div style={{ width: 1, height: 20, background: '#E5E7EB', margin: '0 6px' }} />
-                          {/* Color */}
-                          <input type="color" value={z.color || color} onChange={e => setZoneLayout(prev => prev.map((zz, ii) => ii === idx ? { ...zz, color: e.target.value } : zz))}
-                            style={{ width: 26, height: 26, borderRadius: '50%', border: '2px solid #E5E7EB', cursor: 'pointer', padding: 0 }} />
+                          {/* Color — CMYK */}
+                          {(() => {
+                            const curColor = z.color || color
+                            const [cc, cm, cy, ck] = hexToCmyk(curColor)
+                            return <>
+                              <input type="color" value={curColor} onChange={e => setZoneLayout(prev => prev.map((zz, ii) => ii === idx ? { ...zz, color: e.target.value } : zz))}
+                                style={{ width: 26, height: 26, borderRadius: '50%', border: '2px solid #E5E7EB', cursor: 'pointer', padding: 0 }} />
+                              <div style={{ display: 'flex', gap: 2, marginLeft: 2 }}>
+                                {[['C', cc], ['M', cm], ['Y', cy], ['K', ck]].map(([label, val]) => (
+                                  <div key={label as string} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                                    <input type="number" min={0} max={100} value={val} onChange={e => {
+                                      const v = Math.max(0, Math.min(100, Number(e.target.value) || 0))
+                                      const nc = label === 'C' ? v : cc, nm = label === 'M' ? v : cm, ny = label === 'Y' ? v : cy, nk = label === 'K' ? v : ck
+                                      setZoneLayout(prev => prev.map((zz, ii) => ii === idx ? { ...zz, color: cmykToHex(nc, nm, ny, nk) } : zz))
+                                    }} style={{ width: 32, height: 22, borderRadius: 4, border: '1px solid #E5E7EB', fontSize: 9, textAlign: 'center', padding: 0 }} />
+                                    <span style={{ fontSize: 7, color: '#9CA3AF' }}>{label as string}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </>
+                          })()}
                           <div style={{ width: 1, height: 20, background: '#E5E7EB', margin: '0 6px' }} />
                           {/* Bold */}
                           <button onClick={() => setZoneLayout(prev => prev.map((zz, ii) => ii === idx ? { ...zz, fontWeight: zz.fontWeight === 'bold' ? 'normal' : 'bold' } : zz))}
@@ -1122,15 +1161,31 @@ function EditorInner() {
             </div>
           )}
 
-          {/* ── Өнгө сонгох ── */}
+          {/* ── Өнгө сонгох (CMYK) ── */}
           <div>
-            <div style={{ fontSize: 12, fontWeight: 600, color: '#111', marginBottom: 6 }}>Өнгө</div>
-            <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 6 }}>
-              <input type="color" value={T.accent} onChange={e => setT({ ...T, accent: e.target.value })} style={{ width: 32, height: 32, borderRadius: 6, border: '1px solid #E5E7EB', cursor: 'pointer', padding: 2 }} title="Accent" />
-              <input type="color" value={T.bg} onChange={e => setT({ ...T, bg: e.target.value })} style={{ width: 32, height: 32, borderRadius: 6, border: '1px solid #E5E7EB', cursor: 'pointer', padding: 2 }} title="Дэвсгэр" />
-              <input type="color" value={T.textDark} onChange={e => setT({ ...T, textDark: e.target.value })} style={{ width: 32, height: 32, borderRadius: 6, border: '1px solid #E5E7EB', cursor: 'pointer', padding: 2 }} title="Текст" />
-              <span style={{ fontSize: 9, color: '#9CA3AF' }}>Accent · Дэвсгэр · Текст</span>
-            </div>
+            <div style={{ fontSize: 12, fontWeight: 600, color: '#111', marginBottom: 6 }}>Өнгө (CMYK)</div>
+            {[
+              { label: 'Accent', value: T.accent, set: (v: string) => setT({ ...T, accent: v }) },
+              { label: 'Дэвсгэр', value: T.bg, set: (v: string) => setT({ ...T, bg: v }) },
+              { label: 'Текст', value: T.textDark, set: (v: string) => setT({ ...T, textDark: v }) },
+            ].map(c => {
+              const [cc, cm, cy, ck] = hexToCmyk(c.value)
+              return (
+                <div key={c.label} style={{ display: 'flex', gap: 4, alignItems: 'center', marginBottom: 4 }}>
+                  <input type="color" value={c.value} onChange={e => c.set(e.target.value)} style={{ width: 24, height: 24, borderRadius: 4, border: '1px solid #E5E7EB', cursor: 'pointer', padding: 1 }} />
+                  <span style={{ fontSize: 9, color: '#6B7280', width: 40 }}>{c.label}</span>
+                  {[['C', cc], ['M', cm], ['Y', cy], ['K', ck]].map(([l, v]) => (
+                    <input key={l as string} type="number" min={0} max={100} value={v} title={`${l}`}
+                      onChange={e => {
+                        const val = Math.max(0, Math.min(100, Number(e.target.value) || 0))
+                        const nc = l === 'C' ? val : cc, nm = l === 'M' ? val : cm, ny = l === 'Y' ? val : cy, nk = l === 'K' ? val : ck
+                        c.set(cmykToHex(nc, nm, ny, nk))
+                      }}
+                      style={{ width: 30, height: 20, borderRadius: 3, border: '1px solid #E5E7EB', fontSize: 9, textAlign: 'center', padding: 0 }} />
+                  ))}
+                </div>
+              )
+            })}
           </div>
 
           {/* ── Layout засах + Голлуулах ── */}
