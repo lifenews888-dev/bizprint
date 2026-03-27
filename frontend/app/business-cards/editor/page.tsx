@@ -510,7 +510,40 @@ function EditorInner() {
               onMouseMove={e => {
                 if (!editMode || dragIdx < 0) return
                 const dx = e.clientX - dragStart.x, dy = e.clientY - dragStart.y
-                setZoneLayout(prev => prev.map((z, i) => i === dragIdx ? { ...z, x: Math.max(SAFE, Math.min(W - SAFE, dragStart.origX + dx)), y: Math.max(SAFE, Math.min(H - SAFE, dragStart.origY + dy)) } : z))
+                setZoneLayout(prev => {
+                  const dz = prev[dragIdx]
+                  if (!dz) return prev
+                  let nx = Math.max(SAFE, Math.min(W - SAFE, dragStart.origX + dx))
+                  let ny = Math.max(SAFE, Math.min(H - SAFE, dragStart.origY + dy))
+                  const zw = dz.w || 200, zh = dz.h || 22
+                  const SNAP = 8
+
+                  // Snap guides: center, left edge, right edge
+                  const cx = nx + zw / 2, cy = ny + zh / 2
+                  const midX = W / 2, midY = H / 2
+                  // Голд snap (хэвтээ)
+                  if (Math.abs(cx - midX) < SNAP) nx = midX - zw / 2
+                  // Голд snap (босоо)
+                  if (Math.abs(cy - midY) < SNAP) ny = midY - zh / 2
+                  // Зүүн ирмэг
+                  if (Math.abs(nx - SAFE) < SNAP) nx = SAFE
+                  // Баруун ирмэг
+                  if (Math.abs(nx + zw - (W - SAFE)) < SNAP) nx = W - SAFE - zw
+
+                  // Бусад zone-тэй зэрэгцэх
+                  for (let j = 0; j < prev.length; j++) {
+                    if (j === dragIdx) continue
+                    const oz = prev[j]
+                    // X зэрэгцэх (зүүн ирмэг)
+                    if (Math.abs(nx - oz.x) < SNAP) nx = oz.x
+                    // Y зэрэгцэх (дээд ирмэг)
+                    if (Math.abs(ny - oz.y) < SNAP) ny = oz.y
+                    // Y зэрэгцэх (доод ирмэг → дараагийнхын дээд)
+                    if (Math.abs(ny - (oz.y + (oz.h || 22))) < SNAP) ny = oz.y + (oz.h || 22)
+                  }
+
+                  return prev.map((z, i) => i === dragIdx ? { ...z, x: Math.round(nx), y: Math.round(ny) } : z)
+                })
               }}
               onMouseUp={() => setDragIdx(-1)}
               onMouseLeave={() => setDragIdx(-1)}
@@ -523,6 +556,28 @@ function EditorInner() {
               {/* Template background image (from admin upload) */}
               {side === 'front' && frontImg && <img src={frontImg} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />}
               {side === 'back' && backImg && <img src={backImg} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />}
+
+              {/* Snap guide lines */}
+              {editMode && dragIdx >= 0 && (() => {
+                const dz = zoneLayout[dragIdx]
+                if (!dz) return null
+                const cx = dz.x + (dz.w || 200) / 2
+                const cy = dz.y + (dz.h || 22) / 2
+                const lines: React.ReactNode[] = []
+                const guideStyle = { position: 'absolute' as const, background: '#3B82F6', zIndex: 40, pointerEvents: 'none' as const }
+                // Голд хэвтээ
+                if (Math.abs(cx - W / 2) < 10) lines.push(<div key="vc" style={{ ...guideStyle, left: W / 2, top: 0, width: 1, height: H, opacity: 0.5 }} />)
+                // Голд босоо
+                if (Math.abs(cy - H / 2) < 10) lines.push(<div key="hc" style={{ ...guideStyle, left: 0, top: H / 2, width: W, height: 1, opacity: 0.5 }} />)
+                // Бусад zone-тэй зэрэгцсэн
+                for (let j = 0; j < zoneLayout.length; j++) {
+                  if (j === dragIdx) continue
+                  const oz = zoneLayout[j]
+                  if (Math.abs(dz.x - oz.x) < 10) lines.push(<div key={`vl${j}`} style={{ ...guideStyle, left: oz.x, top: 0, width: 1, height: H, opacity: 0.3 }} />)
+                  if (Math.abs(dz.y - oz.y) < 10) lines.push(<div key={`hl${j}`} style={{ ...guideStyle, left: 0, top: oz.y, width: W, height: 1, opacity: 0.3 }} />)
+                }
+                return lines
+              })()}
 
               {side === 'front' ? (
                 <>
