@@ -253,14 +253,22 @@ function EditorInner() {
   const qrValue = showQr ? (form.qr_text || buildVCard()) : ''
 
   const uploadLogo = async (file: File) => {
+    // Шууд preview харуулах
+    setLogoUrl(URL.createObjectURL(file))
     setUploading(true)
     try {
       const fd = new FormData(); fd.append('file', file)
       const tok = localStorage.getItem('access_token') || localStorage.getItem('token')
       const res = await fetch(`${API_URL}/upload/file`, { method: 'POST', body: fd, headers: tok ? { Authorization: `Bearer ${tok}` } : {} })
       const data = await res.json()
-      if (data.file_url) setLogoUrl(data.file_url.startsWith('http') ? data.file_url : `${API_URL}/${data.file_url}`)
-    } catch {} finally { setUploading(false) }
+      const url = data.file_url || data.url || ''
+      if (url) {
+        const full = url.startsWith('http') ? url : `${API_URL}${url.startsWith('/') ? '' : '/'}${url}`
+        setLogoUrl(full)
+      }
+    } catch {
+      // Upload амжилтгүй бол local preview хэвээр үлдэнэ
+    } finally { setUploading(false) }
   }
 
   // Validation
@@ -389,17 +397,23 @@ function EditorInner() {
             </div>
           ))}
 
-          {/* Logo upload */}
+          {/* Logo upload — PNG only */}
           <div style={{ marginTop: 8, marginBottom: 16 }}>
             {logoUrl ? (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', background: '#F9FAFB', borderRadius: 8 }}>
-                <img src={logoUrl} alt="logo" style={{ width: 40, height: 40, objectFit: 'contain', borderRadius: 4 }} />
-                <button onClick={() => setLogoUrl('')} style={{ fontSize: 12, color: '#EF4444', background: 'none', border: 'none', cursor: 'pointer' }}>Устгах</button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px', background: '#F0FDF4', borderRadius: 10, border: '1px solid #BBF7D0' }}>
+                <img src={logoUrl} alt="logo" style={{ width: 48, height: 48, objectFit: 'contain', borderRadius: 6, background: '#fff', padding: 2 }} />
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: '#10B981' }}>Лого оруулсан</div>
+                  <div style={{ fontSize: 10, color: '#6B7280' }}>PNG зураг</div>
+                </div>
+                <button onClick={() => setLogoUrl('')} style={{ fontSize: 11, color: '#EF4444', background: 'none', border: 'none', cursor: 'pointer', padding: '4px 8px' }}>✕ Устгах</button>
               </div>
             ) : (
-              <label style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 16px', border: '1px dashed #D1D5DB', borderRadius: 8, cursor: 'pointer', fontSize: 13, color: '#6B7280' }}>
-                <span style={{ fontSize: 18 }}>📁</span>
-                {uploading ? 'Оруулж байна...' : 'Лого оруулах'}
+              <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, padding: '14px 16px', border: '2px dashed #D1D5DB', borderRadius: 10, cursor: 'pointer', fontSize: 13, color: '#6B7280', transition: 'all .15s' }}
+                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = '#FF6B00'; (e.currentTarget as HTMLElement).style.color = '#FF6B00' }}
+                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = '#D1D5DB'; (e.currentTarget as HTMLElement).style.color = '#6B7280' }}>
+                <span style={{ fontSize: 20 }}>📷</span>
+                {uploading ? 'Оруулж байна...' : 'Лого оруулах (PNG)'}
                 <input type="file" accept="image/png" hidden onChange={e => { if (e.target.files?.[0]) uploadLogo(e.target.files[0]) }} />
               </label>
             )}
@@ -671,10 +685,10 @@ function EditorInner() {
                       const radius = iconShape === 'circle' ? '50%' : 4
                       return <div key={z.key} {...dragProps} style={{ position: 'absolute', left: z.x, top: z.y, width: s, height: s, borderRadius: radius, background: color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: s * 0.55, color: '#fff', fontWeight: 700, lineHeight: 1, ...dragProps.style }}>{ICON_LABELS[ic] || ''}</div>
                     }
-                    // Logo
+                    // Logo — зургийн харьцаагаар
                     if (z.key === 'logo') {
-                      return <div key={z.key} {...dragProps} style={{ position: 'absolute', left: z.x, top: z.y, width: z.w || 72, height: z.h || 72, background: logoUrl ? 'transparent' : (T.bg === '#111111' ? '#333' : '#E5E7EB'), borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', ...dragProps.style }}>
-                        {logoUrl ? <img src={logoUrl} alt="logo" style={{ width: '100%', height: '100%', objectFit: 'contain' }} /> : <span style={{ fontSize: 9, color: '#9CA3AF', textAlign: 'center', lineHeight: 1.3 }}>Лого</span>}
+                      return <div key={z.key} {...dragProps} style={{ position: 'absolute', left: z.x, top: z.y, width: z.w || 72, height: z.h || 72, background: logoUrl ? 'transparent' : (T.bg === '#111111' ? '#333' : '#E5E7EB'), borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', ...dragProps.style }}>
+                        {logoUrl ? <img src={logoUrl} alt="logo" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} /> : <span style={{ fontSize: 9, color: '#9CA3AF', textAlign: 'center', lineHeight: 1.3 }}>📷 PNG</span>}
                       </div>
                     }
                     // Text zones
