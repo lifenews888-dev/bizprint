@@ -19,6 +19,15 @@ export class BcPricingTier {
   @Column({ type: 'decimal', precision: 14, scale: 2 })
   unit_price: number;
 
+  @Column({ type: 'decimal', precision: 14, scale: 2, default: 0 })
+  standard: number;
+
+  @Column({ type: 'decimal', precision: 14, scale: 2, default: 0 })
+  laminated: number;
+
+  @Column({ type: 'decimal', precision: 14, scale: 2, default: 0 })
+  embossed: number;
+
   @Column({ default: 0 })
   sort_order: number;
 

@@ -172,10 +172,18 @@ export class BusinessCardsService {
 
   /* ── Pricing Tiers ── */
 
-  async setPricingTiers(productId: string, tiers: { quantity: number; unit_price: number }[]) {
+  async setPricingTiers(productId: string, tiers: any[]) {
     await this.tierRepo.delete({ product_id: productId });
     const entities = tiers.map((t, i) =>
-      this.tierRepo.create({ product_id: productId, quantity: t.quantity, unit_price: t.unit_price, sort_order: i }),
+      this.tierRepo.create({
+        product_id: productId,
+        quantity: t.quantity,
+        unit_price: t.unit_price || t.standard || 0,
+        standard: t.standard || t.unit_price || 0,
+        laminated: t.laminated || 0,
+        embossed: t.embossed || 0,
+        sort_order: i,
+      }),
     );
     return this.tierRepo.save(entities);
   }
