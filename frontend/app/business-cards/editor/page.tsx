@@ -161,6 +161,7 @@ function EditorInner() {
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const [showLayoutPicker, setShowLayoutPicker] = useState(false)
   const [layoutList, setLayoutList] = useState<any[]>([])
+  const [selectedZoneIdx, setSelectedZoneIdx] = useState(-1)
   const [bcLayouts, setBcLayouts] = useState<any[]>([])
   const [selectedBcLayout, setSelectedBcLayout] = useState('')
   const [editMode, setEditMode] = useState(false) // drag zones mode
@@ -512,6 +513,7 @@ function EditorInner() {
               }}
               onMouseUp={() => setDragIdx(-1)}
               onMouseLeave={() => setDragIdx(-1)}
+              onClick={() => { if (editMode) setSelectedZoneIdx(-1) }}
               style={{
                 width: W, height: H, background: T.bg, borderRadius: 4, position: 'relative', overflow: 'hidden',
                 boxShadow: '0 8px 32px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.06)',
@@ -568,7 +570,43 @@ function EditorInner() {
                     const value = (form as any)[z.key] || z.key.replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase())
                     const isAccent = z.fill === 'accent'
                     const color = isAccent ? T.accent : T.textLight
-                    return <div key={z.key} {...dragProps} style={{ position: 'absolute', left: z.x, top: z.y, fontSize: z.fontSize || 10, fontWeight: z.fontWeight === 'bold' ? 700 : 400, color, textAlign: (z.align || 'left') as any, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: W - z.x - 16, ...dragProps.style }}>{value}</div>
+                    const isSelected = editMode && selectedZoneIdx === idx
+                    return <div key={z.key} {...dragProps}
+                      onClick={editMode ? (e: any) => { e.stopPropagation(); setSelectedZoneIdx(isSelected ? -1 : idx) } : undefined}
+                      style={{ position: 'absolute', left: z.x, top: z.y, fontSize: z.fontSize || 10, fontWeight: z.fontWeight === 'bold' ? 700 : 400, color, fontFamily: z.fontFamily || 'inherit', textAlign: (z.align || 'left') as any, whiteSpace: 'nowrap', overflow: 'visible', maxWidth: W - z.x - 16, ...dragProps.style }}>
+                      {value}
+                      {/* ── Zone toolbar ── */}
+                      {isSelected && (
+                        <div onClick={e => e.stopPropagation()} style={{ position: 'absolute', bottom: '100%', left: 0, marginBottom: 6, display: 'flex', gap: 3, background: '#fff', borderRadius: 8, padding: '4px 6px', boxShadow: '0 4px 16px rgba(0,0,0,0.18)', border: '1px solid #E5E7EB', zIndex: 50, whiteSpace: 'nowrap' }}>
+                          {/* Font size */}
+                          {[8, 10, 12, 14, 18, 22, 28].map(fs => (
+                            <button key={fs} onClick={() => setZoneLayout(prev => prev.map((zz, ii) => ii === idx ? { ...zz, fontSize: fs } : zz))}
+                              style={{ width: 24, height: 24, borderRadius: 4, border: z.fontSize === fs ? '2px solid #FF6B00' : '1px solid #ddd', background: z.fontSize === fs ? '#FFF7ED' : '#fff', fontSize: 9, cursor: 'pointer', color: '#333', fontWeight: z.fontSize === fs ? 700 : 400 }}>{fs}</button>
+                          ))}
+                          <div style={{ width: 1, background: '#E5E7EB', margin: '0 2px' }} />
+                          {/* Bold */}
+                          <button onClick={() => setZoneLayout(prev => prev.map((zz, ii) => ii === idx ? { ...zz, fontWeight: zz.fontWeight === 'bold' ? 'normal' : 'bold' } : zz))}
+                            style={{ width: 24, height: 24, borderRadius: 4, border: z.fontWeight === 'bold' ? '2px solid #FF6B00' : '1px solid #ddd', background: z.fontWeight === 'bold' ? '#FFF7ED' : '#fff', fontSize: 11, cursor: 'pointer', fontWeight: 800, color: '#333' }}>B</button>
+                          <div style={{ width: 1, background: '#E5E7EB', margin: '0 2px' }} />
+                          {/* Font family */}
+                          <select value={z.fontFamily || ''} onChange={e => setZoneLayout(prev => prev.map((zz, ii) => ii === idx ? { ...zz, fontFamily: e.target.value || undefined } : zz))}
+                            style={{ height: 24, borderRadius: 4, border: '1px solid #ddd', fontSize: 9, padding: '0 4px', cursor: 'pointer', maxWidth: 80 }}>
+                            <option value="">Default</option>
+                            <option value="'DM Sans',sans-serif" style={{ fontFamily: "'DM Sans',sans-serif" }}>DM Sans</option>
+                            <option value="'Inter',sans-serif" style={{ fontFamily: "'Inter',sans-serif" }}>Inter</option>
+                            <option value="Georgia,serif" style={{ fontFamily: 'Georgia,serif' }}>Georgia</option>
+                            <option value="'Courier New',monospace" style={{ fontFamily: "'Courier New',monospace" }}>Courier</option>
+                            <option value="'Arial Black',sans-serif" style={{ fontFamily: "'Arial Black',sans-serif" }}>Arial Black</option>
+                            <option value="'Times New Roman',serif" style={{ fontFamily: "'Times New Roman',serif" }}>Times</option>
+                            <option value="'Playfair Display',serif">Playfair</option>
+                          </select>
+                          <div style={{ width: 1, background: '#E5E7EB', margin: '0 2px' }} />
+                          {/* Delete zone */}
+                          <button onClick={() => { setZoneLayout(prev => prev.filter((_, ii) => ii !== idx)); setSelectedZoneIdx(-1) }}
+                            style={{ width: 24, height: 24, borderRadius: 4, border: '1px solid #FCA5A5', background: '#FEF2F2', fontSize: 12, cursor: 'pointer', color: '#EF4444', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
+                        </div>
+                      )}
+                    </div>
                   }) : (
                     /* Fallback: default layout (no zones from API) */
                     <>
