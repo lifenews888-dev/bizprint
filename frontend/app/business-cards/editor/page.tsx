@@ -943,22 +943,33 @@ function EditorInner() {
                   )}
                 </>
               ) : (
-                /* BACK SIDE — Лого+компани голд, social icon+нэр, QR баруунд */
+                /* BACK SIDE — лак toggle бүхий */
                 <div style={{ width: '100%', height: '100%', display: 'flex', position: 'relative' }}>
-                  <div style={{ position: 'absolute', left: 0, bottom: 0, width: '100%', height: 6, background: T.accent }} />
                   {/* Left: Logo + Company + Social */}
                   <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, padding: 20 }}>
-                    {logoUrl ? (
-                      <img src={logoUrl} alt="logo" style={{ width: 64, height: 64, objectFit: 'contain' }} />
-                    ) : (
-                      <div style={{ width: 64, height: 64, background: T.bg === '#111111' ? '#333' : '#F3F4F6', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, color: '#9CA3AF' }}>Лого</div>
-                    )}
-                    <div style={{ fontSize: 14, fontWeight: 700, color: T.textDark, textAlign: 'center' }}>{form.company_name || 'Company'}</div>
-                    {form.company_message && <div style={{ fontSize: 8, color: T.textLight, textAlign: 'center' }}>{form.company_message}</div>}
+                    {/* Logo */}
+                    <div onClick={lacquerMode ? () => setLacquerZones(prev => { const s = new Set(prev); s.has('back_logo') ? s.delete('back_logo') : s.add('back_logo'); return s }) : undefined}
+                      style={{ cursor: lacquerMode ? 'pointer' : 'default', ...(lacquerMode ? { zIndex: 31, opacity: lacquerBack.has('back_logo') ? 1 : 0.3, filter: lacquerBack.has('back_logo') ? 'brightness(1.5) drop-shadow(0 0 4px rgba(255,255,255,0.8))' : 'none' } : {}) }}>
+                      {logoUrl ? (
+                        <img src={logoUrl} alt="logo" style={{ width: 64, height: 64, objectFit: 'contain' }} />
+                      ) : (
+                        <div style={{ width: 64, height: 64, background: T.bg === '#111111' ? '#333' : '#F3F4F6', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, color: '#9CA3AF' }}>Лого</div>
+                      )}
+                    </div>
+                    {/* Company */}
+                    <div onClick={lacquerMode ? () => setLacquerZones(prev => { const s = new Set(prev); s.has('back_company') ? s.delete('back_company') : s.add('back_company'); return s }) : undefined}
+                      style={{ fontSize: 14, fontWeight: 700, color: T.textDark, textAlign: 'center', cursor: lacquerMode ? 'pointer' : 'default', ...(lacquerMode ? { zIndex: 31, opacity: lacquerBack.has('back_company') ? 1 : 0.3, filter: lacquerBack.has('back_company') ? 'brightness(1.5) drop-shadow(0 0 4px rgba(255,255,255,0.8))' : 'none' } : {}) }}>
+                      {form.company_name || 'Company'}
+                    </div>
+                    {form.company_message && <div onClick={lacquerMode ? () => setLacquerZones(prev => { const s = new Set(prev); s.has('back_message') ? s.delete('back_message') : s.add('back_message'); return s }) : undefined}
+                      style={{ fontSize: 8, color: T.textLight, textAlign: 'center', cursor: lacquerMode ? 'pointer' : 'default', ...(lacquerMode ? { zIndex: 31, opacity: lacquerBack.has('back_message') ? 1 : 0.3, filter: lacquerBack.has('back_message') ? 'brightness(1.5) drop-shadow(0 0 4px rgba(255,255,255,0.8))' : 'none' } : {}) }}>
+                      {form.company_message}
+                    </div>}
 
-                    {/* Social — icon дээр, нэр доор */}
+                    {/* Social */}
                     {showSocial && socialLinks.filter(s => s.value).length > 0 && (
-                      <div style={{ display: 'flex', gap: 12, marginTop: 8, flexWrap: 'wrap', justifyContent: 'center' }}>
+                      <div onClick={lacquerMode ? () => setLacquerZones(prev => { const s = new Set(prev); s.has('back_social') ? s.delete('back_social') : s.add('back_social'); return s }) : undefined}
+                        style={{ display: 'flex', gap: 12, marginTop: 8, flexWrap: 'wrap', justifyContent: 'center', cursor: lacquerMode ? 'pointer' : 'default', ...(lacquerMode ? { zIndex: 31, opacity: lacquerBack.has('back_social') ? 1 : 0.3, filter: lacquerBack.has('back_social') ? 'brightness(1.5) drop-shadow(0 0 4px rgba(255,255,255,0.8))' : 'none' } : {}) }}>
                         {socialLinks.filter(s => s.value).map((link, idx) => {
                           const opt = SOCIAL_OPTIONS.find(o => o.key === link.platform) || SOCIAL_OPTIONS[0]
                           return (
@@ -974,7 +985,8 @@ function EditorInner() {
 
                   {/* Right: QR */}
                   {showQr && qrValue && (
-                    <div style={{ width: 110, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4, borderLeft: `1px solid ${T.bg === '#111111' ? '#333' : '#E5E7EB'}` }}>
+                    <div onClick={lacquerMode ? () => setLacquerZones(prev => { const s = new Set(prev); s.has('back_qr') ? s.delete('back_qr') : s.add('back_qr'); return s }) : undefined}
+                      style={{ width: 110, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4, borderLeft: `1px solid ${T.bg === '#111111' ? '#333' : '#E5E7EB'}`, cursor: lacquerMode ? 'pointer' : 'default', ...(lacquerMode ? { zIndex: 31, opacity: lacquerBack.has('back_qr') ? 1 : 0.3, filter: lacquerBack.has('back_qr') ? 'brightness(1.2) drop-shadow(0 0 4px rgba(255,255,255,0.8))' : 'none' } : {}) }}>
                       <div style={{ width: 80, height: 80, borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', border: `1px solid ${T.bg === '#111111' ? '#444' : '#E5E7EB'}`, background: '#fff', padding: 3 }}>
                         <QRCodeSVG value={qrValue} size={74} bgColor="#FFFFFF" fgColor="#000000" level="L" />
                       </div>
