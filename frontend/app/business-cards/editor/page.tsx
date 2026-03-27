@@ -52,7 +52,8 @@ function EditorInner() {
   const [userBgFront, setUserBgFront] = useState('')
   const [userBgBack, setUserBgBack] = useState('')
   const [lacquerMode, setLacquerMode] = useState(false)
-  const [lacquerZones, setLacquerZones] = useState<Set<string>>(new Set())
+  const [lacquerFront, setLacquerFront] = useState<Set<string>>(new Set())
+  const [lacquerBack, setLacquerBack] = useState<Set<string>>(new Set())
   const [pricingTiers, setPricingTiers] = useState<{ qty: number; standard: number; laminated: number; embossed: number }[] | null>(null)
 
   // Load template from API if it's a UUID (admin-created)
@@ -149,6 +150,8 @@ function EditorInner() {
   }
 
   const [side, setSide] = useState<'front' | 'back'>('front')
+  const lacquerZones = side === 'front' ? lacquerFront : lacquerBack
+  const setLacquerZones = side === 'front' ? setLacquerFront : setLacquerBack
   const [qty, setQty] = useState(100)
   const [logoUrl, setLogoUrl] = useState('')
   const [uploading, setUploading] = useState(false)
@@ -977,14 +980,42 @@ function EditorInner() {
                 <div style={{ marginTop: 6, padding: 10, background: '#F5F3FF', borderRadius: 8, fontSize: 10, color: '#6D28D9', lineHeight: 1.6 }}>
                   <div>Элемент дээр дарж лактай/лакгүй болгоно.</div>
                   <div style={{ marginTop: 4, fontWeight: 600 }}>✨ Лактай: {lacquerZones.size > 0 ? Array.from(lacquerZones).join(', ') : 'байхгүй'}</div>
-                  {lacquerZones.size > 0 && (
-                    <button onClick={() => {
-                      const lacData = { zones: Array.from(lacquerZones), side, cardType }
-                      localStorage.setItem('bizprint_lacquer', JSON.stringify(lacData))
-                      alert(`${lacquerZones.size} хэсэг лакдах болгож хадгалагдлаа!`)
-                    }} style={{ marginTop: 6, width: '100%', padding: '6px 0', borderRadius: 6, border: 'none', background: '#7C3AED', color: '#fff', fontSize: 10, fontWeight: 600, cursor: 'pointer' }}>
-                      💾 Лак тохиргоо хадгалах
-                    </button>
+                  {(lacquerFront.size > 0 || lacquerBack.size > 0) && (
+                    <div style={{ display: 'flex', gap: 4, marginTop: 6 }}>
+                      <button onClick={() => {
+                        // Лак mask PNG үүсгэх — хар = лактай, цагаан = лакгүй
+                        const generateMask = (zones: Set<string>, zoneList: any[], label: string) => {
+                          if (zones.size === 0) return
+                          const canvas = document.createElement('canvas')
+                          canvas.width = W; canvas.height = H
+                          const ctx = canvas.getContext('2d')
+                          if (!ctx) return
+                          ctx.fillStyle = '#FFFFFF'
+                          ctx.fillRect(0, 0, W, H)
+                          ctx.fillStyle = '#000000'
+                          for (const z of zoneList) {
+                            if (zones.has(z.key)) {
+                              ctx.fillRect(z.x, z.y, z.w || 200, z.h || 22)
+                            }
+                          }
+                          const link = document.createElement('a')
+                          link.download = `lacquer-mask-${label}.png`
+                          link.href = canvas.toDataURL('image/png')
+                          link.click()
+                        }
+                        if (lacquerFront.size > 0) generateMask(lacquerFront, zoneLayout, 'front')
+                        if (lacquerBack.size > 0) generateMask(lacquerBack, backZoneLayout, 'back')
+                        // localStorage-д бас хадгалах
+                        localStorage.setItem('bizprint_lacquer', JSON.stringify({
+                          front: Array.from(lacquerFront),
+                          back: Array.from(lacquerBack),
+                          cardType,
+                        }))
+                        alert('Лак mask PNG татагдлаа!')
+                      }} style={{ flex: 1, padding: '6px 0', borderRadius: 6, border: 'none', background: '#7C3AED', color: '#fff', fontSize: 10, fontWeight: 600, cursor: 'pointer' }}>
+                        💾 Лак mask PNG татах
+                      </button>
+                    </div>
                   )}
                 </div>
               )}
