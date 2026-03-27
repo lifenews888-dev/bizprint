@@ -675,26 +675,32 @@ export default function QuotePage() {
             style={inputStyle} />
         </div>
         <div style={{ flex: 1, minWidth: 140 }}>
-          <label style={labelStyle}>Лого файл</label>
-          <label style={{
-            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-            padding: '10px 14px', borderRadius: 10, cursor: 'pointer',
-            border: signLogo ? '2px solid #10B981' : '1.5px dashed #D1D5DB',
-            background: signLogo ? '#F0FDF4' : '#fff', fontSize: 12, color: signLogo ? '#10B981' : '#888',
-          }}>
-            <input type="file" accept="image/*,.ai,.eps,.pdf" style={{ display: 'none' }}
-              onChange={async e => {
-                if (!e.target.files?.[0]) return
-                const file = e.target.files[0]
-                setSignLogo(file); setSignLogoUrl(URL.createObjectURL(file))
-                try {
-                  const fd = new FormData(); fd.append('file', file)
-                  const res = await apiUpload<any>('/upload/file', fd)
-                  if (res?.file_url) setSignLogoUrl(`http://localhost:4000${res.file_url}`)
-                } catch {}
-              }} />
-            {signLogo ? `✓ ${signLogo.name.slice(0, 15)}` : '📎 Лого оруулах'}
-          </label>
+          <label style={labelStyle}>Лого файл <span style={{ fontWeight: 400, color: '#9CA3AF' }}>(заавал биш)</span></label>
+          {signLogo ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 12px', borderRadius: 10, border: '2px solid #10B981', background: '#F0FDF4' }}>
+              <span style={{ fontSize: 12, color: '#10B981', flex: 1, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>✓ {signLogo.name.slice(0, 18)}</span>
+              <button onClick={() => { setSignLogo(null); setSignLogoUrl('') }} style={{ background: 'none', border: 'none', color: '#EF4444', cursor: 'pointer', fontSize: 14, padding: '0 4px' }} title="Устгах">✕</button>
+            </div>
+          ) : (
+            <label style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+              padding: '10px 14px', borderRadius: 10, cursor: 'pointer',
+              border: '1.5px dashed #D1D5DB', background: '#fff', fontSize: 12, color: '#888',
+            }}>
+              <input type="file" accept="image/*,.ai,.eps,.pdf" style={{ display: 'none' }}
+                onChange={async e => {
+                  if (!e.target.files?.[0]) return
+                  const file = e.target.files[0]
+                  setSignLogo(file); setSignLogoUrl(URL.createObjectURL(file))
+                  try {
+                    const fd = new FormData(); fd.append('file', file)
+                    const res = await apiUpload<any>('/upload/file', fd)
+                    if (res?.file_url) setSignLogoUrl(`http://localhost:4000${res.file_url}`)
+                  } catch {}
+                }} />
+              📎 Лого оруулах
+            </label>
+          )}
         </div>
       </div>
 
