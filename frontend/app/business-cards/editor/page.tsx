@@ -52,6 +52,7 @@ function EditorInner() {
   const [userBgFront, setUserBgFront] = useState('')
   const [userBgBack, setUserBgBack] = useState('')
   const [lacquerMode, setLacquerMode] = useState(false)
+  const [lacquerZones, setLacquerZones] = useState<Set<string>>(new Set())
   const [pricingTiers, setPricingTiers] = useState<{ qty: number; standard: number; laminated: number; embossed: number }[] | null>(null)
 
   // Load template from API if it's a UUID (admin-created)
@@ -676,8 +677,8 @@ function EditorInner() {
                       const qrSize = Math.min(z.w || 80, z.h || 80) || z.w || 80
                       const qrSelected = editMode && selectedZoneIdx === idx
                       return <div key={z.key} {...dragProps}
-                        onClick={editMode ? (e: any) => { e.stopPropagation(); setSelectedZoneIdx(qrSelected ? -1 : idx) } : undefined}
-                        style={{ position: 'absolute', left: z.x, top: z.y, width: qrSize, height: qrSize, background: '#fff', borderRadius: 4, padding: 3, border: `1px solid ${T.bg === '#111111' ? '#333' : '#E5E7EB'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'visible', ...dragProps.style }}>
+                        onClick={lacquerMode ? (e: any) => { e.stopPropagation(); setLacquerZones(prev => { const s = new Set(prev); s.has('qr') ? s.delete('qr') : s.add('qr'); return s }) } : editMode ? (e: any) => { e.stopPropagation(); setSelectedZoneIdx(qrSelected ? -1 : idx) } : undefined}
+                        style={{ position: 'absolute', left: z.x, top: z.y, width: qrSize, height: qrSize, background: '#fff', borderRadius: 4, padding: 3, border: `1px solid ${T.bg === '#111111' ? '#333' : '#E5E7EB'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'visible', ...(lacquerMode ? { zIndex: 31, cursor: 'pointer', opacity: lacquerZones.has('qr') ? 1 : 0.3, filter: lacquerZones.has('qr') ? 'brightness(1.2) drop-shadow(0 0 4px rgba(255,255,255,0.8))' : 'none' } : {}), ...dragProps.style }}>
                         <QRCodeSVG value={qrValue || 'https://bizprint.mn'} size={qrSize - 8} bgColor="#FFFFFF" fgColor="#000000" level="L" />
                         {qrSelected && (
                           <div onClick={e => e.stopPropagation()} style={{ position: 'fixed', top: 12, left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: 0, alignItems: 'center', background: '#fff', borderRadius: 12, padding: '6px 10px', boxShadow: '0 8px 32px rgba(0,0,0,0.15)', border: '1px solid #E5E7EB', zIndex: 9999 }}>
@@ -711,8 +712,8 @@ function EditorInner() {
                     if (z.key === 'logo') {
                       const logoSelected = editMode && selectedZoneIdx === idx
                       return <div key={z.key} {...dragProps}
-                        onClick={editMode ? (e: any) => { e.stopPropagation(); setSelectedZoneIdx(logoSelected ? -1 : idx) } : undefined}
-                        style={{ position: 'absolute', left: z.x, top: z.y, width: z.w || 72, height: z.h || 72, background: logoUrl ? 'transparent' : (T.bg === '#111111' ? '#333' : '#E5E7EB'), borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'visible', ...dragProps.style }}>
+                        onClick={lacquerMode ? (e: any) => { e.stopPropagation(); setLacquerZones(prev => { const s = new Set(prev); s.has('logo') ? s.delete('logo') : s.add('logo'); return s }) } : editMode ? (e: any) => { e.stopPropagation(); setSelectedZoneIdx(logoSelected ? -1 : idx) } : undefined}
+                        style={{ position: 'absolute', left: z.x, top: z.y, width: z.w || 72, height: z.h || 72, background: logoUrl ? 'transparent' : (T.bg === '#111111' ? '#333' : '#E5E7EB'), borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'visible', ...(lacquerMode ? { zIndex: 31, cursor: 'pointer', opacity: lacquerZones.has('logo') ? 1 : 0.3, filter: lacquerZones.has('logo') ? 'brightness(1.5) drop-shadow(0 0 4px rgba(255,255,255,0.8))' : 'none' } : {}), ...dragProps.style }}>
                         {logoUrl ? <img src={logoUrl} alt="logo" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} /> : <span style={{ fontSize: 9, color: '#9CA3AF', textAlign: 'center', lineHeight: 1.3 }}>📷 PNG</span>}
                         {/* Logo toolbar — fixed top */}
                         {logoSelected && (
@@ -747,8 +748,12 @@ function EditorInner() {
                     const color = z.color || (isAccent ? T.accent : T.textLight)
                     const isSelected = editMode && selectedZoneIdx === idx
                     const isMultiSelected = editMode && selectedZones.has(idx)
+                    const isLacquered = lacquerZones.has(z.key)
                     return <div key={z.key} {...dragProps}
-                      onClick={editMode ? (e: any) => {
+                      onClick={lacquerMode ? (e: any) => {
+                        e.stopPropagation()
+                        setLacquerZones(prev => { const s = new Set(prev); s.has(z.key) ? s.delete(z.key) : s.add(z.key); return s })
+                      } : editMode ? (e: any) => {
                         e.stopPropagation()
                         setSelectedZoneIdx(isSelected ? -1 : idx)
                         if (e.ctrlKey || e.metaKey) {
@@ -757,7 +762,7 @@ function EditorInner() {
                           setSelectedZones(new Set([idx]))
                         }
                       } : undefined}
-                      style={{ position: 'absolute', left: z.x, top: z.y, fontSize: z.fontSize || 10, fontWeight: z.fontWeight === 'bold' ? 700 : 400, color, fontFamily: z.fontFamily || 'inherit', textAlign: (z.align || 'left') as any, whiteSpace: 'nowrap', overflow: 'visible', maxWidth: W - z.x - 16, ...(isMultiSelected && !isSelected ? { outline: '2px solid #3B82F6', outlineOffset: 2, borderRadius: 2 } : {}), ...dragProps.style }}>
+                      style={{ position: 'absolute', left: z.x, top: z.y, fontSize: z.fontSize || 10, fontWeight: z.fontWeight === 'bold' ? 700 : 400, color, fontFamily: z.fontFamily || 'inherit', textAlign: (z.align || 'left') as any, whiteSpace: 'nowrap', overflow: 'visible', maxWidth: W - z.x - 16, ...(isMultiSelected && !isSelected ? { outline: '2px solid #3B82F6', outlineOffset: 2, borderRadius: 2 } : {}), ...(lacquerMode ? { zIndex: 31, cursor: 'pointer', opacity: isLacquered ? 1 : 0.3, filter: isLacquered ? 'brightness(1.5) drop-shadow(0 0 4px rgba(255,255,255,0.8))' : 'none' } : {}), ...dragProps.style }}>
                       {value}
                       {/* ── Selection box with resize handles ── */}
                       {isSelected && (
@@ -969,8 +974,18 @@ function EditorInner() {
                 ✨ {lacquerMode ? 'Лак бүс тодорхойлж байна — гэрэлтэх хэсгийг сонгоно уу' : 'Лакдах хэсэг тодорхойлох'}
               </button>
               {lacquerMode && (
-                <div style={{ marginTop: 6, padding: 8, background: '#F5F3FF', borderRadius: 8, fontSize: 10, color: '#6D28D9', lineHeight: 1.5 }}>
-                  Харанхуй хэсэг = лакгүй, гэрэлтэй хэсэг = лактай. Текст/лого дээр дарж лакдах эсэхийг тодорхойлно.
+                <div style={{ marginTop: 6, padding: 10, background: '#F5F3FF', borderRadius: 8, fontSize: 10, color: '#6D28D9', lineHeight: 1.6 }}>
+                  <div>Элемент дээр дарж лактай/лакгүй болгоно.</div>
+                  <div style={{ marginTop: 4, fontWeight: 600 }}>✨ Лактай: {lacquerZones.size > 0 ? Array.from(lacquerZones).join(', ') : 'байхгүй'}</div>
+                  {lacquerZones.size > 0 && (
+                    <button onClick={() => {
+                      const lacData = { zones: Array.from(lacquerZones), side, cardType }
+                      localStorage.setItem('bizprint_lacquer', JSON.stringify(lacData))
+                      alert(`${lacquerZones.size} хэсэг лакдах болгож хадгалагдлаа!`)
+                    }} style={{ marginTop: 6, width: '100%', padding: '6px 0', borderRadius: 6, border: 'none', background: '#7C3AED', color: '#fff', fontSize: 10, fontWeight: 600, cursor: 'pointer' }}>
+                      💾 Лак тохиргоо хадгалах
+                    </button>
+                  )}
                 </div>
               )}
             </div>
