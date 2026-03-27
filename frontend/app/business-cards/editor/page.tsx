@@ -676,7 +676,7 @@ function EditorInner() {
                       if (!showQr) return null
                       const qrSize = Math.min(z.w || 80, z.h || 80) || z.w || 80
                       const qrSelected = editMode && selectedZoneIdx === idx
-                      return <div key={z.key} {...dragProps}
+                      return <div key={z.key} {...(lacquerMode ? {} : dragProps)}
                         onClick={lacquerMode ? (e: any) => { e.stopPropagation(); setLacquerZones(prev => { const s = new Set(prev); s.has('qr') ? s.delete('qr') : s.add('qr'); return s }) } : editMode ? (e: any) => { e.stopPropagation(); setSelectedZoneIdx(qrSelected ? -1 : idx) } : undefined}
                         style={{ position: 'absolute', left: z.x, top: z.y, width: qrSize, height: qrSize, background: '#fff', borderRadius: 4, padding: 3, border: `1px solid ${T.bg === '#111111' ? '#333' : '#E5E7EB'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'visible', ...(lacquerMode ? { zIndex: 31, cursor: 'pointer', opacity: lacquerZones.has('qr') ? 1 : 0.3, filter: lacquerZones.has('qr') ? 'brightness(1.2) drop-shadow(0 0 4px rgba(255,255,255,0.8))' : 'none' } : {}), ...dragProps.style }}>
                         <QRCodeSVG value={qrValue || 'https://bizprint.mn'} size={qrSize - 8} bgColor="#FFFFFF" fgColor="#000000" level="L" />
@@ -711,7 +711,7 @@ function EditorInner() {
                     // Logo — хэмжээ солих боломжтой
                     if (z.key === 'logo') {
                       const logoSelected = editMode && selectedZoneIdx === idx
-                      return <div key={z.key} {...dragProps}
+                      return <div key={z.key} {...(lacquerMode ? {} : dragProps)}
                         onClick={lacquerMode ? (e: any) => { e.stopPropagation(); setLacquerZones(prev => { const s = new Set(prev); s.has('logo') ? s.delete('logo') : s.add('logo'); return s }) } : editMode ? (e: any) => { e.stopPropagation(); setSelectedZoneIdx(logoSelected ? -1 : idx) } : undefined}
                         style={{ position: 'absolute', left: z.x, top: z.y, width: z.w || 72, height: z.h || 72, background: logoUrl ? 'transparent' : (T.bg === '#111111' ? '#333' : '#E5E7EB'), borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'visible', ...(lacquerMode ? { zIndex: 31, cursor: 'pointer', opacity: lacquerZones.has('logo') ? 1 : 0.3, filter: lacquerZones.has('logo') ? 'brightness(1.5) drop-shadow(0 0 4px rgba(255,255,255,0.8))' : 'none' } : {}), ...dragProps.style }}>
                         {logoUrl ? <img src={logoUrl} alt="logo" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} /> : <span style={{ fontSize: 9, color: '#9CA3AF', textAlign: 'center', lineHeight: 1.3 }}>📷 PNG</span>}
@@ -749,7 +749,7 @@ function EditorInner() {
                     const isSelected = editMode && selectedZoneIdx === idx
                     const isMultiSelected = editMode && selectedZones.has(idx)
                     const isLacquered = lacquerZones.has(z.key)
-                    return <div key={z.key} {...dragProps}
+                    return <div key={z.key} {...(lacquerMode ? {} : dragProps)}
                       onClick={lacquerMode ? (e: any) => {
                         e.stopPropagation()
                         setLacquerZones(prev => { const s = new Set(prev); s.has(z.key) ? s.delete(z.key) : s.add(z.key); return s })
