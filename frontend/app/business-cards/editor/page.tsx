@@ -75,6 +75,7 @@ function EditorInner() {
   const [lacquerMode, setLacquerMode] = useState(false)
   const [lacquerFront, setLacquerFront] = useState<Set<string>>(new Set())
   const [lacquerBack, setLacquerBack] = useState<Set<string>>(new Set())
+  const [lacquerPattern, setLacquerPattern] = useState<string>('none') // none, stripes, dots, waves, diagonal, frame
   const [pricingTiers, setPricingTiers] = useState<{ qty: number; standard: number; laminated: number; embossed: number }[] | null>(null)
 
   // Load template from API if it's a UUID (admin-created)
@@ -653,8 +654,22 @@ function EditorInner() {
               {/* Background image — user upload эсвэл admin template */}
               {side === 'front' && (userBgFront || frontImg) && <img src={userBgFront || frontImg} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />}
               {side === 'back' && (userBgBack || backImg) && <img src={userBgBack || backImg} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />}
-              {/* Лак горим — бүх зүйл дээр хагас тунгалаг давхарга */}
-              {lacquerMode && <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 30, pointerEvents: 'none' }} />}
+              {/* Лак горим — бүх зүйл дээр хагас тунгалаг давхарга + pattern */}
+              {lacquerMode && <>
+                <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 30, pointerEvents: 'none' }} />
+                {/* Pattern overlay — лактай хэсэг гэрэлтүүлж харуулна */}
+                {lacquerPattern !== 'none' && (
+                  <div style={{ position: 'absolute', inset: 0, zIndex: 31, pointerEvents: 'none', opacity: 0.25,
+                    background: lacquerPattern === 'stripes' ? 'repeating-linear-gradient(90deg, transparent, transparent 8px, rgba(255,255,255,0.8) 8px, rgba(255,255,255,0.8) 10px)'
+                      : lacquerPattern === 'dots' ? 'radial-gradient(circle, rgba(255,255,255,0.8) 1.5px, transparent 1.5px) 0 0 / 12px 12px'
+                      : lacquerPattern === 'diagonal' ? 'repeating-linear-gradient(45deg, transparent, transparent 6px, rgba(255,255,255,0.8) 6px, rgba(255,255,255,0.8) 8px)'
+                      : lacquerPattern === 'waves' ? 'repeating-linear-gradient(0deg, transparent, transparent 10px, rgba(255,255,255,0.6) 10px, rgba(255,255,255,0.6) 12px), repeating-linear-gradient(90deg, transparent, transparent 20px, rgba(255,255,255,0.3) 20px, rgba(255,255,255,0.3) 22px)'
+                      : lacquerPattern === 'frame' ? 'linear-gradient(to right, rgba(255,255,255,0.8) 3px, transparent 3px, transparent calc(100% - 3px), rgba(255,255,255,0.8) calc(100% - 3px)), linear-gradient(to bottom, rgba(255,255,255,0.8) 3px, transparent 3px, transparent calc(100% - 3px), rgba(255,255,255,0.8) calc(100% - 3px))'
+                      : lacquerPattern === 'corner' ? 'linear-gradient(135deg, rgba(255,255,255,0.8) 15%, transparent 15%), linear-gradient(315deg, rgba(255,255,255,0.8) 15%, transparent 15%)'
+                      : 'none'
+                  }} />
+                )}
+              </>}
 
               {/* Snap guide lines */}
               {editMode && dragIdx >= 0 && (() => {
@@ -730,7 +745,11 @@ function EditorInner() {
                       const color = ICON_COLORS[ic] || T.accent
                       const s = Math.min(z.w || 14, z.h || 14)
                       const radius = iconShape === 'circle' ? '50%' : 4
-                      return <div key={z.key} {...dragProps} style={{ position: 'absolute', left: z.x, top: z.y, width: s, height: s, borderRadius: radius, background: color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: s * 0.55, color: '#fff', fontWeight: 700, lineHeight: 1, ...dragProps.style }}>{ICON_LABELS[ic] || ''}</div>
+                      const iconKey = z.key || `icon_${ic}`
+                      const iconLacquered = lacquerZones.has(iconKey)
+                      return <div key={z.key} {...(lacquerMode ? {} : dragProps)}
+                        onClick={lacquerMode ? (e: any) => { e.stopPropagation(); setLacquerZones(prev => { const ss = new Set(prev); ss.has(iconKey) ? ss.delete(iconKey) : ss.add(iconKey); return ss }) } : undefined}
+                        style={{ position: 'absolute', left: z.x, top: z.y, width: s, height: s, borderRadius: radius, background: color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: s * 0.55, color: '#fff', fontWeight: 700, lineHeight: 1, ...(lacquerMode ? { zIndex: 31, cursor: 'pointer', opacity: iconLacquered ? 1 : 0.3, filter: iconLacquered ? 'brightness(1.5) drop-shadow(0 0 4px rgba(255,255,255,0.8))' : 'none' } : {}), ...dragProps.style }}>{ICON_LABELS[ic] || ''}</div>
                     }
                     // Logo — хэмжээ солих боломжтой
                     if (z.key === 'logo') {
@@ -1019,6 +1038,26 @@ function EditorInner() {
                 <div style={{ marginTop: 6, padding: 10, background: '#F5F3FF', borderRadius: 8, fontSize: 10, color: '#6D28D9', lineHeight: 1.6 }}>
                   <div>Элемент дээр дарж лактай/лакгүй болгоно.</div>
                   <div style={{ marginTop: 4, fontWeight: 600 }}>✨ Лактай: {lacquerZones.size > 0 ? Array.from(lacquerZones).join(', ') : 'байхгүй'}</div>
+                  {/* Лак pattern сонголт */}
+                  <div style={{ marginTop: 6 }}>
+                    <div style={{ fontSize: 9, color: '#7C3AED', marginBottom: 3 }}>Нэмэлт лак загвар (background):</div>
+                    <div style={{ display: 'flex', gap: 3, flexWrap: 'wrap' }}>
+                      {[
+                        { key: 'none', label: 'Байхгүй', preview: '' },
+                        { key: 'stripes', label: 'Зураас', preview: '|||' },
+                        { key: 'dots', label: 'Цэг', preview: '···' },
+                        { key: 'diagonal', label: 'Диагональ', preview: '///' },
+                        { key: 'waves', label: 'Долгион', preview: '∿∿' },
+                        { key: 'frame', label: 'Хүрээ', preview: '□' },
+                        { key: 'corner', label: 'Булан', preview: '◤◢' },
+                      ].map(p => (
+                        <button key={p.key} onClick={() => setLacquerPattern(p.key)}
+                          style={{ padding: '3px 6px', borderRadius: 4, border: lacquerPattern === p.key ? '2px solid #7C3AED' : '1px solid #D8B4FE', background: lacquerPattern === p.key ? '#EDE9FE' : '#fff', fontSize: 8, cursor: 'pointer', color: '#5B21B6' }}>
+                          {p.preview} {p.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                   {(lacquerFront.size > 0 || lacquerBack.size > 0) && (
                     <div style={{ display: 'flex', gap: 4, marginTop: 6 }}>
                       <button onClick={() => {
@@ -1061,6 +1100,16 @@ function EditorInner() {
                               ctx.textBaseline = 'top'
                               ctx.fillText(text, z.x, z.y)
                             }
+                          }
+                          // Pattern нэмэх
+                          if (lacquerPattern !== 'none') {
+                            ctx.fillStyle = '#000000'
+                            if (lacquerPattern === 'stripes') { for (let x = 0; x < W; x += 12) ctx.fillRect(x, 0, 2, H) }
+                            if (lacquerPattern === 'dots') { for (let x = 8; x < W; x += 14) for (let y = 8; y < H; y += 14) { ctx.beginPath(); ctx.arc(x, y, 2, 0, Math.PI * 2); ctx.fill() } }
+                            if (lacquerPattern === 'diagonal') { ctx.save(); ctx.translate(0, 0); for (let i = -H; i < W + H; i += 10) { ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i + H, H); ctx.lineWidth = 2; ctx.strokeStyle = '#000'; ctx.stroke() } ctx.restore() }
+                            if (lacquerPattern === 'frame') { ctx.fillRect(0, 0, W, 4); ctx.fillRect(0, H - 4, W, 4); ctx.fillRect(0, 0, 4, H); ctx.fillRect(W - 4, 0, 4, H) }
+                            if (lacquerPattern === 'corner') { ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(60, 0); ctx.lineTo(0, 60); ctx.fill(); ctx.beginPath(); ctx.moveTo(W, H); ctx.lineTo(W - 60, H); ctx.lineTo(W, H - 60); ctx.fill() }
+                            if (lacquerPattern === 'waves') { for (let y = 10; y < H; y += 16) { ctx.beginPath(); for (let x = 0; x < W; x += 2) { ctx.lineTo(x, y + Math.sin(x / 10) * 3) } ctx.lineWidth = 2; ctx.strokeStyle = '#000'; ctx.stroke() } }
                           }
                           const link = document.createElement('a')
                           link.download = `lacquer-mask-${label}.png`
