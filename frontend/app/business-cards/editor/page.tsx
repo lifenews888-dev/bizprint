@@ -768,9 +768,9 @@ function EditorInner() {
                           </div>
                         </div>
                       )}
-                      {/* ── Vistaprint-style toolbar ── */}
+                      {/* ── Vistaprint-style toolbar — card-ийн ГАДНА дээр ── */}
                       {isSelected && (
-                        <div onClick={e => e.stopPropagation()} style={{ position: 'absolute', bottom: '100%', left: '50%', transform: 'translateX(-50%)', marginBottom: 8, display: 'flex', gap: 0, alignItems: 'center', background: '#fff', borderRadius: 10, padding: '5px 8px', boxShadow: '0 6px 24px rgba(0,0,0,0.2)', border: '1px solid #E5E7EB', zIndex: 50, whiteSpace: 'nowrap' }}>
+                        <div onClick={e => e.stopPropagation()} style={{ position: 'fixed', top: 12, left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: 0, alignItems: 'center', background: '#fff', borderRadius: 12, padding: '6px 10px', boxShadow: '0 8px 32px rgba(0,0,0,0.15)', border: '1px solid #E5E7EB', zIndex: 9999, whiteSpace: 'nowrap' }}>
                           {/* Font family */}
                           <select value={z.fontFamily || ''} onChange={e => setZoneLayout(prev => prev.map((zz, ii) => ii === idx ? { ...zz, fontFamily: e.target.value } : zz))}
                             style={{ height: 28, borderRadius: 5, border: '1px solid #E5E7EB', fontSize: 11, padding: '0 6px', cursor: 'pointer', maxWidth: 90, color: '#374151', background: '#F9FAFB' }}>
