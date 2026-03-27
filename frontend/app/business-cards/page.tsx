@@ -13,25 +13,45 @@ const CATEGORIES = [
   { key: 'bold', label: 'Тод', icon: '◉' },
 ]
 
-function CardPreview({ layout, card }: { layout: any; card: any }) {
+function CardPreview({ layout }: { layout: any; card?: any }) {
   const cd = layout?.canvas_data
   const accent = cd?.accent || '#FF6B00'
   const bg = cd?.bg || '#FFFFFF'
-  const textDark = cd?.textDark || '#111'
-  const textLight = cd?.textLight || '#6B7280'
-  const isDark = bg === '#111111' || bg === '#1F2937' || bg === '#0F0F1A' || bg === '#0C1929' || bg === '#0A1A0D' || bg === '#0F1A2E' || bg === '#1C1917'
+  const td = cd?.textDark || '#111'
+  const tl = cd?.textLight || '#6B7280'
+  const isDark = ['#111111','#1F2937','#0F0F1A','#0C1929','#0A1A0D','#0F1A2E','#1C1917'].includes(bg)
+  const zones: any[] = layout?.front_json || []
+  const PW = 280, PH = 170
+  const sx = PW / 450, sy = PH / 275
 
+  // Zone байгаа бол бодит байрлалаар зурна
+  if (zones.length > 0 && zones[0].key) {
+    return (
+      <div style={{ width: PW, height: PH, background: bg, borderRadius: 8, position: 'relative', overflow: 'hidden', boxShadow: '0 4px 20px rgba(0,0,0,0.12)' }}>
+        {zones.map((z: any) => {
+          const x = Math.round(z.x * sx), y = Math.round(z.y * sy)
+          const zw = Math.round((z.w || 200) * sx), zh = Math.round((z.h || 20) * sy)
+          const fs = Math.max(5, Math.round((z.fontSize || 11) * ((sx + sy) / 2)))
+          if (z.type === 'logo') return <div key={z.key} style={{ position: 'absolute', left: x, top: y, width: zw, height: zh, background: isDark ? 'rgba(255,255,255,0.08)' : '#F3F4F6', borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 6, color: isDark ? 'rgba(255,255,255,0.3)' : '#bbb' }}>Logo</div>
+          if (z.type === 'qr') return <div key={z.key} style={{ position: 'absolute', left: x, top: y, width: Math.min(zw, zh), height: Math.min(zw, zh), background: isDark ? 'rgba(255,255,255,0.06)' : '#f9f9f9', borderRadius: 3, border: `1px solid ${isDark ? 'rgba(255,255,255,0.15)' : '#ddd'}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><div style={{ width: '55%', height: '55%', background: `repeating-conic-gradient(${isDark ? '#555' : '#999'} 0% 25%, transparent 0% 50%) 0 0 / 3px 3px`, opacity: 0.4 }} /></div>
+          if (z.type === 'social') return <div key={z.key} style={{ position: 'absolute', left: x, top: y, display: 'flex', gap: 2 }}>{['#1877F2','#E4405F','#0A66C2'].map((c,i) => <div key={i} style={{ width: Math.max(5, zh * 0.4), height: Math.max(5, zh * 0.4), borderRadius: 3, background: c }} />)}</div>
+          if (!z.key) return null
+          const color = z.fill === 'accent' ? accent : z.fill === 'light' ? tl : td
+          const labels: Record<string, string> = { company_name: 'Company', company_message: 'Slogan', full_name: 'Name', job_title: 'Title', email: '@mail', phone: 'Phone', address1: 'Addr', address2: 'Addr2', website: 'Web' }
+          return <div key={z.key} style={{ position: 'absolute', left: x, top: y, fontSize: fs, fontWeight: z.fontWeight === 'bold' ? 700 : 400, color, fontFamily: F, whiteSpace: 'nowrap', overflow: 'hidden', lineHeight: 1.2, textAlign: z.align || 'left', width: z.align ? zw : undefined }}>{labels[z.key] || z.key}</div>
+        })}
+      </div>
+    )
+  }
+
+  // Fallback: энгийн preview
   return (
-    <div style={{ width: 280, height: 170, background: bg, borderRadius: 6, position: 'relative', overflow: 'hidden', boxShadow: '0 4px 20px rgba(0,0,0,0.15)' }}>
+    <div style={{ width: PW, height: PH, background: bg, borderRadius: 8, position: 'relative', overflow: 'hidden', boxShadow: '0 4px 20px rgba(0,0,0,0.12)' }}>
       <div style={{ position: 'absolute', left: 0, top: 0, width: '100%', height: 4, background: accent }} />
-      <div style={{ position: 'absolute', left: 0, top: 0, width: 3, height: '100%', background: accent }} />
       <div style={{ position: 'absolute', left: 14, top: 16, fontSize: 12, fontWeight: 700, color: accent, fontFamily: F }}>Овог Нэр</div>
-      <div style={{ position: 'absolute', left: 14, top: 34, fontSize: 8, color: textLight, fontFamily: F }}>Захирал · Компани</div>
-      <div style={{ position: 'absolute', left: 14, bottom: 36, fontSize: 7.5, color: textLight, fontFamily: F }}>+976 9911 2233</div>
-      <div style={{ position: 'absolute', left: 14, bottom: 24, fontSize: 7.5, color: textLight, fontFamily: F }}>email@company.mn</div>
-      <div style={{ position: 'absolute', left: 14, bottom: 12, fontSize: 7.5, color: textLight, fontFamily: F }}>www.company.mn</div>
-      <div style={{ position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)', width: 42, height: 42, background: isDark ? 'rgba(255,255,255,0.1)' : '#fff', border: `1px solid ${isDark ? 'rgba(255,255,255,0.2)' : '#ddd'}`, borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 6, color: isDark ? 'rgba(255,255,255,0.4)' : '#aaa', fontFamily: F }}>QR</div>
-      <div style={{ position: 'absolute', left: 0, bottom: 0, width: '100%', height: 2, background: accent, opacity: 0.4 }} />
+      <div style={{ position: 'absolute', left: 14, top: 34, fontSize: 8, color: tl, fontFamily: F }}>Захирал · Компани</div>
+      <div style={{ position: 'absolute', left: 14, bottom: 24, fontSize: 7.5, color: tl, fontFamily: F }}>+976 9911 2233</div>
+      <div style={{ position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)', width: 36, height: 36, background: isDark ? 'rgba(255,255,255,0.1)' : '#f5f5f5', borderRadius: 3 }} />
     </div>
   )
 }
