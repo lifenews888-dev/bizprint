@@ -180,6 +180,11 @@ export default function QuotePage() {
     const f = sq._form;
     if (!f) return;
     setTab(f.tab); setSignProd(f.signProd); setTovgorSize(f.tovgorSize); setTovgorQty(f.tovgorQty);
+    if (f.signText !== undefined) setSignText(f.signText);
+    if (f.extraRele !== undefined) setExtraRele(f.extraRele);
+    if (f.extraTog !== undefined) setExtraTog(f.extraTog);
+    if (f.extraCrane1 !== undefined) setExtraCrane1(f.extraCrane1);
+    if (f.extraCrane8 !== undefined) setExtraCrane8(f.extraCrane8);
     setDimW(f.dimW); setDimH(f.dimH); setPrintSub(f.printSub); setOffProduct(f.offProduct);
     setOffSize(f.offSize); setOffPages(f.offPages); setOffQty(f.offQty); setOffGsm(f.offGsm);
     setOffColor(f.offColor); setOffSides(f.offSides); setOffFinish(f.offFinish); setOffFold(f.offFold);
@@ -467,7 +472,7 @@ export default function QuotePage() {
       margin_rate: MARGIN_MAP[margin],
       pricing_mode: margin,
       // Засварлахад хэрэгтэй form state
-      _form: { tab, signProd, tovgorSize, tovgorQty, dimW, dimH, printSub, offProduct, offSize, offPages, offQty, offGsm, offColor, offSides, offFinish, offFold, wideType, wideW, wideL, rush, margin },
+      _form: { tab, signProd, signText, extraRele, extraTog, extraCrane1, extraCrane8, tovgorSize, tovgorQty, dimW, dimH, printSub, offProduct, offSize, offPages, offQty, offGsm, offColor, offSides, offFinish, offFold, wideType, wideW, wideL, rush, margin },
     };
     setSavedQuotes(prev => [...prev, newQuote]);
   }, [tab, signProd, tovgorSize, tovgorQty, dimW, dimH, printSub, offProduct, offSize, offPages, offQty, wideType, wideW, wideL, displayTotal, displayUnitPrice, breakdown, rush, margin]);
