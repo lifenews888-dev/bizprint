@@ -588,18 +588,17 @@ function EditorInner() {
                           <button onClick={() => setZoneLayout(prev => prev.map((zz, ii) => ii === idx ? { ...zz, fontWeight: zz.fontWeight === 'bold' ? 'normal' : 'bold' } : zz))}
                             style={{ width: 24, height: 24, borderRadius: 4, border: z.fontWeight === 'bold' ? '2px solid #FF6B00' : '1px solid #ddd', background: z.fontWeight === 'bold' ? '#FFF7ED' : '#fff', fontSize: 11, cursor: 'pointer', fontWeight: 800, color: '#333' }}>B</button>
                           <div style={{ width: 1, background: '#E5E7EB', margin: '0 2px' }} />
-                          {/* Font family */}
-                          <select value={z.fontFamily || ''} onChange={e => setZoneLayout(prev => prev.map((zz, ii) => ii === idx ? { ...zz, fontFamily: e.target.value || undefined } : zz))}
-                            style={{ height: 24, borderRadius: 4, border: '1px solid #ddd', fontSize: 9, padding: '0 4px', cursor: 'pointer', maxWidth: 80 }}>
-                            <option value="">Default</option>
-                            <option value="'DM Sans',sans-serif" style={{ fontFamily: "'DM Sans',sans-serif" }}>DM Sans</option>
-                            <option value="'Inter',sans-serif" style={{ fontFamily: "'Inter',sans-serif" }}>Inter</option>
-                            <option value="Georgia,serif" style={{ fontFamily: 'Georgia,serif' }}>Georgia</option>
-                            <option value="'Courier New',monospace" style={{ fontFamily: "'Courier New',monospace" }}>Courier</option>
-                            <option value="'Arial Black',sans-serif" style={{ fontFamily: "'Arial Black',sans-serif" }}>Arial Black</option>
-                            <option value="'Times New Roman',serif" style={{ fontFamily: "'Times New Roman',serif" }}>Times</option>
-                            <option value="'Playfair Display',serif">Playfair</option>
-                          </select>
+                          {/* Font family buttons */}
+                          {[
+                            { label: 'Aa', value: '', title: 'Default' },
+                            { label: 'Se', value: 'Georgia, serif', title: 'Serif' },
+                            { label: 'Mo', value: 'Courier New, monospace', title: 'Mono' },
+                            { label: 'Bk', value: 'Arial Black, sans-serif', title: 'Black' },
+                            { label: 'Tm', value: 'Times New Roman, serif', title: 'Times' },
+                          ].map(f => (
+                            <button key={f.label} title={f.title} onClick={() => setZoneLayout(prev => prev.map((zz, ii) => ii === idx ? { ...zz, fontFamily: f.value } : zz))}
+                              style={{ minWidth: 26, height: 24, borderRadius: 4, border: (z.fontFamily || '') === f.value ? '2px solid #FF6B00' : '1px solid #ddd', background: (z.fontFamily || '') === f.value ? '#FFF7ED' : '#fff', fontSize: 9, cursor: 'pointer', color: '#333', fontFamily: f.value || 'inherit', fontWeight: (z.fontFamily || '') === f.value ? 700 : 400, padding: '0 3px' }}>{f.label}</button>
+                          ))}
                           <div style={{ width: 1, background: '#E5E7EB', margin: '0 2px' }} />
                           {/* Delete zone */}
                           <button onClick={() => { setZoneLayout(prev => prev.filter((_, ii) => ii !== idx)); setSelectedZoneIdx(-1) }}
