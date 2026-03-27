@@ -176,6 +176,18 @@ export default function QuotePage() {
 
   // removeFromList, savedTotal — addToList нь displayTotal-аас хамааралтай тул доор зарлагдана
   const removeFromList = (id: string) => setSavedQuotes(prev => prev.filter(q => q.id !== id));
+  const editQuote = (sq: any) => {
+    const f = sq._form;
+    if (!f) return;
+    setTab(f.tab); setSignProd(f.signProd); setTovgorSize(f.tovgorSize); setTovgorQty(f.tovgorQty);
+    setDimW(f.dimW); setDimH(f.dimH); setPrintSub(f.printSub); setOffProduct(f.offProduct);
+    setOffSize(f.offSize); setOffPages(f.offPages); setOffQty(f.offQty); setOffGsm(f.offGsm);
+    setOffColor(f.offColor); setOffSides(f.offSides); setOffFinish(f.offFinish); setOffFold(f.offFold);
+    setWideType(f.wideType); setWideW(f.wideW); setWideL(f.wideL); setRush(f.rush);
+    // Жагсаалтаас устгаж form руу буцаана
+    setSavedQuotes(prev => prev.filter(q => q.id !== sq.id));
+    setShowSaved(false);
+  };
   const savedTotal = savedQuotes.reduce((s, q) => s + Number(q.total_price || 0), 0);
 
   /* ─── SIGN CALC ─── */
@@ -454,6 +466,8 @@ export default function QuotePage() {
       discount_amount: Math.abs(breakdown.lines.find(l => l.color === '#22c55e')?.amount || 0),
       margin_rate: MARGIN_MAP[margin],
       pricing_mode: margin,
+      // Засварлахад хэрэгтэй form state
+      _form: { tab, signProd, tovgorSize, tovgorQty, dimW, dimH, printSub, offProduct, offSize, offPages, offQty, offGsm, offColor, offSides, offFinish, offFold, wideType, wideW, wideL, rush, margin },
     };
     setSavedQuotes(prev => [...prev, newQuote]);
   }, [tab, signProd, tovgorSize, tovgorQty, dimW, dimH, printSub, offProduct, offSize, offPages, offQty, wideType, wideW, wideL, displayTotal, displayUnitPrice, breakdown, rush, margin]);
@@ -1370,9 +1384,10 @@ export default function QuotePage() {
                       <div style={{ fontSize: 13, fontWeight: 600 }}>{sq.product_name}</div>
                       <div style={{ fontSize: 11, color: 'var(--text3)' }}>{sq.dimensions} · {sq.quantity}ш</div>
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
                       <span style={{ fontSize: 13, fontWeight: 700, color: '#FF6B00' }}>{fmt(sq.total_price)}</span>
-                      <button onClick={(e) => { e.stopPropagation(); removeFromList(sq.id); }} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: 16, padding: '2px 6px' }}>✕</button>
+                      <button onClick={(e) => { e.stopPropagation(); editQuote(sq); }} style={{ background: 'none', border: 'none', color: '#3B82F6', cursor: 'pointer', fontSize: 11, padding: '2px 4px' }} title="Засварлах">✎</button>
+                      <button onClick={(e) => { e.stopPropagation(); removeFromList(sq.id); }} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: 14, padding: '2px 4px' }} title="Устгах">✕</button>
                     </div>
                   </div>
                 ))}
