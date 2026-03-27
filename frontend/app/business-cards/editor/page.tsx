@@ -665,12 +665,24 @@ function EditorInner() {
                       style: { cursor: 'move', outline: dragIdx === idx ? '2px solid #FF6B00' : '1px dashed #3B82F640', outlineOffset: 2 },
                     } : {}
 
-                    // QR zone
+                    // QR zone — хэмжээ солих боломжтой
                     if (z.type === 'qr') {
                       if (!showQr) return null
                       const qrSize = Math.min(z.w || 80, z.h || 80) || z.w || 80
-                      return <div key={z.key} {...dragProps} style={{ position: 'absolute', left: z.x, top: z.y, width: qrSize, height: qrSize, background: '#fff', borderRadius: 4, padding: 3, border: `1px solid ${T.bg === '#111111' ? '#333' : '#E5E7EB'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', ...dragProps.style }}>
+                      const qrSelected = editMode && selectedZoneIdx === idx
+                      return <div key={z.key} {...dragProps}
+                        onClick={editMode ? (e: any) => { e.stopPropagation(); setSelectedZoneIdx(qrSelected ? -1 : idx) } : undefined}
+                        style={{ position: 'absolute', left: z.x, top: z.y, width: qrSize, height: qrSize, background: '#fff', borderRadius: 4, padding: 3, border: `1px solid ${T.bg === '#111111' ? '#333' : '#E5E7EB'}`, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'visible', ...dragProps.style }}>
                         <QRCodeSVG value={qrValue || 'https://bizprint.mn'} size={qrSize - 8} bgColor="#FFFFFF" fgColor="#000000" level="L" />
+                        {qrSelected && (
+                          <div onClick={e => e.stopPropagation()} style={{ position: 'absolute', bottom: '100%', left: '50%', transform: 'translateX(-50%)', marginBottom: 6, display: 'flex', gap: 4, alignItems: 'center', background: '#fff', borderRadius: 8, padding: '4px 8px', boxShadow: '0 4px 16px rgba(0,0,0,0.18)', border: '1px solid #E5E7EB', zIndex: 50 }}>
+                            <button onClick={() => setZoneLayout(prev => prev.map((zz, ii) => ii === idx ? { ...zz, w: Math.max(30, (zz.w || 80) - 10), h: Math.max(30, (zz.h || 80) - 10) } : zz))}
+                              style={{ width: 26, height: 26, borderRadius: 6, border: '1px solid #ddd', background: '#fff', fontSize: 14, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>−</button>
+                            <span style={{ fontSize: 11, minWidth: 32, textAlign: 'center', fontWeight: 600 }}>{qrSize}px</span>
+                            <button onClick={() => setZoneLayout(prev => prev.map((zz, ii) => ii === idx ? { ...zz, w: Math.min(160, (zz.w || 80) + 10), h: Math.min(160, (zz.h || 80) + 10) } : zz))}
+                              style={{ width: 26, height: 26, borderRadius: 6, border: '1px solid #ddd', background: '#fff', fontSize: 14, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>+</button>
+                          </div>
+                        )}
                       </div>
                     }
                     // Icon zones
@@ -686,10 +698,26 @@ function EditorInner() {
                       const radius = iconShape === 'circle' ? '50%' : 4
                       return <div key={z.key} {...dragProps} style={{ position: 'absolute', left: z.x, top: z.y, width: s, height: s, borderRadius: radius, background: color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: s * 0.55, color: '#fff', fontWeight: 700, lineHeight: 1, ...dragProps.style }}>{ICON_LABELS[ic] || ''}</div>
                     }
-                    // Logo — зургийн харьцаагаар
+                    // Logo — хэмжээ солих боломжтой
                     if (z.key === 'logo') {
-                      return <div key={z.key} {...dragProps} style={{ position: 'absolute', left: z.x, top: z.y, width: z.w || 72, height: z.h || 72, background: logoUrl ? 'transparent' : (T.bg === '#111111' ? '#333' : '#E5E7EB'), borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', ...dragProps.style }}>
+                      const logoSelected = editMode && selectedZoneIdx === idx
+                      return <div key={z.key} {...dragProps}
+                        onClick={editMode ? (e: any) => { e.stopPropagation(); setSelectedZoneIdx(logoSelected ? -1 : idx) } : undefined}
+                        style={{ position: 'absolute', left: z.x, top: z.y, width: z.w || 72, height: z.h || 72, background: logoUrl ? 'transparent' : (T.bg === '#111111' ? '#333' : '#E5E7EB'), borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'visible', ...dragProps.style }}>
                         {logoUrl ? <img src={logoUrl} alt="logo" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} /> : <span style={{ fontSize: 9, color: '#9CA3AF', textAlign: 'center', lineHeight: 1.3 }}>📷 PNG</span>}
+                        {/* Logo size toolbar */}
+                        {logoSelected && (
+                          <div onClick={e => e.stopPropagation()} style={{ position: 'absolute', bottom: '100%', left: '50%', transform: 'translateX(-50%)', marginBottom: 6, display: 'flex', gap: 4, alignItems: 'center', background: '#fff', borderRadius: 8, padding: '4px 8px', boxShadow: '0 4px 16px rgba(0,0,0,0.18)', border: '1px solid #E5E7EB', zIndex: 50, whiteSpace: 'nowrap' }}>
+                            <button onClick={() => setZoneLayout(prev => prev.map((zz, ii) => ii === idx ? { ...zz, w: Math.max(30, (zz.w || 72) - 10), h: Math.max(30, (zz.h || 72) - 10) } : zz))}
+                              style={{ width: 26, height: 26, borderRadius: 6, border: '1px solid #ddd', background: '#fff', fontSize: 14, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#374151' }}>−</button>
+                            <span style={{ fontSize: 11, color: '#374151', minWidth: 36, textAlign: 'center', fontWeight: 600 }}>{z.w || 72}px</span>
+                            <button onClick={() => setZoneLayout(prev => prev.map((zz, ii) => ii === idx ? { ...zz, w: Math.min(200, (zz.w || 72) + 10), h: Math.min(200, (zz.h || 72) + 10) } : zz))}
+                              style={{ width: 26, height: 26, borderRadius: 6, border: '1px solid #ddd', background: '#fff', fontSize: 14, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#374151' }}>+</button>
+                            <div style={{ width: 1, height: 18, background: '#E5E7EB', margin: '0 2px' }} />
+                            <button onClick={() => { setZoneLayout(prev => prev.filter((_, ii) => ii !== idx)); setSelectedZoneIdx(-1) }}
+                              style={{ width: 26, height: 26, borderRadius: 6, border: '1px solid #FCA5A5', background: '#FEF2F2', fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#EF4444' }}>✕</button>
+                          </div>
+                        )}
                       </div>
                     }
                     // Text zones
