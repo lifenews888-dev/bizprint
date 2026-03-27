@@ -990,12 +990,37 @@ function EditorInner() {
                           canvas.width = W; canvas.height = H
                           const ctx = canvas.getContext('2d')
                           if (!ctx) return
+                          // Цагаан дэвсгэр = лакгүй
                           ctx.fillStyle = '#FFFFFF'
                           ctx.fillRect(0, 0, W, H)
                           ctx.fillStyle = '#000000'
                           for (const z of zoneList) {
-                            if (zones.has(z.key)) {
-                              ctx.fillRect(z.x, z.y, z.w || 200, z.h || 22)
+                            if (!zones.has(z.key)) continue
+                            if (z.type === 'logo' || z.type === 'qr') {
+                              // Лого/QR — тэгш өнцөгт хэлбэр
+                              const r = z.type === 'logo' ? 6 : 4
+                              ctx.beginPath()
+                              ctx.roundRect(z.x, z.y, z.w || 72, z.h || 72, r)
+                              ctx.fill()
+                            } else if (z.type === 'icon') {
+                              // Icon — дугуй
+                              const s = Math.min(z.w || 14, z.h || 14)
+                              ctx.beginPath()
+                              ctx.arc(z.x + s / 2, z.y + s / 2, s / 2, 0, Math.PI * 2)
+                              ctx.fill()
+                            } else if (z.type === 'social') {
+                              // Social — жижиг дугуйнууд
+                              ctx.fillRect(z.x, z.y, z.w || 80, z.h || 30)
+                            } else {
+                              // Текст — бодит үсэг хэлбэрээр
+                              const text = (form as any)[z.key] || z.label || z.key || ''
+                              if (!text) continue
+                              const fs = z.fontSize || 12
+                              const fw = z.fontWeight === 'bold' ? 'bold' : 'normal'
+                              const ff = z.fontFamily || "'DM Sans', sans-serif"
+                              ctx.font = `${fw} ${fs}px ${ff}`
+                              ctx.textBaseline = 'top'
+                              ctx.fillText(text, z.x, z.y)
                             }
                           }
                           const link = document.createElement('a')
