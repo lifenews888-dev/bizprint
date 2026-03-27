@@ -130,6 +130,8 @@ function EditorInner() {
     facebook: '', instagram: '', linkedin: '', qr_text: '',
   })
   const [showSocial, setShowSocial] = useState(false)
+  const [showIcons, setShowIcons] = useState(true)
+  const [iconShape, setIconShape] = useState<'circle' | 'square'>('circle')
   const [socialLinks, setSocialLinks] = useState<{ platform: string; value: string }[]>([])
 
   const SOCIAL_OPTIONS = [
@@ -422,6 +424,34 @@ function EditorInner() {
             )}
           </div>
 
+          {/* ─── Icon тохиргоо ─── */}
+          {showSocial && socialLinks.length > 0 && (
+            <div style={{ borderTop: '1px solid #F3F4F6', paddingTop: 12 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                <span style={{ fontSize: 12, fontWeight: 600, color: '#374151' }}>Icon харуулах</span>
+                <div style={{ width: 36, height: 20, borderRadius: 10, background: showIcons ? '#FF6B00' : '#D1D5DB', position: 'relative', transition: 'background .2s', cursor: 'pointer' }}
+                  onClick={() => setShowIcons(!showIcons)}>
+                  <div style={{ width: 14, height: 14, borderRadius: '50%', background: '#fff', position: 'absolute', top: 3, left: showIcons ? 19 : 3, transition: 'left .2s', boxShadow: '0 1px 2px rgba(0,0,0,0.2)' }} />
+                </div>
+              </div>
+              {showIcons && (
+                <div>
+                  <div style={{ fontSize: 11, color: '#6B7280', marginBottom: 6 }}>Icon хэлбэр:</div>
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    <button onClick={() => setIconShape('circle')} style={{ flex: 1, padding: '8px 0', borderRadius: 8, border: iconShape === 'circle' ? '2px solid #FF6B00' : '1px solid #E5E7EB', background: iconShape === 'circle' ? '#FFF7ED' : '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                      <div style={{ width: 20, height: 20, borderRadius: '50%', background: '#1877F2' }} />
+                      <span style={{ fontSize: 11, color: '#374151' }}>Дугуй</span>
+                    </button>
+                    <button onClick={() => setIconShape('square')} style={{ flex: 1, padding: '8px 0', borderRadius: 8, border: iconShape === 'square' ? '2px solid #FF6B00' : '1px solid #E5E7EB', background: iconShape === 'square' ? '#FFF7ED' : '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                      <div style={{ width: 20, height: 20, borderRadius: 4, background: '#1877F2' }} />
+                      <span style={{ fontSize: 11, color: '#374151' }}>Дөрвөлжин</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* ─── QR Code (toggle) ─── */}
           <div style={{ borderTop: '1px solid #F3F4F6', paddingTop: 12 }}>
             <button onClick={() => setShowQr(!showQr)} style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', background: 'none', border: 'none', cursor: 'pointer' }}>
@@ -606,15 +636,16 @@ function EditorInner() {
                     }
                     // Icon zones
                     if (z.type === 'icon') {
+                      if (!showIcons) return null
                       const ic = z.icon || ''
                       const ICON_COLORS: Record<string, string> = { fb: '#1877F2', ig: '#E4405F', 'in': '#0A66C2', phone: '#10B981', email: '#6B7280', web: '#3B82F6' }
                       const ICON_LABELS: Record<string, string> = { fb: 'f', ig: 'ig', 'in': 'in', phone: '\u260E', email: '@', web: '\u25CB' }
-                      // Social icons: show only if user enabled + has value
                       const SOCIAL_MAP: Record<string, string> = { fb: 'facebook', ig: 'instagram', 'in': 'linkedin' }
                       if (SOCIAL_MAP[ic] && (!showSocial || !socialLinks.some(s => s.platform === SOCIAL_MAP[ic] && s.value))) return null
                       const color = ICON_COLORS[ic] || T.accent
                       const s = Math.min(z.w || 14, z.h || 14)
-                      return <div key={z.key} {...dragProps} style={{ position: 'absolute', left: z.x, top: z.y, width: s, height: s, borderRadius: 4, background: color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: s * 0.55, color: '#fff', fontWeight: 700, lineHeight: 1, ...dragProps.style }}>{ICON_LABELS[ic] || ''}</div>
+                      const radius = iconShape === 'circle' ? '50%' : 4
+                      return <div key={z.key} {...dragProps} style={{ position: 'absolute', left: z.x, top: z.y, width: s, height: s, borderRadius: radius, background: color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: s * 0.55, color: '#fff', fontWeight: 700, lineHeight: 1, ...dragProps.style }}>{ICON_LABELS[ic] || ''}</div>
                     }
                     // Logo
                     if (z.key === 'logo') {
@@ -711,7 +742,7 @@ function EditorInner() {
                           const opt = SOCIAL_OPTIONS.find(o => o.key === link.platform) || SOCIAL_OPTIONS[0]
                           return (
                             <div key={idx} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, maxWidth: 60 }}>
-                              <div style={{ width: 24, height: 24, borderRadius: 6, background: opt.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, color: '#fff', fontWeight: 700, flexShrink: 0 }}>{opt.icon}</div>
+                              {showIcons && <div style={{ width: 24, height: 24, borderRadius: iconShape === 'circle' ? '50%' : 6, background: opt.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, color: '#fff', fontWeight: 700, flexShrink: 0 }}>{opt.icon}</div>}
                               <span style={{ fontSize: 6, color: T.textLight, textAlign: 'center', wordBreak: 'break-word', lineHeight: 1.3 }}>{link.value}</span>
                             </div>
                           )
@@ -947,9 +978,10 @@ function EditorInner() {
                               return <div key={z.key} style={{ position:'absolute', left:x, top:y, width:qs, height:qs, background:'#fff', borderRadius:1, border:'1px solid #ccc', display:'flex', alignItems:'center', justifyContent:'center' }}><div style={{ width:qs-3, height:qs-3, background:'repeating-conic-gradient(#555 0% 25%, transparent 0% 50%) 0 0 / 3px 3px', opacity:0.5 }} /></div>
                             }
                             if (z.type === 'icon') {
+                              if (!showIcons) return null
                               const ic: Record<string,string> = { fb:'#1877F2', ig:'#E4405F', 'in':'#0A66C2', phone:'#10B981', email:'#6B7280', web:'#3B82F6' }
                               const s = Math.max(4, Math.round(Math.min(z.w||12, z.h||12) * ((sx+sy)/2)))
-                              return <div key={z.key} style={{ position:'absolute', left:x, top:y, width:s, height:s, borderRadius:2, background: ic[z.icon] || a }} />
+                              return <div key={z.key} style={{ position:'absolute', left:x, top:y, width:s, height:s, borderRadius: iconShape === 'circle' ? '50%' : 2, background: ic[z.icon] || a }} />
                             }
                             if (z.key === 'logo') return <div key={z.key} style={{ position: 'absolute', left: x, top: y, width: Math.round((z.w||50)*sx), height: Math.round((z.h||50)*sy), background: isDark ? '#333' : '#E5E7EB', borderRadius: 2, fontSize: 5, color: '#999', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>L</div>
                             const sc = (sx+sy)/2, fs = Math.max(5, Math.round((z.fontSize||9)*sc))
