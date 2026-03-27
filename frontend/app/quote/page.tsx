@@ -1542,33 +1542,32 @@ export default function QuotePage() {
           onClose={() => setShowPreview(false)}
           onSend={() => { setShowPreview(false); setShowModal(true); setSuccessMsg(''); }}
           data={{
-            items: [
-              ...((savedQuotes.length > 0 ? savedQuotes : []).map(sq => ({
-                product: sq.product_name,
-                text: sq.text || signText || sq.product_name,
-                width: parseFloat(sq.dimensions?.split('×')[0] || '0') || dimW,
-                height: parseFloat(sq.dimensions?.split('×')[1] || '0') || dimH,
-                unit: 'м',
-                qty: sq.quantity || 1,
-                unitPrice: sq.unit_price || sq.total_price,
-                total: sq.total_price,
-              }))),
-              {
-                product: tab === 'sign'
-                  ? (SIGN_PRODUCTS.find(p => p.key === signProd)?.label || signProd)
-                  : (printSub === 'offset' ? `${offProduct} (${offSize})` : 'Өргөн хэвлэл'),
-                text: signText || offProduct || '—',
-                width: tab === 'sign' ? (signProd === 'tovgor' ? tovgorSize / 100 * (signText.replace(/\s/g, '').length || 1) : dimW) : 0,
-                height: tab === 'sign' ? (signProd === 'tovgor' ? tovgorSize / 100 : dimH) : 0,
-                unit: tab === 'sign' ? (signProd === 'tovgor' ? 'см' : 'м') : 'мм',
-                qty: tab === 'sign' ? (signProd === 'tovgor' ? tovgorQty : 1) : offQty,
-                unitPrice: displayUnitPrice,
-                total: displayTotal,
-                isLetterBased: tab === 'sign' && signProd === 'tovgor',
-                letterSize: signProd === 'tovgor' ? tovgorSize : undefined,
-                letterCount: signProd === 'tovgor' ? tovgorQty : undefined,
-              },
-            ],
+            items: savedQuotes.length > 0
+              ? savedQuotes.map(sq => ({
+                  product: sq.product_name,
+                  text: sq.text || signText || sq.product_name,
+                  width: parseFloat(sq.dimensions?.split('×')[0] || '0') || dimW,
+                  height: parseFloat(sq.dimensions?.split('×')[1] || '0') || dimH,
+                  unit: 'м',
+                  qty: sq.quantity || 1,
+                  unitPrice: sq.unit_price || sq.total_price,
+                  total: sq.total_price,
+                }))
+              : [{
+                  product: tab === 'sign'
+                    ? (SIGN_PRODUCTS.find(p => p.key === signProd)?.label || signProd)
+                    : (printSub === 'offset' ? `${offProduct} (${offSize})` : 'Өргөн хэвлэл'),
+                  text: signText || offProduct || '—',
+                  width: tab === 'sign' ? (signProd === 'tovgor' ? tovgorSize / 100 * (signText.replace(/\s/g, '').length || 1) : dimW) : 0,
+                  height: tab === 'sign' ? (signProd === 'tovgor' ? tovgorSize / 100 : dimH) : 0,
+                  unit: tab === 'sign' ? (signProd === 'tovgor' ? 'см' : 'м') : 'мм',
+                  qty: tab === 'sign' ? (signProd === 'tovgor' ? tovgorQty : 1) : offQty,
+                  unitPrice: displayUnitPrice,
+                  total: displayTotal,
+                  isLetterBased: tab === 'sign' && signProd === 'tovgor',
+                  letterSize: signProd === 'tovgor' ? tovgorSize : undefined,
+                  letterCount: signProd === 'tovgor' ? tovgorQty : undefined,
+                }],
             logoUrl: signLogoUrl || undefined,
             logoItem: signLogoUrl ? (() => {
               const signH = signProd === 'tovgor' ? tovgorSize : Math.round(dimH * 100);
