@@ -49,6 +49,9 @@ function EditorInner() {
   const [backZoneLayout, setBackZoneLayout] = useState<any[]>([])
   const [cardType, setCardType] = useState<'standard' | 'laminated' | 'embossed'>('standard')
   const [cornerStyle, setCornerStyle] = useState<'square' | 'rounded'>('rounded')
+  const [userBgFront, setUserBgFront] = useState('')
+  const [userBgBack, setUserBgBack] = useState('')
+  const [lacquerMode, setLacquerMode] = useState(false)
   const [pricingTiers, setPricingTiers] = useState<{ qty: number; standard: number; laminated: number; embossed: number }[] | null>(null)
 
   // Load template from API if it's a UUID (admin-created)
@@ -622,9 +625,11 @@ function EditorInner() {
                 boxShadow: '0 8px 32px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.06)',
                 border: editMode ? '2px dashed #FF6B0060' : 'none',
               }}>
-              {/* Template background image (from admin upload) */}
-              {side === 'front' && frontImg && <img src={frontImg} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />}
-              {side === 'back' && backImg && <img src={backImg} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />}
+              {/* Background image — user upload эсвэл admin template */}
+              {side === 'front' && (userBgFront || frontImg) && <img src={userBgFront || frontImg} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />}
+              {side === 'back' && (userBgBack || backImg) && <img src={userBgBack || backImg} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} />}
+              {/* Лак горим — бүх зүйл дээр хагас тунгалаг давхарга */}
+              {lacquerMode && <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 30, pointerEvents: 'none' }} />}
 
               {/* Snap guide lines */}
               {editMode && dragIdx >= 0 && (() => {
@@ -931,6 +936,45 @@ function EditorInner() {
               </button>
             ))}
           </div>
+
+          {/* ── Фон зураг солих ── */}
+          <div style={{ display: 'flex', gap: 8, marginTop: 8, zIndex: 5 }}>
+            <label style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '8px 12px', borderRadius: 8, border: '1.5px dashed #D1D5DB', cursor: 'pointer', fontSize: 11, color: '#6B7280', background: '#fff', transition: 'all .15s' }}
+              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = '#FF6B00'; (e.currentTarget as HTMLElement).style.color = '#FF6B00' }}
+              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = '#D1D5DB'; (e.currentTarget as HTMLElement).style.color = '#6B7280' }}>
+              🖼 Фон солих
+              <input type="file" accept="image/png,image/jpeg,image/webp" hidden onChange={e => {
+                const file = e.target.files?.[0]
+                if (!file) return
+                const url = URL.createObjectURL(file)
+                if (side === 'front') setUserBgFront(url); else setUserBgBack(url)
+              }} />
+            </label>
+            {(side === 'front' ? userBgFront : userBgBack) && (
+              <button onClick={() => { if (side === 'front') setUserBgFront(''); else setUserBgBack('') }}
+                style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid #FCA5A5', background: '#FEF2F2', cursor: 'pointer', fontSize: 11, color: '#EF4444' }}>✕ Фон устгах</button>
+            )}
+          </div>
+
+          {/* ── Лак тохиргоо (лактай хэвлэл) ── */}
+          {cardType === 'laminated' && (
+            <div style={{ marginTop: 8, zIndex: 5 }}>
+              <button onClick={() => setLacquerMode(!lacquerMode)} style={{
+                width: '100%', padding: '8px 12px', borderRadius: 8, cursor: 'pointer', fontSize: 11, fontWeight: 600,
+                border: lacquerMode ? '2px solid #8B5CF6' : '1px solid #D1D5DB',
+                background: lacquerMode ? '#F5F3FF' : '#fff',
+                color: lacquerMode ? '#7C3AED' : '#6B7280',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+              }}>
+                ✨ {lacquerMode ? 'Лак бүс тодорхойлж байна — гэрэлтэх хэсгийг сонгоно уу' : 'Лакдах хэсэг тодорхойлох'}
+              </button>
+              {lacquerMode && (
+                <div style={{ marginTop: 6, padding: 8, background: '#F5F3FF', borderRadius: 8, fontSize: 10, color: '#6D28D9', lineHeight: 1.5 }}>
+                  Харанхуй хэсэг = лакгүй, гэрэлтэй хэсэг = лактай. Текст/лого дээр дарж лакдах эсэхийг тодорхойлно.
+                </div>
+              )}
+            </div>
+          )}
 
           {/* ═══ ZOOM CONTROLS — bottom center floating ═══ */}
           <div style={{
