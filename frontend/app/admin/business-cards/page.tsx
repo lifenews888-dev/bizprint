@@ -3,6 +3,7 @@ import { apiFetch } from '@/lib/api'
 import { useState, useEffect, useCallback } from 'react'
 
 const inp: React.CSSProperties = { padding: '8px 12px', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text)', fontSize: 13, width: '100%', outline: 'none' }
+const num = (v: string) => { const n = parseFloat(v); return isNaN(n) ? 0 : n }
 const lbl: React.CSSProperties = { fontSize: 11, fontWeight: 600, color: 'var(--text2)', marginBottom: 4, display: 'block', textTransform: 'uppercase', letterSpacing: '0.5px' }
 const btn = (bg: string, color: string): React.CSSProperties => ({ padding: '8px 16px', background: bg, color, border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer' })
 
@@ -235,10 +236,10 @@ export default function AdminBusinessCardsPage() {
               <tbody>
                 {tiers.map((t, i) => (
                   <tr key={i} style={{ borderBottom: '1px solid var(--border)' }}>
-                    <td style={{ padding: 8 }}><input style={{ ...inp, maxWidth: 80 }} type="number" value={t.quantity} onChange={e => { const c = [...tiers]; c[i] = { ...c[i], quantity: Number(e.target.value) }; setTiers(c) }} /></td>
-                    <td style={{ padding: 8 }}><input style={{ ...inp, maxWidth: 80 }} type="number" step="0.5" value={t.standard} onChange={e => { const c = [...tiers]; c[i] = { ...c[i], standard: Number(e.target.value) }; setTiers(c) }} /></td>
-                    <td style={{ padding: 8 }}><input style={{ ...inp, maxWidth: 80 }} type="number" step="0.5" value={t.laminated} onChange={e => { const c = [...tiers]; c[i] = { ...c[i], laminated: Number(e.target.value) }; setTiers(c) }} /></td>
-                    <td style={{ padding: 8 }}><input style={{ ...inp, maxWidth: 80 }} type="number" step="0.5" value={t.embossed} onChange={e => { const c = [...tiers]; c[i] = { ...c[i], embossed: Number(e.target.value) }; setTiers(c) }} /></td>
+                    <td style={{ padding: 8 }}><input style={{ ...inp, maxWidth: 80 }} type="number" value={t.quantity} onChange={e => { const c = [...tiers]; c[i] = { ...c[i], quantity: num(e.target.value) }; setTiers(c) }} /></td>
+                    <td style={{ padding: 8 }}><input style={{ ...inp, maxWidth: 80 }} type="number" step="0.5" value={t.standard} onChange={e => { const c = [...tiers]; c[i] = { ...c[i], standard: num(e.target.value) }; setTiers(c) }} /></td>
+                    <td style={{ padding: 8 }}><input style={{ ...inp, maxWidth: 80 }} type="number" step="0.5" value={t.laminated} onChange={e => { const c = [...tiers]; c[i] = { ...c[i], laminated: num(e.target.value) }; setTiers(c) }} /></td>
+                    <td style={{ padding: 8 }}><input style={{ ...inp, maxWidth: 80 }} type="number" step="0.5" value={t.embossed} onChange={e => { const c = [...tiers]; c[i] = { ...c[i], embossed: num(e.target.value) }; setTiers(c) }} /></td>
                     <td style={{ padding: 8 }}><button onClick={() => setTiers(tiers.filter((_, j) => j !== i))} style={{ background: 'none', border: 'none', color: '#EF4444', cursor: 'pointer', fontSize: 14 }}>✕</button></td>
                   </tr>
                 ))}
@@ -251,7 +252,7 @@ export default function AdminBusinessCardsPage() {
               <div style={{ display: 'flex', gap: 12, alignItems: 'flex-end', flexWrap: 'wrap', marginBottom: 12 }}>
                 <div>
                   <label style={lbl}>Тоо</label>
-                  <input style={{ ...inp, maxWidth: 100 }} type="number" value={calcQty} onChange={e => setCalcQty(Number(e.target.value) || 1)} />
+                  <input style={{ ...inp, maxWidth: 100 }} type="number" value={calcQty} onChange={e => setCalcQty(num(e.target.value) || 1)} />
                 </div>
                 <div>
                   <label style={lbl}>Төрөл</label>
@@ -638,10 +639,10 @@ export default function AdminBusinessCardsPage() {
             <tbody>
               {tiers.map((t, ti) => (
                 <tr key={ti} style={{ borderBottom: '1px solid var(--border)' }}>
-                  <td style={{ padding: '4px 6px' }}><input style={{ ...inp, maxWidth: 70, padding: '6px 8px', fontSize: 12 }} type="number" value={t.quantity} onChange={e => { const c = [...tiers]; c[ti] = { ...c[ti], quantity: Number(e.target.value) }; setTiers(c) }} /></td>
-                  <td style={{ padding: '4px 6px' }}><input style={{ ...inp, maxWidth: 70, padding: '6px 8px', fontSize: 12 }} type="number" step="0.5" value={t.standard} onChange={e => { const c = [...tiers]; c[ti] = { ...c[ti], standard: Number(e.target.value) }; setTiers(c) }} /></td>
-                  <td style={{ padding: '4px 6px' }}><input style={{ ...inp, maxWidth: 70, padding: '6px 8px', fontSize: 12 }} type="number" step="0.5" value={t.laminated} onChange={e => { const c = [...tiers]; c[ti] = { ...c[ti], laminated: Number(e.target.value) }; setTiers(c) }} /></td>
-                  <td style={{ padding: '4px 6px' }}><input style={{ ...inp, maxWidth: 70, padding: '6px 8px', fontSize: 12 }} type="number" step="0.5" value={t.embossed} onChange={e => { const c = [...tiers]; c[ti] = { ...c[ti], embossed: Number(e.target.value) }; setTiers(c) }} /></td>
+                  <td style={{ padding: '4px 6px' }}><input style={{ ...inp, maxWidth: 70, padding: '6px 8px', fontSize: 12 }} type="number" value={t.quantity} onChange={e => { const c = [...tiers]; c[ti] = { ...c[ti], quantity: num(e.target.value) }; setTiers(c) }} /></td>
+                  <td style={{ padding: '4px 6px' }}><input style={{ ...inp, maxWidth: 70, padding: '6px 8px', fontSize: 12 }} type="number" step="0.5" value={t.standard} onChange={e => { const c = [...tiers]; c[ti] = { ...c[ti], standard: num(e.target.value) }; setTiers(c) }} /></td>
+                  <td style={{ padding: '4px 6px' }}><input style={{ ...inp, maxWidth: 70, padding: '6px 8px', fontSize: 12 }} type="number" step="0.5" value={t.laminated} onChange={e => { const c = [...tiers]; c[ti] = { ...c[ti], laminated: num(e.target.value) }; setTiers(c) }} /></td>
+                  <td style={{ padding: '4px 6px' }}><input style={{ ...inp, maxWidth: 70, padding: '6px 8px', fontSize: 12 }} type="number" step="0.5" value={t.embossed} onChange={e => { const c = [...tiers]; c[ti] = { ...c[ti], embossed: num(e.target.value) }; setTiers(c) }} /></td>
                   <td style={{ padding: '4px 6px' }}><button onClick={() => setTiers(tiers.filter((_, j) => j !== ti))} style={{ background: 'none', border: 'none', color: '#EF4444', cursor: 'pointer' }}>✕</button></td>
                 </tr>
               ))}
@@ -750,10 +751,10 @@ export default function AdminBusinessCardsPage() {
             <tbody>
               {tiers.map((t, ti) => (
                 <tr key={ti} style={{ borderBottom: '1px solid var(--border)' }}>
-                  <td style={{ padding: '8px' }}><input style={{ ...inp, maxWidth: 80 }} type="number" value={t.quantity} onChange={e => { const c = [...tiers]; c[ti] = { ...c[ti], quantity: Number(e.target.value) }; setTiers(c) }} /></td>
-                  <td style={{ padding: '8px' }}><input style={{ ...inp, maxWidth: 80 }} type="number" step="0.5" value={t.standard} onChange={e => { const c = [...tiers]; c[ti] = { ...c[ti], standard: Number(e.target.value) }; setTiers(c) }} /></td>
-                  <td style={{ padding: '8px' }}><input style={{ ...inp, maxWidth: 80 }} type="number" step="0.5" value={t.laminated} onChange={e => { const c = [...tiers]; c[ti] = { ...c[ti], laminated: Number(e.target.value) }; setTiers(c) }} /></td>
-                  <td style={{ padding: '8px' }}><input style={{ ...inp, maxWidth: 80 }} type="number" step="0.5" value={t.embossed} onChange={e => { const c = [...tiers]; c[ti] = { ...c[ti], embossed: Number(e.target.value) }; setTiers(c) }} /></td>
+                  <td style={{ padding: '8px' }}><input style={{ ...inp, maxWidth: 80 }} type="number" value={t.quantity} onChange={e => { const c = [...tiers]; c[ti] = { ...c[ti], quantity: num(e.target.value) }; setTiers(c) }} /></td>
+                  <td style={{ padding: '8px' }}><input style={{ ...inp, maxWidth: 80 }} type="number" step="0.5" value={t.standard} onChange={e => { const c = [...tiers]; c[ti] = { ...c[ti], standard: num(e.target.value) }; setTiers(c) }} /></td>
+                  <td style={{ padding: '8px' }}><input style={{ ...inp, maxWidth: 80 }} type="number" step="0.5" value={t.laminated} onChange={e => { const c = [...tiers]; c[ti] = { ...c[ti], laminated: num(e.target.value) }; setTiers(c) }} /></td>
+                  <td style={{ padding: '8px' }}><input style={{ ...inp, maxWidth: 80 }} type="number" step="0.5" value={t.embossed} onChange={e => { const c = [...tiers]; c[ti] = { ...c[ti], embossed: num(e.target.value) }; setTiers(c) }} /></td>
                   <td style={{ padding: '8px' }}><button onClick={() => setTiers(tiers.filter((_, j) => j !== ti))} style={{ background: 'none', border: 'none', color: '#EF4444', cursor: 'pointer', fontSize: 14 }}>✕</button></td>
                 </tr>
               ))}
@@ -766,7 +767,7 @@ export default function AdminBusinessCardsPage() {
             <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 12, flexWrap: 'wrap' }}>
               <div>
                 <label style={lbl}>Тоо хэмжээ</label>
-                <input style={{ ...inp, maxWidth: 120 }} type="number" value={calcQty} onChange={e => setCalcQty(Number(e.target.value) || 1)} />
+                <input style={{ ...inp, maxWidth: 120 }} type="number" value={calcQty} onChange={e => setCalcQty(num(e.target.value) || 1)} />
               </div>
               <div>
                 <label style={lbl}>Төрөл</label>
