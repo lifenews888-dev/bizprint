@@ -759,56 +759,10 @@ function EditorInner() {
                 {editMode ? '✓ Засварлаж байна' : '✎ Чирж засах'}
               </button>
             </div>
-            {/* Байрлуулах tools — сонгосон zone-уудад */}
-            {editMode && zoneLayout.length > 0 && (
-              <div>
-                <div style={{ fontSize: 10, color: '#9CA3AF', marginBottom: 4 }}>
-                  {selectedZones.size > 0 ? `${selectedZones.size} сонгосон — байрлуулах:` : 'Ctrl+Click олон сонгох, дараа нь байрлуулах:'}
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 3, marginBottom: 6 }}>
-                  {[
-                    { label: '◤', title: 'Зүүн дээр', getX: () => 20, alignY: 'top' },
-                    { label: '◬', title: 'Голд дээр', getX: (z: any) => Math.round((W - (z.w || 200)) / 2), alignY: 'top' },
-                    { label: '◥', title: 'Баруун дээр', getX: (z: any) => W - (z.w || 200) - 20, alignY: 'top' },
-                    { label: '◧', title: 'Зүүн голд', getX: () => 20, alignY: 'middle' },
-                    { label: '◫', title: 'Голд', getX: (z: any) => Math.round((W - (z.w || 200)) / 2), alignY: 'middle' },
-                    { label: '◨', title: 'Баруун голд', getX: (z: any) => W - (z.w || 200) - 20, alignY: 'middle' },
-                    { label: '◣', title: 'Зүүн доор', getX: () => 20, alignY: 'bottom' },
-                    { label: '◭', title: 'Голд доор', getX: (z: any) => Math.round((W - (z.w || 200)) / 2), alignY: 'bottom' },
-                    { label: '◢', title: 'Баруун доор', getX: (z: any) => W - (z.w || 200) - 20, alignY: 'bottom' },
-                  ].map((pos, pi) => (
-                    <button key={pi} title={pos.title} disabled={selectedZones.size === 0} onClick={() => {
-                      // Зөвхөн сонгосон zone-уудыг шилжүүлэх
-                      const selArr = Array.from(selectedZones)
-                      const selZones = selArr.map(si => zoneLayout[si]).filter(Boolean)
-                      const totalH = selZones.reduce((s: number, z: any) => s + (z.h || 22), 0) + (selZones.length - 1) * 6
-                      let startY = pos.alignY === 'top' ? 20 : pos.alignY === 'bottom' ? H - totalH - 20 : Math.round((H - totalH) / 2)
-                      let selI = 0
-                      setZoneLayout(zoneLayout.map((z: any, zi: number) => {
-                        if (!selectedZones.has(zi)) return z
-                        const x = pos.getX(z)
-                        const y = startY
-                        startY += (z.h || 22) + 6
-                        selI++
-                        return { ...z, x, y }
-                      }))
-                    }} style={{ padding: '6px 0', borderRadius: 6, border: '1px solid #E5E7EB', background: selectedZones.size > 0 ? '#fff' : '#F9FAFB', cursor: selectedZones.size > 0 ? 'pointer' : 'default', fontSize: 12, color: selectedZones.size > 0 ? '#374151' : '#D1D5DB', textAlign: 'center' }}>
-                      {pos.label}
-                    </button>
-                  ))}
-                </div>
-                <div style={{ display: 'flex', gap: 3 }}>
-                  <button disabled={selectedZones.size === 0} onClick={() => {
-                    const selArr = Array.from(selectedZones).sort()
-                    const gap = Math.max(4, Math.floor((H - 40) / selArr.length))
-                    setZoneLayout(zoneLayout.map((z: any, zi: number) => {
-                      const si = selArr.indexOf(zi)
-                      return si >= 0 ? { ...z, y: 20 + si * gap } : z
-                    }))
-                  }} style={{ flex: 1, padding: '5px 0', borderRadius: 6, border: '1px solid #E5E7EB', background: '#fff', cursor: selectedZones.size > 0 ? 'pointer' : 'default', fontSize: 10, color: selectedZones.size > 0 ? '#374151' : '#D1D5DB' }}>↕ Жигд тараах</button>
-                  <button onClick={() => { const all = new Set(zoneLayout.map((_: any, i: number) => i)); setSelectedZones(all) }}
-                    style={{ flex: 1, padding: '5px 0', borderRadius: 6, border: '1px solid #E5E7EB', background: '#fff', cursor: 'pointer', fontSize: 10, color: '#374151' }}>☑ Бүгд</button>
-                </div>
+            {/* Чирж зөөх зааварчилгаа */}
+            {editMode && (
+              <div style={{ fontSize: 10, color: '#9CA3AF', lineHeight: 1.5 }}>
+                Элемент дээр дарж чирнэ. Дарахад фонт/устгах toolbar гарна.
               </div>
             )}
           </div>
