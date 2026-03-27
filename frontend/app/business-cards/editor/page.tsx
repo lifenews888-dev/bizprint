@@ -212,6 +212,7 @@ function EditorInner() {
   }
   const [showQr, setShowQr] = useState(false)
   const [ordering, setOrdering] = useState(false)
+  const [printReady, setPrintReady] = useState(false)
   const [orderSuccess, setOrderSuccess] = useState<any>(null)
   const [paymentData, setPaymentData] = useState<any>(null)
   const [paymentStatus, setPaymentStatus] = useState<'idle' | 'pending' | 'paid'>('idle')
@@ -321,12 +322,116 @@ function EditorInner() {
         if (res?.status === 'paid' || res?.status === 1 || res?.status === 'PAID') {
           setPaymentStatus('paid')
           if (pollRef.current) clearInterval(pollRef.current)
+          // Төлбөр төлөгдсөн → файл үүсгэх flag
+          setPrintReady(true)
         }
       } catch {}
     }, 5000)
   }
 
   // Order + Payment handler
+  // ═══ Төлбөр төлөгдсөний дараа 4 PDF файл үүсгэж upload ═══
+  useEffect(() => {
+    if (printReady && orderSuccess?.id) {
+      generateAndUploadFiles(orderSuccess.id)
+      setPrintReady(false)
+    }
+  }, [printReady, orderSuccess])
+
+  const generateAndUploadFiles = async (orderId: string) => {
+    if (!orderId) return
+
+    const renderCard = (sideType: 'front' | 'back') => {
+      const canvas = document.createElement('canvas')
+      canvas.width = W; canvas.height = H
+      const ctx = canvas.getContext('2d')
+      if (!ctx) return canvas
+      // Background
+      ctx.fillStyle = T.bg
+      ctx.fillRect(0, 0, W, H)
+      // Zones
+      const zones = sideType === 'front' ? zoneLayout : backZoneLayout
+      for (const z of zones) {
+        if (z.type === 'logo' && logoUrl) {
+          // Logo — skip for now (image loading async)
+          ctx.fillStyle = '#E5E7EB'; ctx.fillRect(z.x, z.y, z.w || 72, z.h || 72)
+        } else if (z.type === 'qr') {
+          ctx.fillStyle = '#FFFFFF'; ctx.fillRect(z.x, z.y, z.w || 60, z.h || 60)
+          ctx.fillStyle = '#000'; ctx.font = '10px sans-serif'; ctx.fillText('QR', z.x + 20, z.y + 35)
+        } else if (!z.type && z.key) {
+          const text = (form as any)[z.key] || z.label || ''
+          if (!text) continue
+          ctx.fillStyle = z.color || (z.fill === 'accent' ? T.accent : T.textLight)
+          ctx.font = `${z.fontWeight === 'bold' ? 'bold' : 'normal'} ${z.fontSize || 12}px ${z.fontFamily || 'sans-serif'}`
+          ctx.textBaseline = 'top'; ctx.fillText(text, z.x, z.y)
+        }
+      }
+      return canvas
+    }
+
+    const renderLacMask = (zones: Set<string>, zoneList: any[]) => {
+      const canvas = document.createElement('canvas')
+      canvas.width = W; canvas.height = H
+      const ctx = canvas.getContext('2d')
+      if (!ctx) return canvas
+      ctx.fillStyle = '#FFFFFF'; ctx.fillRect(0, 0, W, H)
+      ctx.fillStyle = '#000000'
+      for (const z of zoneList) {
+        if (!zones.has(z.key)) continue
+        if (z.type === 'logo' || z.type === 'qr') { ctx.beginPath(); ctx.roundRect(z.x, z.y, z.w || 72, z.h || 72, 4); ctx.fill() }
+        else if (z.type === 'icon') { const s = Math.min(z.w || 14, z.h || 14); ctx.beginPath(); ctx.arc(z.x + s / 2, z.y + s / 2, s / 2, 0, Math.PI * 2); ctx.fill() }
+        else { const t = (form as any)[z.key] || z.label || ''; if (t) { ctx.font = `${z.fontWeight === 'bold' ? 'bold' : 'normal'} ${z.fontSize || 12}px ${z.fontFamily || 'sans-serif'}`; ctx.textBaseline = 'top'; ctx.fillText(t, z.x, z.y) } }
+      }
+      return canvas
+    }
+
+    try {
+      const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: [90, 55] })
+
+      // Page 1: Өвөр тал
+      const frontCanvas = renderCard('front')
+      pdf.addImage(frontCanvas.toDataURL('image/png'), 'PNG', 0, 0, 90, 55)
+      pdf.setFontSize(5); pdf.setTextColor(180); pdf.text('Өвөр тал', 1, 2)
+
+      // Page 2: Ар тал
+      pdf.addPage([90, 55], 'landscape')
+      const backCanvas = renderCard('back')
+      pdf.addImage(backCanvas.toDataURL('image/png'), 'PNG', 0, 0, 90, 55)
+      pdf.setFontSize(5); pdf.setTextColor(180); pdf.text('Ар тал', 1, 2)
+
+      // Page 3: Лак mask өвөр (хэрэв байвал)
+      if (lacquerFront.size > 0) {
+        pdf.addPage([90, 55], 'landscape')
+        const lacFront = renderLacMask(lacquerFront, zoneLayout)
+        pdf.addImage(lacFront.toDataURL('image/png'), 'PNG', 0, 0, 90, 55)
+        pdf.setFontSize(5); pdf.setTextColor(180); pdf.text('Лак mask — Өвөр', 1, 2)
+      }
+
+      // Page 4: Лак mask ар (хэрэв байвал)
+      if (lacquerBack.size > 0) {
+        pdf.addPage([90, 55], 'landscape')
+        const lacBack = renderLacMask(lacquerBack, backZoneLayout)
+        pdf.addImage(lacBack.toDataURL('image/png'), 'PNG', 0, 0, 90, 55)
+        pdf.setFontSize(5); pdf.setTextColor(180); pdf.text('Лак mask — Ар', 1, 2)
+      }
+
+      // PDF → Blob → Upload
+      const pdfBlob = pdf.output('blob')
+      const fd = new FormData()
+      fd.append('file', pdfBlob, `business-card-${orderId}.pdf`)
+      fd.append('order_id', orderId)
+      fd.append('file_type', 'print_ready')
+
+      const tok = localStorage.getItem('access_token') || localStorage.getItem('token')
+      await fetch(`${API_URL}/upload/file`, { method: 'POST', body: fd, headers: tok ? { Authorization: `Bearer ${tok}` } : {} })
+
+      // Захиалгын статус шинэчлэх
+      await apiFetch(`/orders/${orderId}`, { method: 'PATCH', body: { status: 'paid', payment_status: 'paid', print_file_ready: true } }).catch(() => {})
+    } catch (e) {
+      console.error('PDF generation error:', e)
+    }
+  }
+
   const handleOrder = async () => {
     if (!isValid) return
     const tok = localStorage.getItem('access_token') || localStorage.getItem('token')
