@@ -110,8 +110,24 @@ function FileUploadWidget({ order, onUploadComplete }: { order: any; onUploadCom
                   background: '#10B981', color: '#fff',
                 }}>FINAL</span>
               )}
+              {/* Татах товч */}
+              <a href={f.url?.startsWith('http') ? f.url : `${API_URL}${f.url}`} target="_blank" rel="noopener"
+                style={{ fontSize: 11, color: '#3B82F6', textDecoration: 'none', fontWeight: 600, padding: '4px 8px' }}
+                download>↓ Татах</a>
             </div>
           ))}
+          {/* Print-ready файл тусгай хэсэг */}
+          {files.some((f: any) => f.file_type === 'print_ready') && (
+            <div style={{ marginTop: 8, padding: 12, background: '#F0FDF4', borderRadius: 10, border: '1px solid #BBF7D0' }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: '#10B981', marginBottom: 6 }}>📄 Хэвлэлийн файлууд бэлэн</div>
+              {files.filter((f: any) => f.file_type === 'print_ready').map((f: any) => (
+                <a key={f.id} href={f.url?.startsWith('http') ? f.url : `${API_URL}${f.url}`} target="_blank" rel="noopener" download
+                  style={{ display: 'block', fontSize: 12, color: '#059669', textDecoration: 'none', padding: '4px 0' }}>
+                  📥 {f.filename} ({(f.size / 1024).toFixed(0)}KB)
+                </a>
+              ))}
+            </div>
+          )}
         </div>
       )}
 

@@ -490,6 +490,21 @@ export default function AdminOrdersPage() {
                 </div>
               )}
 
+              {/* Үйлдвэрт илгээх — тусгай товч */}
+              {(detail.status === 'file_review' || detail.status === 'confirmed' || detail.status === 'paid') && (
+                <div style={{ marginBottom: 16, padding: 16, background: '#F0FDF4', borderRadius: 12, border: '1px solid #BBF7D0' }}>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: '#059669', marginBottom: 8 }}>🏭 Үйлдвэрлэлд бэлэн</div>
+                  <div style={{ fontSize: 11, color: '#6B7280', marginBottom: 10 }}>Файл шалгалт дууссан бол үйлдвэрт илгээнэ</div>
+                  <button onClick={async () => {
+                    await updateStatus(detail.id, 'in_production')
+                    setDetail({ ...detail, status: 'in_production' })
+                    alert('Үйлдвэрлэлд илгээгдлээ!')
+                  }} style={{ width: '100%', padding: '12px 0', borderRadius: 10, border: 'none', background: '#10B981', color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer' }}>
+                    🏭 Үйлдвэрлэлд илгээх
+                  </button>
+                </div>
+              )}
+
               {/* Quick Actions */}
               <div style={{ marginBottom: 20 }}>
                 <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8, color: 'var(--text2)' }}>Төлөв солих</div>
