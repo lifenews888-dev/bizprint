@@ -1,4 +1,5 @@
 ﻿import { DataSource } from 'typeorm';
+import * as bcrypt from 'bcrypt';
 
 const ds = new DataSource({
   type: 'postgres',
@@ -11,6 +12,24 @@ const ds = new DataSource({
 
 async function main() {
   await ds.initialize();
+
+  // ===== SUPERADMIN USER =====
+  const adminEmail = 'admin@bizprint.mn';
+  const adminPassword = 'Admin@2026';
+  const existing = await ds.query(`SELECT id FROM users WHERE email = $1`, [adminEmail]);
+  if (existing.length === 0) {
+    const hash = await bcrypt.hash(adminPassword, 12);
+    await ds.query(`
+      INSERT INTO users (id, email, password_hash, full_name, role, is_active)
+      VALUES (gen_random_uuid(), $1, $2, 'Super Admin', 'superadmin', true)
+    `, [adminEmail, hash]);
+    console.log(`✅ Superadmin үүсгэлээ: ${adminEmail} / ${adminPassword}`);
+  } else {
+    // Update password in case it was forgotten
+    const hash = await bcrypt.hash(adminPassword, 12);
+    await ds.query(`UPDATE users SET password_hash = $1, role = 'superadmin' WHERE email = $2`, [hash, adminEmail]);
+    console.log(`🔄 Superadmin нууц үг шинэчлэгдлээ: ${adminEmail} / ${adminPassword}`);
+  }
 
   // Categories
   await ds.query(`

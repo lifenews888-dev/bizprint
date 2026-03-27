@@ -19,4 +19,9 @@ export class PaymentController {
   async callback(@Body() body: any) {
     return this.paymentService.handleTdbCallback(body)
   }
+
+  @Post('confirm/:invoiceCode')
+  async confirm(@Param('invoiceCode') invoiceCode: string) {
+    return this.paymentService.confirmPayment(invoiceCode)
+  }
 }

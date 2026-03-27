@@ -110,4 +110,55 @@ export class PricingService {
     const pricing = this.calculatePrice(vendor_cost, margin_rate);
     return { ...pricing, margin_source: source };
   }
+
+  // ─── VAT-aware pricing (НӨАТ-тай тооцоолол) ───
+  static readonly VAT_RATE = 0.10; // Монгол: 10% НӨАТ
+
+  /**
+   * Vendor-ийн НӨАТ-тай үнээс → Хэрэглэгчийн НӨАТ-тай үнэ тооцоолох.
+   *
+   * Flow:
+   *   1. vendor_price_with_vat / (1 + VAT_RATE) = vendor_base (НӨАТ-гүй)
+   *   2. vendor_base × (1 + margin_rate) = customer_base (НӨАТ-гүй + margin)
+   *   3. customer_base × (1 + VAT_RATE) = customer_price (НӨАТ-тай)
+   *
+   * CLAUDE.md formula-тай нийцтэй:
+   *   customer_price = vendor_cost × (1 + margin_rate) [НӨАТ тусдаа бодогдоно]
+   */
+  calculateWithVat(vendorPriceWithVat: number, margin_rate: number) {
+    const vatRate = PricingService.VAT_RATE;
+    const vendorBase = vendorPriceWithVat / (1 + vatRate);
+    const customerBase = vendorBase * (1 + margin_rate);
+    const customerPrice = Math.round(customerBase * (1 + vatRate));
+    const vatAmount = Math.round(customerBase * vatRate);
+    const margin = Math.round(customerPrice - vendorPriceWithVat);
+
+    return {
+      vendor_price_with_vat: vendorPriceWithVat,
+      vendor_base: Math.round(vendorBase),
+      margin_rate,
+      customer_base: Math.round(customerBase),
+      customer_price: customerPrice,
+      vat_amount: vatAmount,
+      margin,
+      platform_revenue: margin,
+    };
+  }
+
+  /**
+   * Full VAT-aware price calculation with auto margin lookup.
+   */
+  async calculateFullPriceWithVat(
+    vendorPriceWithVat: number,
+    params: {
+      product_id?: string;
+      product_master_id?: string;
+      category_id?: string;
+      vendor_id?: string;
+    },
+  ) {
+    const { margin_rate, source } = await this.findMarginRate(params);
+    const pricing = this.calculateWithVat(vendorPriceWithVat, margin_rate);
+    return { ...pricing, margin_source: source };
+  }
 }

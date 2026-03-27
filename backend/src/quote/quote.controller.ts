@@ -1,16 +1,280 @@
-import { Controller, Get, Post, Put, Patch, Body, Param, Query, UseGuards, Req } from '@nestjs/common';
+import { Controller, Get, Post, Put, Patch, Delete, Body, Param, Query, UseGuards, Req, Res, HttpStatus } from '@nestjs/common';
+import { Response } from 'express';
 import { QuoteService } from './quote.service';
 import { MailService } from '../mail/mail.service';
+import { PdfQuoteService } from './pdf-quote.service';
+import { QuoteEngineService } from '../quote-engine/quote-engine.service';
+import { PricingRulesService } from '../pricing-rules/pricing-rules.service';
+import { PricingConfigService } from '../pricing-config/pricing-config.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { OptionalJwtAuthGuard } from '../auth/guards/optional-jwt-auth.guard';
 
-@Controller('quotes-v2')
+@Controller('quote')
 export class QuoteController {
   constructor(
     private svc: QuoteService,
     private mail: MailService,
+    private pdfQuote: PdfQuoteService,
+    private quoteEngine: QuoteEngineService,
+    private pricingRules: PricingRulesService,
+    private pricingConfig: PricingConfigService,
   ) {}
 
+  // ─── Calculate (proxy to QuoteEngine) ───
+  @Post('calculate')
+  async calculate(@Body() body: any) {
+    const calcType = body.calculation_type || 'calculate';
+    const params = {
+      quantity:       Number(body.quantity) || 100,
+      pages:          Number(body.pages) || 1,
+      width_mm:       Number(body.width_mm) || Number(body.width) || 210,
+      height_mm:      Number(body.height_mm) || Number(body.height) || 297,
+      color_mode:     body.color_mode || 'color',
+      sides:          body.sides || 'single',
+      paper_gsm:      Number(body.paper_gsm) || 150,
+      finishing:      body.finishing || 'none',
+      binding:        body.binding || 'none',
+      urgency:        body.urgency || 'standard',
+      express_hours:  Number(body.express_hours) || Number(body.rush_hours) || 0,
+      gang_run:       body.gang_run === true || body.gang_run === 'true',
+      category_id:    body.category_id || null,
+      product_id:     body.product_id || null,
+    };
+
+    try {
+      if (calcType === 'calculate-offset') {
+        return await this.quoteEngine.calculateOffset(body);
+      } else if (calcType === 'calculate-hadag') {
+        return await this.quoteEngine.calculateHadag(body);
+      } else if (calcType === 'calculate-wide') {
+        return await this.quoteEngine.calculateWide(body);
+      } else {
+        return await this.quoteEngine.calculate(params);
+      }
+    } catch (e) {
+      return { error: e.message, total_price: 0, unit_price: 0 };
+    }
+  }
+
+  // ─── Market Analysis ───
+  @Get('market-analysis')
+  async marketAnalysis(@Query() query: any) {
+    const productType = query.product_type || 'general';
+    const productSubtype = query.product_subtype || '';
+
+    // Get pricing config data for market context
+    const allConfig = await this.pricingConfig.getPublic();
+
+    // Build basic market analysis from available pricing data
+    const analysis: any = {
+      product_type: productType,
+      product_subtype: productSubtype,
+      market_average: null,
+      price_range: { min: null, max: null },
+      competitors: [],
+      recommendation: 'Зах зээлийн дундаж үнээс бага зэрэг доогуур үнэ санал болгож байна.',
+    };
+
+    // Pull relevant pricing data based on product type
+    const prefix = `${productType}_${productSubtype}`.replace(/[^a-zA-Z0-9_]/g, '_');
+    const relatedKeys = Object.entries(allConfig)
+      .filter(([k]) => k.toLowerCase().includes(productType.toLowerCase()) ||
+                       (productSubtype && k.toLowerCase().includes(productSubtype.toLowerCase())));
+
+    if (relatedKeys.length > 0) {
+      const values = relatedKeys.map(([, v]) => Number(v)).filter(v => v > 0);
+      if (values.length > 0) {
+        analysis.market_average = Math.round(values.reduce((a, b) => a + b, 0) / values.length);
+        analysis.price_range = { min: Math.min(...values), max: Math.max(...values) };
+      }
+    }
+
+    return analysis;
+  }
+
+  // ─── Pricing Rules (proxy to PricingRules module) ───
+  @Get('pricing/rules')
+  @UseGuards(JwtAuthGuard)
+  getPricingRules() {
+    return this.pricingRules.findAll();
+  }
+
+  @Get('pricing/rules/:id')
+  @UseGuards(JwtAuthGuard)
+  getPricingRule(@Param('id') id: string) {
+    return this.pricingRules.findOne(id);
+  }
+
+  @Post('pricing/rules')
+  @UseGuards(JwtAuthGuard)
+  createPricingRule(@Body() body: any) {
+    return this.pricingRules.create(body);
+  }
+
+  @Patch('pricing/rules/:id')
+  @UseGuards(JwtAuthGuard)
+  updatePricingRule(@Param('id') id: string, @Body() body: any) {
+    return this.pricingRules.update(id, body);
+  }
+
+  @Delete('pricing/rules/:id')
+  @UseGuards(JwtAuthGuard)
+  deletePricingRule(@Param('id') id: string) {
+    return this.pricingRules.remove(id);
+  }
+
+  // ─── Pricing Tiers (placeholder) ───
+  @Get('pricing/tiers')
+  @UseGuards(JwtAuthGuard)
+  async getPricingTiers() {
+    // Return pricing config grouped as tiers
+    const all = await this.pricingConfig.getAll();
+    return all.map(item => ({
+      id: item.id,
+      key: item.key,
+      value: item.value,
+      category: item.category,
+      label: item.label || item.key,
+    }));
+  }
+
+  @Patch('pricing/tiers/:id')
+  @UseGuards(JwtAuthGuard)
+  async updatePricingTier(@Param('id') id: string, @Body() body: any) {
+    await this.pricingConfig.set(body.key, body.value);
+    return { success: true };
+  }
+
+  // ─── Pricing Simulate ───
+  @Post('pricing/simulate')
+  @UseGuards(JwtAuthGuard)
+  async simulatePricing(@Body() body: any) {
+    const scenarios = body.scenarios || [body];
+    const simulations = [];
+    for (const scenario of scenarios) {
+      try {
+        const result = await this.quoteEngine.calculate({
+          quantity:       Number(scenario.quantity) || 100,
+          pages:          Number(scenario.pages) || 1,
+          width_mm:       Number(scenario.width_mm) || 210,
+          height_mm:      Number(scenario.height_mm) || 297,
+          color_mode:     scenario.color_mode || 'color',
+          sides:          scenario.sides || 'single',
+          paper_gsm:      Number(scenario.paper_gsm) || 150,
+          finishing:      scenario.finishing || 'none',
+          binding:        scenario.binding || 'none',
+          urgency:        scenario.urgency || 'standard',
+          express_hours:  0,
+          gang_run:       false,
+          category_id:    null,
+          product_id:     null,
+        });
+        simulations.push({ ...scenario, result });
+      } catch (e) {
+        simulations.push({ ...scenario, error: e.message });
+      }
+    }
+    return { simulations };
+  }
+
+  // ─── Pricing Competitors (placeholder) ───
+  @Get('pricing/competitors')
+  @UseGuards(JwtAuthGuard)
+  async getCompetitors() {
+    return [];
+  }
+
+  @Post('pricing/competitors')
+  @UseGuards(JwtAuthGuard)
+  async addCompetitor(@Body() body: any) {
+    return { message: 'Competitor tracking coming soon', ...body };
+  }
+
+  @Delete('pricing/competitors/:id')
+  @UseGuards(JwtAuthGuard)
+  async deleteCompetitor(@Param('id') id: string) {
+    return { deleted: id };
+  }
+
+  // ─── Batch Submit (олон quote нэг дор → нэг имэйл) ───
+  @Post('batch')
+  async batchCreate(@Body() body: { quotes: any[]; contact: { name: string; email: string; phone?: string; company?: string } }) {
+    const { quotes, contact } = body;
+    if (!quotes?.length || !contact?.email) {
+      return { error: 'quotes array and contact.email required' };
+    }
+
+    const safeNum = (v: any, fallback = 0) => { const n = Number(v); return isNaN(n) ? fallback : n; };
+    const created: any[] = [];
+
+    for (const q of quotes) {
+      try {
+        const quote = await this.svc.create({
+          customer_name:   contact.name,
+          customer_email:  contact.email,
+          customer_phone:  contact.phone || '',
+          guest_name:      contact.name,
+          guest_email:     contact.email,
+          guest_phone:     contact.phone || '',
+          company_name:    contact.company || '',
+          product_name:    q.product_name || '',
+          product_type:    q.product_type || '',
+          product_subtype: q.product_subtype || '',
+          dimensions:      q.dimensions || '',
+          quantity:        safeNum(q.quantity, 1),
+          total_price:     safeNum(q.total_price),
+          unit_price:      safeNum(q.unit_price),
+          base_price:      safeNum(q.base_price),
+          margin_rate:     q.margin_rate != null ? safeNum(q.margin_rate) : null,
+          rush_type:       q.rush_type || null,
+          rush_fee:        safeNum(q.rush_fee),
+          discount_amount: safeNum(q.discount_amount),
+          savings_amount:  safeNum(q.savings_amount),
+          breakdown:       q.breakdown || null,
+          extras:          q.extras || null,
+          notes:           q.notes || '',
+          pricing_mode:    q.pricing_mode || null,
+          size:            q.size || null,
+          pages:           q.pages != null ? safeNum(q.pages) : null,
+          paper_gsm:       q.paper_gsm != null ? safeNum(q.paper_gsm) : null,
+          paper_type:      q.paper_type || null,
+          color_mode:      q.color_mode || null,
+          sides:           q.sides || null,
+          finishing:       q.finishing || null,
+          binding:         q.binding || null,
+          width_mm:        q.width_mm != null ? safeNum(q.width_mm) : null,
+          height_mm:       q.height_mm != null ? safeNum(q.height_mm) : null,
+          product_description: null,
+          urgency:         q.urgency || null,
+          smart_adjustments: null,
+          user_id:         null,
+          expires_at:      new Date(Date.now() + 3 * 24 * 60 * 60 * 1000),
+        });
+        created.push(quote);
+      } catch (e) {
+        console.error('Batch quote create error:', e.message);
+      }
+    }
+
+    // Send single summary email with all quotes
+    if (created.length > 0) {
+      try {
+        await this.mail.sendBatchQuoteEmail(contact.email, contact.name, created);
+      } catch (e) {
+        console.error('Batch email error:', e.message);
+        // Fallback: send individual emails
+        for (const quote of created) {
+          try {
+            await this.mail.sendQuoteToCustomer(this.buildMailParams(quote));
+          } catch {}
+        }
+      }
+    }
+
+    return { success: true, count: created.length, quotes: created };
+  }
+
+  // ─── Core Quote CRUD ───
   @Post()
   @UseGuards(OptionalJwtAuthGuard)
   async create(@Body() body: any, @Req() req: any) {
@@ -60,7 +324,14 @@ export class QuoteController {
     try {
       const emailTo = quote.customer_email || quote.guest_email || '';
       if (!emailTo) throw new Error('No email address');
-      await this.mail.sendQuoteToCustomer(this.buildMailParams(quote));
+      // Generate PDF and attach to email
+      let pdfBuffer: Buffer | undefined;
+      try {
+        pdfBuffer = await this.pdfQuote.generateQuotePdf(quote);
+      } catch (pdfErr) {
+        console.error('PDF generate for email failed:', pdfErr.message);
+      }
+      await this.mail.sendQuoteToCustomer({ ...this.buildMailParams(quote), pdfBuffer });
       await this.svc.update(quote.id, { email_sent: true });
     } catch(e) {
       console.error('Email илгээхэд алдаа:', e.message);
@@ -90,6 +361,28 @@ export class QuoteController {
   @UseGuards(JwtAuthGuard)
   findToday() {
     return this.svc.findToday();
+  }
+
+  // ─── PDF Download ───
+  @Get(':id/pdf')
+  async downloadPdf(@Param('id') id: string, @Res() res: Response) {
+    const quote = await this.svc.findOne(id);
+    if (!quote) {
+      return res.status(HttpStatus.NOT_FOUND).json({ error: 'Quote not found' });
+    }
+    try {
+      const pdfBuffer = await this.pdfQuote.generateQuotePdf(quote);
+      const filename = `BizPrint-Quote-${quote.quote_number || id}.pdf`;
+      res.set({
+        'Content-Type': 'application/pdf',
+        'Content-Disposition': `attachment; filename="${filename}"`,
+        'Content-Length': pdfBuffer.length,
+      });
+      return res.send(pdfBuffer);
+    } catch (e) {
+      console.error('PDF generate error:', e.message);
+      return res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({ error: 'PDF үүсгэхэд алдаа гарлаа' });
+    }
   }
 
   @Get(':id')
@@ -149,7 +442,9 @@ export class QuoteController {
     const quote = await this.svc.findOne(id);
     if (!quote) return { error: 'Quote not found' };
     try {
-      await this.mail.sendQuoteToCustomer(this.buildMailParams(quote));
+      let pdfBuffer: Buffer | undefined;
+      try { pdfBuffer = await this.pdfQuote.generateQuotePdf(quote); } catch {}
+      await this.mail.sendQuoteToCustomer({ ...this.buildMailParams(quote), pdfBuffer });
       await this.svc.update(quote.id, { email_sent: true });
       return { success: true };
     } catch(e) {
@@ -164,7 +459,9 @@ export class QuoteController {
     const quote = await this.svc.findOne(id);
     if (!quote) return { error: 'Quote not found' };
     try {
-      await this.mail.sendQuoteToCustomer(this.buildMailParams(quote));
+      let pdfBuffer: Buffer | undefined;
+      try { pdfBuffer = await this.pdfQuote.generateQuotePdf(quote); } catch {}
+      await this.mail.sendQuoteToCustomer({ ...this.buildMailParams(quote), pdfBuffer });
       await this.svc.update(quote.id, { email_sent: true });
       return { success: true };
     } catch(e) {

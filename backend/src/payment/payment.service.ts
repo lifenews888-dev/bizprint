@@ -15,8 +15,11 @@ const TDB_QR_USER = process.env.TDB_QR_USER || 'tdbm'
 const TDB_QR_PASS = process.env.TDB_QR_PASS || 'tdbm'
 const TDB_QR_TERMINAL = process.env.TDB_QR_TERMINAL || '91200026'
 const TDB_OAUTH_URL = process.env.TDB_OAUTH_URL || 'https://api-sandbox.tdbmlabs.mn:8443/oauth2/token'
-const TDB_CLIENT_ID = process.env.TDB_CLIENT_ID || '6c790056-e40e-48b3-81d8-223b10be27ef'
-const TDB_CLIENT_SECRET = process.env.TDB_CLIENT_SECRET || '2b$10jNzbLy62RHB5m1g6LEF3nemjVyDAHWYVElETenFGsQGZFlN2XKKG6'
+const TDB_CLIENT_ID = process.env.TDB_CLIENT_ID || ''
+const TDB_CLIENT_SECRET = process.env.TDB_CLIENT_SECRET || ''
+const TDB_BIZPRINT_IBAN = process.env.TDB_BIZPRINT_IBAN || ''
+const TDB_BIZPRINT_ACCOUNT = process.env.TDB_BIZPRINT_ACCOUNT || ''
+const TDB_BIZPRINT_ACCOUNT_NAME = process.env.TDB_BIZPRINT_ACCOUNT_NAME || 'ЮүЭмБи Верто ХХК'
 
 @Injectable()
 export class PaymentService {
@@ -62,14 +65,28 @@ export class PaymentService {
   // ─── CREATE ────────────────────────────────────────────
   async createTdbInvoice(order_id: string, amount: number, method: 'qr' | 'bank' | 'cash' = 'qr') {
     if (method === 'bank') {
+      const refCode = `BP-${Date.now().toString(36).toUpperCase()}`
+      const payment = await this.paymentRepo.save(this.paymentRepo.create({
+        order_id,
+        customer_id: '',
+        amount,
+        provider: 'bank',
+        status: 'pending',
+        invoice_code: refCode,
+      }))
       return {
         method,
-        accountName: 'BizPrint LLC',
-        accountNumber: '0000000000',
-        bank: 'TDB',
-        description: `Order ${order_id}`,
+        payment_id: payment.id,
+        invoice_code: refCode,
+        accountName: TDB_BIZPRINT_ACCOUNT_NAME,
+        iban: TDB_BIZPRINT_IBAN,
+        accountNumber: TDB_BIZPRINT_ACCOUNT,
+        bank: 'Худалдаа Хөгжлийн Банк (TDB)',
+        bankCode: 4,
+        description: `BizPrint ${refCode}`,
         amount,
         currency: 'MNT',
+        status: 'pending',
       }
     }
 
@@ -85,39 +102,71 @@ export class PaymentService {
       return { method, payment_id: payment.id, status: 'pending' }
     }
 
-    const qrToken = await this.fetchQrToken()
-    const res = await axios.post(`${TDB_QR_BASE}/api/v1/invoice`, {
-      qrType: 'dynamic',
-      transactionType: 1,
-      qrGenerator: 'TDBM',
-      accountNumber: ' ',
-      amount,
-      bankCode: 'TDBMNUB',
-      curCode: 'MNT',
-      terminalId: TDB_QR_TERMINAL,
-      additional: {
-        purposeTransaction: 'BizPrint ' + order_id,
-        callbackUrl: 'http://localhost:4000/payment/callback',
-      },
-    }, { headers: { Authorization: 'Bearer ' + qrToken } })
+    // Try TDB QR service
+    try {
+      const qrToken = await this.fetchQrToken()
+      const callbackUrl = process.env.PAYMENT_CALLBACK_URL || 'http://localhost:4000/payment/callback'
+      const res = await axios.post(`${TDB_QR_BASE}/api/v1/invoice`, {
+        qrType: 'dynamic',
+        transactionType: 1,
+        qrGenerator: 'TDBM',
+        accountNumber: TDB_BIZPRINT_ACCOUNT,
+        amount,
+        bankCode: 'TDBMNUB',
+        curCode: 'MNT',
+        terminalId: TDB_QR_TERMINAL,
+        additional: {
+          purposeTransaction: 'BizPrint ' + order_id,
+          callbackUrl,
+        },
+      }, { headers: { Authorization: 'Bearer ' + qrToken } })
 
-    const data = res.data?.data || {}
-    const invoice = await this.paymentRepo.save(this.paymentRepo.create({
+      const data = res.data?.data || {}
+      if (data.qrImage || data.invoiceNo) {
+        const invoice = await this.paymentRepo.save(this.paymentRepo.create({
+          order_id,
+          customer_id: '',
+          amount,
+          provider: 'tdb_qr',
+          status: 'pending',
+          invoice_code: data.invoiceNo,
+          qr_image: data.qrImage,
+        }))
+
+        return {
+          method: 'qr',
+          payment_id: (invoice as Payment).id,
+          invoice_code: data.invoiceNo,
+          invoiceNo: data.invoiceNo,
+          qrImage: data.qrImage,
+          expiresAt: data.expireTime,
+          amount,
+          status: 'pending',
+        }
+      }
+    } catch (e) {
+      console.log('TDB QR service error, falling back to bank transfer:', (e as any).message)
+    }
+
+    // Fallback: QR service байхгüй бол банк шилжүүлгийн мэдээлэл буцаана
+    const refCode = `BP-${Date.now().toString(36).toUpperCase()}`
+    const fallbackPayment = await this.paymentRepo.save(this.paymentRepo.create({
       order_id,
       customer_id: '',
       amount,
-      provider: 'tdb_qr',
+      provider: 'bank',
       status: 'pending',
-      invoice_code: data.invoiceNo,
-      qr_image: data.qrImage,
+      invoice_code: refCode,
     }))
-
     return {
-      method: 'qr',
-      payment_id: (invoice as Payment).id,
-      invoiceNo: data.invoiceNo,
-      qrImage: data.qrImage,
-      expiresAt: data.expireTime,
+      method: 'bank_fallback',
+      payment_id: fallbackPayment.id,
+      invoice_code: refCode,
+      accountName: TDB_BIZPRINT_ACCOUNT_NAME,
+      iban: TDB_BIZPRINT_IBAN,
+      accountNumber: TDB_BIZPRINT_ACCOUNT,
+      bank: 'Худалдаа Хөгжлийн Банк (TDB)',
+      description: `BizPrint ${refCode}`,
       amount,
     }
   }
@@ -155,17 +204,20 @@ export class PaymentService {
 
     const order = await this.orderRepo.findOne({ where: { id: payment.order_id } })
     if (order) {
-      order.status = OrderStatus.CONFIRMED
+      // Төлбөр баталгаажсан → PENDING_FILE (файл/дизайн хүлээх)
+      order.status = OrderStatus.PENDING_FILE
       order.payment_status = 'paid'
       await this.orderRepo.save(order)
 
-      // auto production job
-      try {
-        await this.productionJobsService.createFromOrder(payment.order_id as any)
-        order.status = OrderStatus.IN_PRODUCTION
-        await this.orderRepo.save(order)
-      } catch (e) {
-        console.log('Production job creation error:', (e as any).message)
+      // Хэрэглэгчид файл илгээх сануулга
+      if (order.customer_id) {
+        await this.notificationService.create({
+          user_id: order.customer_id,
+          type: 'order',
+          title: '📤 Файл илгээх эсвэл загвар захиалах',
+          message: `Захиалга #${order.id.slice(-8).toUpperCase()} — төлбөр баталгаажлаа. Файлаа илгээнэ үү эсвэл загвар хийлгэх хүсэлт илгээнэ үү.`,
+          data: { order_id: order.id, action: 'pending_file' },
+        }).catch(() => {})
       }
 
       if (order.customer_email) {

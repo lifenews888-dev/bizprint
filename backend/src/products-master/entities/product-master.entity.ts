@@ -21,7 +21,7 @@ export class ProductMaster {
   @PrimaryGeneratedColumn('uuid')
   id: string
 
-  @Column({ unique: true })
+  @Column({ unique: true, nullable: true })
   code: string
 
   @Column()
@@ -50,6 +50,12 @@ export class ProductMaster {
 
   @Column({ nullable: true })
   thumbnail_url: string
+
+  @Column({ type: 'simple-json', nullable: true })
+  images: string[]
+
+  @Column({ nullable: true })
+  video_url: string
 
   @OneToMany(() => ProductMaterial, m => m.product, { cascade: true })
   materials: ProductMaterial[]

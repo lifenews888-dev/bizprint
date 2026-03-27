@@ -7,6 +7,11 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 export class WalletController {
   constructor(private svc: WalletService) {}
 
+  @Get()
+  getWalletSummary(@Request() req: any) {
+    return this.svc.getBalance(req.user.id);
+  }
+
   @Get('balance')
   getBalance(@Request() req: any) {
     return this.svc.getBalance(req.user.id);

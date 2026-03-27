@@ -6,9 +6,24 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard'
 export class NotificationController {
   constructor(private readonly service: NotificationService) {}
 
+  // Admin: get all notifications for a specific user
   @Get()
   getAll(@Query('userId') userId = 'admin', @Query('limit') limit?: string) {
     return this.service.findForUser(userId, limit ? Number(limit) : 50)
+  }
+
+  // User: get own notifications (JWT-based)
+  @Get('my')
+  @UseGuards(JwtAuthGuard)
+  getMyNotifications(@Request() req: any, @Query('limit') limit?: string, @Query('type') type?: string) {
+    return this.service.findForUser(req.user.id, limit ? Number(limit) : 50, type)
+  }
+
+  // User: get unread count
+  @Get('my/unread-count')
+  @UseGuards(JwtAuthGuard)
+  getMyUnreadCount(@Request() req: any) {
+    return this.service.getUnreadCount(req.user.id)
   }
 
   @Patch(':id/read')
@@ -17,8 +32,11 @@ export class NotificationController {
   }
 
   @Patch('read-all')
-  markAll(@Query('userId') userId = 'admin') {
-    return this.service.markAllRead(userId)
+  @UseGuards(JwtAuthGuard)
+  markAll(@Request() req: any, @Query('userId') userId?: string) {
+    // If admin provides userId, use that; otherwise use JWT user
+    const targetUserId = userId || req.user.id
+    return this.service.markAllRead(targetUserId)
   }
 
   @Post('register-push')

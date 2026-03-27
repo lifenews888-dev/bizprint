@@ -1,0 +1,12 @@
+node_modules
+dist
+dist2
+dist2_out
+.env
+.env.*
+uploads
+*.log
+npm-debug.log*
+.git
+.gitignore
+README.md

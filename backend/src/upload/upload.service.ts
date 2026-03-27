@@ -11,7 +11,7 @@ export class UploadService {
 
     const sizeMB = (file.size / (1024 * 1024)).toFixed(2);
     const ext = path.extname(file.originalname).toLowerCase();
-    const allowed = ['.pdf', '.png', '.jpg', '.jpeg', '.ai', '.eps'];
+    const allowed = ['.pdf', '.png', '.jpg', '.jpeg', '.webp', '.gif', '.ai', '.eps', '.mp4', '.webm', '.mov'];
 
     if (!allowed.includes(ext)) {
       return { error: 'Зөвшөөрөгдөөгүй файлын төрөл' };

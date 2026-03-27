@@ -35,17 +35,23 @@ export class PricingRulesService {
 
   async findMatchingRules(params: {
     product_id?: string
+    product_master_id?: string
     category_id?: string
     attributes?: Record<string, string>
     quantity?: number
   }): Promise<PricingRule[]> {
     const rules = await this.repo.find({ where: { is_active: true } })
     return rules.filter(rule => {
+      // Scope checks: rule must match the given scope (if rule has a scope set)
       if (rule.product_id && rule.product_id !== params.product_id) return false
+      if (rule.product_master_id && rule.product_master_id !== params.product_master_id) return false
       if (rule.category_id && rule.category_id !== params.category_id) return false
+      // Quantity threshold
       if (rule.min_quantity && (params.quantity || 0) < rule.min_quantity) return false
+      // Attribute matching
       if (rule.attribute_key && params.attributes) {
         const val = params.attributes[rule.attribute_key]
+        if (val === undefined) return false   // attribute not present → skip
         if (rule.attribute_value && val !== rule.attribute_value) return false
       }
       return true

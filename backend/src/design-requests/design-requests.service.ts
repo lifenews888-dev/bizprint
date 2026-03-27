@@ -13,6 +13,8 @@ import { SettingsService } from '../settings/settings.service'
 import { EventBusService } from '../events/event-bus.service'
 import { BizEvent } from '../events/event-types'
 import { ZoomService } from './zoom.service'
+import { GoogleCalendarService } from './google-calendar.service'
+import { WebhookService } from '../delivery/webhook.service'
 
 const DEFAULT_DESIGNER_FEE = 15000
 const DEFAULT_TAX_PERCENT = 10
@@ -37,7 +39,14 @@ export class DesignRequestsService {
     private settingsService: SettingsService,
     private eventBus: EventBusService,
     private zoomService: ZoomService,
+    private googleCalendar: GoogleCalendarService,
+    private webhookService: WebhookService,
   ) {}
+
+  /** Fire webhook for design events */
+  private fireWebhook(event: string, data: Record<string, any>) {
+    this.webhookService.trigger(event, data).catch(() => {})
+  }
 
   // ── Basic queries ──────────────────────────────────────────────────────────
 
@@ -47,6 +56,62 @@ export class DesignRequestsService {
   findByCustomer(customer_id: string) { return this.repo.find({ where: { customer_id }, order: { created_at: 'DESC' } }) }
   findPending()              { return this.repo.find({ where: { status: DesignStatus.PENDING }, order: { created_at: 'ASC' } }) }
   findOne(id: string)        { return this.repo.findOne({ where: { id } }) }
+
+  // ── KPI Stats ─────────────────────────────────────────────────────────────
+
+  async getStats() {
+    const all = await this.repo.find()
+    const statusCounts: Record<string, number> = {}
+    all.forEach(d => { statusCounts[d.status] = (statusCounts[d.status] || 0) + 1 })
+
+    // Avg revisions (only completed/approved)
+    const completed = all.filter(d => ['approved', 'in_production'].includes(d.status))
+    const avgRevisions = completed.length > 0
+      ? Math.round(completed.reduce((s, d) => s + (d.current_version || 1), 0) / completed.length * 10) / 10
+      : 0
+
+    // Avg design time (created_at → updated_at for approved)
+    let avgDesignHours = 0
+    if (completed.length > 0) {
+      const totalMs = completed.reduce((s, d) => {
+        return s + (new Date(d.updated_at).getTime() - new Date(d.created_at).getTime())
+      }, 0)
+      avgDesignHours = Math.round(totalMs / completed.length / 3600000 * 10) / 10
+    }
+
+    // Approval rate
+    const reviewed = all.filter(d => ['approved', 'in_production', 'rejected'].includes(d.status))
+    const approvalRate = reviewed.length > 0
+      ? Math.round(completed.length / reviewed.length * 100)
+      : 0
+
+    // Designer load
+    const designerLoad: Record<string, { name: string; active: number; total: number }> = {}
+    all.forEach(d => {
+      if (!d.designer_id) return
+      if (!designerLoad[d.designer_id]) designerLoad[d.designer_id] = { name: d.designer_name || '—', active: 0, total: 0 }
+      designerLoad[d.designer_id].total++
+      if (!['approved', 'in_production', 'rejected'].includes(d.status)) {
+        designerLoad[d.designer_id].active++
+      }
+    })
+
+    // Overdue (deadline passed, not completed)
+    const now = new Date()
+    const overdue = all.filter(d =>
+      d.deadline && new Date(d.deadline) < now && !['approved', 'in_production', 'rejected'].includes(d.status)
+    ).length
+
+    return {
+      total: all.length,
+      by_status: statusCounts,
+      avg_revisions: avgRevisions,
+      avg_design_hours: avgDesignHours,
+      approval_rate: approvalRate,
+      overdue,
+      designer_load: Object.values(designerLoad),
+    }
+  }
 
   // ── Versions & Comments ────────────────────────────────────────────────────
 
@@ -86,8 +151,10 @@ export class DesignRequestsService {
 
   // ── Create ─────────────────────────────────────────────────────────────────
 
-  create(data: Partial<DesignRequest>) {
-    return this.repo.save(this.repo.create({ ...data, status: DesignStatus.PENDING }))
+  async create(data: Partial<DesignRequest>) {
+    const saved = await this.repo.save(this.repo.create({ ...data, status: DesignStatus.PENDING }))
+    this.fireWebhook('design.requested', { design_id: saved.id, order_id: saved.order_id, customer_id: saved.customer_id })
+    return saved
   }
 
   // ── Assign designer ────────────────────────────────────────────────────────
@@ -111,6 +178,7 @@ export class DesignRequestsService {
         zoomLink: designerZoom,
       }).catch(() => {})
     }
+    this.fireWebhook('design.assigned', { design_id: id, designer_id: designerId, designer_name: designerName, order_id: dr?.order_id })
     return dr
   }
 
@@ -241,6 +309,7 @@ export class DesignRequestsService {
       designerId: dr.designer_id,
       reason,
     })
+    this.fireWebhook('design.revision_requested', { design_id: id, order_id: dr.order_id, customer_id: customerId, designer_id: dr.designer_id, reason })
 
     return this.findOne(id)
   }
@@ -449,6 +518,28 @@ export class DesignRequestsService {
       }).catch(e => console.log('Zoom created email (designer) error:', e.message))
     }
 
+    // ── Google Calendar sync (if configured) ─────────────────────────────
+    if (scheduledAt) {
+      try {
+        const gcEvent = await this.googleCalendar.createEvent({
+          summary: `BizPrint Design Review - ${dr.product_name || 'Загвар'}`,
+          description: `Захиалга: ${dr.order_id || '-'}\nХэрэглэгч: ${dr.customer_name}\nДизайнер: ${dr.designer_name}`,
+          startTime: scheduledAt,
+          location: joinUrl,
+          attendees: attendeeEmails,
+          meetingLink: joinUrl,
+        })
+        if (gcEvent) {
+          await this.zoomSessionRepo.update(session.id, {
+            google_event_id: gcEvent.google_event_id,
+            google_calendar_link: gcEvent.html_link,
+          })
+        }
+      } catch (e) {
+        console.log('Google Calendar sync error (non-blocking):', e.message)
+      }
+    }
+
     this.eventBus.emit(BizEvent.DESIGN_ZOOM_CREATED, {
       designRequestId: id,
       customerId: dr.customer_id,
@@ -457,6 +548,7 @@ export class DesignRequestsService {
       scheduledAt,
       sessionId: session.id,
     })
+    this.fireWebhook('design.meeting.created', { design_id: id, order_id: dr.order_id, meeting_id: session.zoom_meeting_id, join_url: joinUrl, scheduled_at: scheduledAt })
 
     return { ...session, join_url: joinUrl, start_url: startUrl }
   }
@@ -565,6 +657,7 @@ export class DesignRequestsService {
       versionNumber: dr.current_version,
       fileUrl: dr.file_url,
     })
+    this.fireWebhook('design.approved', { design_id: id, order_id: dr.order_id, customer_id: dr.customer_id, designer_id: dr.designer_id, version: dr.current_version, file_url: dr.file_url, approved: true })
 
     return this.getFullDetail(id)
   }
@@ -574,6 +667,7 @@ export class DesignRequestsService {
   async reject(id: string, reason: string) {
     await this.repo.update(id, { status: DesignStatus.REJECTED, reject_reason: reason })
     const dr = await this.findOne(id)
+    this.fireWebhook('design.rejected', { design_id: id, order_id: dr?.order_id, reason })
     this.eventBus.emit(BizEvent.DESIGN_REJECTED, {
       designRequestId: id,
       customerId: dr?.customer_id,

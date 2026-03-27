@@ -1,13 +1,18 @@
 import {
   Controller, Get, Post, Patch, Delete,
-  Param, Body, Query,
+  Param, Body, Query, UseGuards,
 } from '@nestjs/common'
 import { FilesService } from './files.service'
+import { ProductionGateService } from './production-gate.service'
 import { FileType } from './file.entity'
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard'
 
 @Controller('order-files')
 export class FilesController {
-  constructor(private readonly filesService: FilesService) {}
+  constructor(
+    private readonly filesService: FilesService,
+    private readonly gate: ProductionGateService,
+  ) {}
 
   // GET /order-files?order_id=xxx
   @Get()
@@ -78,5 +83,44 @@ export class FilesController {
   async remove(@Param('id') id: string) {
     await this.filesService.remove(id)
     return { deleted: true }
+  }
+
+  /* ═══════════════════════════════════════
+   *  PRODUCTION GATE — file validation
+   * ═══════════════════════════════════════ */
+
+  // POST /order-files/:id/gate-check — validate single file
+  @Post(':id/gate-check')
+  @UseGuards(JwtAuthGuard)
+  async gateCheck(@Param('id') id: string) {
+    return this.gate.checkFile(id)
+  }
+
+  // POST /order-files/:id/recheck — force re-analysis
+  @Post(':id/recheck')
+  @UseGuards(JwtAuthGuard)
+  async recheck(@Param('id') id: string) {
+    return this.gate.recheck(id)
+  }
+
+  // POST /order-files/:id/set-final-validate — mark final + validate
+  @Post(':id/set-final-validate')
+  @UseGuards(JwtAuthGuard)
+  async setFinalAndValidate(@Param('id') id: string) {
+    return this.gate.setFinalAndValidate(id)
+  }
+
+  // GET /order-files/gate/order/:orderId — check all files for order
+  @Get('gate/order/:orderId')
+  @UseGuards(JwtAuthGuard)
+  async gateCheckOrder(@Param('orderId') orderId: string) {
+    return this.gate.checkOrder(orderId)
+  }
+
+  // GET /order-files/gate/ready/:orderId — is order production-ready?
+  @Get('gate/ready/:orderId')
+  @UseGuards(JwtAuthGuard)
+  async isProductionReady(@Param('orderId') orderId: string) {
+    return this.gate.isProductionReady(orderId)
   }
 }

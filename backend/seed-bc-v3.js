@@ -289,14 +289,8 @@ async function seed() {
   if (!token) { console.error('Login failed'); return }
   const headers = { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }
 
-  // Delete ALL existing layouts
-  const existing = await fetch(`${API}/admin/business-cards/${PID}`, { headers }).then(r => r.json())
-  if (existing?.layouts?.length) {
-    console.log(`Deleting ${existing.layouts.length} old layouts...`)
-    for (const l of existing.layouts) {
-      await fetch(`${API}/admin/business-cards/${PID}/layouts/${l.id}`, { method: 'DELETE', headers }).catch(() => {})
-    }
-  }
+  // Өмнөх загваруудыг устгахгүй — зөвхөн нэмнэ
+  console.log('Adding 20 new icon layouts (keeping existing)...')
 
   // Create 20 new
   for (let i = 0; i < LAYOUTS.length; i++) {

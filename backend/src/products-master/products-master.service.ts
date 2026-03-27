@@ -18,6 +18,10 @@ export class ProductsMasterService {
   ) {}
 
   async create(data: Partial<ProductMaster>) {
+    if (!data.code) {
+      const prefix = (data.name_mn || 'PRD').slice(0, 4).toUpperCase().replace(/\s/g, '')
+      data.code = `${prefix}-${Date.now()}`
+    }
     const item = this.masterRepo.create(data)
     return this.masterRepo.save(item)
   }

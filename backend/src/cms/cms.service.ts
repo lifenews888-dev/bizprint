@@ -4,6 +4,8 @@ import { Repository, In } from 'typeorm'
 import { SiteSettings } from './entities/site-settings.entity'
 import { MegaMenu } from './entities/mega-menu.entity'
 import { CmsGateway } from './cms.gateway'
+import { EventBusService } from '../events/event-bus.service'
+import { BizEvent } from '../events/event-types'
 
 @Injectable()
 export class CmsService implements OnModuleInit {
@@ -15,6 +17,7 @@ export class CmsService implements OnModuleInit {
     @InjectRepository(MegaMenu)
     private readonly menuRepo: Repository<MegaMenu>,
     private readonly gateway: CmsGateway,
+    private readonly eventBus: EventBusService,
   ) {}
 
   async onModuleInit() {
@@ -62,6 +65,7 @@ export class CmsService implements OnModuleInit {
       if (updatedBy) setting.updated_by = updatedBy
       const saved = await this.settingsRepo.save(setting)
       this.gateway.notifySettingsUpdate(key, value)
+      this.eventBus.emit(BizEvent.SETTINGS_UPDATED, { key, value })
       return saved
     }
     setting = this.settingsRepo.create({
@@ -71,6 +75,7 @@ export class CmsService implements OnModuleInit {
     })
     const saved = await this.settingsRepo.save(setting)
     this.gateway.notifySettingsUpdate(key, value)
+    this.eventBus.emit(BizEvent.SETTINGS_UPDATED, { key, value })
     return saved
   }
 
@@ -81,11 +86,11 @@ export class CmsService implements OnModuleInit {
     const results: SiteSettings[] = []
     const updatedMap: Record<string, any> = {}
     for (const item of items) {
-      // updateSetting already emits per-key; we also emit bulk at the end
       results.push(await this.updateSetting(item.key, item.value, updatedBy))
       updatedMap[item.key] = item.value
     }
     this.gateway.notifyBulkSettingsUpdate(updatedMap)
+    this.eventBus.emit(BizEvent.SETTINGS_BULK_UPDATED, { settings: updatedMap })
     return results
   }
 
@@ -136,6 +141,7 @@ export class CmsService implements OnModuleInit {
   private async emitMenuUpdate(): Promise<void> {
     const menu = await this.findPublicMenuItems()
     this.gateway.notifyMenuUpdate(menu)
+    this.eventBus.emit(BizEvent.MENU_UPDATED, { menu })
   }
 
   // ─── Seed ────────────────────────────────────────────────
@@ -153,9 +159,9 @@ export class CmsService implements OnModuleInit {
       { key: 'site_phone', value: '+976 XXXX-XXXX', group: 'site', label: 'Утасны дугаар' },
       { key: 'site_email', value: 'info@bizprint.mn', group: 'site', label: 'Имэйл хаяг' },
       { key: 'site_address', value: 'Улаанбаатар, Монгол', group: 'site', label: 'Хаяг байршил' },
-      { key: 'site_facebook', value: '', group: 'site', label: 'Facebook холбоос' },
-      { key: 'site_instagram', value: '', group: 'site', label: 'Instagram холбоос' },
-      { key: 'site_youtube', value: '', group: 'site', label: 'YouTube холбоос' },
+      { key: 'site_facebook', value: 'https://facebook.com/bizprint.mn', group: 'site', label: 'Facebook холбоос' },
+      { key: 'site_instagram', value: 'https://instagram.com/bizprint.mn', group: 'site', label: 'Instagram холбоос' },
+      { key: 'site_youtube', value: 'https://youtube.com/@bizprint', group: 'site', label: 'YouTube холбоос' },
       { key: 'site_primary_color', value: '#FF6B35', group: 'site', label: 'Үндсэн өнгө' },
       { key: 'maintenance_mode', value: false, group: 'site', label: 'Засвар горим' },
       { key: 'novat_note', value: 'НӨАТ ороогүй', group: 'site', label: 'НӨАТ тэмдэглэл' },

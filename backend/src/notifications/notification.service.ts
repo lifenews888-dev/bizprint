@@ -37,12 +37,21 @@ export class NotificationService {
     return saved
   }
 
-  findForUser(user_id: string, limit = 50) {
+  findForUser(user_id: string, limit = 50, type?: string) {
+    const where: any = { user_id }
+    if (type) where.type = type
     return this.repo.find({
-      where: { user_id },
+      where,
       order: { created_at: 'DESC' },
       take: limit,
     })
+  }
+
+  async getUnreadCount(user_id: string) {
+    const count = await this.repo.count({
+      where: { user_id, is_read: false },
+    })
+    return { unread: count }
   }
 
   async markRead(id: number) {

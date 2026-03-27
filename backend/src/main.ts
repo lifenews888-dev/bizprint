@@ -1,3 +1,6 @@
+import * as dotenv from 'dotenv';
+dotenv.config({ override: true });   // Windows env empty-string override fix
+
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { NestExpressApplication } from '@nestjs/platform-express';
@@ -21,7 +24,8 @@ async function bootstrap() {
     next();
   });
 
-  app.useStaticAssets(join(__dirname, '..', 'uploads'), {
+  // Serve uploaded files
+  app.useStaticAssets(join(process.cwd(), 'uploads'), {
     prefix: '/uploads/',
   });
 

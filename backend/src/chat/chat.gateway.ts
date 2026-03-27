@@ -67,7 +67,9 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     },
   ) {
     const saved = await this.chatService.saveMessage(data)
+    // emit both event names for backward compatibility
     this.server.to(data.room_id).emit('new_message', saved)
+    this.server.to(data.room_id).emit('message', saved)
     // notify admins
     this.server.to('admin-notify').emit('notify', {
       type: 'chat',
@@ -111,5 +113,31 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   ) {
     await this.chatService.markRead(data.room_id, data.user_id)
     this.server.to(data.room_id).emit('messages_read', data)
+  }
+
+  // ── Typing indicators ─────────────────────────────────────────────────────
+  @SubscribeMessage('typing')
+  handleTyping(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { room_id: string; user_id: string; user_name: string },
+  ) {
+    // Broadcast to room except sender
+    client.to(data.room_id).emit('user_typing', {
+      room_id: data.room_id,
+      user_id: data.user_id,
+      user_name: data.user_name,
+    })
+  }
+
+  @SubscribeMessage('stop_typing')
+  handleStopTyping(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { room_id: string; user_id: string; user_name: string },
+  ) {
+    client.to(data.room_id).emit('user_stop_typing', {
+      room_id: data.room_id,
+      user_id: data.user_id,
+      user_name: data.user_name,
+    })
   }
 }

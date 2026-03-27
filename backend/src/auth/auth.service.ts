@@ -144,9 +144,10 @@ export class AuthService {
       sub: user.id,
       email: user.email,
       role: user.role,
+      is_creator: user.is_creator || false,
     };
 
-    const access_token = this.jwtService.sign(payload, { expiresIn: '15m' });
+    const access_token = this.jwtService.sign(payload, { expiresIn: '7d' });
 
     // Generate refresh token
     const refreshTokenStr = randomBytes(64).toString('hex');
@@ -175,6 +176,9 @@ export class AuthService {
         email: user.email,
         full_name: user.full_name,
         role: user.role,
+        is_creator: user.is_creator || false,
+        creator_status: user.creator_status || null,
+        creator_capabilities: user.creator_capabilities || [],
       },
     };
   }

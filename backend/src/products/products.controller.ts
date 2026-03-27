@@ -2,6 +2,7 @@ import { Controller, Get, Post, Patch, Delete, Body, Param, Query, UseGuards, Re
 import { ProductsService } from './products.service';
 import { ProductsMasterService } from '../products-master/products-master.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { AdminGuard } from '../admin/admin.guard';
 
 @Controller('products')
 export class ProductsController {
@@ -46,6 +47,35 @@ export class ProductsController {
   @UseGuards(JwtAuthGuard)
   remove(@Param('id') id: string) {
     return this.productsService.remove(id);
+  }
+}
+
+@Controller('admin/shop-products')
+export class AdminShopProductsController {
+  constructor(private readonly productsService: ProductsService) {}
+
+  @Get()
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  findAll(@Query() query: any) {
+    return this.productsService.findAllAdmin(query);
+  }
+
+  @Post()
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  create(@Body() body: any) {
+    return this.productsService.createAdmin(body);
+  }
+
+  @Patch(':id')
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  update(@Param('id') id: string, @Body() body: any) {
+    return this.productsService.updateAdmin(id, body);
+  }
+
+  @Delete(':id')
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  remove(@Param('id') id: string) {
+    return this.productsService.removeAdmin(id);
   }
 }
 

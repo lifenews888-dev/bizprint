@@ -36,6 +36,31 @@ export class User {
   @Column({ default: 'customer' })
   role: string;
 
+  /** Creator (UGC) role — customer can upgrade */
+  @Column({ default: false })
+  is_creator: boolean;
+
+  /** Creator application status: null | pending | approved | rejected */
+  @Column({ nullable: true })
+  creator_status: string;
+
+  @Column({ nullable: true })
+  creator_approved_at: Date;
+
+  /** Creator portfolio / bio */
+  @Column({ nullable: true })
+  creator_bio: string;
+
+  @Column('simple-array', { nullable: true })
+  creator_skills: string[];
+
+  @Column({ nullable: true })
+  portfolio_url: string;
+
+  /** Creator capabilities: ugc, live, design */
+  @Column('simple-array', { nullable: true })
+  creator_capabilities: string[];
+
   @Column({ nullable: true })
   role_id: string;
 
@@ -69,6 +94,18 @@ export class User {
 
   @Column({ nullable: true })
   bank_account_name: string;
+
+  /** Гэрээний файл (signed contract PDF) */
+  @Column({ nullable: true })
+  contract_url: string;
+
+  /** Гэрээний хавсралт (нэмэлт баримт бичиг) */
+  @Column({ nullable: true })
+  contract_attachment_url: string;
+
+  /** Гэрээ баталсан огноо */
+  @Column({ nullable: true })
+  contract_signed_at: Date;
 
   @UpdateDateColumn()
   updated_at: Date;

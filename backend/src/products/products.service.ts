@@ -2,17 +2,22 @@ import { Injectable, ForbiddenException, NotFoundException } from '@nestjs/commo
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Product } from './product.entity';
+import { EventBusService } from '../events/event-bus.service';
+import { BizEvent } from '../events/event-types';
 
 @Injectable()
 export class ProductsService {
   constructor(
     @InjectRepository(Product)
     private productRepo: Repository<Product>,
+    private readonly eventBus: EventBusService,
   ) {}
 
-  create(data: Partial<Product>) {
+  async create(data: Partial<Product>) {
     const product = this.productRepo.create(data);
-    return this.productRepo.save(product);
+    const saved = await this.productRepo.save(product);
+    this.eventBus.emit(BizEvent.PRODUCT_CREATED, { productId: saved.id, name: saved.name, vendorId: saved.vendor_id });
+    return saved;
   }
 
   async findAll(categoryId?: string) {
@@ -35,11 +40,14 @@ export class ProductsService {
 
   async update(id: string, data: Partial<Product>) {
     await this.productRepo.update(id, data);
-    return this.findOne(id);
+    const product = await this.findOne(id);
+    this.eventBus.emit(BizEvent.PRODUCT_UPDATED, { productId: id, name: product?.name, vendorId: product?.vendor_id });
+    return product;
   }
 
   async remove(id: string) {
     await this.productRepo.delete(id);
+    this.eventBus.emit(BizEvent.PRODUCT_DELETED, { productId: id });
     return { deleted: true };
   }
 
@@ -59,7 +67,9 @@ export class ProductsService {
       slug: data.slug || slug,
       name_mn: data.name_mn || data.name || '',
     });
-    return this.productRepo.save(product);
+    const saved = await this.productRepo.save(product);
+    this.eventBus.emit(BizEvent.PRODUCT_CREATED, { productId: saved.id, name: saved.name, vendorId });
+    return saved;
   }
 
   async updateForVendor(vendorId: string, id: string, data: Partial<Product>) {
@@ -67,7 +77,9 @@ export class ProductsService {
     if (!product) throw new NotFoundException('Product not found');
     if (product.vendor_id !== vendorId) throw new ForbiddenException('Not your product');
     await this.productRepo.update(id, data);
-    return this.findOne(id);
+    const updated = await this.findOne(id);
+    this.eventBus.emit(BizEvent.PRODUCT_UPDATED, { productId: id, name: updated?.name, vendorId });
+    return updated;
   }
 
   async removeForVendor(vendorId: string, id: string) {
@@ -75,7 +87,46 @@ export class ProductsService {
     if (!product) throw new NotFoundException('Product not found');
     if (product.vendor_id !== vendorId) throw new ForbiddenException('Not your product');
     await this.productRepo.delete(id);
+    this.eventBus.emit(BizEvent.PRODUCT_DELETED, { productId: id, vendorId });
     return { deleted: true };
+  }
+
+  // Admin - find all (including inactive)
+  findAllAdmin(query?: { search?: string; product_type?: string; page?: number; limit?: number }) {
+    const where: any = {}
+    if (query?.product_type) where.product_type = query.product_type
+    const page = query?.page || 1
+    const limit = query?.limit || 50
+    return this.productRepo.findAndCount({
+      where,
+      order: { sort_order: 'ASC', created_at: 'DESC' },
+      skip: (page - 1) * limit,
+      take: limit,
+    }).then(([items, total]) => ({ items, total, page, limit }))
+  }
+
+  async createAdmin(data: Partial<Product>) {
+    const slug = data.slug || `${(data.name || data.name_mn || 'product').toLowerCase().replace(/[^a-z0-9]+/gi, '-')}-${Date.now()}`
+    const product = this.productRepo.create({
+      ...data,
+      slug,
+      name: data.name || data.name_mn || '',
+      name_mn: data.name_mn || data.name || '',
+      product_type: data.product_type || 'ready',
+      base_price: Number(data.base_price) || 0,
+    })
+    return this.productRepo.save(product)
+  }
+
+  async updateAdmin(id: string, data: Partial<Product>) {
+    if (data.base_price !== undefined) data.base_price = Number(data.base_price) || 0
+    await this.productRepo.update(id, data)
+    return this.findOne(id)
+  }
+
+  async removeAdmin(id: string) {
+    await this.productRepo.delete(id)
+    return { deleted: true }
   }
 
   // Vendor orders summary (join with orders)

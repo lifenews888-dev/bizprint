@@ -120,6 +120,15 @@ export class Order {
   @Column({ nullable: true })
   deadline: Date;
 
+  @Column({ nullable: true })
+  delivered_at: Date;
+
+  @Column({ default: 'normal' })
+  priority: string; // low, normal, high, urgent
+
+  @Column({ default: false })
+  is_delayed: boolean;
+
   @OneToMany(() => OrderItem, (item) => item.order)
   items: OrderItem[];
 

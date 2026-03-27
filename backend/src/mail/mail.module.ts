@@ -6,16 +6,16 @@ import { MailService } from './mail.service'
   imports: [
     MailerModule.forRoot({
       transport: {
-        host: 'smtp.gmail.com',
-        port: 587,
+        host: process.env.MAIL_HOST || 'smtp.gmail.com',
+        port: Number(process.env.MAIL_PORT) || 587,
         secure: false,
         auth: {
-          user: 'bizprintpro@gmail.com',
-          pass: 'ppci qref juwa bfqt',
+          user: process.env.MAIL_USER || '',
+          pass: process.env.MAIL_PASS || '',
         },
       },
       defaults: {
-        from: 'BizPrint <bizprintpro@gmail.com>',
+        from: process.env.MAIL_FROM || `BizPrint <${process.env.MAIL_USER}>`,
       },
     }),
   ],

@@ -46,17 +46,25 @@ import { PagesModule } from './pages/pages.module'
 import { MenusModule } from './menus/menus.module'
 import { FilesModule } from './files/files.module'
 import { AuditTrailModule } from './audit-trail/audit-trail.module'
-import { PricingCatalogController } from './pricing-catalog/pricing-catalog.controller'
-import { PricingCatalogService } from './pricing-catalog/pricing-catalog.service'
+// REMOVED: PricingCatalog — duplicate of pricing-rules catalog
+// import { PricingCatalogController } from './pricing-catalog/pricing-catalog.controller'
+// import { PricingCatalogService } from './pricing-catalog/pricing-catalog.service'
 import { NotificationModule } from './notifications/notification.module'
 import { PricingConfigModule } from './pricing-config/pricing-config.module'
 import { ProductsMasterModule } from './products-master/products-master.module'
-import { PricingEngineModule } from './pricing-engine/pricing-engine.module'
+// REMOVED: PricingEngine — duplicate of quote/pricing.service (uses wrong 45% margin)
+// import { PricingEngineModule } from './pricing-engine/pricing-engine.module'
 import { CustomerCareModule } from './customer-care/customer-care.module'
 import { CmsModule } from './cms/cms.module'
 import { MarketingModule } from './marketing/marketing.module'
 import { SmartQuoteModule } from './ai/smart-quote/smart-quote.module'
 import { ShippingModule } from './shipping/shipping.module'
+import { ReportsModule } from './reports/reports.module'
+import { CapacityModule } from './capacity/capacity.module'
+import { ErrorLogModule } from './error-log/error-log.module'
+import { CreatorModule } from './creator/creator.module'
+import { DigitalCardModule } from './digital-card/digital-card.module'
+import { BusinessCardsModule } from './business-cards/business-cards.module'
 
 @Module({
   imports: [
@@ -120,14 +128,20 @@ import { ShippingModule } from './shipping/shipping.module'
     NotificationModule,
     PricingConfigModule,
     ProductsMasterModule,
-    PricingEngineModule,
+    // PricingEngineModule, // REMOVED — duplicate pricing, wrong 45% margin
     CustomerCareModule,
     CmsModule,
     MarketingModule,
     SmartQuoteModule,
     ShippingModule,
+    ReportsModule,
+    CapacityModule,
+    ErrorLogModule,
+    CreatorModule,
+    DigitalCardModule,
+    BusinessCardsModule,
   ],
-  controllers: [PricingCatalogController],
-  providers: [PricingCatalogService],
+  controllers: [], // PricingCatalogController removed — duplicate
+  providers: [],   // PricingCatalogService removed — duplicate
 })
 export class AppModule {}

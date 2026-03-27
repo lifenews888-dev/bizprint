@@ -52,6 +52,12 @@ export class Product {
   @Column({ nullable: true })
   thumbnail_url: string;
 
+  @Column({ type: 'simple-json', nullable: true })
+  images: string[];
+
+  @Column({ nullable: true })
+  video_url: string;
+
   @Column({ nullable: true })
   sale_price: number;
 

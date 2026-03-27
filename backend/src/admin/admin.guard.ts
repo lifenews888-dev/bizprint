@@ -1,30 +1,27 @@
-import { CanActivate, ExecutionContext, Injectable, UnauthorizedException } from '@nestjs/common';
-import { Request } from 'express';
-import * as jwt from 'jsonwebtoken';
+import { Injectable, CanActivate, ExecutionContext, ForbiddenException } from '@nestjs/common';
 
+/**
+ * AdminGuard — зөвхөн admin/superadmin role шалгана
+ * Backward compatible: @UseGuards(JwtAuthGuard, AdminGuard) хэвээрээ ажиллана
+ *
+ * Шинэ код бичихдээ RolesGuard + @Roles('admin') ашиглана уу:
+ *   @UseGuards(JwtAuthGuard, RolesGuard)
+ *   @Roles('admin')
+ */
 @Injectable()
 export class AdminGuard implements CanActivate {
   canActivate(context: ExecutionContext): boolean {
-    const req = context.switchToHttp().getRequest<Request>();
-    const authHeader = req.headers.authorization;
+    const request = context.switchToHttp().getRequest();
+    const user = request.user;
 
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      throw new UnauthorizedException('Token байхгүй байна');
+    if (!user) {
+      throw new ForbiddenException('Нэвтрээгүй байна');
     }
 
-    const token = authHeader.split(' ')[1];
-
-    try {
-      const payload = jwt.verify(token, process.env.JWT_SECRET || 'bizprint_super_secret_key_2026') as any;
-      req['user'] = payload;
-
-      if (payload.role !== 'admin') {
-        throw new UnauthorizedException('Зөвхөн админ хандах эрхтэй');
-      }
-
-      return true;
-    } catch {
-      throw new UnauthorizedException('Token буруу байна');
+    if (user.role !== 'admin' && user.role !== 'superadmin') {
+      throw new ForbiddenException('Зөвхөн админ хандах боломжтой');
     }
+
+    return true;
   }
 }

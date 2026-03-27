@@ -1,23 +1,38 @@
-﻿import { Controller, Get, Patch, Param, Body, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Param, Body, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { AdminGuard } from './admin.guard';
 import { AdminService } from './admin.service';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { User } from '../users/user.entity';
 
 @Controller('admin')
 export class AdminController {
-  constructor(
-    private readonly adminService: AdminService,
-  ) {}
+  constructor(private readonly adminService: AdminService) {}
 
   @Get('users')
   getUsers() { return this.adminService.getUsers() }
 
   @Patch('users/:id/role')
-  @UseGuards(JwtAuthGuard)
-  async updateRole(@Param('id') id: string, @Body() body: { role: string }) {
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  updateRole(@Param('id') id: string, @Body() body: { role: string }) {
     return this.adminService.updateUserRole(id, body.role)
+  }
+
+  @Patch('users/:id')
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  updateUser(@Param('id') id: string, @Body() body: any) {
+    return this.adminService.updateUser(id, body)
+  }
+
+  @Delete('users/:id')
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  deleteUser(@Param('id') id: string) {
+    return this.adminService.deleteUser(id)
+  }
+
+  /** Broadcast notification to users (by role or all) */
+  @Post('broadcast')
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  broadcast(@Body() body: { title: string; message: string; roles?: string[]; send_email?: boolean; attachment_url?: string }) {
+    return this.adminService.broadcast(body)
   }
 
   @Get('vendors')

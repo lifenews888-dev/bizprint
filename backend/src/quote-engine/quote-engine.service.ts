@@ -4,6 +4,7 @@ import { Repository } from 'typeorm'
 import { Machine } from '../machines/machine.entity'
 import { PricingRulesService } from '../pricing-rules/pricing-rules.service'
 import { PricingConfigService } from '../pricing-config/pricing-config.service'
+import { ProductsMasterService } from '../products-master/products-master.service'
 import pdfParse from 'pdf-parse'
 
 @Injectable()
@@ -13,6 +14,7 @@ export class QuoteEngineService {
     private machineRepo: Repository<Machine>,
     private pricingRulesService: PricingRulesService,
     private pricingConfig: PricingConfigService,
+    private productsMasterService: ProductsMasterService,
   ) {}
 
   async calculateFromPdf(file: Express.Multer.File, input: any) {
@@ -36,8 +38,29 @@ export class QuoteEngineService {
     const gang_run    = input.gang_run  || false
     const category_id = input.category_id || null
     const product_id  = input.product_id  || null
+    // Print product fields (product_masters)
+    const product_master_id = input.product_master_id || null
+    const material_code     = input.material_code || null
+    const size_code         = input.size_code || null
 
-    const size = this.detectSize(width_mm, height_mm)
+    // ── Load product_master material/size if provided ────────────────────────
+    let selectedMaterial: any = null
+    let selectedSize: any = null
+    let productMasterName = ''
+    if (product_master_id) {
+      try {
+        const pm = await this.productsMasterService.findOne(product_master_id)
+        productMasterName = pm.name_mn || pm.name_en || ''
+        if (material_code && pm.materials?.length) {
+          selectedMaterial = pm.materials.find((m: any) => m.material_code === material_code) || pm.materials.find((m: any) => m.is_default) || null
+        }
+        if (size_code && pm.sizes?.length) {
+          selectedSize = pm.sizes.find((s: any) => s.size_code === size_code) || null
+        }
+      } catch { /* product not found, continue */ }
+    }
+
+    const size = selectedSize ? selectedSize.size_label || size_code : this.detectSize(width_mm, height_mm)
     const sheets_per_copy = Math.ceil(pages / (sides === 'double' ? 2 : 1))
 
     // --- Machine selection ---
@@ -51,11 +74,15 @@ export class QuoteEngineService {
     const color_rate    = color_mode === 'color' ? 1.0 : 0.4
 
     // --- Base costs ---
-    const paper_cost     = Math.round(total_sheets * this.getPaperPrice(paper_gsm))
+    // If product_master with material/size → use their defined base costs
+    const material_cost  = selectedMaterial ? Math.round(Number(selectedMaterial.base_cost || 0) * quantity) : 0
+    const size_base      = selectedSize ? Number(selectedSize.base_price || 0) : 0
+    const paper_cost     = material_cost > 0 ? material_cost : Math.round(total_sheets * this.getPaperPrice(paper_gsm))
     const print_cost     = Math.round(print_hours * hour_rate * color_rate)
     const finishing_cost = this.getFinishingCost(finishing, quantity)
     const binding_cost   = this.getBindingCost(binding, quantity)
-    const setup_cost     = quantity < 500 ? 50000 : quantity < 2000 ? 30000 : 0
+    // Setup cost: if size has a base_price, use it; otherwise use quantity-based default
+    const setup_cost     = size_base > 0 ? size_base : (quantity < 500 ? 50000 : quantity < 2000 ? 30000 : 0)
 
     let subtotal = paper_cost + print_cost + finishing_cost + binding_cost + setup_cost
 
@@ -66,11 +93,19 @@ export class QuoteEngineService {
     const smart_adjustments: { name: string; type: string; value: number; description: string }[] = []
 
     // --- 1. Pricing Rules (DB-based) ---
+    // Attributes include material_code and size_code so rules can match on them
+    const ruleAttributes: Record<string, string> = {
+      color_mode, finishing, binding,
+      paper_gsm: String(paper_gsm), sides,
+      ...(material_code ? { material: material_code } : {}),
+      ...(size_code ? { size: size_code } : {}),
+    }
     const matchingRules = await this.pricingRulesService.findMatchingRules({
       product_id,
+      product_master_id,
       category_id,
       quantity,
-      attributes: { color_mode, finishing, binding, paper_gsm: String(paper_gsm), sides },
+      attributes: ruleAttributes,
     })
     if (matchingRules.length > 0) {
       const ruleResult = this.pricingRulesService.applyRules(subtotal, matchingRules)
@@ -126,7 +161,7 @@ export class QuoteEngineService {
 
     // --- 5. Category-Based Margin ---
     const overhead       = Math.round(subtotal * 0.10)
-    const margin_rate    = this.getCategoryMargin(category_id)
+    const margin_rate    = await this.getCategoryMargin(category_id)
     const margin         = Math.round((subtotal + overhead) * margin_rate.percent)
     const total_price    = subtotal + overhead + margin
     const unit_price     = Math.round(total_price / quantity)
@@ -157,6 +192,11 @@ export class QuoteEngineService {
       quantity, pages, size, width_mm, height_mm,
       color_mode, sides, paper_gsm, finishing, binding,
       urgency, gang_run, category_id,
+      // Product master fields
+      product_master_id, material_code, size_code,
+      product_name: productMasterName,
+      selected_material: selectedMaterial ? { code: selectedMaterial.material_code, name: selectedMaterial.material_name_mn, base_cost: selectedMaterial.base_cost } : null,
+      selected_size: selectedSize ? { code: selectedSize.size_code, label: selectedSize.size_label, base_price: selectedSize.base_price } : null,
 
       // Machine & sheets
       sheets_per_copy, total_sheets,
@@ -184,6 +224,8 @@ export class QuoteEngineService {
 
       breakdown: {
         paper_price_per_sheet: this.getPaperPrice(paper_gsm),
+        material_cost, size_base_price: size_base,
+        used_product_master: !!product_master_id,
         color_rate, hour_rate, print_hours,
         overhead_10pct: overhead,
         margin_rate: margin_rate.percent,
@@ -444,9 +486,17 @@ export class QuoteEngineService {
     }
   }
 
-  /** Category-based margin rates */
-  private getCategoryMargin(category_id: string | null): { percent: number; label: string } {
-    const margins: Record<string, { percent: number; label: string }> = {
+  /**
+   * Category-based margin rates.
+   * Now reads from pricing_config (admin-editable) with hardcoded fallbacks.
+   * Key format: margin_{category_id} (e.g., margin_business_card = 0.35)
+   *
+   * MIGRATION: These fallback values should eventually live ONLY in
+   * the pricing_rules table via PricingService.findMarginRate().
+   * See CLAUDE.md: customer_price = vendor_cost × (1 + margin_rate)
+   */
+  private async getCategoryMargin(category_id: string | null): Promise<{ percent: number; label: string }> {
+    const FALLBACK_MARGINS: Record<string, { percent: number; label: string }> = {
       'business_card':   { percent: 0.35, label: 'Нэрийн хуудас margin' },
       'brochure':        { percent: 0.25, label: 'Брошур margin' },
       'poster':          { percent: 0.22, label: 'Постер margin' },
@@ -458,8 +508,20 @@ export class QuoteEngineService {
       'invitation':      { percent: 0.30, label: 'Урилга margin' },
       'certificate':     { percent: 0.25, label: 'Гэрчилгээ margin' },
     }
-    if (category_id && margins[category_id]) return margins[category_id]
-    return { percent: 0.20, label: 'Стандарт margin' }
+
+    // Try pricing_config first (admin-editable)
+    if (category_id) {
+      try {
+        const configValue = await this.pricingConfig.getValue(`margin_${category_id}`)
+        if (configValue != null) {
+          return { percent: Number(configValue), label: `${category_id} margin (config)` }
+        }
+      } catch {}
+    }
+
+    // Fallback to hardcoded defaults
+    if (category_id && FALLBACK_MARGINS[category_id]) return FALLBACK_MARGINS[category_id]
+    return { percent: 0.25, label: 'Стандарт margin' }  // Changed from 0.20 to 0.25 per CLAUDE.md DEFAULT_MARGIN
   }
 
   // ============================================

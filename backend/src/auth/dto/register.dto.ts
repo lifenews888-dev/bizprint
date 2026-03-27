@@ -1,6 +1,6 @@
 import { IsEmail, IsString, MinLength, IsOptional, IsIn } from 'class-validator';
 
-const VALID_ROLES = ['customer', 'vendor', 'designer', 'courier', 'sales', 'factory'];
+const VALID_ROLES = ['customer', 'vendor', 'designer', 'courier', 'sales', 'factory', 'creator'];
 
 export class RegisterDto {
   @IsEmail()

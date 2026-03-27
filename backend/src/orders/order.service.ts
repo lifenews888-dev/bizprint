@@ -1,13 +1,17 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Order, OrderStatus } from './entities/order.entity';
+import { OrderVendorGroup } from './entities/order-vendor-group.entity';
 import { AuditTrail } from '../audit-trail/audit-trail.entity';
 import { MailService } from '../mail/mail.service';
 import { OrdersGateway } from './orders.gateway';
 import { NotificationService } from '../notifications/notification.service';
 import { EventBusService } from '../events/event-bus.service';
 import { BizEvent } from '../events/event-types';
+import { AssignmentEngineService } from '../vendors/services/assignment-engine.service';
+import { VendorTierService } from '../vendors/services/vendor-tier.service';
+import { ProductionGateService } from '../files/production-gate.service';
 
 // Canonical order state progression (matches OrderStatus enum exactly)
 // Production sub-stages (designing, printing, qc, etc.) belong in production_stages table
@@ -48,15 +52,22 @@ const VALID_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
 
 @Injectable()
 export class OrdersService {
+  private readonly logger = new Logger(OrdersService.name);
+
   constructor(
     @InjectRepository(Order)
     private ordersRepo: Repository<Order>,
+    @InjectRepository(OrderVendorGroup)
+    private vendorGroupRepo: Repository<OrderVendorGroup>,
     @InjectRepository(AuditTrail)
     private auditRepo: Repository<AuditTrail>,
     private mailService: MailService,
     private ordersGateway: OrdersGateway,
     private notificationService: NotificationService,
     private readonly eventBus: EventBusService,
+    private readonly assignmentEngine: AssignmentEngineService,
+    private readonly vendorTier: VendorTierService,
+    private readonly productionGate: ProductionGateService,
   ) {}
 
   async createOrder(data: any) {
@@ -84,6 +95,34 @@ export class OrdersService {
       vendorId: data.vendor_id,
       status: saved.status,
     });
+
+    // Notify all admins about new order
+    try {
+      const adminUsers = await this.ordersRepo.manager.connection.getRepository('User').find({ where: { role: 'admin', is_active: true }, select: ['id'] });
+      for (const admin of adminUsers) {
+        await this.notificationService.create({
+          user_id: (admin as any).id,
+          type: 'ORDER' as any,
+          title: 'Шинэ захиалга',
+          message: `${data.customer_name || 'Хэрэглэгч'} — ${data.product_name || 'Бүтээгдэхүүн'} × ${saved.quantity}ш`,
+          data: { order_id: saved.id },
+        });
+      }
+    } catch {}
+
+    // Auto-create digital card + trial QR for business card orders
+    if (data.customer_id && data.options?.product_type === 'business_card') {
+      try {
+        this.eventBus.emit('BUSINESS_CARD_ORDERED' as any, {
+          userId: data.customer_id,
+          orderId: saved.id,
+          orderData: data.options || data,
+        });
+      } catch (e) {
+        console.log('Digital card auto-create note:', e?.message);
+      }
+    }
+
     return saved;
   }
 
@@ -147,6 +186,9 @@ export class OrdersService {
     if (customerId) {
       const statusMessages: Record<string, string> = {
         [OrderStatus.CONFIRMED]:            'Таны захиалга баталгаажлаа ✅',
+        [OrderStatus.PENDING_FILE]:         'Хэвлэх файлаа оруулна уу 📁',
+        [OrderStatus.FILE_REVIEW]:          'Файл хүлээн авлаа, шалгаж байна 🔍',
+        [OrderStatus.FILE_REJECTED]:        'Файл буцаагдлаа. Засаад дахин оруулна уу ❌',
         [OrderStatus.IN_PRODUCTION]:        'Захиалга үйлдвэрлэлд орлоо 🏭',
         [OrderStatus.FINISHING]:            'Захиалга боловсруулалтад орлоо 🔧',
         [OrderStatus.DISPATCHED]:           'Таны захиалга илгээгдлээ 📦',
@@ -164,6 +206,47 @@ export class OrdersService {
           });
         } catch {}
       }
+    }
+
+    // Send file-related emails
+    const email = (order as any).customer_email;
+    const customerName = (order as any).customer_name || 'Хэрэглэгч';
+    const productName = (order as any).product_name || 'Хэвлэл';
+
+    if (email) {
+      try {
+        if (status === OrderStatus.PENDING_FILE) {
+          await this.mailService.sendFileRequestNotice({
+            to: email, name: customerName,
+            orderId: id, productName,
+          });
+        } else if (status === OrderStatus.FILE_REJECTED) {
+          await this.mailService.sendFileRejectionNotice({
+            to: email, name: customerName,
+            orderId: id, productName,
+          });
+        }
+      } catch (e) {
+        this.logger.warn('File email error: ' + e.message);
+      }
+    }
+
+    // ═══ PRODUCTION GATE — validate file before production ═══
+    if (status === OrderStatus.IN_PRODUCTION) {
+      try {
+        const gate = await this.productionGate.isProductionReady(id);
+        if (!gate.ready) {
+          this.logger.warn(`Production gate failed for order ${id}: ${gate.reason}`);
+          // Don't block — log warning, admin can override
+        }
+      } catch (e) {
+        this.logger.warn(`Production gate check error: ${e.message}`);
+      }
+    }
+
+    // ═══ AUTO-ASSIGN VENDOR when order is CONFIRMED ═══
+    if (status === OrderStatus.CONFIRMED && (order as any).product_id) {
+      await this.autoAssignVendor(order as any);
     }
 
     return order;
@@ -300,5 +383,109 @@ export class OrdersService {
       status: OrderStatus.CANCELLED,
     });
     return saved;
+  }
+
+  /* ═══════════════════════════════════════════════════
+     AUTO-ASSIGN VENDOR — захиалга CONFIRMED болоход
+     ═══════════════════════════════════════════════════ */
+  private async autoAssignVendor(order: Order) {
+    try {
+      const productId = (order as any).product_id;
+      const quantity = order.quantity || 1;
+      if (!productId) return;
+
+      // Check if already assigned
+      const existing = await this.vendorGroupRepo.findOne({ where: { order_id: order.id } });
+      if (existing) return;
+
+      // Use AssignmentEngine to find best vendor
+      const result = await this.assignmentEngine.assignVendor(productId, quantity);
+      const vendor = result.vendor;
+
+      // Create OrderVendorGroup
+      await this.vendorGroupRepo.save({
+        order_id: order.id,
+        vendor_id: vendor.id,
+        subtotal: Number(order.total_price) || 0,
+        status: 'pending',
+        assigned_at: new Date(),
+      });
+
+      // Update order factory_id (legacy field)
+      await this.ordersRepo.update(order.id, { factory_id: vendor.id });
+
+      // Increment vendor load (both vendor-level and per-product)
+      await this.assignmentEngine.incrementLoad(vendor.id, productId, quantity);
+
+      // Send email notification to vendor
+      if (vendor.contact_email) {
+        await this.mailService.sendVendorOrderAssigned({
+          to: vendor.contact_email,
+          vendorName: vendor.company_name,
+          orderId: order.id,
+          productName: (order as any).product_name || 'Бүтээгдэхүүн',
+          quantity,
+          customerName: (order as any).customer_name || 'Хэрэглэгч',
+          fileUrl: (order as any).file_url || undefined,
+          deadline: order.deadline ? new Date(order.deadline).toLocaleDateString('mn-MN') : undefined,
+          notes: (order as any).notes || undefined,
+        });
+      }
+
+      this.logger.log(`Order ${order.id.slice(-8)} → auto-assigned to ${vendor.company_name} (${result.reason})`);
+    } catch (e) {
+      this.logger.warn(`Auto-assign failed for order ${order.id}: ${e.message}`);
+      // Order proceeds without vendor — admin can manually assign
+    }
+  }
+
+  /* ═══════════════════════════════════════════════════
+     MANUAL RE-ASSIGN VENDOR — админ гараар vendor солих
+     ═══════════════════════════════════════════════════ */
+  async reassignVendor(orderId: string, vendorId: string) {
+    const order = await this.getOrderById(orderId);
+
+    // Remove old assignment
+    const oldGroup = await this.vendorGroupRepo.findOne({ where: { order_id: orderId } });
+    if (oldGroup) {
+      // Decrement old vendor's load
+      await this.assignmentEngine.decrementLoad(oldGroup.vendor_id);
+      await this.vendorGroupRepo.remove(oldGroup);
+    }
+
+    // Get new vendor info
+    const result = await this.assignmentEngine.manualAssign(
+      (order as any).product_id || '',
+      vendorId,
+    );
+    const vendor = result.vendor;
+
+    // Create new assignment
+    await this.vendorGroupRepo.save({
+      order_id: orderId,
+      vendor_id: vendorId,
+      subtotal: Number(order.total_price) || 0,
+      status: 'pending',
+      assigned_at: new Date(),
+    });
+
+    await this.ordersRepo.update(orderId, { factory_id: vendorId });
+    await this.assignmentEngine.incrementLoad(vendorId, (order as any).product_id, order.quantity || 1);
+
+    // Notify new vendor
+    if (vendor.contact_email) {
+      await this.mailService.sendVendorOrderAssigned({
+        to: vendor.contact_email,
+        vendorName: vendor.company_name,
+        orderId,
+        productName: (order as any).product_name || 'Бүтээгдэхүүн',
+        quantity: order.quantity || 1,
+        customerName: (order as any).customer_name || 'Хэрэглэгч',
+        fileUrl: (order as any).file_url || undefined,
+      });
+    }
+
+    this.logger.log(`Order ${orderId.slice(-8)} → manually re-assigned to ${vendor.company_name}`);
+    return { order_id: orderId, vendor_id: vendorId, vendor_name: vendor.company_name };
   }
 }

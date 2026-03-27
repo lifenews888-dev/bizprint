@@ -10,10 +10,14 @@ import { Order } from '../orders/entities/order.entity'
 import { Machine } from '../machines/machine.entity'
 import { ProductionJob } from '../production/entities/production-job.entity'
 import { User } from '../users/user.entity'
+import { NotificationModule } from '../notifications/notification.module'
+import { MailModule } from '../mail/mail.module'
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Vendor, Order, Machine, ProductionJob, User]),
+    NotificationModule,
+    MailModule,
   ],
   providers: [AdminService, AdminGuard],
   controllers: [AdminController],
