@@ -168,8 +168,20 @@ export default function AdminBusinessCardsPage() {
               >
                 <MiniPreview cd={l.canvas_data} zones={l.front_json} />
                 <div style={{ padding: '8px 10px' }}>
-                  <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)' }}>{l.name_mn || l.name}</div>
-                  <div style={{ fontSize: 10, color: 'var(--text3)', marginTop: 2 }}>{l.type} · {(l.front_json?.length || 0)} элемент</div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)', overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis', flex: 1 }}>{l.name_mn || l.name}</div>
+                    <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
+                      <button onClick={(e) => { e.stopPropagation(); if (!productId || !l.id) return; apiFetch(`/admin/business-cards/${productId}/layouts/${l.id}`, { method: 'PATCH', body: { is_active: !l.is_active } }).then(() => { setAllLayouts(prev => prev.map((ll, li) => li === idx ? { ...ll, is_active: !ll.is_active } : ll)) }).catch(() => {}) }}
+                        title={l.is_active !== false ? 'Идэвхгүй болгох' : 'Идэвхжүүлэх'}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, padding: '2px', color: l.is_active !== false ? '#10B981' : '#9CA3AF' }}>
+                        {l.is_active !== false ? '●' : '○'}
+                      </button>
+                      <button onClick={(e) => { e.stopPropagation(); if (!productId || !l.id || !confirm('Устгах уу?')) return; apiFetch(`/admin/business-cards/${productId}/layouts/${l.id}`, { method: 'DELETE' }).then(() => { setAllLayouts(prev => prev.filter((_, li) => li !== idx)) }).catch(() => {}) }}
+                        title="Устгах"
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, padding: '2px', color: '#EF4444' }}>✕</button>
+                    </div>
+                  </div>
+                  <div style={{ fontSize: 10, color: l.is_active !== false ? 'var(--text3)' : '#EF4444', marginTop: 2 }}>{l.is_active !== false ? `${l.type} · ${(l.front_json?.length || 0)} элемент` : 'Идэвхгүй'}</div>
                 </div>
               </div>
             ))}
