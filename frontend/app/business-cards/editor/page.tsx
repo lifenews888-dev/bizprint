@@ -720,11 +720,21 @@ function EditorInner() {
                         )}
                       </div>
                     }
+                    // Social zone — сошиал идэвхгүй бол нуух
+                    if (z.type === 'social') {
+                      if (!showSocial || socialLinks.filter(s => s.value).length === 0) return null
+                      return <div key={z.key} {...dragProps} style={{ position: 'absolute', left: z.x, top: z.y, display: 'flex', gap: 6, ...dragProps.style }}>
+                        {socialLinks.filter(s => s.value).map((link, li) => {
+                          const opt = SOCIAL_OPTIONS.find(o => o.key === link.platform)
+                          return <div key={li} style={{ width: 16, height: 16, borderRadius: iconShape === 'circle' ? '50%' : 4, background: opt?.color || '#6B7280', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 7, color: '#fff', fontWeight: 700 }}>{opt?.icon || '?'}</div>
+                        })}
+                      </div>
+                    }
                     // Text zones
                     if (!z.key) return null
                     const value = (form as any)[z.key] || (z.key || '').replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase())
                     const isAccent = z.fill === 'accent'
-                    const color = isAccent ? T.accent : T.textLight
+                    const color = z.color || (isAccent ? T.accent : T.textLight)
                     const isSelected = editMode && selectedZoneIdx === idx
                     const isMultiSelected = editMode && selectedZones.has(idx)
                     return <div key={z.key} {...dragProps}
@@ -764,6 +774,10 @@ function EditorInner() {
                               style={{ minWidth: 26, height: 24, borderRadius: 4, border: (z.fontFamily || '') === f.value ? '2px solid #FF6B00' : '1px solid #ddd', background: (z.fontFamily || '') === f.value ? '#FFF7ED' : '#fff', fontSize: 9, cursor: 'pointer', color: '#333', fontFamily: f.value || 'inherit', fontWeight: (z.fontFamily || '') === f.value ? 700 : 400, padding: '0 3px' }}>{f.label}</button>
                           ))}
                           <div style={{ width: 1, background: '#E5E7EB', margin: '0 2px' }} />
+                          {/* Text color */}
+                          <input type="color" value={z.color || color} onChange={e => setZoneLayout(prev => prev.map((zz, ii) => ii === idx ? { ...zz, color: e.target.value } : zz))}
+                            title="Текст өнгө" style={{ width: 24, height: 24, borderRadius: 4, border: '1px solid #ddd', cursor: 'pointer', padding: 1 }} />
+                          <div style={{ width: 1, background: '#E5E7EB', margin: '0 2px' }} />
                           {/* Delete zone */}
                           <button onClick={() => { setZoneLayout(prev => prev.filter((_, ii) => ii !== idx)); setSelectedZoneIdx(-1) }}
                             style={{ width: 24, height: 24, borderRadius: 4, border: '1px solid #FCA5A5', background: '#FEF2F2', fontSize: 12, cursor: 'pointer', color: '#EF4444', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
@@ -791,8 +805,6 @@ function EditorInner() {
                 /* BACK SIDE — Лого+компани голд, social icon+нэр, QR баруунд */
                 <div style={{ width: '100%', height: '100%', display: 'flex', position: 'relative' }}>
                   <div style={{ position: 'absolute', left: 0, bottom: 0, width: '100%', height: 6, background: T.accent }} />
-                  <div style={{ position: 'absolute', left: 0, top: 0, width: '100%', height: 4, background: T.accent }} />
-
                   {/* Left: Logo + Company + Social */}
                   <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 8, padding: 20 }}>
                     {logoUrl ? (
@@ -800,7 +812,7 @@ function EditorInner() {
                     ) : (
                       <div style={{ width: 64, height: 64, background: T.bg === '#111111' ? '#333' : '#F3F4F6', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, color: '#9CA3AF' }}>Лого</div>
                     )}
-                    <div style={{ fontSize: 14, fontWeight: 700, color: T.accent, textAlign: 'center' }}>{form.company_name || 'Company'}</div>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: T.textDark, textAlign: 'center' }}>{form.company_name || 'Company'}</div>
                     {form.company_message && <div style={{ fontSize: 8, color: T.textLight, textAlign: 'center' }}>{form.company_message}</div>}
 
                     {/* Social — icon дээр, нэр доор */}
