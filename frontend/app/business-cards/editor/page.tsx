@@ -676,77 +676,49 @@ function EditorInner() {
         {/* ═══ RIGHT: Layout + Qty + Price + Actions ═══ */}
         <div style={{ width: 290, background: '#fff', borderLeft: '1px solid #E5E7EB', padding: '16px 14px', flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 14, overflow: 'auto' }}>
 
-          {/* Layout selector + Edit mode */}
+          {/* ── Загвар сонгох ── */}
+          {bcLayouts.length > 0 && (
+            <div>
+              <div style={{ fontSize: 12, fontWeight: 600, color: '#111', marginBottom: 6 }}>Загвар</div>
+              <select value={selectedBcLayout} onChange={e => handleBcLayoutChange(e.target.value)}
+                style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid #E5E7EB', background: '#fff', fontSize: 12, color: '#374151', cursor: 'pointer' }}>
+                <option value="">— Сонгох —</option>
+                {bcLayouts.map((l: any) => <option key={l.id} value={l.id}>{l.name_mn || l.name}</option>)}
+              </select>
+            </div>
+          )}
+
+          {/* ── Өнгө сонгох ── */}
+          <div>
+            <div style={{ fontSize: 12, fontWeight: 600, color: '#111', marginBottom: 6 }}>Өнгө</div>
+            <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 6 }}>
+              <input type="color" value={T.accent} onChange={e => setT({ ...T, accent: e.target.value })} style={{ width: 32, height: 32, borderRadius: 6, border: '1px solid #E5E7EB', cursor: 'pointer', padding: 2 }} title="Accent" />
+              <input type="color" value={T.bg} onChange={e => setT({ ...T, bg: e.target.value })} style={{ width: 32, height: 32, borderRadius: 6, border: '1px solid #E5E7EB', cursor: 'pointer', padding: 2 }} title="Дэвсгэр" />
+              <input type="color" value={T.textDark} onChange={e => setT({ ...T, textDark: e.target.value })} style={{ width: 32, height: 32, borderRadius: 6, border: '1px solid #E5E7EB', cursor: 'pointer', padding: 2 }} title="Текст" />
+              <span style={{ fontSize: 9, color: '#9CA3AF' }}>Accent · Дэвсгэр · Текст</span>
+            </div>
+          </div>
+
+          {/* ── Layout засах + Голлуулах ── */}
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-              <span style={{ fontSize: 12, fontWeight: 600, color: '#111' }}>Layout (байрлал)</span>
-              {zoneLayout.length > 0 && (
-                <button onClick={() => setEditMode(!editMode)} style={{ fontSize: 10, padding: '3px 8px', borderRadius: 6, border: 'none', cursor: 'pointer', background: editMode ? '#FF6B00' : '#F3F4F6', color: editMode ? '#fff' : '#6B7280' }}>
-                  {editMode ? '✓ Засварлаж байна' : '✎ Чирж засах'}
-                </button>
-              )}
+              <span style={{ fontSize: 12, fontWeight: 600, color: '#111' }}>Layout</span>
+              <button onClick={() => setEditMode(!editMode)} style={{ fontSize: 10, padding: '4px 10px', borderRadius: 6, border: 'none', cursor: 'pointer', background: editMode ? '#FF6B00' : '#F3F4F6', color: editMode ? '#fff' : '#6B7280', fontWeight: 600 }}>
+                {editMode ? '✓ Засварлаж байна' : '✎ Чирж засах'}
+              </button>
             </div>
-
-            {/* Загвар сонгох dropdown — business card layouts from API */}
-            {bcLayouts.length > 0 && (
-              <div style={{ marginBottom: 8 }}>
-                <div style={{ fontSize: 11, color: '#6B7280', marginBottom: 4 }}>Загвар сонгох</div>
-                <div style={{ position: 'relative' }}>
-                  <select
-                    value={selectedBcLayout}
-                    onChange={e => handleBcLayoutChange(e.target.value)}
-                    style={{
-                      width: '100%', padding: '10px 12px', paddingLeft: selectedBcLayout ? 28 : 12,
-                      borderRadius: 8, border: '1px solid #E5E7EB', background: '#fff',
-                      fontSize: 13, color: '#374151', cursor: 'pointer', appearance: 'none',
-                    }}
-                  >
-                    <option value="">— Загвар сонгох —</option>
-                    {bcLayouts.map((l: any) => (
-                      <option key={l.id} value={l.id}>{l.name_mn || l.name}</option>
-                    ))}
-                  </select>
-                  {/* Accent dot */}
-                  {selectedBcLayout && (() => {
-                    const sel = bcLayouts.find((l: any) => l.id === selectedBcLayout)
-                    return sel ? (
-                      <div style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', width: 10, height: 10, borderRadius: 5, backgroundColor: sel.canvas_data?.accent || '#FF6B00', border: '1px solid rgba(0,0,0,0.1)' }} />
-                    ) : null
-                  })()}
-                  <div style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', fontSize: 10, color: '#9CA3AF', pointerEvents: 'none' }}>▼</div>
-                </div>
-                {/* Color swatches */}
-                <div style={{ display: 'flex', gap: 4, marginTop: 6, flexWrap: 'wrap' }}>
-                  {bcLayouts.slice(0, 12).map((l: any) => {
-                    const a = l.canvas_data?.accent || '#FF6B00'
-                    const isActive = selectedBcLayout === l.id
-                    return (
-                      <button
-                        key={l.id}
-                        title={l.name_mn || l.name}
-                        onClick={() => handleBcLayoutChange(l.id)}
-                        style={{
-                          width: 22, height: 22, borderRadius: 6, border: isActive ? '2px solid #111' : '1px solid #E5E7EB',
-                          backgroundColor: a, cursor: 'pointer', transition: 'all .15s',
-                          boxShadow: isActive ? '0 0 0 2px #FF6B00' : 'none',
-                        }}
-                      />
-                    )
-                  })}
-                </div>
+            {/* Голлуулах tools */}
+            {editMode && zoneLayout.length > 0 && (
+              <div style={{ display: 'flex', gap: 3, flexWrap: 'wrap', marginBottom: 6 }}>
+                <button onClick={() => setZoneLayout(zoneLayout.map((z: any) => ({ ...z, align: 'left' })))} style={{ flex: 1, padding: '5px 0', borderRadius: 6, border: '1px solid #E5E7EB', background: '#fff', cursor: 'pointer', fontSize: 10, color: '#374151' }} title="Зүүн зэрэгцүүлэх">◧ Зүүн</button>
+                <button onClick={() => setZoneLayout(zoneLayout.map((z: any) => ({ ...z, align: 'center', x: Math.round((450 - (z.w || 200)) / 2) })))} style={{ flex: 1, padding: '5px 0', borderRadius: 6, border: '1px solid #E5E7EB', background: '#fff', cursor: 'pointer', fontSize: 10, color: '#374151' }} title="Голлуулах">◫ Гол</button>
+                <button onClick={() => setZoneLayout(zoneLayout.map((z: any) => ({ ...z, align: 'right', x: 450 - (z.w || 200) - 20 })))} style={{ flex: 1, padding: '5px 0', borderRadius: 6, border: '1px solid #E5E7EB', background: '#fff', cursor: 'pointer', fontSize: 10, color: '#374151' }} title="Баруун зэрэгцүүлэх">◨ Баруун</button>
+                <button onClick={() => {
+                  const gap = Math.floor(275 / (zoneLayout.length + 1))
+                  setZoneLayout(zoneLayout.map((z: any, idx: number) => ({ ...z, y: gap * (idx + 1) - Math.round((z.h || 20) / 2) })))
+                }} style={{ flex: 1, padding: '5px 0', borderRadius: 6, border: '1px solid #E5E7EB', background: '#fff', cursor: 'pointer', fontSize: 10, color: '#374151' }} title="Босоо жигд тараах">↕ Тараах</button>
               </div>
             )}
-
-            <button onClick={async () => {
-              try {
-                const templates: any = await apiFetch('/templates?category=business_card', { auth: false })
-                setLayoutList(Array.isArray(templates) ? templates : [])
-                setShowLayoutPicker(true)
-              } catch {}
-            }} style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid #E5E7EB', background: '#fff', fontSize: 13, color: '#374151', cursor: 'pointer', textAlign: 'left', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span>Загвар сонгох</span>
-              <span style={{ fontSize: 11, color: '#FF6B00' }}>→</span>
-            </button>
           </div>
 
           {/* Card Type selector */}
