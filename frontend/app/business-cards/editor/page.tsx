@@ -650,8 +650,8 @@ function EditorInner() {
 
               {side === 'front' ? (
                 <>
-                  {/* Accent bars */}
-                  {!frontImg && <>
+                  {/* Accent bars — зөвхөн zone байхгүй + фон зураг байхгүй үед */}
+                  {!frontImg && zoneLayout.length === 0 && <>
                     <div style={{ position: 'absolute', left: 0, top: 0, width: '100%', height: 6, background: T.accent }} />
                     <div style={{ position: 'absolute', left: 0, top: 0, width: 4, height: '100%', background: T.accent }} />
                     {(T as any).dividerY > 0 && <div style={{ position: 'absolute', left: 16, right: 16, top: (T as any).dividerY, height: 3, background: `linear-gradient(90deg, ${T.accent}, ${T.accent}40)`, borderRadius: 2 }} />}
