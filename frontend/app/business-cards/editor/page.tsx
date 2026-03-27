@@ -48,6 +48,7 @@ function EditorInner() {
   const [zoneLayout, setZoneLayout] = useState<any[]>([])
   const [backZoneLayout, setBackZoneLayout] = useState<any[]>([])
   const [cardType, setCardType] = useState<'standard' | 'laminated' | 'embossed'>('standard')
+  const [cornerStyle, setCornerStyle] = useState<'square' | 'rounded'>('rounded')
   const [pricingTiers, setPricingTiers] = useState<{ qty: number; standard: number; laminated: number; embossed: number }[] | null>(null)
 
   // Load template from API if it's a UUID (admin-created)
@@ -617,7 +618,7 @@ function EditorInner() {
               onMouseLeave={() => setDragIdx(-1)}
               onClick={() => { if (editMode) { setSelectedZoneIdx(-1); setSelectedZones(new Set()) } }}
               style={{
-                width: W, height: H, background: T.bg, borderRadius: 4, position: 'relative', overflow: 'hidden',
+                width: W, height: H, background: T.bg, borderRadius: cornerStyle === 'rounded' ? 12 : 0, position: 'relative', overflow: 'hidden',
                 boxShadow: '0 8px 32px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.06)',
                 border: editMode ? '2px dashed #FF6B0060' : 'none',
               }}>
@@ -921,6 +922,21 @@ function EditorInner() {
                 Элемент дээр дарж чирнэ. Дарахад фонт/устгах toolbar гарна.
               </div>
             )}
+          </div>
+
+          {/* Corner style — дугуй/дөрвөлжин */}
+          <div>
+            <div style={{ fontSize: 12, fontWeight: 600, color: '#111', marginBottom: 6 }}>Булангийн хэлбэр</div>
+            <div style={{ display: 'flex', gap: 6 }}>
+              <button onClick={() => setCornerStyle('rounded')} style={{ flex: 1, padding: '10px 0', borderRadius: 8, border: cornerStyle === 'rounded' ? '2px solid #FF6B00' : '1px solid #E5E7EB', background: cornerStyle === 'rounded' ? '#FFF7ED' : '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                <div style={{ width: 28, height: 18, border: '2px solid #374151', borderRadius: 5 }} />
+                <span style={{ fontSize: 11, color: '#374151', fontWeight: cornerStyle === 'rounded' ? 600 : 400 }}>Дугуй</span>
+              </button>
+              <button onClick={() => setCornerStyle('square')} style={{ flex: 1, padding: '10px 0', borderRadius: 8, border: cornerStyle === 'square' ? '2px solid #FF6B00' : '1px solid #E5E7EB', background: cornerStyle === 'square' ? '#FFF7ED' : '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                <div style={{ width: 28, height: 18, border: '2px solid #374151', borderRadius: 0 }} />
+                <span style={{ fontSize: 11, color: '#374151', fontWeight: cornerStyle === 'square' ? 600 : 400 }}>Дөрвөлжин</span>
+              </button>
+            </div>
           </div>
 
           {/* Card Type selector */}
