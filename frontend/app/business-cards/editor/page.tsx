@@ -749,20 +749,56 @@ function EditorInner() {
                       } : undefined}
                       style={{ position: 'absolute', left: z.x, top: z.y, fontSize: z.fontSize || 10, fontWeight: z.fontWeight === 'bold' ? 700 : 400, color, fontFamily: z.fontFamily || 'inherit', textAlign: (z.align || 'left') as any, whiteSpace: 'nowrap', overflow: 'visible', maxWidth: W - z.x - 16, ...(isMultiSelected && !isSelected ? { outline: '2px solid #3B82F6', outlineOffset: 2, borderRadius: 2 } : {}), ...dragProps.style }}>
                       {value}
-                      {/* ── Selection box with handles ── */}
+                      {/* ── Selection box with resize handles ── */}
                       {isSelected && (
                         <div style={{ position: 'absolute', inset: -4, border: '2px solid #0EA5E9', borderRadius: 1, pointerEvents: 'none' }}>
-                          {/* 8 resize handles */}
+                          {/* Resize handles — баруун ирмэг чирэхэд өргөн өөрчлөгдөнө */}
                           {[
-                            { t: -5, l: -5 }, { t: -5, l: '50%', ml: -4 }, { t: -5, r: -5 },
-                            { t: '50%', mt: -4, l: -5 }, { t: '50%', mt: -4, r: -5 },
-                            { b: -5, l: -5 }, { b: -5, l: '50%', ml: -4 }, { b: -5, r: -5 },
+                            { t: -5, l: -5, cur: 'nw-resize', dx: -1, dy: -1 },
+                            { t: -5, l: '50%', ml: -4, cur: 'n-resize', dx: 0, dy: -1 },
+                            { t: -5, r: -5, cur: 'ne-resize', dx: 1, dy: -1 },
+                            { t: '50%', mt: -4, l: -5, cur: 'w-resize', dx: -1, dy: 0 },
+                            { t: '50%', mt: -4, r: -5, cur: 'e-resize', dx: 1, dy: 0 },
+                            { b: -5, l: -5, cur: 'sw-resize', dx: -1, dy: 1 },
+                            { b: -5, l: '50%', ml: -4, cur: 's-resize', dx: 0, dy: 1 },
+                            { b: -5, r: -5, cur: 'se-resize', dx: 1, dy: 1 },
                           ].map((pos, hi) => (
-                            <div key={hi} style={{ position: 'absolute', width: 8, height: 8, borderRadius: '50%', background: '#fff', border: '2px solid #0EA5E9', top: pos.t, left: pos.l, right: pos.r, bottom: pos.b, marginLeft: pos.ml, marginTop: pos.mt, pointerEvents: 'auto', cursor: 'nwse-resize' } as any} />
+                            <div key={hi}
+                              onMouseDown={e => {
+                                e.preventDefault(); e.stopPropagation()
+                                const startX = e.clientX, startY = e.clientY
+                                const origW = z.w || 200, origH = z.h || 22, origX = z.x, origY = z.y
+                                const onMove = (ev: MouseEvent) => {
+                                  const ddx = ev.clientX - startX, ddy = ev.clientY - startY
+                                  setZoneLayout(prev => prev.map((zz, ii) => {
+                                    if (ii !== idx) return zz
+                                    let nw = origW, nh = origH, nx = origX, ny = origY
+                                    if (pos.dx === 1) nw = Math.max(30, origW + ddx)
+                                    if (pos.dx === -1) { nw = Math.max(30, origW - ddx); nx = origX + ddx }
+                                    if (pos.dy === 1) nh = Math.max(14, origH + ddy)
+                                    if (pos.dy === -1) { nh = Math.max(14, origH - ddy); ny = origY + ddy }
+                                    return { ...zz, w: Math.round(nw), h: Math.round(nh), x: Math.round(nx), y: Math.round(ny) }
+                                  }))
+                                }
+                                const onUp = () => { document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp) }
+                                document.addEventListener('mousemove', onMove)
+                                document.addEventListener('mouseup', onUp)
+                              }}
+                              style={{ position: 'absolute', width: 9, height: 9, borderRadius: '50%', background: '#fff', border: '2px solid #0EA5E9', top: pos.t, left: pos.l, right: pos.r, bottom: pos.b, marginLeft: pos.ml, marginTop: pos.mt, pointerEvents: 'auto', cursor: pos.cur } as any} />
                           ))}
-                          {/* Move + rotate icons at bottom center */}
-                          <div style={{ position: 'absolute', bottom: -24, left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: 4, pointerEvents: 'auto' }}>
-                            <div style={{ width: 20, height: 20, borderRadius: '50%', background: '#0EA5E9', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'move' }}>
+                          {/* Move icon — чирэхэд зөөнө */}
+                          <div style={{ position: 'absolute', bottom: -22, left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: 4, pointerEvents: 'auto' }}
+                            onMouseDown={e => {
+                              e.preventDefault(); e.stopPropagation()
+                              const startX = e.clientX, startY = e.clientY, origX = z.x, origY = z.y
+                              const onMove = (ev: MouseEvent) => {
+                                setZoneLayout(prev => prev.map((zz, ii) => ii === idx ? { ...zz, x: Math.round(origX + ev.clientX - startX), y: Math.round(origY + ev.clientY - startY) } : zz))
+                              }
+                              const onUp = () => { document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp) }
+                              document.addEventListener('mousemove', onMove)
+                              document.addEventListener('mouseup', onUp)
+                            }}>
+                            <div style={{ width: 20, height: 20, borderRadius: '50%', background: '#0EA5E9', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'move', boxShadow: '0 2px 6px rgba(0,0,0,0.2)' }}>
                               <span style={{ fontSize: 10, color: '#fff' }}>⊕</span>
                             </div>
                           </div>
