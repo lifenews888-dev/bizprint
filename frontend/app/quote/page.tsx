@@ -563,8 +563,8 @@ export default function QuotePage() {
       breakdown: breakdown.lines.map(l => ({ label: l.label, amount: Math.round(l.amount) })),
     };
 
-    // Бүх quote-уудыг нэгтгэх (saved + current)
-    const allQuotes = [...savedQuotes, currentQuote];
+    // Хадгалсан жагсаалт байвал зөвхөн тэдгээрийг, байхгүй бол одоогийн тооцоог илгээх
+    const allQuotes = savedQuotes.length > 0 ? [...savedQuotes] : [currentQuote];
 
     try {
       const storedUser = typeof window !== 'undefined'
@@ -1543,7 +1543,7 @@ export default function QuotePage() {
           onSend={() => { setShowPreview(false); setShowModal(true); setSuccessMsg(''); }}
           data={{
             items: [
-              ...(savedQuotes.map(sq => ({
+              ...((savedQuotes.length > 0 ? savedQuotes : []).map(sq => ({
                 product: sq.product_name,
                 text: sq.text || signText || sq.product_name,
                 width: parseFloat(sq.dimensions?.split('×')[0] || '0') || dimW,
