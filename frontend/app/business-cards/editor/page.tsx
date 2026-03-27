@@ -749,16 +749,41 @@ function EditorInner() {
                 {editMode ? '✓ Засварлаж байна' : '✎ Чирж засах'}
               </button>
             </div>
-            {/* Голлуулах tools */}
+            {/* Байрлуулах tools */}
             {editMode && zoneLayout.length > 0 && (
-              <div style={{ display: 'flex', gap: 3, flexWrap: 'wrap', marginBottom: 6 }}>
-                <button onClick={() => setZoneLayout(zoneLayout.map((z: any) => ({ ...z, align: 'left' })))} style={{ flex: 1, padding: '5px 0', borderRadius: 6, border: '1px solid #E5E7EB', background: '#fff', cursor: 'pointer', fontSize: 10, color: '#374151' }} title="Зүүн зэрэгцүүлэх">◧ Зүүн</button>
-                <button onClick={() => setZoneLayout(zoneLayout.map((z: any) => ({ ...z, align: 'center', x: Math.round((450 - (z.w || 200)) / 2) })))} style={{ flex: 1, padding: '5px 0', borderRadius: 6, border: '1px solid #E5E7EB', background: '#fff', cursor: 'pointer', fontSize: 10, color: '#374151' }} title="Голлуулах">◫ Гол</button>
-                <button onClick={() => setZoneLayout(zoneLayout.map((z: any) => ({ ...z, align: 'right', x: 450 - (z.w || 200) - 20 })))} style={{ flex: 1, padding: '5px 0', borderRadius: 6, border: '1px solid #E5E7EB', background: '#fff', cursor: 'pointer', fontSize: 10, color: '#374151' }} title="Баруун зэрэгцүүлэх">◨ Баруун</button>
+              <div>
+                <div style={{ fontSize: 10, color: '#9CA3AF', marginBottom: 4 }}>Бүгдийг байрлуулах:</div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 3, marginBottom: 6 }}>
+                  {/* 9 байрлал — 3x3 grid */}
+                  {[
+                    { label: '◤', title: 'Зүүн дээр', getX: () => 20, getY: () => 0, alignY: 'top' },
+                    { label: '◬', title: 'Голд дээр', getX: (z: any) => Math.round((W - (z.w || 200)) / 2), getY: () => 0, alignY: 'top' },
+                    { label: '◥', title: 'Баруун дээр', getX: (z: any) => W - (z.w || 200) - 20, getY: () => 0, alignY: 'top' },
+                    { label: '◧', title: 'Зүүн голд', getX: () => 20, getY: () => 0, alignY: 'middle' },
+                    { label: '◫', title: 'Голд', getX: (z: any) => Math.round((W - (z.w || 200)) / 2), getY: () => 0, alignY: 'middle' },
+                    { label: '◨', title: 'Баруун голд', getX: (z: any) => W - (z.w || 200) - 20, getY: () => 0, alignY: 'middle' },
+                    { label: '◣', title: 'Зүүн доор', getX: () => 20, getY: () => 0, alignY: 'bottom' },
+                    { label: '◭', title: 'Голд доор', getX: (z: any) => Math.round((W - (z.w || 200)) / 2), getY: () => 0, alignY: 'bottom' },
+                    { label: '◢', title: 'Баруун доор', getX: (z: any) => W - (z.w || 200) - 20, getY: () => 0, alignY: 'bottom' },
+                  ].map((pos, pi) => (
+                    <button key={pi} title={pos.title} onClick={() => {
+                      const totalH = zoneLayout.reduce((s: number, z: any) => s + (z.h || 22), 0) + (zoneLayout.length - 1) * 6
+                      let startY = pos.alignY === 'top' ? 20 : pos.alignY === 'bottom' ? H - totalH - 20 : Math.round((H - totalH) / 2)
+                      setZoneLayout(zoneLayout.map((z: any) => {
+                        const x = pos.getX(z)
+                        const y = startY
+                        startY += (z.h || 22) + 6
+                        return { ...z, x, y }
+                      }))
+                    }} style={{ padding: '6px 0', borderRadius: 6, border: '1px solid #E5E7EB', background: '#fff', cursor: 'pointer', fontSize: 12, color: '#374151', textAlign: 'center' }}>
+                      {pos.label}
+                    </button>
+                  ))}
+                </div>
                 <button onClick={() => {
-                  const gap = Math.floor(275 / (zoneLayout.length + 1))
-                  setZoneLayout(zoneLayout.map((z: any, idx: number) => ({ ...z, y: gap * (idx + 1) - Math.round((z.h || 20) / 2) })))
-                }} style={{ flex: 1, padding: '5px 0', borderRadius: 6, border: '1px solid #E5E7EB', background: '#fff', cursor: 'pointer', fontSize: 10, color: '#374151' }} title="Босоо жигд тараах">↕ Тараах</button>
+                  const gap = Math.max(4, Math.floor((H - 40) / zoneLayout.length))
+                  setZoneLayout(zoneLayout.map((z: any, idx: number) => ({ ...z, y: 20 + idx * gap })))
+                }} style={{ width: '100%', padding: '5px 0', borderRadius: 6, border: '1px solid #E5E7EB', background: '#fff', cursor: 'pointer', fontSize: 10, color: '#374151' }}>↕ Жигд тараах</button>
               </div>
             )}
           </div>
