@@ -839,15 +839,46 @@ function EditorInner() {
         {/* ═══ RIGHT: Layout + Qty + Price + Actions ═══ */}
         <div style={{ width: 290, background: '#fff', borderLeft: '1px solid #E5E7EB', padding: '16px 14px', flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 14, overflow: 'auto' }}>
 
-          {/* ── Загвар сонгох ── */}
+          {/* ── Загвар сонгох — mini preview grid ── */}
           {bcLayouts.length > 0 && (
             <div>
-              <div style={{ fontSize: 12, fontWeight: 600, color: '#111', marginBottom: 6 }}>Загвар</div>
-              <select value={selectedBcLayout} onChange={e => handleBcLayoutChange(e.target.value)}
-                style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid #E5E7EB', background: '#fff', fontSize: 12, color: '#374151', cursor: 'pointer' }}>
-                <option value="">— Сонгох —</option>
-                {bcLayouts.map((l: any) => <option key={l.id} value={l.id}>{l.name_mn || l.name}</option>)}
-              </select>
+              <div style={{ fontSize: 12, fontWeight: 600, color: '#111', marginBottom: 6 }}>Загвар ({bcLayouts.length})</div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 6, maxHeight: 240, overflowY: 'auto', padding: 2 }}>
+                {bcLayouts.map((l: any) => {
+                  const isActive = selectedBcLayout === l.id
+                  const cd = l.canvas_data || {}
+                  const zones: any[] = (l.front_json || []).filter((z: any) => z.key)
+                  const accent = cd.accent || '#FF6B00'
+                  const bg = cd.bg || '#fff'
+                  const tl = cd.textLight || '#6B7280'
+                  const td = cd.textDark || '#111'
+                  const pw = 120, ph = 73, sx = pw / 450, sy = ph / 275
+                  return (
+                    <div key={l.id} onClick={() => handleBcLayoutChange(l.id)}
+                      style={{ cursor: 'pointer', borderRadius: 6, border: isActive ? '2px solid #FF6B00' : '1px solid #E5E7EB', overflow: 'hidden', transition: 'all .15s', background: '#fff' }}>
+                      <div style={{ width: pw, height: ph, background: bg, position: 'relative', overflow: 'hidden' }}>
+                        {zones.length > 0 ? zones.map((z: any) => {
+                          const x = Math.round(z.x * sx), y = Math.round(z.y * sy)
+                          const zw = Math.round((z.w || 100) * sx), zh = Math.round((z.h || 20) * sy)
+                          const fs = Math.max(3, Math.round((z.fontSize || 10) * ((sx + sy) / 2)))
+                          if (z.type === 'logo') return <div key={z.key} style={{ position: 'absolute', left: x, top: y, width: zw, height: zh, background: bg === '#fff' || bg === '#FFFFFF' ? '#F3F4F6' : 'rgba(255,255,255,0.08)', borderRadius: 2 }} />
+                          if (z.type === 'qr') return <div key={z.key} style={{ position: 'absolute', left: x, top: y, width: Math.min(zw, zh), height: Math.min(zw, zh), background: bg === '#fff' || bg === '#FFFFFF' ? '#f5f5f5' : 'rgba(255,255,255,0.06)', borderRadius: 1, border: '1px solid #eee' }} />
+                          if (z.type === 'social') return <div key={z.key} style={{ position: 'absolute', left: x, top: y, display: 'flex', gap: 1 }}>{['#1877F2','#E4405F','#0A66C2'].map((c, i) => <div key={i} style={{ width: 3, height: 3, borderRadius: 1, background: c }} />)}</div>
+                          const color = z.fill === 'accent' ? accent : z.fill === 'light' ? tl : td
+                          const labels: Record<string, string> = { company_name: 'Co', full_name: 'Name', job_title: 'Title', email: '@', phone: 'Ph', address1: 'Adr', website: 'Web', company_message: '...', address2: 'Ad2' }
+                          return <div key={z.key} style={{ position: 'absolute', left: x, top: y, fontSize: fs, fontWeight: z.fontWeight === 'bold' ? 700 : 400, color, whiteSpace: 'nowrap', overflow: 'hidden', lineHeight: 1.1 }}>{labels[z.key] || ''}</div>
+                        }) : (
+                          <div style={{ padding: 6 }}>
+                            <div style={{ fontSize: 5, fontWeight: 700, color: accent }}>Name</div>
+                            <div style={{ fontSize: 4, color: tl, marginTop: 2 }}>Title</div>
+                          </div>
+                        )}
+                      </div>
+                      <div style={{ padding: '3px 5px', fontSize: 8, color: '#6B7280', overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis', background: isActive ? '#FFF7ED' : '#fff' }}>{l.name_mn || l.name}</div>
+                    </div>
+                  )
+                })}
+              </div>
             </div>
           )}
 
