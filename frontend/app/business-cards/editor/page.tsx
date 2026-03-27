@@ -94,13 +94,37 @@ function EditorInner() {
             if (match.canvas_data) {
               setT({ accent: match.canvas_data.accent || '#FF6B00', bg: match.canvas_data.bg || '#FFFFFF', textDark: match.canvas_data.textDark || '#111111', textLight: match.canvas_data.textLight || '#6B7280', dividerY: match.canvas_data.dividerY || 0 })
             }
-            if (match.front_json?.length) setZoneLayout(match.front_json)
-            if (match.back_json?.length) setBackZoneLayout(match.back_json)
+            if (match.front_json?.length) setZoneLayout(convertZones(match.front_json))
+            if (match.back_json?.length) setBackZoneLayout(convertZones(match.back_json))
           }
         }
       }
     }).catch(() => {})
   }, [bcProductId, initialLayoutId])
+
+  // Хуучин format (type/position/size) → шинэ (key/x/y) хөрвүүлэгч
+  const convertZones = (zones: any[]): any[] => {
+    if (!zones?.length) return []
+    if (zones[0].key && zones[0].x !== undefined) return zones
+    const CW = 450, CH = 275, P = 20
+    const typeMap: Record<string, string> = { name: 'full_name', title: 'job_title', phone: 'phone', email: 'email', company: 'company_name', address: 'address1', website: 'website', logo: 'logo', qr: 'qr', message: 'company_message' }
+    const sizeMap: Record<string, number> = { lg: 22, md: 14, sm: 11, xs: 9 }
+    let y = P
+    return zones.map((z: any) => {
+      const key = typeMap[z.type] || z.type
+      if (!key) return null
+      const fontSize = sizeMap[z.size] || 12
+      const isLogo = key === 'logo', isQr = key === 'qr'
+      const w = isLogo ? 70 : isQr ? 60 : 220
+      const h = isLogo ? 70 : isQr ? 60 : fontSize + 8
+      let x = P
+      if (z.position?.includes('right')) x = CW - w - P
+      else if (z.position?.includes('center')) x = Math.round((CW - w) / 2)
+      const result = { key, x, y, w, h, fontSize, type: isLogo ? 'logo' : isQr ? 'qr' : undefined, fontWeight: z.size === 'lg' ? 'bold' : undefined, fill: key === 'full_name' || key === 'company_name' ? 'accent' : 'light' }
+      y += h + 6
+      return result
+    }).filter(Boolean)
+  }
 
   const handleBcLayoutChange = (layoutId: string) => {
     setSelectedBcLayout(layoutId)
@@ -114,9 +138,9 @@ function EditorInner() {
         dividerY: layout.canvas_data.dividerY || 0,
       })
     }
-    // Zone байрлал ачаалах
-    if (layout?.front_json?.length) setZoneLayout(layout.front_json)
-    if (layout?.back_json?.length) setBackZoneLayout(layout.back_json)
+    // Zone байрлал ачаалах (хуучин format хөрвүүлэх)
+    if (layout?.front_json?.length) setZoneLayout(convertZones(layout.front_json))
+    if (layout?.back_json?.length) setBackZoneLayout(convertZones(layout.back_json))
   }
 
   const [side, setSide] = useState<'front' | 'back'>('front')
