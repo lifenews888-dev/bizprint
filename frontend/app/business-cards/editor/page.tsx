@@ -94,6 +94,8 @@ function EditorInner() {
             if (match.canvas_data) {
               setT({ accent: match.canvas_data.accent || '#FF6B00', bg: match.canvas_data.bg || '#FFFFFF', textDark: match.canvas_data.textDark || '#111111', textLight: match.canvas_data.textLight || '#6B7280', dividerY: match.canvas_data.dividerY || 0 })
             }
+            if (match.front_json?.length) setZoneLayout(match.front_json)
+            if (match.back_json?.length) setBackZoneLayout(match.back_json)
           }
         }
       }
@@ -112,6 +114,9 @@ function EditorInner() {
         dividerY: layout.canvas_data.dividerY || 0,
       })
     }
+    // Zone байрлал ачаалах
+    if (layout?.front_json?.length) setZoneLayout(layout.front_json)
+    if (layout?.back_json?.length) setBackZoneLayout(layout.back_json)
   }
 
   const [side, setSide] = useState<'front' | 'back'>('front')
