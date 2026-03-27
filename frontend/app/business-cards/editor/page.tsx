@@ -162,6 +162,7 @@ function EditorInner() {
   const [showLayoutPicker, setShowLayoutPicker] = useState(false)
   const [layoutList, setLayoutList] = useState<any[]>([])
   const [selectedZoneIdx, setSelectedZoneIdx] = useState(-1)
+  const [selectedZones, setSelectedZones] = useState<Set<number>>(new Set())
   const [bcLayouts, setBcLayouts] = useState<any[]>([])
   const [selectedBcLayout, setSelectedBcLayout] = useState('')
   const [editMode, setEditMode] = useState(false) // drag zones mode
@@ -513,7 +514,7 @@ function EditorInner() {
               }}
               onMouseUp={() => setDragIdx(-1)}
               onMouseLeave={() => setDragIdx(-1)}
-              onClick={() => { if (editMode) setSelectedZoneIdx(-1) }}
+              onClick={() => { if (editMode) { setSelectedZoneIdx(-1); setSelectedZones(new Set()) } }}
               style={{
                 width: W, height: H, background: T.bg, borderRadius: 4, position: 'relative', overflow: 'hidden',
                 boxShadow: '0 8px 32px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.06)',
@@ -571,9 +572,18 @@ function EditorInner() {
                     const isAccent = z.fill === 'accent'
                     const color = isAccent ? T.accent : T.textLight
                     const isSelected = editMode && selectedZoneIdx === idx
+                    const isMultiSelected = editMode && selectedZones.has(idx)
                     return <div key={z.key} {...dragProps}
-                      onClick={editMode ? (e: any) => { e.stopPropagation(); setSelectedZoneIdx(isSelected ? -1 : idx) } : undefined}
-                      style={{ position: 'absolute', left: z.x, top: z.y, fontSize: z.fontSize || 10, fontWeight: z.fontWeight === 'bold' ? 700 : 400, color, fontFamily: z.fontFamily || 'inherit', textAlign: (z.align || 'left') as any, whiteSpace: 'nowrap', overflow: 'visible', maxWidth: W - z.x - 16, ...dragProps.style }}>
+                      onClick={editMode ? (e: any) => {
+                        e.stopPropagation()
+                        setSelectedZoneIdx(isSelected ? -1 : idx)
+                        if (e.ctrlKey || e.metaKey) {
+                          setSelectedZones(prev => { const s = new Set(prev); s.has(idx) ? s.delete(idx) : s.add(idx); return s })
+                        } else {
+                          setSelectedZones(new Set([idx]))
+                        }
+                      } : undefined}
+                      style={{ position: 'absolute', left: z.x, top: z.y, fontSize: z.fontSize || 10, fontWeight: z.fontWeight === 'bold' ? 700 : 400, color, fontFamily: z.fontFamily || 'inherit', textAlign: (z.align || 'left') as any, whiteSpace: 'nowrap', overflow: 'visible', maxWidth: W - z.x - 16, ...(isMultiSelected ? { outline: '2px solid #3B82F6', outlineOffset: 2, borderRadius: 2 } : {}), ...dragProps.style }}>
                       {value}
                       {/* ── Zone toolbar ── */}
                       {isSelected && (
@@ -749,41 +759,56 @@ function EditorInner() {
                 {editMode ? '✓ Засварлаж байна' : '✎ Чирж засах'}
               </button>
             </div>
-            {/* Байрлуулах tools */}
+            {/* Байрлуулах tools — сонгосон zone-уудад */}
             {editMode && zoneLayout.length > 0 && (
               <div>
-                <div style={{ fontSize: 10, color: '#9CA3AF', marginBottom: 4 }}>Бүгдийг байрлуулах:</div>
+                <div style={{ fontSize: 10, color: '#9CA3AF', marginBottom: 4 }}>
+                  {selectedZones.size > 0 ? `${selectedZones.size} сонгосон — байрлуулах:` : 'Ctrl+Click олон сонгох, дараа нь байрлуулах:'}
+                </div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 3, marginBottom: 6 }}>
-                  {/* 9 байрлал — 3x3 grid */}
                   {[
-                    { label: '◤', title: 'Зүүн дээр', getX: () => 20, getY: () => 0, alignY: 'top' },
-                    { label: '◬', title: 'Голд дээр', getX: (z: any) => Math.round((W - (z.w || 200)) / 2), getY: () => 0, alignY: 'top' },
-                    { label: '◥', title: 'Баруун дээр', getX: (z: any) => W - (z.w || 200) - 20, getY: () => 0, alignY: 'top' },
-                    { label: '◧', title: 'Зүүн голд', getX: () => 20, getY: () => 0, alignY: 'middle' },
-                    { label: '◫', title: 'Голд', getX: (z: any) => Math.round((W - (z.w || 200)) / 2), getY: () => 0, alignY: 'middle' },
-                    { label: '◨', title: 'Баруун голд', getX: (z: any) => W - (z.w || 200) - 20, getY: () => 0, alignY: 'middle' },
-                    { label: '◣', title: 'Зүүн доор', getX: () => 20, getY: () => 0, alignY: 'bottom' },
-                    { label: '◭', title: 'Голд доор', getX: (z: any) => Math.round((W - (z.w || 200)) / 2), getY: () => 0, alignY: 'bottom' },
-                    { label: '◢', title: 'Баруун доор', getX: (z: any) => W - (z.w || 200) - 20, getY: () => 0, alignY: 'bottom' },
+                    { label: '◤', title: 'Зүүн дээр', getX: () => 20, alignY: 'top' },
+                    { label: '◬', title: 'Голд дээр', getX: (z: any) => Math.round((W - (z.w || 200)) / 2), alignY: 'top' },
+                    { label: '◥', title: 'Баруун дээр', getX: (z: any) => W - (z.w || 200) - 20, alignY: 'top' },
+                    { label: '◧', title: 'Зүүн голд', getX: () => 20, alignY: 'middle' },
+                    { label: '◫', title: 'Голд', getX: (z: any) => Math.round((W - (z.w || 200)) / 2), alignY: 'middle' },
+                    { label: '◨', title: 'Баруун голд', getX: (z: any) => W - (z.w || 200) - 20, alignY: 'middle' },
+                    { label: '◣', title: 'Зүүн доор', getX: () => 20, alignY: 'bottom' },
+                    { label: '◭', title: 'Голд доор', getX: (z: any) => Math.round((W - (z.w || 200)) / 2), alignY: 'bottom' },
+                    { label: '◢', title: 'Баруун доор', getX: (z: any) => W - (z.w || 200) - 20, alignY: 'bottom' },
                   ].map((pos, pi) => (
-                    <button key={pi} title={pos.title} onClick={() => {
-                      const totalH = zoneLayout.reduce((s: number, z: any) => s + (z.h || 22), 0) + (zoneLayout.length - 1) * 6
+                    <button key={pi} title={pos.title} disabled={selectedZones.size === 0} onClick={() => {
+                      // Зөвхөн сонгосон zone-уудыг шилжүүлэх
+                      const selArr = Array.from(selectedZones)
+                      const selZones = selArr.map(si => zoneLayout[si]).filter(Boolean)
+                      const totalH = selZones.reduce((s: number, z: any) => s + (z.h || 22), 0) + (selZones.length - 1) * 6
                       let startY = pos.alignY === 'top' ? 20 : pos.alignY === 'bottom' ? H - totalH - 20 : Math.round((H - totalH) / 2)
-                      setZoneLayout(zoneLayout.map((z: any) => {
+                      let selI = 0
+                      setZoneLayout(zoneLayout.map((z: any, zi: number) => {
+                        if (!selectedZones.has(zi)) return z
                         const x = pos.getX(z)
                         const y = startY
                         startY += (z.h || 22) + 6
+                        selI++
                         return { ...z, x, y }
                       }))
-                    }} style={{ padding: '6px 0', borderRadius: 6, border: '1px solid #E5E7EB', background: '#fff', cursor: 'pointer', fontSize: 12, color: '#374151', textAlign: 'center' }}>
+                    }} style={{ padding: '6px 0', borderRadius: 6, border: '1px solid #E5E7EB', background: selectedZones.size > 0 ? '#fff' : '#F9FAFB', cursor: selectedZones.size > 0 ? 'pointer' : 'default', fontSize: 12, color: selectedZones.size > 0 ? '#374151' : '#D1D5DB', textAlign: 'center' }}>
                       {pos.label}
                     </button>
                   ))}
                 </div>
-                <button onClick={() => {
-                  const gap = Math.max(4, Math.floor((H - 40) / zoneLayout.length))
-                  setZoneLayout(zoneLayout.map((z: any, idx: number) => ({ ...z, y: 20 + idx * gap })))
-                }} style={{ width: '100%', padding: '5px 0', borderRadius: 6, border: '1px solid #E5E7EB', background: '#fff', cursor: 'pointer', fontSize: 10, color: '#374151' }}>↕ Жигд тараах</button>
+                <div style={{ display: 'flex', gap: 3 }}>
+                  <button disabled={selectedZones.size === 0} onClick={() => {
+                    const selArr = Array.from(selectedZones).sort()
+                    const gap = Math.max(4, Math.floor((H - 40) / selArr.length))
+                    setZoneLayout(zoneLayout.map((z: any, zi: number) => {
+                      const si = selArr.indexOf(zi)
+                      return si >= 0 ? { ...z, y: 20 + si * gap } : z
+                    }))
+                  }} style={{ flex: 1, padding: '5px 0', borderRadius: 6, border: '1px solid #E5E7EB', background: '#fff', cursor: selectedZones.size > 0 ? 'pointer' : 'default', fontSize: 10, color: selectedZones.size > 0 ? '#374151' : '#D1D5DB' }}>↕ Жигд тараах</button>
+                  <button onClick={() => { const all = new Set(zoneLayout.map((_: any, i: number) => i)); setSelectedZones(all) }}
+                    style={{ flex: 1, padding: '5px 0', borderRadius: 6, border: '1px solid #E5E7EB', background: '#fff', cursor: 'pointer', fontSize: 10, color: '#374151' }}>☑ Бүгд</button>
+                </div>
               </div>
             )}
           </div>
