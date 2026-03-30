@@ -1,5 +1,10 @@
 import { ExceptionFilter, Catch, ArgumentsHost, HttpException, HttpStatus, Logger } from '@nestjs/common';
 import { SystemService } from '../../system/system.service';
+import { systemLogger } from '../logger';
+
+// Global Socket.IO server reference (set from main.ts)
+let _io: any = null;
+export function setSocketServer(io: any) { _io = io; }
 
 @Catch()
 export class ErrorLoggerFilter implements ExceptionFilter {
@@ -14,12 +19,12 @@ export class ErrorLoggerFilter implements ExceptionFilter {
       ? exception.getStatus()
       : HttpStatus.INTERNAL_SERVER_ERROR;
 
-    // Only log 500+ errors (not 401, 404 etc)
-    if (status >= 500) {
-      const message = exception?.message || 'Internal server error';
-      const stack = exception?.stack || '';
+    const message = exception?.message || 'Internal server error';
 
-      SystemService.logError({
+    // Log 500+ errors → memory + file + socket
+    if (status >= 500) {
+      const stack = exception?.stack || '';
+      const errorEntry = {
         level: 'error',
         message,
         stack: stack.slice(0, 2000),
@@ -28,14 +33,29 @@ export class ErrorLoggerFilter implements ExceptionFilter {
         status_code: status,
         user_id: request?.user?.id,
         ip: request?.ip,
-      });
+      };
+
+      // 1. In-memory log (Admin API)
+      SystemService.logError(errorEntry);
+
+      // 2. Winston file log
+      systemLogger.error(message, { ...errorEntry, stack });
+
+      // 3. Real-time push to admin via Socket.IO
+      if (_io) {
+        _io.to('admin').emit('system_error', {
+          ...errorEntry,
+          id: Date.now().toString(36),
+          created_at: new Date().toISOString(),
+        });
+      }
 
       this.logger.error(`${request?.method} ${request?.url} → ${status}: ${message}`);
     }
 
     response.status(status).json({
       statusCode: status,
-      message: exception?.message || 'Internal server error',
+      message,
       error: exception?.name || 'Error',
       timestamp: new Date().toISOString(),
     });

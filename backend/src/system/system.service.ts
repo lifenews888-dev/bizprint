@@ -19,8 +19,11 @@ export class SystemService {
     const cpuUsage = process.cpuUsage();
     const cpuPercent = Math.min(99, Math.round((cpuUsage.user + cpuUsage.system) / 1000000 / uptime * 100));
 
+    const heapPct = Math.round((mem.heapUsed / mem.heapTotal) * 100);
+    const status = !dbConnected ? 'down' : heapPct > 90 ? 'degraded' : 'healthy';
+
     return {
-      status: dbConnected ? 'healthy' : 'degraded',
+      status,
       uptime_seconds: Math.round(uptime),
       version: '1.0.0',
       timestamp: new Date().toISOString(),
