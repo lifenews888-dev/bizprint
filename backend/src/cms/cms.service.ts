@@ -96,7 +96,40 @@ export class CmsService {
   }
 
   // ─── Settings ───
-  getSettings() { return CmsService.siteSettings; }
+  // ─── Footer (public) ───
+  private static footerConfig: Record<string, any> = {
+    logo_url: '/uploads/logo.png',
+    logo_width: 120,
+    description: 'BizPrint — Хэвлэлийн үйлчилгээний платформ',
+    socials: [
+      { platform: 'facebook', url: 'https://facebook.com/bizprint', enabled: true },
+      { platform: 'instagram', url: 'https://instagram.com/bizprint', enabled: true },
+      { platform: 'tiktok', url: 'https://tiktok.com/@bizprint', enabled: true },
+      { platform: 'youtube', url: 'https://youtube.com/@bizprint', enabled: false },
+    ],
+    branches: [
+      { name: 'Төв оффис', address: 'Улаанбаатар, СБД', phone: '7711-8899', map_embed: '' },
+    ],
+    columns: [
+      { title: 'Үйлчилгээ', links: [{ label: 'Нэрийн хуудас', url: '/shop' }, { label: 'Стикер', url: '/shop' }, { label: 'Баннер', url: '/shop' }] },
+      { title: 'Компани', links: [{ label: 'Бидний тухай', url: '/about' }, { label: 'Холбоо барих', url: '/contact' }] },
+      { title: 'Тусламж', links: [{ label: 'FAQ', url: '/faq' }, { label: 'Хүргэлт', url: '/delivery' }] },
+    ],
+    payment_icons: { visa: true, master: true, qpay: true, socialpay: true, monpay: false },
+    newsletter_enabled: true,
+    newsletter_text: 'Шинэ мэдээлэл авах бол имэйлээ бүртгүүлнэ үү',
+    copyright: '© 2026 BizPrint. Бүх эрх хуулиар хамгаалагдсан.',
+  };
+
+  getFooter() { return CmsService.footerConfig; }
+
+  updateFooter(dto: any) {
+    Object.assign(CmsService.footerConfig, dto);
+    return { success: true, footer: CmsService.footerConfig };
+  }
+
+  // ─── Settings ───
+  getSettings() { return { ...CmsService.siteSettings, footer: CmsService.footerConfig }; }
   updateHeader(dto: any) { Object.assign(CmsService.siteSettings, dto); return { success: true }; }
   updateSettings(dto: any) { Object.assign(CmsService.siteSettings, dto); return { success: true, settings: CmsService.siteSettings }; }
 
