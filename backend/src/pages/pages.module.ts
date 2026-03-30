@@ -6,8 +6,8 @@ import { PagesController } from './pages.controller';
 
 @Module({
   imports: [TypeOrmModule.forFeature([Page])],
-  controllers: [PagesController],
   providers: [PagesService],
+  controllers: [PagesController],
   exports: [PagesService],
 })
 export class PagesModule {}

@@ -1,15 +1,15 @@
-import { Controller, Get, Post, Patch, Delete, Param, Body, UseGuards } from '@nestjs/common';
-import { PagesService } from './pages.service';
+import { Controller, Get, Post as HttpPost, Patch, Delete, Param, Body, Query, UseGuards } from '@nestjs/common';
+import { PostsService } from './posts.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 
-@Controller('pages')
-export class PagesController {
-  constructor(private svc: PagesService) {}
+@Controller('posts')
+export class PostsController {
+  constructor(private svc: PostsService) {}
 
   @Get()
-  findPublished() { return this.svc.findPublished(); }
+  findPublished(@Query('category') category?: string) { return this.svc.findPublished(category); }
 
   @Get('all')
   @UseGuards(JwtAuthGuard, RolesGuard)
@@ -17,9 +17,12 @@ export class PagesController {
   findAll() { return this.svc.findAll(); }
 
   @Get(':slug')
-  findBySlug(@Param('slug') slug: string) { return this.svc.findBySlug(slug); }
+  async findBySlug(@Param('slug') slug: string) {
+    await this.svc.incrementView(slug);
+    return this.svc.findBySlug(slug);
+  }
 
-  @Post()
+  @HttpPost()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('admin', 'superadmin')
   create(@Body() dto: any) { return this.svc.create(dto); }

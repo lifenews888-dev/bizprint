@@ -43,6 +43,7 @@ import { TemplatesModule } from './templates/templates.module'
 import { QuoteModule } from './quote/quote.module'
 import { BannersModule } from './banners/banners.module'
 import { PagesModule } from './pages/pages.module'
+import { PostsModule } from './posts/posts.module'
 import { MenusModule } from './menus/menus.module'
 import { FilesModule } from './files/files.module'
 import { AuditTrailModule } from './audit-trail/audit-trail.module'
@@ -140,6 +141,7 @@ import { ZoomModule } from './zoom/zoom.module'
     QuoteModule,
     BannersModule,
     PagesModule,
+    PostsModule,
     MenusModule,
     FilesModule,
     AuditTrailModule,
