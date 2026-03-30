@@ -36,6 +36,12 @@ export class Category {
   @Column({ default: 0 })
   sort_order: number;
 
+  @Column({ type: 'decimal', default: 0 })
+  tax_rate: number;
+
+  @Column({ default: false })
+  show_in_menu: boolean;
+
   @Column({ default: true })
   is_active: boolean;
 
