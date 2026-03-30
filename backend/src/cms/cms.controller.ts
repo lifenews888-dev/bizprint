@@ -1,4 +1,4 @@
-import { Controller, Get, Patch, Body, UseGuards } from '@nestjs/common';
+import { Controller, Get, Patch, Post, Body, UseGuards } from '@nestjs/common';
 import { CmsService } from './cms.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -8,13 +8,17 @@ import { Roles } from '../auth/decorators/roles.decorator';
 export class CmsController {
   constructor(private svc: CmsService) {}
 
+  // Public
   @Get('header')
   getHeader() { return this.svc.getHeader(); }
 
   @Get('mega-menu')
   getMegaMenu() { return this.svc.getMegaMenu(); }
 
+  // Admin
   @Get('settings')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin', 'superadmin')
   getSettings() { return this.svc.getSettings(); }
 
   @Patch('header')
@@ -26,4 +30,22 @@ export class CmsController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('admin', 'superadmin')
   updateSettings(@Body() dto: any) { return this.svc.updateSettings(dto); }
+
+  // Mega Menu Builder
+  @Get('mega-menu/config')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin', 'superadmin')
+  getMegaMenuConfig() { return this.svc.getMegaMenuConfig(); }
+
+  @Patch('mega-menu/columns')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin', 'superadmin')
+  updateColumns(@Body() body: { column_ids: string[] }) {
+    return this.svc.updateMegaMenuColumns(body.column_ids);
+  }
+
+  @Patch('mega-menu/promo')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin', 'superadmin')
+  updatePromo(@Body() dto: any) { return this.svc.updatePromo(dto); }
 }
