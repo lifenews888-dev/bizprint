@@ -1,4 +1,4 @@
-import { Controller, Get, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Param, Body, Query, UseGuards } from '@nestjs/common';
 import { SystemService } from './system.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -38,6 +38,38 @@ export class SystemController {
   @Get('kpis')
   kpis() {
     return this.svc.getDashboardKpis();
+  }
+
+  // ── Test: generate fake error ──
+  @Post('test-error')
+  testError() {
+    SystemService.logError({
+      level: 'error',
+      message: 'Test error from admin panel',
+      stack: 'Error: Test error\n    at SystemController.testError\n    at /backend/src/system/system.controller.ts:50',
+      endpoint: '/system/test-error',
+      method: 'POST',
+      status_code: 500,
+    });
+    return { success: true, message: 'Test error logged' };
+  }
+
+  // ── Users: ban/unban ──
+  @Patch('users/:id/ban')
+  banUser(@Param('id') id: string, @Body() body: { ban: boolean }) {
+    return this.svc.banUser(id, body.ban);
+  }
+
+  // ── Users: reset password ──
+  @Post('users/:id/reset-password')
+  resetPassword(@Param('id') id: string) {
+    return this.svc.resetPassword(id);
+  }
+
+  // ── Config: update ──
+  @Patch('config')
+  updateConfig(@Body() body: { key: string; value: any }) {
+    return this.svc.updateConfig(body.key, body.value);
   }
 
   @Get('modules')

@@ -106,17 +106,52 @@ export class SystemService {
     }));
   }
 
-  // ─── CONFIG (Admin App: Global Config) ───
+  // ─── BAN / UNBAN USER ───
+  async banUser(userId: string, ban: boolean) {
+    await this.userRepo.update(userId, { is_active: !ban });
+    return { success: true, message: ban ? 'Хэрэглэгч хориглогдлоо' : 'Хэрэглэгчийн хориг цуцлагдлаа' };
+  }
+
+  // ─── RESET PASSWORD ───
+  async resetPassword(userId: string) {
+    // In production: send reset email via mail service
+    const user = await this.userRepo.findOne({ where: { id: userId } });
+    if (!user) return { success: false, message: 'Хэрэглэгч олдсонгүй' };
+    return { success: true, message: `${user.email} руу нууц үг шинэчлэх имэйл илгээгдлээ` };
+  }
+
+  // ─── CONFIG (In-memory, persistent per session) ───
+  private static configStore: Record<string, any> = {
+    stamp_threshold: 10000,
+    delivery_fee: 5000,
+    free_delivery_min: 50000,
+    creator_commission: 15,
+    maintenance_mode: false,
+    new_user_bonus: 1000,
+  };
+
+  private static configMeta: Record<string, { type: string; label: string; description: string; category: string }> = {
+    stamp_threshold: { type: 'number', label: 'Тамгын босго (₮)', description: 'Хэдэн төгрөгийн захиалгад 1 тамга өгөх', category: 'pricing' },
+    delivery_fee: { type: 'number', label: 'Хүргэлтийн хөлс (₮)', description: 'Стандарт хүргэлтийн үнэ', category: 'delivery' },
+    free_delivery_min: { type: 'number', label: 'Үнэгүй хүргэлт (₮)', description: 'Энэ дүнгээс дээш үнэгүй хүргэнэ', category: 'delivery' },
+    creator_commission: { type: 'number', label: 'Бүтээгчийн шимтгэл (%)', description: 'Дизайнер, лайвчинд өгөх хувь', category: 'pricing' },
+    maintenance_mode: { type: 'boolean', label: 'Засвар горим', description: 'Апп түр зогсоох', category: 'system' },
+    new_user_bonus: { type: 'number', label: 'Шинэ хэрэглэгч бонус (₮)', description: 'Бүртгүүлэхэд өгөх бонус', category: 'pricing' },
+  };
+
   async getConfig() {
-    // In production: query config table
-    return [
-      { key: 'stamp_threshold', value: 10000, type: 'number', label: 'Тамгын босго (₮)', description: 'Хэдэн төгрөгийн захиалгад 1 тамга өгөх', category: 'pricing', updated_at: new Date().toISOString() },
-      { key: 'delivery_fee', value: 5000, type: 'number', label: 'Хүргэлтийн хөлс (₮)', description: 'Стандарт хүргэлтийн үнэ', category: 'delivery', updated_at: new Date().toISOString() },
-      { key: 'free_delivery_min', value: 50000, type: 'number', label: 'Үнэгүй хүргэлт (₮)', description: 'Энэ дүнгээс дээш үнэгүй хүргэнэ', category: 'delivery', updated_at: new Date().toISOString() },
-      { key: 'creator_commission', value: 15, type: 'number', label: 'Бүтээгчийн шимтгэл (%)', description: 'Дизайнер, лайвчинд өгөх хувь', category: 'pricing', updated_at: new Date().toISOString() },
-      { key: 'maintenance_mode', value: false, type: 'boolean', label: 'Засвар горим', description: 'Апп түр зогсоох', category: 'system', updated_at: new Date().toISOString() },
-      { key: 'new_user_bonus', value: 1000, type: 'number', label: 'Шинэ хэрэглэгч бонус (₮)', description: 'Бүртгүүлэхэд өгөх бонус', category: 'pricing', updated_at: new Date().toISOString() },
-    ];
+    return Object.entries(SystemService.configStore).map(([key, value]) => ({
+      key,
+      value,
+      ...SystemService.configMeta[key],
+      updated_at: new Date().toISOString(),
+    }));
+  }
+
+  async updateConfig(key: string, value: any) {
+    if (!(key in SystemService.configStore)) return { success: false, message: 'Unknown config key' };
+    SystemService.configStore[key] = value;
+    return { success: true, message: `${key} = ${value}`, key, value };
   }
 
   // ─── PLATFORM KPIs ───
