@@ -37,6 +37,19 @@ async function bootstrap() {
     });
   }
 
+  // Maintenance mode middleware
+  app.use((req: any, res: any, next: any) => {
+    // Skip admin/auth/cms routes
+    if (req.url.startsWith('/auth') || req.url.startsWith('/system') || req.url.startsWith('/cms')) return next();
+    try {
+      const { SystemService } = require('./system/system.service');
+      if (SystemService.isMaintenanceMode && SystemService.isMaintenanceMode()) {
+        return res.status(503).json({ message: 'Систем түр засвартай байна. Удахгүй буцаж ирнэ.', maintenance: true });
+      }
+    } catch {}
+    next();
+  });
+
   // Static files
   app.useStaticAssets(join(process.cwd(), 'uploads'), { prefix: '/uploads/' });
 

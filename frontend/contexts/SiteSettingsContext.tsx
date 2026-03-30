@@ -165,7 +165,14 @@ export function SiteSettingsProvider({ children }: { children: ReactNode }) {
             filtered[key] = val
           }
         }
-        setSettings(prev => ({ ...prev, ...filtered }))
+        setSettings(prev => {
+          const next = { ...prev, ...filtered }
+          // Sync CSS variable
+          if (typeof document !== 'undefined' && next.site_primary_color) {
+            document.documentElement.style.setProperty('--primary-color', next.site_primary_color)
+          }
+          return next
+        })
       }
       if (Array.isArray(m) && m.length > 0) setMegaMenu(m)
     }).finally(() => setLoading(false))
@@ -197,6 +204,21 @@ export function SiteSettingsProvider({ children }: { children: ReactNode }) {
     return () => { unsubs.forEach(fn => fn()) }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // Maintenance mode check
+  const isMaintenanceMode = settings.maintenance_mode === true || settings.maintenance_mode === 'true'
+  const isAdminPage = typeof window !== 'undefined' && window.location.pathname.startsWith('/admin')
+
+  if (isMaintenanceMode && !isAdminPage && !loading) {
+    return (
+      <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: '#0a0a0a', color: '#f5f5f5', fontFamily: 'system-ui', textAlign: 'center', padding: 40 }}>
+        <div style={{ fontSize: 64, marginBottom: 16 }}>🔧</div>
+        <h1 style={{ fontSize: 28, fontWeight: 800, marginBottom: 8 }}>Систем түр засвартай</h1>
+        <p style={{ fontSize: 16, color: '#888', maxWidth: 400 }}>Бид системийг сайжруулж байна. Удахгүй буцаж ирнэ.</p>
+        <p style={{ fontSize: 14, color: '#555', marginTop: 20 }}>BizPrint — Print Operating System</p>
+      </div>
+    )
+  }
 
   return (
     <SiteSettingsContext.Provider value={{ settings, megaMenu, loading, refetch: fetchSettings }}>

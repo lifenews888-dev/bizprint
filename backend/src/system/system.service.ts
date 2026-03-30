@@ -147,6 +147,8 @@ export class SystemService {
   }
 
   // ─── CONFIG (System Core Control) ───
+  static isMaintenanceMode() { return SystemService.configStore.maintenance_mode === true; }
+
   private static configStore: Record<string, any> = {
     maintenance_mode: false,
     signup_enabled: true,
