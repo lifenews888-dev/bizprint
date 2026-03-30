@@ -11,11 +11,17 @@ export class Page {
   @Column({ unique: true })
   slug: string;
 
+  @Column({ default: 'default' })
+  template: string; // default, contact, services, landing
+
   @Column({ type: 'text', nullable: true })
   content: string;
 
   @Column({ type: 'jsonb', nullable: true })
   metadata: Record<string, any>;
+
+  @Column({ nullable: true })
+  thumbnail: string;
 
   @Column({ default: false })
   is_published: boolean;
