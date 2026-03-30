@@ -25,6 +25,11 @@ export class SystemController {
     return this.svc.getErrors(Number(limit) || 50);
   }
 
+  @Get('users/stats')
+  userStats() {
+    return this.svc.getUserStats();
+  }
+
   @Get('users')
   users(@Query('search') search?: string, @Query('limit') limit?: string) {
     return this.svc.getUsers(search, Number(limit) || 50);

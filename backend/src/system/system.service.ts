@@ -83,30 +83,53 @@ export class SystemService {
   // ─── USERS (Admin App: User Management) ───
   async getUsers(search?: string, limit = 50) {
     let query = this.userRepo.createQueryBuilder('u')
-      .select(['u.id', 'u.email', 'u.full_name', 'u.role', 'u.is_active', 'u.created_at'])
+      .select(['u.id', 'u.email', 'u.full_name', 'u.role', 'u.is_active', 'u.created_at', 'u.phone'])
       .orderBy('u.created_at', 'DESC')
       .take(limit);
 
     if (search) {
       query = query.where(
-        'u.email ILIKE :s OR u.full_name ILIKE :s',
+        'u.email ILIKE :s OR u.full_name ILIKE :s OR u.phone ILIKE :s',
         { s: `%${search}%` },
       );
     }
 
-    const users = await query.getMany();
+    const [users, total] = await query.getManyAndCount();
+
+    // Get order counts per user
+    let orderCounts: Record<string, number> = {};
+    try {
+      const counts = await this.dataSource.query(`
+        SELECT customer_id, COUNT(*) as cnt FROM orders GROUP BY customer_id
+      `);
+      counts.forEach((c: any) => { orderCounts[c.customer_id] = Number(c.cnt); });
+    } catch {}
 
     return users.map(u => ({
       id: u.id,
       email: u.email,
       full_name: u.full_name,
       role: u.role,
+      phone: (u as any).phone || null,
       is_active: u.is_active,
-      is_banned: false,
+      is_banned: !u.is_active,
       created_at: u.created_at,
-      order_count: 0,
+      last_login: u.created_at, // TODO: track real last_login
+      order_count: orderCounts[u.id] || 0,
       total_spent: 0,
     }));
+  }
+
+  // ─── USER STATS ───
+  async getUserStats() {
+    const total = await this.userRepo.count();
+    const active = await this.userRepo.count({ where: { is_active: true } });
+    const byRole = await this.userRepo.createQueryBuilder('u')
+      .select('u.role', 'role')
+      .addSelect('COUNT(*)', 'count')
+      .groupBy('u.role')
+      .getRawMany();
+    return { total, active, inactive: total - active, byRole };
   }
 
   // ─── BAN / UNBAN USER ───
