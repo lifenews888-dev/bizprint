@@ -47,6 +47,10 @@ export { ProductType, PRODUCT_TYPE_CONFIG, PRODUCT_CATEGORIES } from './logic/pr
 
 // Smart Commerce
 export { getLoyaltyInsight, calculateTierPrice, detectTier, getBundleSuggestion, checkQuoteFreshness, TIER_DISCOUNTS } from './logic/smart-commerce'
+
+// Pricing Engine
+export { calculatePrice, calculateCart } from './logic/price-calculator'
+export type { PriceInput, PriceResult, CartItem, CartSummary } from './logic/price-calculator'
 export type { LoyaltyInsight, CustomerTier, BundleSuggestion, QuoteFreshness } from './logic/smart-commerce'
 export type { ProductCategory } from './logic/product-types'
 

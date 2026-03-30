@@ -218,6 +218,31 @@ export class SystemService {
     return SystemService.configAuditLog;
   }
 
+  // ─── INVENTORY STATS ───
+  async getInventoryStats() {
+    try {
+      const result = await this.dataSource.query(`
+        SELECT
+          COUNT(*) as total_products,
+          COUNT(*) FILTER (WHERE is_active = true) as active_products,
+          COUNT(*) FILTER (WHERE stock_quantity IS NOT NULL AND stock_quantity = 0) as out_of_stock,
+          COUNT(*) FILTER (WHERE stock_quantity IS NOT NULL AND stock_quantity > 0 AND stock_quantity <= 5) as low_stock,
+          COALESCE(SUM(CAST(base_price AS NUMERIC) * COALESCE(stock_quantity, 0)), 0) as total_inventory_value
+        FROM products
+      `);
+      const r = result[0] || {};
+      return {
+        total_products: Number(r.total_products || 0),
+        active_products: Number(r.active_products || 0),
+        out_of_stock: Number(r.out_of_stock || 0),
+        low_stock: Number(r.low_stock || 0),
+        total_inventory_value: Math.round(Number(r.total_inventory_value || 0)),
+      };
+    } catch {
+      return { total_products: 0, active_products: 0, out_of_stock: 0, low_stock: 0, total_inventory_value: 0 };
+    }
+  }
+
   // ─── SYSTEM POWER CONTROL ───
   async restartSystem(confirmCode?: string) {
     if (confirmCode !== 'RESTART-CONFIRM') {

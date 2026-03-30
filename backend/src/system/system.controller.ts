@@ -99,6 +99,12 @@ export class SystemController {
     return this.svc.clearSystemCache();
   }
 
+  // ── Inventory Stats ──
+  @Get('inventory')
+  inventory() {
+    return this.svc.getInventoryStats();
+  }
+
   // ── Price Integrity Audit ──
   @Get('audit/prices')
   auditPrices() {
