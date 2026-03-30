@@ -29,8 +29,35 @@ export class CategoriesService {
     }));
   }
 
-  async create(dto: Partial<Category>) { return this.repo.save(this.repo.create(dto)); }
-  async update(id: string, dto: Partial<Category>) { await this.repo.update(id, dto); return this.repo.findOne({ where: { id } }); }
+  async create(dto: Partial<Category>) {
+    if (!dto.name) throw new Error('Ангиллын нэр шаардлагатай');
+
+    // Auto-generate slug if missing
+    if (!dto.slug) {
+      dto.slug = dto.name.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-\u0400-\u04ff]/g, '') + '-' + Date.now().toString(36);
+    }
+
+    try {
+      return await this.repo.save(this.repo.create(dto));
+    } catch (e: any) {
+      if (e.code === '23505') { // Unique violation
+        if (e.detail?.includes('name')) throw new Error('Энэ нэр ашиглагдсан байна');
+        if (e.detail?.includes('slug')) throw new Error('Энэ slug ашиглагдсан байна');
+        throw new Error('Давхардсан өгөгдөл');
+      }
+      throw e;
+    }
+  }
+
+  async update(id: string, dto: Partial<Category>) {
+    try {
+      await this.repo.update(id, dto);
+      return this.repo.findOne({ where: { id } });
+    } catch (e: any) {
+      if (e.code === '23505') throw new Error('Давхардсан нэр эсвэл slug');
+      throw e;
+    }
+  }
   async remove(id: string) {
     // Delete children first, then parent
     await this.repo.delete({ parent_id: id });
