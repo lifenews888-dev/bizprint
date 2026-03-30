@@ -60,11 +60,21 @@ export class SystemService {
     };
   }
 
-  // ─── ERRORS (Admin App: Error Logs) ───
+  // ─── ERROR LOG (In-memory ring buffer, max 100) ───
+  private static errorLog: any[] = [];
+
+  static logError(error: { level: string; message: string; stack?: string; endpoint?: string; method?: string; status_code?: number; user_id?: string; ip?: string; file_path?: string }) {
+    const entry = {
+      id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+      ...error,
+      created_at: new Date().toISOString(),
+    };
+    SystemService.errorLog.unshift(entry);
+    if (SystemService.errorLog.length > 100) SystemService.errorLog.pop();
+  }
+
   async getErrors(limit: number) {
-    // In production: query error_logs table
-    // For now: return empty (no errors = healthy)
-    return [];
+    return SystemService.errorLog.slice(0, limit);
   }
 
   // ─── USERS (Admin App: User Management) ───

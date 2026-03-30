@@ -6,10 +6,12 @@ import { AppModule } from './app.module';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { join } from 'path';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
+import { ErrorLoggerFilter } from './common/filters/error-logger.filter';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
   app.useGlobalInterceptors(new ResponseInterceptor());
+  app.useGlobalFilters(new ErrorLoggerFilter());
 
   // CORS — production: зөвхөн зөвшөөрсөн домэйн
   const allowedOrigins = process.env.CORS_ORIGINS
