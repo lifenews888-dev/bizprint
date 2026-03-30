@@ -83,6 +83,17 @@ export class SystemController {
     return this.svc.getConfigAuditLog();
   }
 
+  // ── Price Integrity Audit ──
+  @Get('audit/prices')
+  auditPrices() {
+    return this.svc.auditPrices();
+  }
+
+  @Post('audit/fix-prices')
+  fixPrices() {
+    return this.svc.fixPrices();
+  }
+
   @Get('modules')
   modules() {
     return this.svc.getModuleRegistry();
