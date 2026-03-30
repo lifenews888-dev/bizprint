@@ -83,6 +83,22 @@ export class SystemController {
     return this.svc.getConfigAuditLog();
   }
 
+  // ── System Power Control ──
+  @Post('power/restart')
+  restart(@Body() body: { confirm_code?: string }) {
+    return this.svc.restartSystem(body.confirm_code);
+  }
+
+  @Post('power/maintenance')
+  maintenance(@Body() body: { enable: boolean }) {
+    return this.svc.setMaintenanceMode(body.enable);
+  }
+
+  @Post('power/clear-cache')
+  clearCache() {
+    return this.svc.clearSystemCache();
+  }
+
   // ── Price Integrity Audit ──
   @Get('audit/prices')
   auditPrices() {

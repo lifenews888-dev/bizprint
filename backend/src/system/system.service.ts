@@ -218,6 +218,50 @@ export class SystemService {
     return SystemService.configAuditLog;
   }
 
+  // ─── SYSTEM POWER CONTROL ───
+  async restartSystem(confirmCode?: string) {
+    if (confirmCode !== 'RESTART-CONFIRM') {
+      return { success: false, message: 'Invalid confirmation code. Use RESTART-CONFIRM' };
+    }
+
+    SystemService.logError({
+      level: 'warn', message: 'SYSTEM_RESTART initiated by admin',
+      endpoint: '/system/power/restart', method: 'POST', status_code: 200,
+    });
+
+    // Graceful restart via process exit (PM2/nodemon will auto-restart)
+    setTimeout(() => {
+      console.log('🔄 System restart initiated...');
+      process.exit(0);
+    }, 2000);
+
+    return { success: true, message: 'System restart initiated. Restarting in 2 seconds...' };
+  }
+
+  async setMaintenanceMode(enable: boolean) {
+    SystemService.configStore.maintenance_mode = enable;
+
+    SystemService.logError({
+      level: 'warn', message: `MAINTENANCE_MODE: ${enable ? 'ENABLED' : 'DISABLED'}`,
+      endpoint: '/system/power/maintenance', method: 'POST', status_code: 200,
+    });
+
+    return { success: true, maintenance_mode: enable, message: enable ? 'System entering maintenance mode' : 'Maintenance mode disabled' };
+  }
+
+  async clearSystemCache() {
+    // Clear in-memory caches
+    SystemService.errorLog = [];
+    SystemService.configAuditLog = [];
+
+    SystemService.logError({
+      level: 'warn', message: 'CACHE_CLEARED by admin',
+      endpoint: '/system/power/clear-cache', method: 'POST', status_code: 200,
+    });
+
+    return { success: true, message: 'All system caches cleared' };
+  }
+
   // ─── PRICE INTEGRITY AUDITOR ───
   async auditPrices() {
     try {
