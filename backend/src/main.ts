@@ -7,11 +7,10 @@ import { NestExpressApplication } from '@nestjs/platform-express';
 import { join } from 'path';
 import { mkdirSync } from 'fs';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
-import { ErrorLoggerFilter, setSocketServer } from './common/filters/error-logger.filter';
+import { ErrorLoggerFilter } from './common/filters/error-logger.filter';
 import { systemLogger } from './common/logger';
 
 async function bootstrap() {
-  // Ensure logs directory exists
   try { mkdirSync(join(process.cwd(), 'logs'), { recursive: true }); } catch {}
 
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
@@ -44,55 +43,13 @@ async function bootstrap() {
   const port = process.env.PORT || 4000;
   await app.listen(port, '0.0.0.0');
 
-  // Setup Socket.IO for admin error push
-  const server = app.getHttpServer();
-  try {
-    const { Server } = require('socket.io');
-    const io = new Server(server, { cors: { origin: '*' } });
-
-    // Admin namespace — error push + presence
-    io.of('/admin').on('connection', (socket: any) => {
-      socket.join('admin');
-      console.log('Admin socket connected:', socket.id);
-    });
-
-    // User presence tracking
-    const onlineUsers = new Set<string>();
-    io.of('/sync').on('connection', (socket: any) => {
-      const userId = socket.handshake.query?.userId;
-      if (userId) {
-        onlineUsers.add(userId as string);
-        io.of('/admin').to('admin').emit('user_status_change', { userId, status: 'online', count: onlineUsers.size });
-      }
-      socket.on('disconnect', () => {
-        if (userId) {
-          onlineUsers.delete(userId as string);
-          io.of('/admin').to('admin').emit('user_status_change', { userId, status: 'offline', count: onlineUsers.size });
-        }
-      });
-    });
-
-    // Expose online users count to health endpoint
-    (global as any).__onlineUsers = onlineUsers;
-
-    setSocketServer(io.of('/admin'));
-    console.log('Admin WebSocket ready — presence tracking enabled');
-  } catch (e) {
-    console.warn('Socket.IO not available for admin push');
-  }
-
   // Self-healing: memory check every 60s
   setInterval(() => {
     const mem = process.memoryUsage();
-    const usedMB = Math.round(mem.rss / 1048576);
     const heapPct = Math.round((mem.heapUsed / mem.heapTotal) * 100);
-
     if (heapPct > 90) {
-      systemLogger.warn('High memory usage detected, triggering GC hint', { heapPct, usedMB });
-      if (global.gc) {
-        global.gc();
-        systemLogger.info('Manual GC triggered');
-      }
+      systemLogger.warn('High memory usage', { heapPct });
+      if (global.gc) global.gc();
     }
   }, 60_000);
 
