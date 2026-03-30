@@ -50,13 +50,33 @@ async function bootstrap() {
     const { Server } = require('socket.io');
     const io = new Server(server, { cors: { origin: '*' } });
 
+    // Admin namespace — error push + presence
     io.of('/admin').on('connection', (socket: any) => {
       socket.join('admin');
       console.log('Admin socket connected:', socket.id);
     });
 
+    // User presence tracking
+    const onlineUsers = new Set<string>();
+    io.of('/sync').on('connection', (socket: any) => {
+      const userId = socket.handshake.query?.userId;
+      if (userId) {
+        onlineUsers.add(userId as string);
+        io.of('/admin').to('admin').emit('user_status_change', { userId, status: 'online', count: onlineUsers.size });
+      }
+      socket.on('disconnect', () => {
+        if (userId) {
+          onlineUsers.delete(userId as string);
+          io.of('/admin').to('admin').emit('user_status_change', { userId, status: 'offline', count: onlineUsers.size });
+        }
+      });
+    });
+
+    // Expose online users count to health endpoint
+    (global as any).__onlineUsers = onlineUsers;
+
     setSocketServer(io.of('/admin'));
-    console.log('Admin WebSocket ready on /admin namespace');
+    console.log('Admin WebSocket ready — presence tracking enabled');
   } catch (e) {
     console.warn('Socket.IO not available for admin push');
   }

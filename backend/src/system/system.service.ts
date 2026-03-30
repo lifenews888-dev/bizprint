@@ -40,7 +40,7 @@ export class SystemService {
         memory_total_mb: Math.round(mem.heapTotal / 1048576) + 512,
         disk_used_gb: 2.4,
         disk_total_gb: 20,
-        active_connections: Math.floor(Math.random() * 10) + 5,
+        active_connections: (global as any).__onlineUsers?.size || 0,
         requests_per_minute: Math.floor(Math.random() * 50) + 20,
       },
     };
