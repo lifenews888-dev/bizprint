@@ -7,7 +7,12 @@
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
-    "outDir": "dist"
+    "outDir": "dist",
+    "jsx": "react-jsx",
+    "paths": {
+      "expo-router": ["../../mobile/customer/node_modules/expo-router"],
+      "expo-image": ["../../node_modules/expo-image"]
+    }
   },
   "include": ["src"]
 }

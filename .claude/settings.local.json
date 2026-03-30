@@ -8,7 +8,9 @@
       "Bash(taskkill //PID 77268 //F)",
       "Bash(npx tsc:*)",
       "Bash(find /c/Users/User/projects/bizprint/frontend/app -name *slug* -o -name *[*]*)",
-      "Bash(node -e \":*)"
+      "Bash(node -e \":*)",
+      "Bash(curl -s http://localhost:4000/loyalty/session/faketoken/status)",
+      "Bash(curl -s http://localhost:3000/invite/test)"
     ]
   }
 }

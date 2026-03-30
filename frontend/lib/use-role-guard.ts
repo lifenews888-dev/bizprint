@@ -17,15 +17,19 @@ export function useRoleGuard(allowedRoles: string[]): { user: User | null; loadi
   const [loading, setLoading] = useState(true)
   const rolesRef = useRef(allowedRoles)
   rolesRef.current = allowedRoles
+  const didRun = useRef(false)
 
   useEffect(() => {
-    let mounted = true
+    // Prevent double-run in strict mode
+    if (didRun.current) return
+    didRun.current = true
 
     try {
       const token = localStorage.getItem('access_token') || localStorage.getItem('token')
       const stored = localStorage.getItem('user')
 
       if (!token || !stored) {
+        setLoading(false)
         router.push('/login')
         return
       }
@@ -35,19 +39,17 @@ export function useRoleGuard(allowedRoles: string[]): { user: User | null; loadi
       // superadmin & admin can access ALL pages
       const isAdmin = parsed.role === 'superadmin' || parsed.role === 'admin'
       if (!isAdmin && !rolesRef.current.includes(parsed.role)) {
+        setLoading(false)
         router.push(getDashboardRoute(parsed.role))
         return
       }
 
-      if (mounted) {
-        setUser(parsed)
-        setLoading(false)
-      }
+      setUser(parsed)
+      setLoading(false)
     } catch {
+      setLoading(false)
       router.push('/login')
     }
-
-    return () => { mounted = false }
   }, [router])
 
   return { user, loading }

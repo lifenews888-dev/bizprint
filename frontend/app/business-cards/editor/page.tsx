@@ -211,6 +211,16 @@ function EditorInner() {
     setSocialLinks(socialLinks.map((s, i) => i === idx ? { ...s, [field]: val } : s))
   }
   const [showQr, setShowQr] = useState(false)
+  // ── Loyalty ──
+  const [showLoyalty, setShowLoyalty] = useState(false)
+  const [loyaltyName, setLoyaltyName] = useState('')
+  const [loyaltyStamps, setLoyaltyStamps] = useState(10)
+  const [loyaltyRewardType, setLoyaltyRewardType] = useState<'free' | 'discount'>('free')
+  const [loyaltyRewardDesc, setLoyaltyRewardDesc] = useState('')
+  const [loyaltyDiscount, setLoyaltyDiscount] = useState(0)
+  const [loyaltyCampaigns, setLoyaltyCampaigns] = useState<any[]>([])
+  const [selectedCampaignId, setSelectedCampaignId] = useState<string | null>(null)
+  const [loyaltyMode, setLoyaltyMode] = useState<'select' | 'create'>('select')
   const [ordering, setOrdering] = useState(false)
   const [printReady, setPrintReady] = useState(false)
   const [orderSuccess, setOrderSuccess] = useState<any>(null)
@@ -227,6 +237,10 @@ function EditorInner() {
   const [dragIdx, setDragIdx] = useState(-1)
   const [dragStart, setDragStart] = useState({ x: 0, y: 0, origX: 0, origY: 0 })
   const [zoom, setZoom] = useState(1)
+  const [leftCollapsed, setLeftCollapsed] = useState(false)
+  const [rightCollapsed, setRightCollapsed] = useState(false)
+  const [activeSection, setActiveSection] = useState<'basic'|'social'|'loyalty'>('basic')
+  const [showSuccess, setShowSuccess] = useState(false)
   const zoomIn = () => setZoom(z => Math.min(2, Math.round((z + 0.1) * 10) / 10))
   const zoomOut = () => setZoom(z => Math.max(0.5, Math.round((z - 0.1) * 10) / 10))
   const zoomReset = () => setZoom(1)
@@ -282,7 +296,10 @@ function EditorInner() {
     lines.push('END:VCARD')
     return lines.join('\n')
   }
-  const qrValue = showQr ? (form.qr_text || buildVCard()) : ''
+  const loyaltyQrUrl = (showLoyalty && loyaltyMode === 'select' && selectedCampaignId)
+    ? `${typeof window !== 'undefined' ? window.location.origin : ''}/loyalty/stamp/${selectedCampaignId}`
+    : null
+  const qrValue = loyaltyQrUrl || (showQr ? (form.qr_text || buildVCard()) : '')
 
   const uploadLogo = async (file: File) => {
     // Шууд preview харуулах
@@ -451,6 +468,20 @@ function EditorInner() {
         qr_text: showQr ? qrValue : null,
         zones: zoneLayout,
         canvas_data: T,
+        loyalty: showLoyalty ? (
+          loyaltyMode === 'select' && selectedCampaignId ? {
+            enabled: true,
+            campaign_id: selectedCampaignId,
+            loyalty_url: `${typeof window !== 'undefined' ? window.location.origin : ''}/loyalty/${selectedCampaignId}`,
+          } : {
+            enabled: true,
+            name: loyaltyName || form.company_name || 'Loyalty програм',
+            required_stamps: loyaltyStamps,
+            reward_type: loyaltyRewardType,
+            reward_description: loyaltyRewardDesc,
+            discount_percent: loyaltyDiscount,
+          }
+        ) : null,
       }
       // 1. Create order
       const result: any = await apiFetch('/orders', { method: 'POST', body: {
@@ -468,6 +499,21 @@ function EditorInner() {
       } })
       const order = result?.data || result
       setOrderSuccess(order)
+
+      // 1.5. Create loyalty program if enabled (only for "create" mode, not "select")
+      if (showLoyalty && order?.id && loyaltyMode === 'create') {
+        try {
+          await apiFetch('/loyalty/from-card-order', { method: 'POST', body: {
+            name: loyaltyName || `${form.company_name || ''} Loyalty`.trim(),
+            required_stamps: loyaltyStamps,
+            reward_type: loyaltyRewardType,
+            reward_description: loyaltyRewardDesc,
+            discount_percent: loyaltyDiscount,
+            order_id: order.id,
+          } })
+        } catch (e) { console.log('Loyalty create error:', e) }
+      }
+      // If selecting existing campaign, QR URL is already in the order payload
 
       // 2. Create payment
       if (order?.id && order?.total_price) {
@@ -510,7 +556,11 @@ function EditorInner() {
       <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
 
         {/* ═══ LEFT: Form ═══ */}
-        <div style={{ width: 320, background: '#fff', borderRight: '1px solid #E5E7EB', overflow: 'auto', padding: '20px 16px', flexShrink: 0 }}>
+        <div style={{
+          width: 320, background: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(12px)',
+          borderRight: '1px solid #E5E7EB', overflow: 'auto',
+          padding: '20px 16px', flexShrink: 0,
+        }}>
           <div style={{ fontSize: 15, fontWeight: 700, color: '#111', marginBottom: 4 }}>Текст</div>
           <p style={{ fontSize: 12, color: '#9CA3AF', marginBottom: 16 }}>Мэдээлэлээ оруулна уу. Нэрийн хуудсан дээр шууд харагдана.</p>
 
@@ -685,12 +735,175 @@ function EditorInner() {
               </div>
             )}
           </div>
+
+          {/* ─── Loyalty System ─── */}
+          <div style={{ borderTop: '1px solid #F3F4F6', paddingTop: 12, marginBottom: 12 }}>
+            <button onClick={() => {
+              const next = !showLoyalty
+              setShowLoyalty(next)
+              if (next && loyaltyCampaigns.length === 0) {
+                apiFetch<any[]>('/loyalty/my-programs').then(d => {
+                  const list = Array.isArray(d) ? d : []
+                  setLoyaltyCampaigns(list)
+                  if (list.length > 0) { setLoyaltyMode('select'); setSelectedCampaignId(list[0].id) }
+                  else setLoyaltyMode('create')
+                }).catch(() => setLoyaltyMode('create'))
+              }
+            }} style={{ width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', background: 'none', border: 'none', cursor: 'pointer' }}>
+              <span style={{ fontSize: 13, fontWeight: 600, color: '#374151' }}>⭐ Loyalty систем</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                {showLoyalty && <span style={{ fontSize: 10, color: '#10B981' }}>Идэвхтэй</span>}
+                <div style={{ width: 36, height: 20, borderRadius: 10, background: showLoyalty ? '#FF6B00' : '#D1D5DB', position: 'relative', transition: 'background .2s' }}>
+                  <div style={{ width: 14, height: 14, borderRadius: '50%', background: '#fff', position: 'absolute', top: 3, left: showLoyalty ? 19 : 3, transition: 'left .2s', boxShadow: '0 1px 2px rgba(0,0,0,0.2)' }} />
+                </div>
+              </div>
+            </button>
+            {showLoyalty && (
+              <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {/* Info box */}
+                <div style={{ background: '#FFF7ED', borderRadius: 10, padding: '10px 12px', border: '1px solid #FF6B0030' }}>
+                  <p style={{ fontSize: 11, color: '#9A3412', margin: 0, lineHeight: 1.5 }}>
+                    ⭐ Loyalty QR нэрийн хуудас дээр хэвлэгдэнэ. Хэрэглэгч скан хийхэд тамга цуглуулна.
+                  </p>
+                </div>
+
+                {/* Mode toggle */}
+                {loyaltyCampaigns.length > 0 && (
+                  <div style={{ display: 'flex', gap: 0, borderRadius: 8, overflow: 'hidden', border: '1px solid #E5E7EB' }}>
+                    <button onClick={() => setLoyaltyMode('select')} style={{ flex: 1, padding: '7px', fontSize: 12, fontWeight: 600, border: 'none', cursor: 'pointer', background: loyaltyMode === 'select' ? '#FF6B00' : '#fff', color: loyaltyMode === 'select' ? '#fff' : '#6B7280' }}>Кампанит сонгох</button>
+                    <button onClick={() => setLoyaltyMode('create')} style={{ flex: 1, padding: '7px', fontSize: 12, fontWeight: 600, border: 'none', cursor: 'pointer', background: loyaltyMode === 'create' ? '#FF6B00' : '#fff', color: loyaltyMode === 'create' ? '#fff' : '#6B7280' }}>Шинэ үүсгэх</button>
+                  </div>
+                )}
+
+                {/* ═══ SELECT EXISTING CAMPAIGN ═══ */}
+                {loyaltyMode === 'select' && loyaltyCampaigns.length > 0 && (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    <label style={{ fontSize: 11, color: '#6B7280' }}>Loyalty кампанит сонгох:</label>
+                    {loyaltyCampaigns.map((c: any) => {
+                      const isSelected = selectedCampaignId === c.id
+                      const accent = c.accent_color || '#FF6B00'
+                      return (
+                        <button key={c.id} onClick={() => setSelectedCampaignId(c.id)} style={{
+                          width: '100%', padding: '10px 12px', borderRadius: 10, cursor: 'pointer', textAlign: 'left',
+                          border: isSelected ? `2px solid ${accent}` : '1px solid #E5E7EB',
+                          background: isSelected ? `${accent}08` : '#fff',
+                          display: 'flex', alignItems: 'center', gap: 10,
+                        }}>
+                          <div style={{ width: 8, height: 8, borderRadius: '50%', background: accent, flexShrink: 0 }} />
+                          <div style={{ flex: 1 }}>
+                            <div style={{ fontSize: 13, fontWeight: 600, color: '#111' }}>{c.name}</div>
+                            <div style={{ fontSize: 11, color: '#6B7280' }}>
+                              {c.required_stamps} тамга · {c.reward_description || (c.reward_type === 'discount' ? `${c.discount_percent}%` : '🎁')}
+                            </div>
+                          </div>
+                          {isSelected && <span style={{ color: accent, fontWeight: 700, fontSize: 14 }}>✓</span>}
+                        </button>
+                      )
+                    })}
+                    {selectedCampaignId && (
+                      <div style={{ background: '#F0FDF4', borderRadius: 8, padding: '8px 10px', fontSize: 11, color: '#059669', fontWeight: 500 }}>
+                        ✓ Сонгосон кампанитын QR нэрийн хуудас дээр хэвлэгдэнэ
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* ═══ CREATE NEW ═══ */}
+                {loyaltyMode === 'create' && (
+                  <>
+                    <div>
+                      <label style={{ fontSize: 11, color: '#6B7280', display: 'block', marginBottom: 3 }}>Програмын нэр</label>
+                      <input value={loyaltyName} onChange={e => setLoyaltyName(e.target.value)}
+                        placeholder={form.company_name ? `${form.company_name} Loyalty` : 'Loyalty програм'}
+                        style={{ width: '100%', padding: '10px 0', border: 'none', borderBottom: '1px solid #E5E7EB', fontSize: 13, color: '#111', outline: 'none', background: 'transparent' }} />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: 11, color: '#6B7280', display: 'block', marginBottom: 6 }}>Шаардлагатай тамга</label>
+                      <div style={{ display: 'flex', gap: 6 }}>
+                        {[5, 8, 10].map(n => (
+                          <button key={n} onClick={() => setLoyaltyStamps(n)} style={{
+                            flex: 1, padding: '8px 0', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                            border: loyaltyStamps === n ? '1.5px solid #FF6B00' : '1px solid #E5E7EB',
+                            background: loyaltyStamps === n ? '#FFF7ED' : '#fff',
+                            color: loyaltyStamps === n ? '#FF6B00' : '#6B7280',
+                          }}>{n} тамга</button>
+                        ))}
+                      </div>
+                    </div>
+                    <div>
+                      <label style={{ fontSize: 11, color: '#6B7280', display: 'block', marginBottom: 6 }}>Шагналын төрөл</label>
+                      <div style={{ display: 'flex', gap: 6 }}>
+                        <button onClick={() => setLoyaltyRewardType('free')} style={{ flex: 1, padding: '10px 8px', borderRadius: 10, fontSize: 12, cursor: 'pointer', textAlign: 'center', border: loyaltyRewardType === 'free' ? '1.5px solid #FF6B00' : '1px solid #E5E7EB', background: loyaltyRewardType === 'free' ? '#FFF7ED' : '#fff', color: loyaltyRewardType === 'free' ? '#FF6B00' : '#6B7280' }}>
+                          <div style={{ fontSize: 20, marginBottom: 2 }}>🎁</div>Үнэгүй
+                        </button>
+                        <button onClick={() => setLoyaltyRewardType('discount')} style={{ flex: 1, padding: '10px 8px', borderRadius: 10, fontSize: 12, cursor: 'pointer', textAlign: 'center', border: loyaltyRewardType === 'discount' ? '1.5px solid #FF6B00' : '1px solid #E5E7EB', background: loyaltyRewardType === 'discount' ? '#FFF7ED' : '#fff', color: loyaltyRewardType === 'discount' ? '#FF6B00' : '#6B7280' }}>
+                          <div style={{ fontSize: 20, marginBottom: 2 }}>💰</div>Хөнгөлөлт
+                        </button>
+                      </div>
+                    </div>
+                    {loyaltyRewardType === 'discount' && (
+                      <div>
+                        <label style={{ fontSize: 11, color: '#6B7280', display: 'block', marginBottom: 3 }}>Хөнгөлөлт (%)</label>
+                        <div style={{ display: 'flex', gap: 6 }}>
+                          {[10, 15, 20, 30, 50].map(n => (
+                            <button key={n} onClick={() => setLoyaltyDiscount(n)} style={{ flex: 1, padding: '6px 0', borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: 'pointer', border: loyaltyDiscount === n ? '1.5px solid #FF6B00' : '1px solid #E5E7EB', background: loyaltyDiscount === n ? '#FFF7ED' : '#fff', color: loyaltyDiscount === n ? '#FF6B00' : '#6B7280' }}>{n}%</button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    <div>
+                      <label style={{ fontSize: 11, color: '#6B7280', display: 'block', marginBottom: 3 }}>Шагналын тайлбар</label>
+                      <input value={loyaltyRewardDesc} onChange={e => setLoyaltyRewardDesc(e.target.value)}
+                        placeholder={loyaltyRewardType === 'free' ? 'Жишээ: 1 кофе үнэгүй' : `Жишээ: ${loyaltyDiscount || 20}% хөнгөлөлт`}
+                        style={{ width: '100%', padding: '10px 0', border: 'none', borderBottom: '1px solid #E5E7EB', fontSize: 13, color: '#111', outline: 'none', background: 'transparent' }} />
+                    </div>
+                  </>
+                )}
+
+                {/* Preview stamps */}
+                <div style={{ background: '#F9FAFB', borderRadius: 12, padding: 14, border: '1px solid #E5E7EB' }}>
+                  <div style={{ fontSize: 11, color: '#9CA3AF', marginBottom: 8 }}>Loyalty карт урьдчилсан харагдац:</div>
+                  <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                    {Array.from({ length: loyaltyMode === 'select' ? (loyaltyCampaigns.find(c => c.id === selectedCampaignId)?.required_stamps || 10) : loyaltyStamps }).map((_, i) => (
+                      <div key={i} style={{
+                        width: 22, height: 22, borderRadius: '50%',
+                        background: i < 3 ? '#FF6B00' : '#E5E7EB',
+                        border: i < 3 ? '2px solid #FF6B00' : '2px dashed #D1D5DB',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      }}>
+                        {i < 3 && <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg>}
+                      </div>
+                    ))}
+                  </div>
+                  {loyaltyMode === 'select' && selectedCampaignId && (() => {
+                    const sel = loyaltyCampaigns.find(c => c.id === selectedCampaignId)
+                    return sel ? (
+                      <div style={{ fontSize: 10, color: '#6B7280', marginTop: 6 }}>
+                        {sel.name} · {sel.required_stamps} тамга → {sel.reward_description || 'Шагнал'}
+                      </div>
+                    ) : null
+                  })()}
+                  {loyaltyMode === 'create' && (
+                    <div style={{ fontSize: 10, color: '#6B7280', marginTop: 6 }}>
+                      3/{loyaltyStamps} тамга → Шагнал: {loyaltyRewardDesc || (loyaltyRewardType === 'free' ? 'Үнэгүй бүтээгдэхүүн' : `${loyaltyDiscount || 20}% хөнгөлөлт`)}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* ═══ CENTER: Preview ═══ */}
         <div
           onWheel={e => { if (e.ctrlKey || e.metaKey) { e.preventDefault(); e.deltaY < 0 ? zoomIn() : zoomOut() } }}
-          style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16, padding: 24, background: '#F3F4F6', position: 'relative', overflow: 'hidden' }}>
+          style={{
+            flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+            gap: 16, padding: 24, position: 'relative', overflow: 'visible',
+            background: '#F3F4F6',
+            backgroundImage: 'radial-gradient(circle, #D1D5DB 1px, transparent 1px)',
+            backgroundSize: '24px 24px',
+          }}>
           {/* Safety/Bleed legend */}
           <div style={{ position: 'absolute', top: 12, right: 16, display: 'flex', gap: 12, fontSize: 11, color: '#9CA3AF', zIndex: 2 }}>
             <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><span style={{ width: 16, height: 0, borderTop: '1.5px dashed #10B981', display: 'inline-block' }} /> Safety Area</span>
@@ -703,7 +916,7 @@ function EditorInner() {
           </div>
 
           {/* Card Preview — zoomable */}
-          <div style={{ position: 'relative', transform: `scale(${zoom})`, transformOrigin: 'center center', transition: 'transform 0.2s ease' }}>
+          <div style={{ position: 'relative', transform: `scale(${zoom})`, transformOrigin: 'center center', transition: 'transform 0.2s ease', overflow: 'visible' }}>
             {/* Bleed outline */}
             <div style={{ position: 'absolute', inset: -BLEED, border: '1.5px solid #60A5FA', borderRadius: 4, pointerEvents: 'none' }} />
             {/* Safe zone outline */}
@@ -968,9 +1181,9 @@ function EditorInner() {
                           </div>
                         </div>
                       )}
-                      {/* ── Vistaprint-style toolbar — card-ийн ГАДНА дээр ── */}
-                      {isSelected && (
-                        <div onClick={e => e.stopPropagation()} style={{ position: 'fixed', top: 12, left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: 0, alignItems: 'center', background: '#fff', borderRadius: 12, padding: '6px 10px', boxShadow: '0 8px 32px rgba(0,0,0,0.15)', border: '1px solid #E5E7EB', zIndex: 9999, whiteSpace: 'nowrap' }}>
+                      {/* Toolbar moved to Right Sidebar — see "Текстийн тохиргоо" section */}
+                      {false && (
+                        <div>
                           {/* Font family */}
                           <select value={z.fontFamily || ''} onChange={e => setZoneLayout(prev => prev.map((zz, ii) => ii === idx ? { ...zz, fontFamily: e.target.value } : zz))}
                             style={{ height: 28, borderRadius: 5, border: '1px solid #E5E7EB', fontSize: 11, padding: '0 6px', cursor: 'pointer', maxWidth: 90, color: '#374151', background: '#F9FAFB' }}>
@@ -979,6 +1192,10 @@ function EditorInner() {
                             <option value="Courier New, monospace">Mono</option>
                             <option value="Arial Black, sans-serif">Black</option>
                             <option value="Times New Roman, serif">Times</option>
+                            <option value="Inter, sans-serif">Inter</option>
+                            <option value="Montserrat, sans-serif">Montserrat</option>
+                            <option value="Playfair Display, serif">Playfair</option>
+                            <option value="Oswald, sans-serif">Oswald</option>
                           </select>
                           <div style={{ width: 1, height: 20, background: '#E5E7EB', margin: '0 6px' }} />
                           {/* Size − / select / + */}
@@ -1021,7 +1238,13 @@ function EditorInner() {
                           {(['left', 'center', 'right'] as const).map(al => (
                             <button key={al} onClick={() => setZoneLayout(prev => prev.map((zz, ii) => ii === idx ? { ...zz, align: al } : zz))}
                               style={{ width: 28, height: 28, borderRadius: 5, border: (z.align || 'left') === al ? '2px solid #FF6B00' : '1px solid #E5E7EB', background: (z.align || 'left') === al ? '#FFF7ED' : '#fff', fontSize: 12, cursor: 'pointer', color: '#374151', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                              {al === 'left' ? '≡' : al === 'center' ? '≡' : '≡'}
+                              {al === 'left' ? (
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 6h18M3 12h12M3 18h16" /></svg>
+                              ) : al === 'center' ? (
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 6h18M6 12h12M4 18h16" /></svg>
+                              ) : (
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 6h18M9 12h12M5 18h16" /></svg>
+                              )}
                             </button>
                           ))}
                           <div style={{ width: 1, height: 20, background: '#E5E7EB', margin: '0 6px' }} />
@@ -1090,13 +1313,13 @@ function EditorInner() {
                   </div>
 
                   {/* Right: QR */}
-                  {showQr && qrValue && (
+                  {(showQr || loyaltyQrUrl) && qrValue && (
                     <div onClick={lacquerMode ? () => setLacquerZones(prev => { const s = new Set(prev); s.has('back_qr') ? s.delete('back_qr') : s.add('back_qr'); return s }) : undefined}
                       style={{ width: 110, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4, borderLeft: `1px solid ${T.bg === '#111111' ? '#333' : '#E5E7EB'}`, cursor: lacquerMode ? 'pointer' : 'default', ...(lacquerMode ? { zIndex: 31, opacity: lacquerBack.has('back_qr') ? 1 : 0.3, filter: lacquerBack.has('back_qr') ? 'brightness(1.2) drop-shadow(0 0 4px rgba(255,255,255,0.8))' : 'none' } : {}) }}>
                       <div style={{ width: 80, height: 80, borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', border: `1px solid ${T.bg === '#111111' ? '#444' : '#E5E7EB'}`, background: '#fff', padding: 3 }}>
                         <QRCodeSVG value={qrValue} size={74} bgColor="#FFFFFF" fgColor="#000000" level="L" />
                       </div>
-                      <div style={{ fontSize: 7, color: T.textLight, textAlign: 'center' }}>{form.qr_text ? 'Scan me' : 'vCard'}</div>
+                      <div style={{ fontSize: 7, color: T.textLight, textAlign: 'center' }}>{loyaltyQrUrl ? '⭐ Loyalty' : form.qr_text ? 'Scan me' : 'vCard'}</div>
                     </div>
                   )}
                 </div>
@@ -1108,7 +1331,7 @@ function EditorInner() {
           {/* Front/Back toggle — OUTSIDE zoom, always normal size */}
           <div style={{ display: 'flex', gap: 12, marginTop: 12, zIndex: 5 }}>
             {(['front', 'back'] as const).map(s => (
-              <button key={s} onClick={() => setSide(s)} style={{
+              <button key={s} onClick={() => { setSide(s); setSelectedZoneIdx(-1); setSelectedZones(new Set()) }} style={{
                 width: 80, height: 44, borderRadius: 8, cursor: 'pointer',
                 border: side === s ? '2px solid #FF6B00' : '1px solid #D1D5DB',
                 background: side === s ? '#FFF7ED' : '#fff',
@@ -1268,11 +1491,105 @@ function EditorInner() {
               cursor: zoom >= 2 ? 'default' : 'pointer', fontSize: 16, color: zoom >= 2 ? '#D1D5DB' : '#374151',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
             }} title="Томруулах">+</button>
+
+            {/* 3D Flip toggle */}
+            <div style={{ width: 1, height: 20, background: '#E5E7EB', margin: '0 2px' }} />
+            <button onClick={() => { setSide(s => s === 'front' ? 'back' : 'front'); setSelectedZoneIdx(-1); setSelectedZones(new Set()) }} style={{
+              height: 32, padding: '0 10px', borderRadius: 8, border: 'none',
+              background: 'transparent', cursor: 'pointer', fontSize: 11, fontWeight: 600,
+              color: '#374151', display: 'flex', alignItems: 'center', gap: 4,
+            }} title="Урд/Ар эргүүлэх">
+              🔄 {side === 'front' ? 'Ар тал' : 'Урд тал'}
+            </button>
           </div>
         </div>
 
         {/* ═══ RIGHT: Layout + Qty + Price + Actions ═══ */}
-        <div style={{ width: 290, background: '#fff', borderLeft: '1px solid #E5E7EB', padding: '16px 14px', flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 14, overflow: 'auto' }}>
+        <div style={{ width: 290, background: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(12px)', borderLeft: '1px solid #E5E7EB', padding: '16px 14px', flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 14, overflow: 'auto' }}>
+
+          {/* ── Текстийн тохиргоо (selected element properties) ── */}
+          {selectedZoneIdx >= 0 && (() => {
+            const sz = (side === 'front' ? zoneLayout : backZoneLayout)[selectedZoneIdx]
+            if (!sz || sz.type === 'qr' || sz.type === 'logo' || sz.type === 'image' || sz.type === 'icon') return null
+            const updateZone = (updates: any) => {
+              const setter = side === 'front' ? setZoneLayout : setBackZoneLayout
+              setter((prev: any[]) => prev.map((zz: any, ii: number) => ii === selectedZoneIdx ? { ...zz, ...updates } : zz))
+            }
+            return (
+              <div style={{ background: '#F8FAFC', borderRadius: 12, padding: 14, border: '1px solid #E2E8F0' }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: '#334155', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
+                  ✏️ Текстийн тохиргоо
+                  <span style={{ fontSize: 9, color: '#94A3B8', fontWeight: 500 }}>({sz.key || 'text'})</span>
+                </div>
+
+                {/* Font family */}
+                <div style={{ marginBottom: 10 }}>
+                  <div style={{ fontSize: 10, color: '#64748B', fontWeight: 600, marginBottom: 4 }}>Фонт</div>
+                  <select value={sz.fontFamily || ''} onChange={e => updateZone({ fontFamily: e.target.value })}
+                    style={{ width: '100%', height: 34, borderRadius: 8, border: '1px solid #E2E8F0', fontSize: 12, padding: '0 8px', cursor: 'pointer', color: '#334155', background: '#fff' }}>
+                    <option value="">Sans Serif</option>
+                    <option value="Georgia, serif">Serif</option>
+                    <option value="Inter, sans-serif">Inter</option>
+                    <option value="Montserrat, sans-serif">Montserrat</option>
+                    <option value="Playfair Display, serif">Playfair</option>
+                    <option value="Oswald, sans-serif">Oswald</option>
+                    <option value="Courier New, monospace">Mono</option>
+                    <option value="Times New Roman, serif">Times</option>
+                  </select>
+                </div>
+
+                {/* Font size */}
+                <div style={{ marginBottom: 10 }}>
+                  <div style={{ fontSize: 10, color: '#64748B', fontWeight: 600, marginBottom: 4 }}>Хэмжээ</div>
+                  <div style={{ display: 'flex', gap: 4 }}>
+                    <button onClick={() => updateZone({ fontSize: Math.max(7, (sz.fontSize || 12) - 1) })}
+                      style={{ width: 34, height: 34, borderRadius: 8, border: '1px solid #E2E8F0', background: '#fff', cursor: 'pointer', fontSize: 16, color: '#334155', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>−</button>
+                    <div style={{ flex: 1, height: 34, borderRadius: 8, border: '1px solid #E2E8F0', background: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 600, color: '#334155' }}>
+                      {sz.fontSize || 12}px
+                    </div>
+                    <button onClick={() => updateZone({ fontSize: Math.min(40, (sz.fontSize || 12) + 1) })}
+                      style={{ width: 34, height: 34, borderRadius: 8, border: '1px solid #E2E8F0', background: '#fff', cursor: 'pointer', fontSize: 16, color: '#334155', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>+</button>
+                  </div>
+                </div>
+
+                {/* Bold + Alignment */}
+                <div style={{ marginBottom: 10 }}>
+                  <div style={{ fontSize: 10, color: '#64748B', fontWeight: 600, marginBottom: 4 }}>Хэв маяг</div>
+                  <div style={{ display: 'flex', gap: 4 }}>
+                    <button onClick={() => updateZone({ fontWeight: sz.fontWeight === 'bold' ? 'normal' : 'bold' })}
+                      style={{ width: 34, height: 34, borderRadius: 8, border: sz.fontWeight === 'bold' ? '2px solid #FF6B00' : '1px solid #E2E8F0', background: sz.fontWeight === 'bold' ? '#FFF7ED' : '#fff', cursor: 'pointer', fontSize: 14, fontWeight: 800, color: '#334155', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>B</button>
+                    <div style={{ width: 1, background: '#E2E8F0' }} />
+                    {(['left', 'center', 'right'] as const).map(al => (
+                      <button key={al} onClick={() => updateZone({ align: al })}
+                        style={{ width: 34, height: 34, borderRadius: 8, border: (sz.align || 'left') === al ? '2px solid #FF6B00' : '1px solid #E2E8F0', background: (sz.align || 'left') === al ? '#FFF7ED' : '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#334155" strokeWidth="2">
+                          {al === 'left' && <path d="M3 6h18M3 12h12M3 18h16" />}
+                          {al === 'center' && <path d="M3 6h18M6 12h12M4 18h16" />}
+                          {al === 'right' && <path d="M3 6h18M9 12h12M5 18h16" />}
+                        </svg>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Color */}
+                <div style={{ marginBottom: 10 }}>
+                  <div style={{ fontSize: 10, color: '#64748B', fontWeight: 600, marginBottom: 4 }}>Өнгө</div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <input type="color" value={sz.color || '#111111'} onChange={e => updateZone({ color: e.target.value })}
+                      style={{ width: 34, height: 34, borderRadius: 8, border: '2px solid #E2E8F0', cursor: 'pointer', padding: 0 }} />
+                    <span style={{ fontSize: 11, color: '#64748B', fontFamily: 'monospace' }}>{sz.color || '#111111'}</span>
+                  </div>
+                </div>
+
+                {/* Delete */}
+                <button onClick={() => { const setter = side === 'front' ? setZoneLayout : setBackZoneLayout; setter((prev: any[]) => prev.filter((_: any, ii: number) => ii !== selectedZoneIdx)); setSelectedZoneIdx(-1) }}
+                  style={{ width: '100%', padding: '8px', borderRadius: 8, border: '1px solid #FCA5A5', background: '#FEF2F2', color: '#EF4444', fontSize: 12, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                  🗑 Элемент устгах
+                </button>
+              </div>
+            )
+          })()}
 
           {/* ── Загвар сонгох — mini preview grid ── */}
           {bcLayouts.length > 0 && (

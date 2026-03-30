@@ -1,5 +1,6 @@
-import { Body, Controller, Get, Param, Post } from '@nestjs/common'
+import { Body, Controller, Get, Param, Post, Req, UseGuards } from '@nestjs/common'
 import { PaymentService } from './payment.service'
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard'
 
 @Controller('payment')
 export class PaymentController {
@@ -23,5 +24,23 @@ export class PaymentController {
   @Post('confirm/:invoiceCode')
   async confirm(@Param('invoiceCode') invoiceCode: string) {
     return this.paymentService.confirmPayment(invoiceCode)
+  }
+
+  // ── Invoice endpoints ──
+  @UseGuards(JwtAuthGuard)
+  @Get('invoices/my')
+  async myInvoices(@Req() req: any) {
+    return this.paymentService.getInvoicesByCustomer(req.user.id)
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('invoices/:id')
+  async getInvoice(@Param('id') id: string) {
+    return this.paymentService.getInvoiceById(id)
+  }
+
+  @Get('invoices/number/:number')
+  async getInvoiceByNumber(@Param('number') number: string) {
+    return this.paymentService.getInvoiceByNumber(number)
   }
 }

@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm'
 import { Repository } from 'typeorm'
 import axios from 'axios'
 import { Payment } from './entities/payment.entity'
+import { Invoice, InvoiceStatus, InvoiceType } from './entities/invoice.entity'
 import { Order, OrderStatus } from '../orders/entities/order.entity'
 import { MailService } from '../mail/mail.service'
 import { ProductionJobsService } from '../production-jobs/production-jobs.service'
@@ -28,6 +29,8 @@ export class PaymentService {
   constructor(
     @InjectRepository(Payment)
     private paymentRepo: Repository<Payment>,
+    @InjectRepository(Invoice)
+    private invoiceRepo: Repository<Invoice>,
     @InjectRepository(Order)
     private orderRepo: Repository<Order>,
     private mailService: MailService,
@@ -250,7 +253,79 @@ export class PaymentService {
       })
     }
 
+    // ── Generate Invoice ──
+    if (order) {
+      await this.generateInvoice(order, payment);
+    }
+
     return { success: true, invoice_code, status: 'paid' }
+  }
+
+  // ─── INVOICE GENERATION ──────────────────────────────────
+  private async generateInvoice(order: Order, payment: Payment) {
+    // Check if invoice already exists for this order
+    const existing = await this.invoiceRepo.findOne({
+      where: { order_id: order.id, type: InvoiceType.CUSTOMER_INVOICE },
+    });
+    if (existing) {
+      existing.status = InvoiceStatus.PAID;
+      existing.paid_at = new Date();
+      return this.invoiceRepo.save(existing);
+    }
+
+    const invoiceNumber = `INV-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
+    const totalAmount = Number(payment.amount) || Number(order.total_price) || 0;
+    const taxAmount = Math.round(totalAmount / 11); // 10% VAT already included
+    const subtotal = totalAmount - taxAmount;
+
+    const invoice = this.invoiceRepo.create({
+      order_id: order.id,
+      invoice_number: invoiceNumber,
+      customer_id: order.customer_id || '',
+      type: InvoiceType.CUSTOMER_INVOICE,
+      subtotal,
+      tax_amount: taxAmount,
+      total_amount: totalAmount,
+      status: InvoiceStatus.PAID,
+      issued_at: new Date(),
+      paid_at: new Date(),
+      due_date: new Date(),
+      metadata: {
+        payment_id: payment.id,
+        payment_method: payment.provider,
+        invoice_code: payment.invoice_code,
+        product_name: order.product_name,
+        quantity: order.quantity,
+      },
+    });
+    return this.invoiceRepo.save(invoice);
+  }
+
+  // ─── INVOICE QUERIES ─────────────────────────────────────
+  async getInvoicesByCustomer(customerId: string) {
+    return this.invoiceRepo.find({
+      where: { customer_id: customerId, type: InvoiceType.CUSTOMER_INVOICE },
+      relations: ['order'],
+      order: { created_at: 'DESC' },
+    });
+  }
+
+  async getInvoiceById(id: string) {
+    const invoice = await this.invoiceRepo.findOne({
+      where: { id },
+      relations: ['order'],
+    });
+    if (!invoice) throw new NotFoundException('Нэхэмжлэх олдсонгүй');
+    return invoice;
+  }
+
+  async getInvoiceByNumber(invoiceNumber: string) {
+    const invoice = await this.invoiceRepo.findOne({
+      where: { invoice_number: invoiceNumber },
+      relations: ['order'],
+    });
+    if (!invoice) throw new NotFoundException('Нэхэмжлэх олдсонгүй');
+    return invoice;
   }
 
   // ─── Helpers for legacy checkPayment ───────────────────

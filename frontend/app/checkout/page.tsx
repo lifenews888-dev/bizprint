@@ -37,15 +37,19 @@ function CheckoutInner() {
   const [paymentStatus, setPaymentStatus] = useState<string>('pending')
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
-  // Pre-fill from localStorage user
+  // Pre-fill from localStorage user + search params (reorder flow)
   useEffect(() => {
     try {
       const u = JSON.parse(localStorage.getItem('user') || '{}')
       setForm(f => ({
         ...f,
-        customer_name: u.name || u.username || '',
+        customer_name: u.full_name || u.name || u.username || '',
         customer_email: u.email || '',
         customer_phone: u.phone || '',
+        // Pre-fill from search params (reorder from QR page)
+        product_name: searchParams.get('product_name') || f.product_name,
+        quantity: Number(searchParams.get('quantity')) || f.quantity,
+        notes: searchParams.get('note') || f.notes,
       }))
     } catch {}
   }, [])

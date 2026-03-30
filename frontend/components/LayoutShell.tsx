@@ -8,7 +8,7 @@ import ChatWidget from '@/components/ChatWidget'
 import MobileBottomNav from '@/components/MobileBottomNav'
 
 /** login, register зэрэг full-page хуудсуудад Nav/Footer нуугдана */
-const BARE_ROUTES = ['/login', '/register', '/design/editor', '/dashboard', '/admin', '/creator', '/designer', '/courier', '/sales']
+const BARE_ROUTES = ['/login', '/register', '/design/editor', '/dashboard', '/admin', '/creator', '/designer', '/courier', '/sales', '/invite', '/loyalty', '/mobile']
 /** admin/chat хуудсанд ChatWidget давхардахгүй (ChatLayout ашигладаг) */
 const NO_CHAT_WIDGET = ['/admin/chat']
 

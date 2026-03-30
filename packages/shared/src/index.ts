@@ -1,3 +1,55 @@
+export { createAuthProvider, useAuth } from './auth'
+export type { AuthProviderConfig, AuthContextType } from './auth'
+export { queryKeys } from './query-keys'
+export { useApiQuery, useApiMutation, useOptimisticMutation } from './query-hooks'
+export { calculateDistance, formatDistance, estimateMinutes } from './utils/geo'
+
+// Design system
+export { colors, spacing, radius, fontSize, fontWeight, componentSize, timing, createAppTheme, theme } from './theme'
+export type { Theme, AppVariant } from './theme'
+
+// Status config (labels + colors + emojis)
+export { ORDER_STATUS_CONFIG, DELIVERY_STATUS_CONFIG, ORDER_WORKFLOW_STAGES, getOrderStatusEntry, getDeliveryStatusEntry, getWorkflowStageIndex } from './status-config'
+export type { StatusEntry } from './status-config'
+
+// Real-time constants
+export { SocketEvents, SocketRooms, SocketNamespace } from './realtime-events'
+
+// Query config
+export { staleTimes, gcTimes, createQueryClient } from './query-config'
+export type { CreateQueryClientOptions } from './query-config'
+
+// UI Components
+export { Skeleton, CardSkeleton, ProductGridSkeleton, OrderListSkeleton, StatsSkeleton, ScreenSkeleton } from './components'
+export { BizErrorBoundary, ErrorCard, EmptyState } from './components'
+export { BizImage, BizAvatar } from './components'
+
+// System types (admin)
+export type { SystemHealth, ServiceStatus, ResourceMetrics, ErrorLog, Metric, TimeSeriesPoint, TimeSeries, AdminUserEntry, GlobalConfigEntry } from './types/system'
+export { useSystemStatus } from './hooks/useSystemStatus'
+
+// Membership
+export type { Membership, MembershipPlan, MembershipCheckIn, MembershipQRPayload, CheckInResult, MembershipStatus, MembershipType } from './types/membership'
+export { MEMBERSHIP_NOTIFICATION_TRIGGERS, MEMBERSHIP_STATUS_CONFIG } from './types/membership'
+export { checkValidity, formatCountdown, generateQRPayload, isQRValid } from './utils/membership'
+export type { ValidityResult } from './utils/membership'
+
+// Creator Economy
+export { calculateCommission, calculateBatchCommissions, DEFAULT_COMMISSION_RATES } from './logic/commission'
+export type { CreatorRole, CommissionRate, SaleInput, CommissionResult, CreatorWallet, WithdrawalRequest, WithdrawalStatus } from './logic/commission'
+
+// Anti-Fraud Dynamic QR
+export { generateDynamicQR, validateDynamicQR, qrSecondsRemaining, QR_REFRESH_INTERVAL_MS, QR_VALIDITY_WINDOW_MS } from './logic/dynamic-qr'
+export type { DynamicQRPayload, QRPurpose, QRValidationResult } from './logic/dynamic-qr'
+
+// Product Types
+export { ProductType, PRODUCT_TYPE_CONFIG, PRODUCT_CATEGORIES } from './logic/product-types'
+
+// Smart Commerce
+export { getLoyaltyInsight, calculateTierPrice, detectTier, getBundleSuggestion, checkQuoteFreshness, TIER_DISCOUNTS } from './logic/smart-commerce'
+export type { LoyaltyInsight, CustomerTier, BundleSuggestion, QuoteFreshness } from './logic/smart-commerce'
+export type { ProductCategory } from './logic/product-types'
+
 // ─── Types ──────────────────────────────────────────
 
 export interface User {
@@ -97,6 +149,14 @@ export interface AuthTokens {
   user: User
 }
 
+export interface GeoLocation {
+  latitude: number
+  longitude: number
+  heading?: number
+  accuracy?: number
+  timestamp?: number
+}
+
 // ─── Constants ──────────────────────────────────────
 
 export const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
@@ -125,16 +185,17 @@ export const DELIVERY_STATUS_LABELS: Record<DeliveryStatus, string> = {
   RETURNED: 'Буцаагдсан',
 }
 
+/** @deprecated Use `colors` from theme.ts instead */
 export const BRAND_COLORS = {
-  orange: '#FF6B00',
-  orangeHover: '#e05d00',
-  surface: '#0F0F0F',
-  background: '#0A0A0A',
-  text: '#F1F5F9',
-  textSecondary: '#888888',
-  success: '#22c55e',
-  warning: '#eab308',
-  error: '#ef4444',
+  orange: '#f97316',
+  orangeHover: '#ea580c',
+  surface: '#111111',
+  background: '#0a0a0a',
+  text: '#f5f5f5',
+  textSecondary: '#a3a3a3',
+  success: '#10B981',
+  warning: '#F59E0B',
+  error: '#EF4444',
 }
 
 // ─── API Client ─────────────────────────────────────
@@ -143,11 +204,31 @@ export const API_BASE = typeof process !== 'undefined'
   ? (process.env?.EXPO_PUBLIC_API_URL || 'http://localhost:4000')
   : 'http://localhost:4000'
 
+// Token provider — platform-specific (SecureStore, localStorage, etc.)
+export interface TokenProvider {
+  getToken: () => Promise<string | null>
+  setTokens: (access: string, refresh: string) => Promise<void>
+  clearTokens: () => Promise<void>
+  getRefreshToken: () => Promise<string | null>
+}
+
+let _tokenProvider: TokenProvider | null = null
+
+export function setTokenProvider(provider: TokenProvider) {
+  _tokenProvider = provider
+}
+
+export function getTokenProvider(): TokenProvider | null {
+  return _tokenProvider
+}
+
+// Core API call — supports both manual token and token provider
 export async function apiCall<T = any>(
   endpoint: string,
   options?: RequestInit & { token?: string },
 ): Promise<T> {
-  const { token, ...fetchOptions } = options || {}
+  const { token: manualToken, ...fetchOptions } = options || {}
+  const token = manualToken || (await _tokenProvider?.getToken()) || undefined
 
   const res = await fetch(`${API_BASE}${endpoint}`, {
     ...fetchOptions,
@@ -159,14 +240,62 @@ export async function apiCall<T = any>(
     },
   })
 
-  const json = await res.json()
+  // Auto refresh on 401
+  if (res.status === 401 && _tokenProvider) {
+    const refreshed = await tryRefreshToken()
+    if (refreshed) {
+      const newToken = await _tokenProvider.getToken()
+      const retry = await fetch(`${API_BASE}${endpoint}`, {
+        ...fetchOptions,
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Api-Version': '2',
+          ...(newToken ? { Authorization: `Bearer ${newToken}` } : {}),
+          ...fetchOptions?.headers,
+        },
+      })
+      const data = await safeJson(retry)
+      if (!retry.ok) throw new Error(data?.message || data?.error?.message || `API Error ${retry.status}`)
+      return data?.data !== undefined ? data.data : data
+    }
+    // Guest mode for GET requests
+    if (!fetchOptions.method || fetchOptions.method === 'GET') return null as T
+    throw new Error('Unauthorized')
+  }
+
+  const json = await safeJson(res)
 
   if (!res.ok) {
     throw new Error(json?.error?.message || json?.message || `API Error ${res.status}`)
   }
 
-  // Handle both wrapped (v2) and raw responses
   return json?.data !== undefined ? json.data : json
+}
+
+async function safeJson(res: Response): Promise<any> {
+  const text = await res.text()
+  if (!text) return {}
+  try { return JSON.parse(text) } catch { return { message: text } }
+}
+
+async function tryRefreshToken(): Promise<boolean> {
+  if (!_tokenProvider) return false
+  try {
+    const refreshToken = await _tokenProvider.getRefreshToken()
+    if (!refreshToken) return false
+    const res = await fetch(`${API_BASE}/auth/refresh`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refresh_token: refreshToken }),
+    })
+    if (!res.ok) return false
+    const data = await res.json()
+    const result = data?.data || data
+    await _tokenProvider.setTokens(result.access_token, result.refresh_token)
+    return true
+  } catch {
+    return false
+  }
 }
 
 export async function apiPost<T = any>(endpoint: string, body: any, token?: string): Promise<T> {

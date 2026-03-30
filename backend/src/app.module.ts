@@ -65,6 +65,13 @@ import { ErrorLogModule } from './error-log/error-log.module'
 import { CreatorModule } from './creator/creator.module'
 import { DigitalCardModule } from './digital-card/digital-card.module'
 import { BusinessCardsModule } from './business-cards/business-cards.module'
+import { InvitationModule } from './invitation/invitation.module'
+import { ProductQrModule } from './product-qr/product-qr.module'
+import { SubscriptionModule } from './subscription/subscription.module'
+import { AnalyticsModule } from './analytics/analytics.module'
+import { SystemModule } from './system/system.module'
+import { LoyaltyModule } from './loyalty/loyalty.module'
+import { ZoomModule } from './zoom/zoom.module'
 
 @Module({
   imports: [
@@ -72,18 +79,29 @@ import { BusinessCardsModule } from './business-cards/business-cards.module'
     SyncModule,     // ← WebSocket /sync gateway
     ChatModule,
     ConfigModule.forRoot({ isGlobal: true }),
-    TypeOrmModule.forRoot({
-      type: 'postgres',
-      host: 'localhost',
-      port: 5432,
-      username: 'postgres',
-      password: 'postgres',
-      database: 'bizprint',
-      autoLoadEntities: true,
-      synchronize: true,
-      dropSchema: false,
-      logging: false,
-    }),
+    TypeOrmModule.forRoot(
+      process.env.DATABASE_URL
+        ? {
+            type: 'postgres',
+            url: process.env.DATABASE_URL,
+            autoLoadEntities: true,
+            synchronize: process.env.NODE_ENV !== 'production',
+            ssl: process.env.DATABASE_SSL === 'true' ? { rejectUnauthorized: false } : false,
+            logging: false,
+          }
+        : {
+            type: 'postgres',
+            host: process.env.DB_HOST || 'localhost',
+            port: Number(process.env.DB_PORT) || 5432,
+            username: process.env.DB_USER || 'postgres',
+            password: process.env.DB_PASS || 'postgres',
+            database: process.env.DB_NAME || 'bizprint',
+            autoLoadEntities: true,
+            synchronize: true,
+            dropSchema: false,
+            logging: false,
+          },
+    ),
     ThrottlerModule.forRoot([{ ttl: 60000, limit: 100 }]),
     AuthModule,
     VendorsModule,
@@ -140,6 +158,13 @@ import { BusinessCardsModule } from './business-cards/business-cards.module'
     CreatorModule,
     DigitalCardModule,
     BusinessCardsModule,
+    InvitationModule,
+    ProductQrModule,
+    SubscriptionModule,
+    AnalyticsModule,
+    SystemModule,
+    LoyaltyModule,
+    ZoomModule,
   ],
   controllers: [], // PricingCatalogController removed — duplicate
   providers: [],   // PricingCatalogService removed — duplicate

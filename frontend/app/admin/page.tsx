@@ -430,13 +430,19 @@ export default function AdminDashboard() {
               { key: 'COMPLETED', label: 'Дууссан', icon: '✅', color: '#10B981' },
             ].map(stage => {
               const data = stats.pipeline[stage.key] || { count: 0, value: 0 }
+              const maxCount = Math.max(...Object.values(stats.pipeline).map((p: any) => p.count || 0), 1)
+              const barWidth = (data.count / maxCount) * 100
               return (
-                <div key={stage.key} className="bg-[#F8F8F8] rounded-xl p-3">
-                  <div className="flex items-center gap-1.5 mb-1">
+                <div key={stage.key} className="bg-[#F8F8F8] rounded-xl p-3 hover:shadow-md transition-all cursor-pointer group" onClick={() => router.push('/admin/orders')}>
+                  <div className="flex items-center gap-1.5 mb-2">
                     <span className="text-sm">{stage.icon}</span>
                     <span className="text-[11px] text-[#888] truncate">{stage.label}</span>
                   </div>
-                  <div className="text-xl font-extrabold" style={{ color: stage.color }}>{data.count}</div>
+                  <div className="text-xl font-extrabold mb-2 group-hover:scale-105 transition-transform origin-left" style={{ color: stage.color }}>{data.count}</div>
+                  {/* Energy Bar */}
+                  <div className="h-1.5 bg-[#E5E7EB] rounded-full overflow-hidden mb-1.5">
+                    <div className="h-full rounded-full transition-all duration-700 ease-out" style={{ width: `${barWidth}%`, background: `linear-gradient(90deg, ${stage.color}, ${stage.color}88)`, boxShadow: data.count > 0 ? `0 0 8px ${stage.color}44` : 'none' }} />
+                  </div>
                   <div className="text-[10px] text-[#BBB]">{fmt(data.value)}</div>
                 </div>
               )
@@ -448,9 +454,15 @@ export default function AdminDashboard() {
         <div className="bg-white rounded-xl border border-[#E5E7EB] p-5">
           <h2 className="text-base font-bold text-[#111] mb-3">🧠 Ухаалаг мэдээлэл</h2>
           <div className="space-y-2.5">
-            {insights.map((ins, i) => (
-              <div key={i} className="text-xs text-[#555] bg-[#F8F8F8] rounded-lg px-3 py-2.5 leading-relaxed">{ins}</div>
-            ))}
+            {insights.map((ins, i) => {
+              const dotColor = ins.includes('🔴') || ins.includes('анхааруулга') ? '#EF4444' : ins.includes('📈') || ins.includes('өслөө') ? '#10B981' : ins.includes('💡') ? '#F59E0B' : '#3B82F6'
+              return (
+              <div key={i} className="flex items-start gap-3 text-xs text-[#555] bg-[#F8F8F8] rounded-lg px-3 py-2.5 leading-relaxed hover:bg-[#F0F0F0] transition-colors">
+                <div className="w-2 h-2 rounded-full mt-1 flex-shrink-0" style={{ background: dotColor, boxShadow: `0 0 6px ${dotColor}44` }} />
+                <span>{ins}</span>
+              </div>
+              )
+            })}
             {alerts.filter(a => a.severity === 'low').map((a, i) => (
               <div key={i} className="text-xs text-emerald-600 bg-emerald-50 rounded-lg px-3 py-2.5">{a.message}</div>
             ))}
@@ -656,6 +668,51 @@ export default function AdminDashboard() {
           </div>
         </div>
       )}
+
+      {/* Speed Dial FAB */}
+      <SpeedDial />
     </div>
+  )
+}
+
+/* ═══ Speed Dial Component ═══ */
+function SpeedDial() {
+  const [open, setOpen] = useState(false)
+  const router = useRouter()
+  const actions = [
+    { icon: '📦', label: 'Шинэ захиалга', href: '/admin/orders', color: '#FF6B00' },
+    { icon: '📊', label: 'Тайлан харах', href: '/admin/reports', color: '#3B82F6' },
+    { icon: '🔔', label: 'Мэдэгдэл илгээх', href: '/admin/marketing', color: '#8B5CF6' },
+    { icon: '⚙️', label: 'Системийн лог', href: '/admin/system', color: '#10B981' },
+  ]
+
+  return (
+    <>
+      {open && <div onClick={() => setOpen(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.3)', zIndex: 98 }} />}
+      <div style={{ position: 'fixed', bottom: 24, right: 24, zIndex: 99, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8 }}>
+        {open && actions.map((a, i) => (
+          <div key={i} onClick={() => { router.push(a.href); setOpen(false) }}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer',
+              padding: '8px 14px 8px 12px', borderRadius: 12,
+              background: 'white', border: '1px solid #E5E7EB',
+              boxShadow: '0 4px 16px rgba(0,0,0,0.08)',
+              animation: `fadeIn 0.15s ease ${i * 0.05}s both`,
+            }}>
+            <span style={{ fontSize: 16 }}>{a.icon}</span>
+            <span style={{ fontSize: 12, fontWeight: 600, color: '#333', whiteSpace: 'nowrap' }}>{a.label}</span>
+          </div>
+        ))}
+        <button onClick={() => setOpen(!open)} style={{
+          width: 48, height: 48, borderRadius: 16, border: 'none',
+          background: open ? '#333' : '#FF6B00', color: '#fff',
+          fontSize: 20, cursor: 'pointer',
+          boxShadow: open ? '0 4px 16px rgba(0,0,0,0.15)' : '0 4px 20px rgba(255,107,0,0.3)',
+          transition: 'all 0.2s', transform: open ? 'rotate(45deg)' : 'none',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>+</button>
+      </div>
+      <style>{`@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}`}</style>
+    </>
   )
 }

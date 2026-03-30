@@ -32,6 +32,20 @@ export const BizEvent = {
   // Users
   USER_UPDATED:           'user.updated',
 
+  // QR & Loyalty
+  QR_SCANNED:                  'qr.scanned',
+  LOYALTY_STAMP_ADDED:         'loyalty.stamp.added',
+  LOYALTY_REWARD_EARNED:       'loyalty.reward.earned',
+
+  // Delivery
+  DELIVERY_PICKUP_READY:       'delivery.pickup.ready',
+  DELIVERY_OUT_FOR_DELIVERY:   'delivery.out.for.delivery',
+  DELIVERY_COMPLETED:          'delivery.completed',
+
+  // Revenue / Payout
+  REVENUE_GENERATED:           'revenue.generated',
+  PAYOUT_TRIGGERED:            'payout.triggered',
+
   // Design Approval Workflow
   DESIGN_FILE_UPLOADED:        'design.file.uploaded',
   DESIGN_REVISION_REQUESTED:   'design.revision.requested',
@@ -95,4 +109,28 @@ export interface VendorJobPayload {
   jobId: string
   orderId: string
   data?: Record<string, any>
+}
+
+export interface QRScanPayload {
+  scannedBy: string // userId or 'courier' or 'factory'
+  qrType: 'product' | 'loyalty' | 'order' | 'card'
+  entityId: string
+  actions: string[] // ['loyalty.stamp', 'inventory.deduct', 'status.update']
+}
+
+export interface DeliveryPayload {
+  orderId: string
+  courierId?: string
+  customerId: string
+  status: string
+  location?: { lat: number; lng: number }
+}
+
+export interface RevenuePayload {
+  orderId: string
+  totalAmount: number
+  vendorPayout: number
+  platformRevenue: number
+  salesCommission: number
+  creatorRoyalty: number
 }
