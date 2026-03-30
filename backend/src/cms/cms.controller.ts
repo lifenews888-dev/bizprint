@@ -13,7 +13,7 @@ export class CmsController {
   getHeader() { return this.svc.getHeader(); }
 
   @Get('settings/public')
-  getPublicSettings() { return this.svc.getSettings(); }
+  getPublicSettings() { return this.svc.getSettingsObject(); }
 
   @Get('mega-menu/public')
   getPublicMegaMenu() { return this.svc.getMegaMenu(); }
@@ -39,6 +39,14 @@ export class CmsController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('admin', 'superadmin')
   updateSettings(@Body() dto: any) { return this.svc.updateSettings(dto); }
+
+  // Bulk settings update (from admin CMS page)
+  @Post('settings/bulk')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin', 'superadmin')
+  bulkUpdate(@Body() body: { items: { key: string; value: string }[] }) {
+    return this.svc.bulkUpdateSettings(body.items);
+  }
 
   @Patch('footer')
   @UseGuards(JwtAuthGuard, RolesGuard)

@@ -129,9 +129,29 @@ export class CmsService {
   }
 
   // ─── Settings ───
-  getSettings() { return { ...CmsService.siteSettings, footer: CmsService.footerConfig }; }
+  getSettings() {
+    // Return as array format for admin CMS page compatibility
+    const all = { ...CmsService.siteSettings };
+    return Object.entries(all).map(([key, value]) => ({
+      id: key, key, value: String(value ?? ''), group: 'general', label: key,
+    }));
+  }
+
+  getSettingsObject() { return { ...CmsService.siteSettings, footer: CmsService.footerConfig }; }
+
   updateHeader(dto: any) { Object.assign(CmsService.siteSettings, dto); return { success: true }; }
-  updateSettings(dto: any) { Object.assign(CmsService.siteSettings, dto); return { success: true, settings: CmsService.siteSettings }; }
+  updateSettings(dto: any) { Object.assign(CmsService.siteSettings, dto); return { success: true }; }
+
+  bulkUpdateSettings(items: { key: string; value: string }[]) {
+    for (const item of items) {
+      // Parse booleans
+      let val: any = item.value;
+      if (val === 'true') val = true;
+      if (val === 'false') val = false;
+      CmsService.siteSettings[item.key] = val;
+    }
+    return { success: true, updated: items.length };
+  }
 
   // ─── Helper ───
   private async getCategories() {
