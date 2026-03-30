@@ -246,21 +246,23 @@ export class SystemService {
   // ─── SYSTEM POWER CONTROL ───
   async restartSystem(confirmCode?: string) {
     if (confirmCode !== 'RESTART-CONFIRM') {
-      return { success: false, message: 'Invalid confirmation code. Use RESTART-CONFIRM' };
+      return { success: false, message: 'Invalid confirmation code' };
     }
 
+    // Clear all caches + reset state
+    SystemService.errorLog = [];
+    SystemService.configAuditLog = [];
+
     SystemService.logError({
-      level: 'warn', message: 'SYSTEM_RESTART initiated by admin',
+      level: 'warn', message: 'SYSTEM_SOFT_RESTART by admin — caches cleared, state reset',
       endpoint: '/system/power/restart', method: 'POST', status_code: 200,
     });
 
-    // Graceful restart via process exit (PM2/nodemon will auto-restart)
-    setTimeout(() => {
-      console.log('🔄 System restart initiated...');
-      process.exit(0);
-    }, 2000);
-
-    return { success: true, message: 'System restart initiated. Restarting in 2 seconds...' };
+    return {
+      success: true,
+      message: 'System soft-restart complete. Caches cleared, state reset.',
+      uptime: Math.round(process.uptime()),
+    };
   }
 
   async setMaintenanceMode(enable: boolean) {
@@ -271,7 +273,7 @@ export class SystemService {
       endpoint: '/system/power/maintenance', method: 'POST', status_code: 200,
     });
 
-    return { success: true, maintenance_mode: enable, message: enable ? 'System entering maintenance mode' : 'Maintenance mode disabled' };
+    return { success: true, maintenance_mode: enable };
   }
 
   async clearSystemCache() {
