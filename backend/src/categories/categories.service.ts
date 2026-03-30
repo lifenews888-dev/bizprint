@@ -31,7 +31,13 @@ export class CategoriesService {
 
   async create(dto: Partial<Category>) { return this.repo.save(this.repo.create(dto)); }
   async update(id: string, dto: Partial<Category>) { await this.repo.update(id, dto); return this.repo.findOne({ where: { id } }); }
-  async remove(id: string) { await this.repo.delete(id); return { success: true }; }
+  async remove(id: string) {
+    // Delete children first, then parent
+    await this.repo.delete({ parent_id: id });
+    await this.paramRepo.delete({ category_id: id });
+    await this.repo.delete(id);
+    return { success: true };
+  }
 
   // ─── Parameters ───
   async getParameters(categoryId?: string) {
