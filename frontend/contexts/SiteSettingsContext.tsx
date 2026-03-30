@@ -158,13 +158,43 @@ export function SiteSettingsProvider({ children }: { children: ReactNode }) {
       fetch(`${API}/cms/mega-menu/public`).then(r => r.ok ? r.json() : null).catch(() => null),
     ]).then(([s, m]) => {
       if (s && typeof s === 'object') {
-        // Хоосон утгаар default-ийг дарахгүй байх — зөвхөн утгатай талбаруудыг override хийнэ
         const filtered: Record<string, any> = {}
         for (const [key, val] of Object.entries(s)) {
           if (val !== null && val !== undefined && val !== '') {
             filtered[key] = val
           }
         }
+
+        // Map CMS fields → Frontend expected fields
+        if (filtered.phone) filtered.site_phone = filtered.phone
+        if (filtered.email) filtered.site_email = filtered.email
+        if (filtered.facebook) filtered.site_facebook = filtered.facebook
+        if (filtered.instagram) filtered.site_instagram = filtered.instagram
+        if (filtered.site_name) filtered.site_name = filtered.site_name
+
+        // Map footer sub-object
+        if (filtered.footer && typeof filtered.footer === 'object') {
+          const f = filtered.footer
+          if (f.description) filtered.footer_description = f.description
+          if (f.copyright) filtered.footer_copyright = f.copyright
+          if (f.columns) filtered.footer_columns = f.columns
+          if (f.socials) {
+            // Map social URLs
+            f.socials.forEach((soc: any) => {
+              if (soc.enabled && soc.url) {
+                if (soc.platform === 'facebook') filtered.site_facebook = soc.url
+                if (soc.platform === 'instagram') filtered.site_instagram = soc.url
+                if (soc.platform === 'youtube') filtered.site_youtube = soc.url
+                if (soc.platform === 'tiktok') filtered.site_tiktok = soc.url
+              }
+            })
+          }
+          if (f.branches?.[0]) {
+            filtered.footer_location = f.branches[0].address
+            if (!filtered.site_phone) filtered.site_phone = f.branches[0].phone
+          }
+        }
+
         setSettings(prev => {
           const next = { ...prev, ...filtered }
           // Sync CSS variable
