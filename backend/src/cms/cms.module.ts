@@ -1,15 +1,10 @@
-import { Module } from '@nestjs/common'
-import { TypeOrmModule } from '@nestjs/typeorm'
-import { SiteSettings } from './entities/site-settings.entity'
-import { MegaMenu } from './entities/mega-menu.entity'
-import { CmsService } from './cms.service'
-import { CmsController } from './cms.controller'
-import { CmsGateway } from './cms.gateway'
+import { Module } from '@nestjs/common';
+import { CmsController } from './cms.controller';
+import { CmsService } from './cms.service';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([SiteSettings, MegaMenu])],
   controllers: [CmsController],
-  providers: [CmsService, CmsGateway],
+  providers: [CmsService],
   exports: [CmsService],
 })
 export class CmsModule {}
