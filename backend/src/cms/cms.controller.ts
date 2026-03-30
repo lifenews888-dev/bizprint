@@ -12,6 +12,12 @@ export class CmsController {
   @Get('header')
   getHeader() { return this.svc.getHeader(); }
 
+  @Get('settings/public')
+  getPublicSettings() { return this.svc.getSettings(); }
+
+  @Get('mega-menu/public')
+  getPublicMegaMenu() { return this.svc.getMegaMenu(); }
+
   @Get('mega-menu')
   getMegaMenu() { return this.svc.getMegaMenu(); }
 
