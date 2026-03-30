@@ -146,24 +146,35 @@ export class SystemService {
     return { success: true, message: `${user.email} руу нууц үг шинэчлэх имэйл илгээгдлээ` };
   }
 
-  // ─── CONFIG (In-memory, persistent per session) ───
+  // ─── CONFIG (System Core Control) ───
   private static configStore: Record<string, any> = {
+    maintenance_mode: false,
+    signup_enabled: true,
+    debug_mode: false,
+    api_rate_limit: 100,
+    max_file_size_mb: 50,
     stamp_threshold: 10000,
     delivery_fee: 5000,
     free_delivery_min: 50000,
     creator_commission: 15,
-    maintenance_mode: false,
     new_user_bonus: 1000,
   };
 
-  private static configMeta: Record<string, { type: string; label: string; description: string; category: string }> = {
+  private static configMeta: Record<string, { type: string; label: string; description: string; category: string; critical?: boolean }> = {
+    maintenance_mode: { type: 'boolean', label: 'Засвар горим', description: 'Бүх хэрэглэгчийн хандалтыг түр зогсоох', category: 'system', critical: true },
+    signup_enabled: { type: 'boolean', label: 'Бүртгэл нээлттэй', description: 'Шинэ хэрэглэгч бүртгүүлэх боломж', category: 'system' },
+    debug_mode: { type: 'boolean', label: 'Debug горим', description: 'Дэлгэрэнгүй лог идэвхжүүлэх', category: 'system' },
+    api_rate_limit: { type: 'number', label: 'API хязгаар (req/min)', description: 'Минутанд хүлээн авах хүсэлтийн тоо', category: 'system' },
+    max_file_size_mb: { type: 'number', label: 'Файлын хэмжээ (MB)', description: 'Хамгийн их upload хэмжээ', category: 'system' },
     stamp_threshold: { type: 'number', label: 'Тамгын босго (₮)', description: 'Хэдэн төгрөгийн захиалгад 1 тамга өгөх', category: 'pricing' },
     delivery_fee: { type: 'number', label: 'Хүргэлтийн хөлс (₮)', description: 'Стандарт хүргэлтийн үнэ', category: 'delivery' },
     free_delivery_min: { type: 'number', label: 'Үнэгүй хүргэлт (₮)', description: 'Энэ дүнгээс дээш үнэгүй хүргэнэ', category: 'delivery' },
     creator_commission: { type: 'number', label: 'Бүтээгчийн шимтгэл (%)', description: 'Дизайнер, лайвчинд өгөх хувь', category: 'pricing' },
-    maintenance_mode: { type: 'boolean', label: 'Засвар горим', description: 'Апп түр зогсоох', category: 'system' },
     new_user_bonus: { type: 'number', label: 'Шинэ хэрэглэгч бонус (₮)', description: 'Бүртгүүлэхэд өгөх бонус', category: 'pricing' },
   };
+
+  // Audit log for config changes
+  private static configAuditLog: any[] = [];
 
   async getConfig() {
     return Object.entries(SystemService.configStore).map(([key, value]) => ({
@@ -174,10 +185,37 @@ export class SystemService {
     }));
   }
 
-  async updateConfig(key: string, value: any) {
+  async updateConfig(key: string, value: any, adminId?: string) {
     if (!(key in SystemService.configStore)) return { success: false, message: 'Unknown config key' };
+
+    const oldValue = SystemService.configStore[key];
     SystemService.configStore[key] = value;
-    return { success: true, message: `${key} = ${value}`, key, value };
+
+    // Audit log
+    SystemService.configAuditLog.unshift({
+      id: Date.now().toString(36),
+      key,
+      old_value: oldValue,
+      new_value: value,
+      admin_id: adminId,
+      timestamp: new Date().toISOString(),
+    });
+    if (SystemService.configAuditLog.length > 50) SystemService.configAuditLog.pop();
+
+    // Log as system event
+    SystemService.logError({
+      level: 'warn',
+      message: `CONFIG_UPDATE: ${key} = ${oldValue} → ${value}`,
+      endpoint: '/system/config',
+      method: 'PATCH',
+      status_code: 200,
+    });
+
+    return { success: true, key, value, old_value: oldValue, message: `${key} = ${value}` };
+  }
+
+  async getConfigAuditLog() {
+    return SystemService.configAuditLog;
   }
 
   // ─── PLATFORM KPIs ───

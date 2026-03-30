@@ -77,6 +77,12 @@ export class SystemController {
     return this.svc.updateConfig(body.key, body.value);
   }
 
+  // ── Config: audit log ──
+  @Get('config/audit')
+  configAudit() {
+    return this.svc.getConfigAuditLog();
+  }
+
   @Get('modules')
   modules() {
     return this.svc.getModuleRegistry();
