@@ -16,6 +16,12 @@ export class ProductsController {
     return this.productsService.findAll(categoryId);
   }
 
+  @Get('search')
+  search(@Query('q') q: string, @Query('category') category?: string) {
+    if (!q || q.length < 2) return [];
+    return this.productsService.search(q, category);
+  }
+
   @Get('catalog')
   getCatalog() {
     return this.masterService.getCatalog();
@@ -32,19 +38,19 @@ export class ProductsController {
   }
 
   @Post()
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, AdminGuard)
   create(@Body() body: any) {
     return this.productsService.create(body);
   }
 
   @Patch(':id')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, AdminGuard)
   update(@Param('id') id: string, @Body() body: any) {
     return this.productsService.update(id, body);
   }
 
   @Delete(':id')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, AdminGuard)
   remove(@Param('id') id: string) {
     return this.productsService.remove(id);
   }

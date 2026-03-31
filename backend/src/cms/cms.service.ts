@@ -1,9 +1,16 @@
-import { Injectable } from '@nestjs/common';
-import { DataSource } from 'typeorm';
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { DataSource, Repository } from 'typeorm';
+import { MegaMenu } from './entities/mega-menu.entity';
+import { HeroSlide } from './entities/hero-slide.entity';
 
 @Injectable()
 export class CmsService {
-  constructor(private dataSource: DataSource) {}
+  constructor(
+    private dataSource: DataSource,
+    @InjectRepository(MegaMenu) private menuRepo: Repository<MegaMenu>,
+    @InjectRepository(HeroSlide) private slideRepo: Repository<HeroSlide>,
+  ) {}
 
   // ─── Site Settings (in-memory) ───
   private static siteSettings: Record<string, any> = {
@@ -43,21 +50,41 @@ export class CmsService {
     };
   }
 
-  // ─── Mega Menu (column-based) ───
+  // ─── Mega Menu (public — from DB, fallback to categories) ───
   async getMegaMenu() {
+    // First try: return menu items from mega_menu DB table
+    const dbItems = await this.menuRepo.find({
+      where: { is_active: true },
+      order: { sort_order: 'ASC' },
+    });
+
+    if (dbItems.length > 0) {
+      return dbItems;
+    }
+
+    // Fallback: build from categories (for when mega_menu table is empty)
     const cats = await this.getCategories();
     const roots = CmsService.menuColumns.length > 0
       ? CmsService.menuColumns.map(id => cats.find(c => c.id === id)).filter(Boolean)
       : cats.filter(c => !c.parent_id);
 
-    const s = CmsService.siteSettings;
-    return {
-      columns: roots.map((r: any) => ({
-        id: r.id, title: r.name_mn || r.name, icon: r.icon,
-        items: cats.filter(c => c.parent_id === r.id).map(c => ({ id: c.id, name: c.name_mn || c.name, slug: c.slug })),
-      })),
-      promo: s.promo_enabled ? { title: s.promo_title, description: s.promo_description, image: s.promo_image, link: s.promo_link } : null,
-    };
+    return roots.map((r: any, idx: number) => ({
+      id: r.id,
+      nav_label: r.name_mn || r.name,
+      nav_url: `/shop?category=${r.slug}`,
+      nav_type: 'MEGA',
+      is_active: true,
+      sort_order: idx,
+      columns: [{
+        title: r.name_mn || r.name,
+        icon: r.icon,
+        items: cats.filter(c => c.parent_id === r.id).map(c => ({
+          label: c.name_mn || c.name,
+          url: `/shop?category=${c.slug}`,
+        })),
+      }],
+      featured: null,
+    }));
   }
 
   // ─── Mega Menu Builder (admin) ───
@@ -151,6 +178,74 @@ export class CmsService {
       CmsService.siteSettings[item.key] = val;
     }
     return { success: true, updated: items.length };
+  }
+
+  // ─── Mega Menu CRUD ───
+  async getMenuItems() {
+    return this.menuRepo.find({ order: { sort_order: 'ASC' } });
+  }
+
+  async createMenuItem(dto: Partial<MegaMenu>) {
+    const item = this.menuRepo.create(dto);
+    return this.menuRepo.save(item);
+  }
+
+  async updateMenuItem(id: string, dto: Partial<MegaMenu>) {
+    const item = await this.menuRepo.findOneBy({ id });
+    if (!item) throw new NotFoundException('Menu item not found');
+    Object.assign(item, dto);
+    return this.menuRepo.save(item);
+  }
+
+  async deleteMenuItem(id: string) {
+    const result = await this.menuRepo.delete(id);
+    if (result.affected === 0) throw new NotFoundException('Menu item not found');
+    return { success: true };
+  }
+
+  async reorderMenuItems(items: { id: string; sort_order: number }[]) {
+    for (const item of items) {
+      await this.menuRepo.update(item.id, { sort_order: item.sort_order });
+    }
+    return { success: true, updated: items.length };
+  }
+
+  // ─── Hero Slides ───
+  async getActiveSlides() {
+    const now = new Date();
+    const slides = await this.slideRepo.find({ where: { is_active: true }, order: { sort_order: 'ASC' } });
+    return slides.filter(s => {
+      if (s.start_at && new Date(s.start_at) > now) return false;
+      if (s.end_at && new Date(s.end_at) < now) return false;
+      return true;
+    });
+  }
+
+  async getAllSlides() {
+    return this.slideRepo.find({ order: { sort_order: 'ASC' } });
+  }
+
+  async createSlide(dto: Partial<HeroSlide>) {
+    const slide = this.slideRepo.create(dto);
+    return this.slideRepo.save(slide);
+  }
+
+  async updateSlide(id: string, dto: Partial<HeroSlide>) {
+    const slide = await this.slideRepo.findOneBy({ id });
+    if (!slide) throw new NotFoundException('Slide not found');
+    Object.assign(slide, dto);
+    return this.slideRepo.save(slide);
+  }
+
+  async deleteSlide(id: string) {
+    const r = await this.slideRepo.delete(id);
+    if (r.affected === 0) throw new NotFoundException('Slide not found');
+    return { success: true };
+  }
+
+  async reorderSlides(items: { id: string; sort_order: number }[]) {
+    for (const item of items) await this.slideRepo.update(item.id, { sort_order: item.sort_order });
+    return { success: true };
   }
 
   // ─── Helper ───

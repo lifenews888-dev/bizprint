@@ -1,6 +1,13 @@
 'use client'
 import { apiFetch } from '@/lib/api'
 import { useState, useEffect, useCallback } from 'react'
+import { AdminPageHeader } from '@/components/admin/AdminPageHeader'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Badge } from '@/components/ui/badge'
+import { RefreshCw, Search } from 'lucide-react'
+import { cn } from '@/lib/utils'
+import { toast } from 'sonner'
 
 /* ═══════════════════════════════════════
  *  ORDER OPERATIONS CONTROL CENTER
@@ -140,7 +147,7 @@ export default function AdminOrdersPage() {
   const stColor = (s: string) => STATUS_COLOR[s] || '#888'
 
   return (
-    <div style={{ padding: 24, fontFamily: "'DM Sans','Segoe UI',system-ui,sans-serif" }}>
+    <div className="p-4 md:p-6">
       <style>{`
         @keyframes fadeIn{from{opacity:0}to{opacity:1}}
         @keyframes slideUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
@@ -148,19 +155,15 @@ export default function AdminOrdersPage() {
       `}</style>
 
       {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-        <div>
-          <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>Захиалгын удирдлага</h1>
-          <p style={{ color: 'var(--text2)', fontSize: 13, margin: '4px 0 0' }}>Operations Control Center · {orders.length} захиалга</p>
-        </div>
-        <button onClick={load} style={{ padding: '8px 16px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)', cursor: 'pointer', fontSize: 13 }}>
-          🔄 Шинэчлэх
-        </button>
-      </div>
+      <AdminPageHeader title="Захиалгын удирдлага" description={`Operations Control Center · ${orders.length} захиалга`}>
+        <Button variant="outline" size="sm" onClick={load}>
+          <RefreshCw className="h-3.5 w-3.5 mr-1.5" />Шинэчлэх
+        </Button>
+      </AdminPageHeader>
 
       {/* KPI SUMMARY */}
       {kpi && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(160px,1fr))', gap: 10, marginBottom: 20 }}>
+        <div className="grid grid-cols-2 sm:grid-cols-4 xl:grid-cols-8 gap-2.5 mb-5">
           {[
             { label: 'Нийт захиалга', value: kpi.total_orders, color: '#64748B', icon: '📋' },
             { label: 'Нийт орлого', value: `₮${fmt(kpi.total_revenue)}`, color: '#FF6B00', icon: '💰' },
@@ -171,10 +174,10 @@ export default function AdminOrdersPage() {
             { label: 'Өнөөдөр', value: `${kpi.today?.count || 0}`, color: '#3B82F6', icon: '📅' },
             { label: 'Яаралтай', value: `${kpi.urgent?.count || 0}`, color: '#EF4444', icon: '🚨' },
           ].map(k => (
-            <div key={k.label} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: '14px 16px', borderLeft: `4px solid ${k.color}` }}>
-              <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 4 }}>{k.icon} {k.label}</div>
-              <div style={{ fontSize: 20, fontWeight: 700, color: k.color }}>{k.value}</div>
-              {k.sub && <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>{k.sub}</div>}
+            <div key={k.label} className="rounded-xl border border-border bg-card px-4 py-3.5" style={{ borderLeftWidth: 4, borderLeftColor: k.color }}>
+              <div className="text-[11px] text-muted-foreground mb-1">{k.icon} {k.label}</div>
+              <div className="text-xl font-bold" style={{ color: k.color }}>{k.value}</div>
+              {k.sub && <div className="text-[11px] text-muted-foreground mt-0.5">{k.sub}</div>}
             </div>
           ))}
         </div>
@@ -182,28 +185,31 @@ export default function AdminOrdersPage() {
 
       {/* ALERTS */}
       {alerts && alerts.total_alerts > 0 && (
-        <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 12, padding: '14px 20px', marginBottom: 20, display: 'flex', gap: 20, flexWrap: 'wrap', alignItems: 'center' }}>
-          <span style={{ fontWeight: 700, color: '#DC2626', fontSize: 14 }}>🔥 Анхааруулга ({alerts.total_alerts})</span>
-          {alerts.delayed?.count > 0 && <span style={{ fontSize: 13, color: '#DC2626' }}>⏰ Хоцорсон: {alerts.delayed.count}</span>}
-          {alerts.no_vendor?.count > 0 && <span style={{ fontSize: 13, color: '#DC2626' }}>👤 Vendor-гүй: {alerts.no_vendor.count}</span>}
-          {alerts.urgent?.count > 0 && <span style={{ fontSize: 13, color: '#DC2626' }}>🚨 Яаралтай: {alerts.urgent.count}</span>}
-          {alerts.stale?.count > 0 && <span style={{ fontSize: 13, color: '#DC2626' }}>⚠️ Хөдөлгөөнгүй: {alerts.stale.count}</span>}
-          {alerts.file_pending?.count > 0 && <span style={{ fontSize: 13, color: '#DC2626' }}>📁 Файл хүлээж: {alerts.file_pending.count}</span>}
+        <div className="flex flex-wrap items-center gap-5 rounded-xl border border-red-200 bg-red-50 dark:bg-red-500/10 px-5 py-3.5 mb-5">
+          <span className="text-sm font-bold text-red-600">🔥 Анхааруулга ({alerts.total_alerts})</span>
+          {alerts.delayed?.count > 0 && <span className="text-sm text-red-600">⏰ Хоцорсон: {alerts.delayed.count}</span>}
+          {alerts.no_vendor?.count > 0 && <span className="text-sm text-red-600">👤 Vendor-гүй: {alerts.no_vendor.count}</span>}
+          {alerts.urgent?.count > 0 && <span className="text-sm text-red-600">🚨 Яаралтай: {alerts.urgent.count}</span>}
+          {alerts.stale?.count > 0 && <span className="text-sm text-red-600">⚠️ Хөдөлгөөнгүй: {alerts.stale.count}</span>}
+          {alerts.file_pending?.count > 0 && <span className="text-sm text-red-600">📁 Файл хүлээж: {alerts.file_pending.count}</span>}
         </div>
       )}
 
       {/* FILTERS + SEARCH */}
-      <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' }}>
-        <input
-          placeholder="Хайх... (нэр, бүтээгдэхүүн, ID)"
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          style={{ padding: '8px 14px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)', fontSize: 13, width: 260 }}
-        />
-        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-          <button onClick={() => setFilter('')} style={{ padding: '6px 12px', borderRadius: 6, border: 'none', fontSize: 11, cursor: 'pointer', background: !filter ? '#FF6B00' : 'var(--surface2)', color: !filter ? '#fff' : 'var(--text2)', fontWeight: !filter ? 600 : 400 }}>Бүгд</button>
+      <div className="flex flex-wrap items-center gap-2.5 mb-4">
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Хайх... (нэр, бүтээгдэхүүн, ID)"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            className="pl-9 h-9 w-[260px] text-sm"
+          />
+        </div>
+        <div className="flex flex-wrap gap-1">
+          <button onClick={() => setFilter('')} className={cn('px-3 py-1.5 rounded-md text-[11px] font-medium cursor-pointer border-none transition-colors', !filter ? 'bg-primary text-white' : 'bg-muted text-muted-foreground hover:bg-muted/80')}>Бүгд</button>
           {ALL_STATUSES.map(s => (
-            <button key={s} onClick={() => setFilter(filter === s ? '' : s)} style={{ padding: '6px 12px', borderRadius: 6, border: 'none', fontSize: 11, cursor: 'pointer', background: filter === s ? stColor(s) : 'var(--surface2)', color: filter === s ? '#fff' : 'var(--text2)', fontWeight: filter === s ? 600 : 400 }}>
+            <button key={s} onClick={() => setFilter(filter === s ? '' : s)} className={cn('px-3 py-1.5 rounded-md text-[11px] cursor-pointer border-none transition-colors', filter === s ? 'text-white font-semibold' : 'bg-muted text-muted-foreground hover:bg-muted/80')} style={filter === s ? { background: stColor(s) } : undefined}>
               {stLabel(s)}
             </button>
           ))}
@@ -212,9 +218,9 @@ export default function AdminOrdersPage() {
 
       {/* BULK ACTION BAR */}
       {selected.size > 0 && (
-        <div style={{ background: '#EFF6FF', border: '1px solid #BFDBFE', borderRadius: 10, padding: '10px 16px', marginBottom: 16, display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
-          <span style={{ fontWeight: 600, color: '#1D4ED8', fontSize: 13 }}>{selected.size} сонгосон</span>
-          <select value={bulkAction} onChange={e => setBulkAction(e.target.value)} style={{ padding: '6px 10px', borderRadius: 6, border: '1px solid #BFDBFE', fontSize: 12 }}>
+        <div className="flex flex-wrap items-center gap-3 rounded-lg border border-blue-200 bg-blue-50 dark:bg-blue-500/10 px-4 py-2.5 mb-4">
+          <Badge variant="secondary" className="text-blue-700 bg-blue-100">{selected.size} сонгосон</Badge>
+          <select value={bulkAction} onChange={e => setBulkAction(e.target.value)} className="rounded-md border border-blue-200 bg-background px-2.5 py-1.5 text-xs">
             <option value="">Үйлдэл сонгох...</option>
             <optgroup label="Төлөв солих">
               {ALL_STATUSES.map(s => <option key={s} value={`status:${s}`}>{stLabel(s)}</option>)}
@@ -224,13 +230,13 @@ export default function AdminOrdersPage() {
             </optgroup>
             <option value="cancel">❌ Цуцлах</option>
           </select>
-          <button onClick={executeBulk} disabled={!bulkAction} style={{ padding: '6px 14px', borderRadius: 6, border: 'none', background: bulkAction ? '#1D4ED8' : '#94A3B8', color: '#fff', fontSize: 12, cursor: bulkAction ? 'pointer' : 'not-allowed', fontWeight: 600 }}>Гүйцэтгэх</button>
-          <button onClick={() => setSelected(new Set())} style={{ padding: '6px 14px', borderRadius: 6, border: '1px solid #BFDBFE', background: 'transparent', color: '#1D4ED8', fontSize: 12, cursor: 'pointer' }}>Болих</button>
+          <Button size="sm" onClick={executeBulk} disabled={!bulkAction} className="h-7 text-xs">Гүйцэтгэх</Button>
+          <Button size="sm" variant="ghost" onClick={() => setSelected(new Set())} className="h-7 text-xs text-blue-700">Болих</Button>
         </div>
       )}
 
       {/* ORDERS TABLE */}
-      <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden' }}>
+      <div className="rounded-xl border border-border bg-card overflow-hidden">
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
           <thead>
             <tr style={{ background: 'var(--surface2)' }}>

@@ -23,6 +23,13 @@ function CheckoutInner() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const quoteId = searchParams.get('quote_id')
+  const source = searchParams.get('source') // 'subscription' | 'addon' | 'product' | null
+  const planId = searchParams.get('plan_id')
+  const billingCycle = (searchParams.get('billing_cycle') || 'monthly') as 'monthly' | 'yearly'
+  const addonId = searchParams.get('addon_id')
+  const productPricingId = searchParams.get('product_pricing_id')
+
+  const isDigitalPurchase = !!source // subscription, addon, or product — no physical delivery
 
   const [step, setStep] = useState(1) // 1=form, 2=payment method, 3=pay, 4=done
   const [form, setForm] = useState({
@@ -35,9 +42,10 @@ function CheckoutInner() {
   const [order, setOrder] = useState<any>(null)
   const [paymentData, setPaymentData] = useState<any>(null)
   const [paymentStatus, setPaymentStatus] = useState<string>('pending')
+  const [digitalInfo, setDigitalInfo] = useState<any>(null) // plan/addon/product info
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
-  // Pre-fill from localStorage user + search params (reorder flow)
+  // Pre-fill from localStorage user + search params
   useEffect(() => {
     try {
       const u = JSON.parse(localStorage.getItem('user') || '{}')
@@ -46,12 +54,29 @@ function CheckoutInner() {
         customer_name: u.full_name || u.name || u.username || '',
         customer_email: u.email || '',
         customer_phone: u.phone || '',
-        // Pre-fill from search params (reorder from QR page)
         product_name: searchParams.get('product_name') || f.product_name,
         quantity: Number(searchParams.get('quantity')) || f.quantity,
         notes: searchParams.get('note') || f.notes,
       }))
     } catch {}
+
+    // Load digital purchase info
+    if (source === 'subscription' && planId) {
+      apiFetch<any>('/subscription/plans').then((plans: any[]) => {
+        const plan = plans?.find((p: any) => p.id === planId)
+        if (plan) setDigitalInfo({ type: 'subscription', plan, price: billingCycle === 'yearly' ? plan.price_yearly : plan.price_monthly })
+      }).catch(() => {})
+    } else if (source === 'addon' && addonId) {
+      apiFetch<any>('/subscription/addons').then((addons: any[]) => {
+        const addon = addons?.find((a: any) => a.id === addonId)
+        if (addon) setDigitalInfo({ type: 'addon', addon, price: addon.price })
+      }).catch(() => {})
+    } else if (source === 'product' && productPricingId) {
+      apiFetch<any>('/subscription/product-pricing').then((products: any[]) => {
+        const product = products?.find((p: any) => p.id === productPricingId)
+        if (product) setDigitalInfo({ type: 'product', product, price: product.price })
+      }).catch(() => {})
+    }
   }, [])
 
   // Poll payment status
@@ -81,6 +106,38 @@ function CheckoutInner() {
     }
     setSaving(true); setError('')
     try {
+      // ── Digital purchases (subscription/addon/product) ──
+      if (isDigitalPurchase && digitalInfo) {
+        let result: any
+        if (source === 'subscription' && planId) {
+          result = await apiFetch<any>('/subscription/subscribe', {
+            method: 'POST',
+            body: { plan_id: planId, billing_cycle: billingCycle },
+          })
+        } else if (source === 'addon' && addonId) {
+          result = await apiFetch<any>('/subscription/addons/purchase', {
+            method: 'POST',
+            body: { addon_id: addonId },
+          })
+        } else if (source === 'product' && productPricingId) {
+          // Product pricing — create as subscription or one-time purchase
+          result = await apiFetch<any>('/subscription/subscribe', {
+            method: 'POST',
+            body: { plan_id: productPricingId, billing_cycle: 'monthly' },
+          })
+        }
+        setOrder({
+          id: result?.id || 'digital',
+          total_price: digitalInfo.price,
+          ...result,
+        })
+        setStep(3)
+        // For digital: skip payment flow, mark as success directly
+        setTimeout(() => setStep(4), 1500)
+        return
+      }
+
+      // ── Regular order / quote flow ──
       let data
       if (quoteId) {
         data = await apiFetch<any>('/cart/quote/confirm', {
@@ -109,7 +166,6 @@ function CheckoutInner() {
           })
           setPaymentData(payRes)
 
-          // Start polling for QR/bank payments
           const invoiceCode = payRes?.invoice_code || payRes?.invoiceNo
           if (invoiceCode && payMethod !== 'cash') {
             startPolling(invoiceCode)
@@ -133,15 +189,19 @@ function CheckoutInner() {
       <div style={{ maxWidth: 560, margin: '80px auto', padding: '0 24px', textAlign: 'center', fontFamily: FONT }}>
         <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 20, padding: 40 }}>
           <div style={{ fontSize: 64, marginBottom: 20 }}>✅</div>
-          <h2 style={{ fontSize: 24, fontWeight: 800, margin: '0 0 12px' }}>Төлбөр амжилттай!</h2>
+          <h2 style={{ fontSize: 24, fontWeight: 800, margin: '0 0 12px' }}>
+            {isDigitalPurchase ? 'Амжилттай идэвхжлээ!' : 'Төлбөр амжилттай!'}
+          </h2>
           <p style={{ color: 'var(--text2)', fontSize: 15, margin: '0 0 24px' }}>
-            Таны захиалга баталгаажлаа. Удахгүй үйлдвэрт шилжинэ.
+            {isDigitalPurchase
+              ? 'Таны дижитал үйлчилгээ идэвхжлээ. Dashboard-аас ашиглах боломжтой.'
+              : 'Таны захиалга баталгаажлаа. Удахгүй үйлдвэрт шилжинэ.'}
           </p>
           <div style={{ display: 'flex', gap: 12 }}>
-            <button onClick={() => router.push('/dashboard/orders')} style={{
+            <button onClick={() => router.push(isDigitalPurchase ? '/dashboard/customer/subscription' : '/dashboard/orders')} style={{
               flex: 1, padding: '14px', background: '#FF6B00', color: '#fff', border: 'none',
               borderRadius: 12, fontWeight: 700, fontSize: 14, cursor: 'pointer',
-            }}>📦 Захиалга харах</button>
+            }}>{isDigitalPurchase ? '💎 Эрх & Багц' : '📦 Захиалга харах'}</button>
             <button onClick={() => router.push('/')} style={{
               flex: 1, padding: '14px', background: 'var(--surface2)', color: 'var(--text)',
               border: '1px solid var(--border)', borderRadius: 12, fontWeight: 600, fontSize: 14, cursor: 'pointer',
@@ -285,7 +345,9 @@ function CheckoutInner() {
         <button onClick={() => router.back()} style={{ background: 'none', border: 'none', color: 'var(--text2)', fontSize: 14, cursor: 'pointer', marginBottom: 16, padding: 0 }}>
           ← Буцах
         </button>
-        <h1 style={{ fontSize: 26, fontWeight: 800, margin: '0 0 8px' }}>🛍️ Захиалга өгөх</h1>
+        <h1 style={{ fontSize: 26, fontWeight: 800, margin: '0 0 8px' }}>
+          {isDigitalPurchase ? '💎 Дижитал үйлчилгээ авах' : '🛍️ Захиалга өгөх'}
+        </h1>
 
         {/* Steps */}
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
@@ -330,7 +392,35 @@ function CheckoutInner() {
             </div>
           </div>
 
-          {!quoteId && (
+          {/* Digital purchase summary */}
+          {isDigitalPurchase && digitalInfo && (
+            <div style={{ background: '#FFF7ED', border: '1px solid #FDBA74', borderRadius: 16, padding: 24 }}>
+              <h3 style={{ margin: '0 0 16px', fontSize: 16, fontWeight: 700 }}>
+                {digitalInfo.type === 'subscription' ? '💎 Багц' : digitalInfo.type === 'addon' ? '🧩 Нэмэлт эрх' : '📦 Дижитал бүтээгдэхүүн'}
+              </h3>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)' }}>
+                    {digitalInfo.plan?.name || digitalInfo.addon?.name || digitalInfo.product?.name}
+                  </div>
+                  <div style={{ fontSize: 13, color: 'var(--text2)', marginTop: 4 }}>
+                    {digitalInfo.plan?.description || digitalInfo.addon?.description || digitalInfo.product?.description}
+                  </div>
+                  {digitalInfo.type === 'subscription' && (
+                    <div style={{ fontSize: 12, color: '#FF6B00', marginTop: 4, fontWeight: 600 }}>
+                      {billingCycle === 'yearly' ? 'Жилийн төлбөр' : 'Сарын төлбөр'}
+                    </div>
+                  )}
+                </div>
+                <div style={{ fontSize: 24, fontWeight: 800, color: '#FF6B00' }}>
+                  {digitalInfo.price === 0 ? 'Үнэгүй' : fmt(digitalInfo.price)}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Physical order form */}
+          {!quoteId && !isDigitalPurchase && (
             <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: 24 }}>
               <h3 style={{ margin: '0 0 20px', fontSize: 16, fontWeight: 700 }}>🖨️ Захиалгын мэдээлэл</h3>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
@@ -352,7 +442,7 @@ function CheckoutInner() {
 
           {error && <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 10, padding: '12px 16px', color: '#DC2626', fontSize: 14 }}>⚠️ {error}</div>}
 
-          <button onClick={() => setStep(2)} style={{
+          <button onClick={() => isDigitalPurchase ? setStep(2) : setStep(2)} style={{
             padding: '16px', background: '#FF6B00', color: '#fff', border: 'none',
             borderRadius: 12, fontWeight: 700, fontSize: 16, cursor: 'pointer',
           }}>
@@ -361,9 +451,10 @@ function CheckoutInner() {
         </div>
       )}
 
-      {/* Step 2 — Payment method */}
+      {/* Step 2 — Payment method / Confirm */}
       {step === 2 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+          {!isDigitalPurchase && (
           <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: 24 }}>
             <h3 style={{ margin: '0 0 20px', fontSize: 16, fontWeight: 700 }}>💳 Төлбөрийн арга</h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -388,6 +479,7 @@ function CheckoutInner() {
               ))}
             </div>
           </div>
+          )}
 
           {/* Summary */}
           <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: 24 }}>
@@ -401,15 +493,30 @@ function CheckoutInner() {
                 <span style={{ color: 'var(--text2)' }}>Утас:</span>
                 <span style={{ fontWeight: 600 }}>{form.customer_phone || '—'}</span>
               </div>
-              {form.product_name && (
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ color: 'var(--text2)' }}>Бүтээгдэхүүн:</span>
-                  <span style={{ fontWeight: 600 }}>{form.product_name}</span>
-                </div>
+              {isDigitalPurchase && digitalInfo ? (
+                <>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ color: 'var(--text2)' }}>Үйлчилгээ:</span>
+                    <span style={{ fontWeight: 600 }}>{digitalInfo.plan?.name || digitalInfo.addon?.name || digitalInfo.product?.name}</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid var(--border)', paddingTop: 8, marginTop: 4 }}>
+                    <span style={{ fontWeight: 700 }}>Нийт:</span>
+                    <span style={{ fontWeight: 800, color: '#FF6B00', fontSize: 18 }}>{digitalInfo.price === 0 ? 'Үнэгүй' : fmt(digitalInfo.price)}</span>
+                  </div>
+                </>
+              ) : (
+                <>
+                  {form.product_name && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span style={{ color: 'var(--text2)' }}>Бүтээгдэхүүн:</span>
+                      <span style={{ fontWeight: 600 }}>{form.product_name}</span>
+                    </div>
+                  )}
+                </>
               )}
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span style={{ color: 'var(--text2)' }}>Төлбөр:</span>
-                <span style={{ fontWeight: 600 }}>{PAYMENT_METHODS.find(m => m.value === payMethod)?.label}</span>
+                <span style={{ fontWeight: 600 }}>{isDigitalPurchase ? '💳 Дижитал' : PAYMENT_METHODS.find(m => m.value === payMethod)?.label}</span>
               </div>
             </div>
           </div>
@@ -425,7 +532,7 @@ function CheckoutInner() {
               flex: 2, padding: '14px', background: saving ? '#ccc' : '#FF6B00', color: '#fff',
               border: 'none', borderRadius: 12, fontWeight: 700, fontSize: 16, cursor: saving ? 'default' : 'pointer',
             }}>
-              {saving ? '⏳ Илгээж байна...' : '✅ Захиалга баталгаажуулах'}
+              {saving ? '⏳ Илгээж байна...' : isDigitalPurchase ? '✅ Идэвхжүүлэх' : '✅ Захиалга баталгаажуулах'}
             </button>
           </div>
         </div>

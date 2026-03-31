@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { usePathname } from 'next/navigation'
 import { useSiteSettings } from '@/contexts/SiteSettingsContext'
+import { useStore } from '@/lib/store'
 
 /* ─── SVG Icons ─── */
 const SearchIcon = () => (
@@ -36,16 +37,93 @@ const ChevronRight = () => (
 export default function MegaNav() {
   const pathname = usePathname()
   const { settings, megaMenu } = useSiteSettings()
+
+  // Get categories from the MEGA nav item (populated from V2 API in context)
+  const megaItem = megaMenu.find((m: any) => m.nav_type === 'MEGA')
+  const categoryLinks = (megaItem?.columns || []).map((col: any) => ({
+    label: col.title,
+    url: col.items?.[0]?.url || `/shop?cat=${(col.title || '').toLowerCase().replace(/\s+/g, '-')}`,
+    icon: col.icon || '📦',
+  }))
+
+  // Quick links from CMS settings (admin-managed)
+  const headerQuickLinks = (() => {
+    try {
+      const raw = settings.header_quick_links
+      if (typeof raw === 'string') return JSON.parse(raw)
+      if (Array.isArray(raw)) return raw
+    } catch {}
+    return null
+  })()
+
+  const DEFAULT_QUICK_LINKS = [
+    { label: 'Дэлгүүр', url: '/shop', icon: '🛒', color: '#FF6B00' },
+    { label: 'Хэвлэл', url: '/quote', icon: '🖨️', color: '#8B5CF6' },
+    { label: 'AI Quote', url: '/smart-quote', icon: '🤖', color: '#3B82F6' },
+    { label: 'Marketplace', url: '/marketplace', icon: '🎨', color: '#EC4899' },
+    { label: 'Үнэ', url: '/pricing', icon: '💎', color: '#F59E0B' },
+  ]
+
+  const quickLinks: { label: string; url: string; icon: string; color: string }[] =
+    headerQuickLinks?.length > 0 ? headerQuickLinks : DEFAULT_QUICK_LINKS
   const [openId, setOpenId] = useState<string | null>(null)
   const [mobileOpen, setMobileOpen] = useState(false)
   const [mobileAccordion, setMobileAccordion] = useState<string | null>(null)
   const [searchOpen, setSearchOpen] = useState(false)
   const [catMenuOpen, setCatMenuOpen] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [searchCat, setSearchCat] = useState('')
+  const [searchResults, setSearchResults] = useState<any[] | null>(null)
+  const [searching, setSearching] = useState(false)
+  const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
+  const { cartCount, wishlist } = useStore()
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => setMounted(true), [])
   const headerLogoUrl = settings.header_logo_url || ''
   const siteName = settings.site_name || 'BizPrint'
   const phone = settings.site_phone || '+976 7000-1234'
+  const showSearch = settings.header_show_search !== false && settings.header_show_search !== 'false'
+  const showLogin = settings.header_show_login !== false && settings.header_show_login !== 'false'
+  const ctaText = settings.header_cta_text || ''
+  const ctaUrl = settings.header_cta_url || '/quote'
+
+  // Auth state
+  const [user, setUser] = useState<any>(null)
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('user')
+      if (stored) setUser(JSON.parse(stored))
+    } catch {}
+    const onStorage = () => { try { setUser(JSON.parse(localStorage.getItem('user') || 'null')) } catch {} }
+    window.addEventListener('storage', onStorage)
+    return () => window.removeEventListener('storage', onStorage)
+  }, [])
+
+  // Search logic with debounce
+  const doSearch = (q: string, cat: string) => {
+    if (searchTimer.current) clearTimeout(searchTimer.current)
+    if (q.length < 2) { setSearchResults(null); return }
+    setSearching(true)
+    searchTimer.current = setTimeout(async () => {
+      try {
+        const params = new URLSearchParams({ q })
+        if (cat) params.set('category', cat)
+        const res = await fetch(`${typeof window !== 'undefined' ? 'http://localhost:4000' : ''}/products/search?${params}`)
+        const data = await res.json()
+        setSearchResults(Array.isArray(data) ? data : [])
+      } catch { setSearchResults([]) }
+      setSearching(false)
+    }, 300)
+  }
+
+  const handleSearchSubmit = () => {
+    if (searchQuery.length < 2) return
+    const params = new URLSearchParams({ q: searchQuery })
+    if (searchCat) params.set('cat', searchCat)
+    window.location.href = `/shop?${params}`
+  }
 
   const activeItems = megaMenu
     .filter((item: any) => item.is_active !== false)
@@ -72,8 +150,8 @@ export default function MegaNav() {
      ═══════════════════════════════════════════════ */
   return (
     <>
-      <div className="bg-white border-b border-[#EBEBEB] hidden md:block">
-        <div className="max-w-[1280px] mx-auto px-6 h-[72px] flex items-center gap-6">
+      <div className="bg-white border-b border-[#EBEBEB] hidden md:block relative z-[210]">
+        <div className="max-w-[1280px] mx-auto px-6 h-[72px] flex items-center gap-4 overflow-hidden">
 
           {/* ── Logo ── */}
           <a href="/" className="flex items-center gap-2.5 no-underline flex-shrink-0 mr-2">
@@ -111,27 +189,64 @@ export default function MegaNav() {
             </div>
           </div>
 
-          {/* ── Search bar (Merto-style: category dropdown + input + button) ── */}
-          <div className="flex-1 max-w-[540px] mx-auto">
-            <div className="flex items-stretch h-[44px] border-2 border-[#EBEBEB] rounded-lg overflow-hidden focus-within:border-[#FF6B00] transition-colors">
-              <select className="bg-[#F8F8F8] text-[13px] font-medium text-[#555] px-3 border-r border-[#EBEBEB] outline-none cursor-pointer" style={{ appearance: 'auto', minWidth: 130 }}>
-                <option>Бүх ангилал</option>
-                <option>Нэрийн хуудас</option>
-                <option>Флаер & Постер</option>
-                <option>Стикер</option>
-                <option>Баннер</option>
-                <option>Ном & Каталог</option>
+          {/* ── Search bar ── */}
+          {showSearch && <div className="flex-1 max-w-[540px] mx-auto relative">
+            <form onSubmit={e => { e.preventDefault(); handleSearchSubmit() }} className="flex items-stretch h-[44px] border-2 border-[#EBEBEB] rounded-lg overflow-hidden focus-within:border-[#FF6B00] transition-colors">
+              <select value={searchCat} onChange={e => { setSearchCat(e.target.value); if (searchQuery.length >= 2) doSearch(searchQuery, e.target.value) }} className="bg-[#F8F8F8] text-[13px] font-medium text-[#555] px-3 border-r border-[#EBEBEB] outline-none cursor-pointer" style={{ appearance: 'auto', minWidth: 130 }}>
+                <option value="">Бүх ангилал</option>
+                {categoryLinks.map((c: any, i: number) => (
+                  <option key={i} value={c.label}>{c.label}</option>
+                ))}
               </select>
               <input
                 type="text"
+                value={searchQuery}
+                onChange={e => { setSearchQuery(e.target.value); doSearch(e.target.value, searchCat) }}
+                onFocus={() => { if (searchQuery.length >= 2) doSearch(searchQuery, searchCat) }}
+                onBlur={() => setTimeout(() => setSearchResults(null), 200)}
                 placeholder="Бүтээгдэхүүн хайх..."
                 className="flex-1 bg-white text-[14px] text-[#111] px-4 outline-none placeholder:text-[#BBB]"
               />
-              <button className="bg-[#FF6B00] hover:bg-[#E55D00] text-white px-5 transition-colors flex items-center justify-center flex-shrink-0">
+              <button type="submit" className="bg-[#FF6B00] hover:bg-[#E55D00] text-white px-5 transition-colors flex items-center justify-center flex-shrink-0">
                 <SearchIcon />
               </button>
-            </div>
-          </div>
+            </form>
+
+            {/* Search results dropdown */}
+            {searchResults !== null && (
+              <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-[#EBEBEB] rounded-xl shadow-xl z-[400] max-h-[360px] overflow-y-auto">
+                {searching && <div className="px-4 py-3 text-sm text-[#999]">Хайж байна...</div>}
+                {!searching && searchResults.length === 0 && (
+                  <div className="px-4 py-6 text-center">
+                    <div className="text-2xl mb-2">🔍</div>
+                    <div className="text-sm text-[#999]">"{searchQuery}" олдсонгүй</div>
+                    <a href={`/shop?q=${encodeURIComponent(searchQuery)}`} className="text-xs text-[#FF6B00] font-semibold mt-2 inline-block no-underline hover:underline">Дэлгүүрээс хайх →</a>
+                  </div>
+                )}
+                {!searching && searchResults.length > 0 && (
+                  <>
+                    {searchResults.map((p: any) => (
+                      <a key={p.id} href={`/product/${p.id}`} className="flex items-center gap-3 px-4 py-2.5 hover:bg-[#F8F8F8] transition-colors no-underline border-b border-[#F3F4F6] last:border-0">
+                        {p.thumbnail_url ? (
+                          <img src={p.thumbnail_url} alt="" className="w-10 h-10 rounded-lg object-cover flex-shrink-0" />
+                        ) : (
+                          <div className="w-10 h-10 rounded-lg bg-[#F3F4F6] flex items-center justify-center text-lg flex-shrink-0">📦</div>
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <div className="text-[13px] font-medium text-[#333] truncate">{p.name}</div>
+                          {p.category && <div className="text-[11px] text-[#999]">{p.category}</div>}
+                        </div>
+                        {p.base_price > 0 && <div className="text-[13px] font-bold text-[#FF6B00] flex-shrink-0">₮{Number(p.base_price).toLocaleString()}</div>}
+                      </a>
+                    ))}
+                    <a href={`/shop?q=${encodeURIComponent(searchQuery)}`} className="block px-4 py-2.5 text-center text-xs font-semibold text-[#FF6B00] bg-[#FFF7ED] hover:bg-[#FFEDD5] transition-colors no-underline">
+                      Бүгдийг харах ({searchResults.length} илэрц) →
+                    </a>
+                  </>
+                )}
+              </div>
+            )}
+          </div>}
 
           {/* ── Right: Language, Currency, Account, Wishlist, Cart ── */}
           <div className="flex items-center gap-5 flex-shrink-0">
@@ -144,22 +259,38 @@ export default function MegaNav() {
               <option>$ USD</option>
             </select>
 
+            {/* CTA Button (from CMS) */}
+            {ctaText && (
+              <a href={ctaUrl} className="px-4 py-2 bg-[#FF6B00] hover:bg-[#E55D00] text-white text-[12px] font-bold rounded-lg no-underline transition-colors">
+                {ctaText}
+              </a>
+            )}
+
             {/* Account */}
-            <a href="/login" className="flex items-center gap-2 text-[#333] hover:text-[#FF6B00] transition-colors no-underline">
-              <UserIcon />
-              <span className="text-[13px] font-medium">Нэвтрэх</span>
-            </a>
+            {showLogin && (user ? (
+              <a href="/dashboard/customer" className="flex items-center gap-2 text-[#333] hover:text-[#FF6B00] transition-colors no-underline">
+                <div className="w-7 h-7 rounded-full bg-[#FF6B00] text-white text-[11px] font-bold flex items-center justify-center">
+                  {(user.full_name || user.name || user.email || '?')[0]?.toUpperCase()}
+                </div>
+                <span className="text-[13px] font-medium max-w-[80px] truncate">{user.full_name || user.name || 'Миний бүртгэл'}</span>
+              </a>
+            ) : (
+              <a href="/login" className="flex items-center gap-2 text-[#333] hover:text-[#FF6B00] transition-colors no-underline">
+                <UserIcon />
+                <span className="text-[13px] font-medium">Нэвтрэх</span>
+              </a>
+            ))}
 
             {/* Wishlist */}
             <a href="/dashboard/customer/wishlist" className="relative text-[#333] hover:text-[#FF6B00] transition-colors">
               <HeartIcon />
-              <span className="absolute -top-2 -right-2 min-w-[18px] h-[18px] bg-[#FF6B00] text-white text-[10px] font-bold rounded-full flex items-center justify-center px-1">0</span>
+              {mounted && wishlist.length > 0 && <span className="absolute -top-2 -right-2 min-w-[18px] h-[18px] bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-1">{wishlist.length}</span>}
             </a>
 
             {/* Cart */}
             <a href="/cart" className="relative text-[#333] hover:text-[#FF6B00] transition-colors">
               <CartIcon />
-              <span className="absolute -top-2 -right-2 min-w-[18px] h-[18px] bg-[#FF6B00] text-white text-[10px] font-bold rounded-full flex items-center justify-center px-1">0</span>
+              {mounted && cartCount() > 0 && <span className="absolute -top-2 -right-2 min-w-[18px] h-[18px] bg-[#FF6B00] text-white text-[10px] font-bold rounded-full flex items-center justify-center px-1 animate-pulse">{cartCount()}</span>}
             </a>
           </div>
         </div>
@@ -184,20 +315,17 @@ export default function MegaNav() {
             </button>
             {catMenuOpen && (
               <div className="absolute top-full left-0 bg-white border border-[#EBEBEB] rounded-b-xl shadow-xl z-[300] py-2 min-w-[240px]">
-                {[
-                  { label: 'Нэрийн хуудас', url: '/shop?cat=business-card', icon: '🪪' },
-                  { label: 'Флаер & Постер', url: '/shop?cat=flyer', icon: '📄' },
-                  { label: 'Стикер & Шошго', url: '/shop?cat=sticker', icon: '🏷️' },
-                  { label: 'Баннер', url: '/shop?cat=banner', icon: '🪧' },
-                  { label: 'Ном & Каталог', url: '/shop?cat=book', icon: '📗' },
-                  { label: 'Өргөн формат', url: '/shop?cat=wide-format', icon: '🖼️' },
-                  { label: 'Загвар сан', url: '/templates', icon: '🎨' },
-                ].map(c => (
-                  <a key={c.label} href={c.url} className="flex items-center gap-3 px-5 py-2.5 text-[14px] text-[#333] no-underline hover:bg-[#F8F8F8] hover:text-[#FF6B00] transition-colors">
+                {categoryLinks.map((c: any, i: number) => (
+                  <a key={i} href={c.url} className="flex items-center gap-3 px-5 py-2.5 text-[14px] text-[#333] no-underline hover:bg-[#F8F8F8] hover:text-[#FF6B00] transition-colors">
                     <span className="text-lg">{c.icon}</span>
                     {c.label}
                   </a>
                 ))}
+                <div className="border-t border-[#F0F0F0] mt-1 pt-1">
+                  <a href="/templates" className="flex items-center gap-3 px-5 py-2.5 text-[14px] text-[#333] no-underline hover:bg-[#F8F8F8] hover:text-[#FF6B00] transition-colors">
+                    <span className="text-lg">🎨</span>Загвар сан
+                  </a>
+                </div>
               </div>
             )}
           </div>
@@ -247,7 +375,7 @@ export default function MegaNav() {
                     <div
                       onMouseEnter={() => handleMouseEnter(item.id)}
                       onMouseLeave={handleMouseLeave}
-                      className="fixed top-[122px] left-0 right-0 bg-white border-b border-[#EBEBEB] shadow-xl z-[300] py-7"
+                      className="fixed top-[122px] left-0 right-0 bg-white border-b border-[#EBEBEB] shadow-2xl z-[300] py-7"
                     >
                       <div className="max-w-[1280px] mx-auto px-8 grid gap-8" style={{ gridTemplateColumns: `repeat(${Math.min((item.columns?.length || 0) + (item.featured ? 1 : 0), 6)}, 1fr)` }}>
                         {item.columns.map((col: any, ci: number) => (
@@ -259,9 +387,19 @@ export default function MegaNav() {
                               </span>
                             </div>
                             {Array.isArray(col.items) && col.items.map((link: any, li: number) => (
-                              <a key={li} href={link.url || '#'} className="block py-2 no-underline hover:pl-1.5 transition-all">
-                                <div className="text-[14px] font-medium text-[#333] hover:text-[#FF6B00]">{link.label}</div>
-                                {link.desc && <div className="text-[12px] text-[#999] mt-0.5">{link.desc}</div>}
+                              <a key={li} href={link.url || link.link || '#'} className="group block py-2 no-underline hover:pl-1.5 transition-all">
+                                <div className="text-[14px] font-medium text-[#333] group-hover:text-[#FF6B00] flex items-center gap-1.5">
+                                  {link.label || link.name}
+                                  {link.badge && (
+                                    <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${
+                                      link.badge === 'AI' ? 'bg-violet-100 text-violet-600' :
+                                      link.badge === 'NEW' ? 'bg-emerald-100 text-emerald-600' :
+                                      link.badge === 'HOT' ? 'bg-red-100 text-red-600' :
+                                      'bg-gray-100 text-gray-600'
+                                    }`}>{link.badge === 'AI' ? '⚡ AI' : link.badge}</span>
+                                  )}
+                                </div>
+                                {(link.desc || link.description) && <div className="text-[12px] text-[#999] mt-0.5">{link.desc || link.description}</div>}
                               </a>
                             ))}
                           </div>
@@ -305,18 +443,12 @@ export default function MegaNav() {
 
           {/* ── Desktop right: 3 systems ── */}
           <div className="hidden md:flex items-center gap-1 ml-auto">
-            <a href="/shop" className="flex items-center gap-1.5 text-[12px] font-semibold px-3 py-1.5 rounded-lg hover:bg-[#FFF7ED] text-[#555] hover:text-[#FF6B00] no-underline transition-colors">
-              🛒 <span>Дэлгүүр</span>
-            </a>
-            <a href="/quote" className="flex items-center gap-1.5 text-[12px] font-semibold px-3 py-1.5 rounded-lg hover:bg-[#F5F3FF] text-[#555] hover:text-[#8B5CF6] no-underline transition-colors">
-              🖨️ <span>Хэвлэл</span>
-            </a>
-            <a href="/smart-quote" className="flex items-center gap-1.5 text-[12px] font-semibold px-3 py-1.5 rounded-lg hover:bg-[#EFF6FF] text-[#555] hover:text-[#3B82F6] no-underline transition-colors">
-              🤖 <span>AI Quote</span>
-            </a>
-            <a href="/marketplace" className="flex items-center gap-1.5 text-[12px] font-semibold px-3 py-1.5 rounded-lg hover:bg-[#FDF2F8] text-[#555] hover:text-[#EC4899] no-underline transition-colors">
-              🎨 <span>Marketplace</span>
-            </a>
+            {quickLinks.map((ql, i) => (
+              <a key={i} href={ql.url} className="flex items-center gap-1.5 text-[12px] font-semibold px-3 py-1.5 rounded-lg text-[#555] no-underline transition-colors" style={{ ['--ql-color' as any]: ql.color || '#FF6B00' }} onMouseEnter={e => { e.currentTarget.style.background = (ql.color || '#FF6B00') + '12'; e.currentTarget.style.color = ql.color || '#FF6B00' }} onMouseLeave={e => { e.currentTarget.style.background = ''; e.currentTarget.style.color = '#555' }}>
+                <span className="text-sm">{ql.icon}</span>
+                <span>{ql.label}</span>
+              </a>
+            ))}
           </div>
 
           {/* ═══ MOBILE TOP BAR ═══ */}

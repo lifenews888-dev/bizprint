@@ -52,6 +52,17 @@ const MENU_ITEMS = [
   },
   {
     icon: (
+      <svg width="22" height="22" fill="none" stroke="#F59E0B" strokeWidth="1.8" viewBox="0 0 24 24">
+        <path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/>
+      </svg>
+    ),
+    iconBg: '#FFFBEB',
+    label: 'Эрх & Багц',
+    sub: 'Membership, QR, Loyalty үнэ',
+    href: '/dashboard/customer/subscription',
+  },
+  {
+    icon: (
       <svg width="22" height="22" fill="none" stroke="#EC4899" strokeWidth="1.8" viewBox="0 0 24 24">
         <rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/>
       </svg>

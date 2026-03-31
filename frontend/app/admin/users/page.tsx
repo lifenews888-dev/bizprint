@@ -1,6 +1,13 @@
 'use client'
 import { apiFetch, API_URL } from '@/lib/api'
 import { useState, useEffect, useCallback } from 'react'
+import { AdminPageHeader } from '@/components/admin/AdminPageHeader'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Badge } from '@/components/ui/badge'
+import { Plus, Megaphone, Search } from 'lucide-react'
+import { cn } from '@/lib/utils'
+import { toast } from 'sonner'
 
 /* ═══════════════════════════════════════
  *  ADMIN USER MANAGEMENT
@@ -100,42 +107,40 @@ export default function AdminUsersPage() {
   items.forEach(u => { roleCounts[u.role] = (roleCounts[u.role] || 0) + 1 })
 
   return (
-    <div style={{ padding: 24, fontFamily: "'DM Sans','Segoe UI',system-ui,sans-serif" }}>
+    <div className="p-4 md:p-6">
       <style>{`@keyframes fadeIn{from{opacity:0}to{opacity:1}} @keyframes slideIn{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:translateX(0)}} .u-row{transition:background .15s}.u-row:hover{background:var(--surface2)!important}`}</style>
 
       {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-        <div>
-          <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>Хэрэглэгчид</h1>
-          <p style={{ color: 'var(--text2)', fontSize: 13, margin: '4px 0 0' }}>Нийт {items.length} хэрэглэгч</p>
-        </div>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <button onClick={() => setBroadcastModal(true)} style={{ padding: '10px 18px', background: '#3B82F6', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>📢 Мэдэгдэл илгээх</button>
-          <button onClick={() => { reset(); setEditing({}) }} style={{ padding: '10px 18px', background: '#FF6B00', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>+ Шинэ</button>
-        </div>
-      </div>
+      <AdminPageHeader title="Хэрэглэгчид" description={`Нийт ${items.length} хэрэглэгч`}>
+        <Button variant="outline" size="sm" onClick={() => setBroadcastModal(true)}>
+          <Megaphone className="h-3.5 w-3.5 mr-1.5" />Мэдэгдэл
+        </Button>
+        <Button size="sm" onClick={() => { reset(); setEditing({}) }}>
+          <Plus className="h-4 w-4 mr-1" />Шинэ
+        </Button>
+      </AdminPageHeader>
 
       {/* Role Tabs */}
-      <div style={{ display: 'flex', gap: 4, marginBottom: 16, flexWrap: 'wrap' }}>
+      <div className="flex flex-wrap gap-1 mb-4">
         {Object.entries(ROLE_LABELS).map(([k, v]) => {
           const count = roleCounts[k] || 0
           const active = roleFilter === k
           const color = k === 'all' ? '#FF6B00' : ROLE_COLOR[k] || '#888'
           return (
-            <button key={k} onClick={() => setRoleFilter(k)} style={{
-              padding: '6px 14px', borderRadius: 8, fontSize: 12, cursor: 'pointer',
-              background: active ? color : 'var(--surface)', color: active ? '#fff' : 'var(--text2)',
-              fontWeight: active ? 600 : 400, border: `1px solid ${active ? color : 'var(--border)'}`,
-            }}>
-              {v} {count > 0 && <span style={{ opacity: 0.7 }}>({count})</span>}
+            <button key={k} onClick={() => setRoleFilter(k)} className={cn(
+              'px-3.5 py-1.5 rounded-lg text-xs cursor-pointer transition-colors border',
+              active ? 'text-white font-semibold' : 'bg-card text-muted-foreground border-border hover:bg-muted'
+            )} style={active ? { background: color, borderColor: color } : undefined}>
+              {v} {count > 0 && <span className="opacity-70">({count})</span>}
             </button>
           )
         })}
       </div>
 
       {/* Search */}
-      <div style={{ marginBottom: 16 }}>
-        <input placeholder="Хайх... (нэр, имэйл, утас)" value={search} onChange={e => setSearch(e.target.value)} style={{ padding: '8px 14px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)', fontSize: 13, width: 300 }} />
+      <div className="mb-4 relative w-[300px]">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input placeholder="Хайх... (нэр, имэйл, утас)" value={search} onChange={e => setSearch(e.target.value)} className="pl-9 h-9 text-sm" />
       </div>
 
       {/* Create/Edit Form */}

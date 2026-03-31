@@ -73,6 +73,7 @@ import { AnalyticsModule } from './analytics/analytics.module'
 import { SystemModule } from './system/system.module'
 import { LoyaltyModule } from './loyalty/loyalty.module'
 import { ZoomModule } from './zoom/zoom.module'
+import { MegaMenuModule } from './mega-menu/mega-menu.module'
 
 @Module({
   imports: [
@@ -167,6 +168,7 @@ import { ZoomModule } from './zoom/zoom.module'
     SystemModule,
     LoyaltyModule,
     ZoomModule,
+    MegaMenuModule,
   ],
   controllers: [], // PricingCatalogController removed — duplicate
   providers: [],   // PricingCatalogService removed — duplicate

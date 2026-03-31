@@ -1,4 +1,4 @@
-import { Controller, Get, Patch, Body, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Patch, Param, Body, UseGuards } from '@nestjs/common';
 import { CmsService } from './cms.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -15,11 +15,36 @@ export class CmsController {
   @Get('settings/public')
   getPublicSettings() { return this.svc.getSettingsObject(); }
 
+  @Get('hero-slides/public')
+  getPublicSlides() { return this.svc.getActiveSlides(); }
+
   @Get('mega-menu/public')
   getPublicMegaMenu() { return this.svc.getMegaMenu(); }
 
   @Get('mega-menu')
-  getMegaMenu() { return this.svc.getMegaMenu(); }
+  getMenuItems() { return this.svc.getMenuItems(); }
+
+  @Post('mega-menu')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin', 'superadmin')
+  createMenuItem(@Body() dto: any) { return this.svc.createMenuItem(dto); }
+
+  @Put('mega-menu/:id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin', 'superadmin')
+  updateMenuItem(@Param('id') id: string, @Body() dto: any) { return this.svc.updateMenuItem(id, dto); }
+
+  @Delete('mega-menu/:id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin', 'superadmin')
+  deleteMenuItem(@Param('id') id: string) { return this.svc.deleteMenuItem(id); }
+
+  @Patch('mega-menu/reorder')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin', 'superadmin')
+  reorderMenu(@Body() body: { items: { id: string; sort_order: number }[] }) {
+    return this.svc.reorderMenuItems(body.items);
+  }
 
   @Get('footer')
   getFooter() { return this.svc.getFooter(); }
@@ -68,4 +93,30 @@ export class CmsController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('admin', 'superadmin')
   updatePromo(@Body() dto: any) { return this.svc.updatePromo(dto); }
+
+  // ── Hero Slides ──
+  @Get('hero-slides')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin', 'superadmin')
+  getAllSlides() { return this.svc.getAllSlides(); }
+
+  @Post('hero-slides')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin', 'superadmin')
+  createSlide(@Body() dto: any) { return this.svc.createSlide(dto); }
+
+  @Patch('hero-slides/:id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin', 'superadmin')
+  updateSlide(@Param('id') id: string, @Body() dto: any) { return this.svc.updateSlide(id, dto); }
+
+  @Delete('hero-slides/:id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin', 'superadmin')
+  deleteSlide(@Param('id') id: string) { return this.svc.deleteSlide(id); }
+
+  @Patch('hero-slides/reorder')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin', 'superadmin')
+  reorderSlides(@Body() body: { items: { id: string; sort_order: number }[] }) { return this.svc.reorderSlides(body.items); }
 }

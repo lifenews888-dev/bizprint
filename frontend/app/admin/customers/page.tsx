@@ -2,6 +2,7 @@
 
 import { apiFetch } from '@/lib/api'
 import { useState, useEffect, useCallback } from 'react'
+import { AdminPageHeader } from '@/components/admin/AdminPageHeader'
 
 function fmt(n: number) {
   return new Intl.NumberFormat('mn-MN').format(Math.round(n)) + '₮'
@@ -157,30 +158,24 @@ export default function AdminCustomersPage() {
   const totalPages = Math.max(1, Math.ceil(total / 20))
 
   return (
-    <div style={{ padding: '24px 32px', fontFamily: font }}>
-      {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-        <div>
-          <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0, color: 'var(--text)' }}>Хэрэглэгчид</h1>
-          <p style={{ color: 'var(--text2)', fontSize: 13, margin: '4px 0 0' }}>Нийт {total} хэрэглэгч</p>
-        </div>
-        <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-          <input
-            placeholder="Хайх..."
-            value={search}
-            onChange={e => { setSearch(e.target.value); setPage(1) }}
-            style={{ ...inp, width: 240 }}
-          />
-          <select
-            value={tierFilter}
-            onChange={e => { setTierFilter(e.target.value as Tier); setPage(1) }}
-            style={{ ...inp, width: 140 }}
-          >
-            {TIERS.map(t => (
-              <option key={t} value={t}>{TIER_LABELS[t]}</option>
-            ))}
-          </select>
-        </div>
+    <div className="p-4 md:p-6">
+      <AdminPageHeader title="Хэрэглэгчид" description={`Нийт ${total} хэрэглэгч`} />
+      <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 24 }}>
+        <input
+          placeholder="Хайх..."
+          value={search}
+          onChange={e => { setSearch(e.target.value); setPage(1) }}
+          style={{ ...inp, width: 240 }}
+        />
+        <select
+          value={tierFilter}
+          onChange={e => { setTierFilter(e.target.value as Tier); setPage(1) }}
+          style={{ ...inp, width: 140 }}
+        >
+          {TIERS.map(t => (
+            <option key={t} value={t}>{TIER_LABELS[t]}</option>
+          ))}
+        </select>
       </div>
 
       {/* Table */}

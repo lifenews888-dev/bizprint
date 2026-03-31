@@ -201,14 +201,14 @@ export class UsageService {
   // ════════════════════════════════════
 
   private async getCounts(userId: string) {
-    const [qr_codes, invitations, product_qrs, digital_cards, loyalty_campaigns] = await Promise.all([
+    const [product_qr_count, invitations, digital_cards, loyalty_campaigns] = await Promise.all([
       this.qrRepo.count({ where: { user_id: userId } }),
       this.invRepo.count({ where: { user_id: userId } }),
-      this.qrRepo.count({ where: { user_id: userId } }),
       this.dcRepo.count({ where: { user_id: userId } }),
       this.loyaltyRepo.count({ where: { vendor_id: userId } }),
     ]);
-    return { qr_codes, invitations, product_qrs, digital_cards, loyalty_campaigns };
+    // qr_codes and product_qrs both map to the same product_qrs table
+    return { qr_codes: product_qr_count, invitations, product_qrs: product_qr_count, digital_cards, loyalty_campaigns };
   }
 
   private async getAddonBonuses(userId: string): Promise<Record<string, number>> {

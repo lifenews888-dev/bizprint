@@ -73,6 +73,32 @@ export class Product {
   @Column({ default: 0 })
   sort_order: number;
 
+  @Column({ default: false })
+  is_featured: boolean;
+
+  @Column({ default: false })
+  is_new: boolean;
+
+  @Column({ default: false })
+  is_bestseller: boolean;
+
+  @Column({ default: false })
+  is_out_of_stock: boolean;
+
+  /** Badge: NEW | HOT | SALE | FEATURED | null */
+  @Column({ nullable: true })
+  badge: string;
+
+  @Column({ default: false })
+  is_flash_deal: boolean;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  flash_deal_end: Date;
+
+  /** Specs for comparison: { "Хэмжээ": "A4", "Материал": "250gsm" } */
+  @Column({ type: 'jsonb', nullable: true })
+  compare_specs: Record<string, string>;
+
   @CreateDateColumn()
   created_at: Date;
 

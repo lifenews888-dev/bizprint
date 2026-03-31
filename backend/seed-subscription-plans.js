@@ -115,6 +115,36 @@ async function seed() {
     console.log(`✓ ${a.name} addon seeded`);
   }
 
+  // ── Seed Product Pricing ──
+  const products = [
+    { slug: 'digital-card-yearly', name: 'Дижитал нэрийн хуудас (жилийн)', description: 'NFC + QR дижитал нэрийн хуудас, 1 жилийн эрх', product_type: 'digital_card', price_model: 'subscription', price: 29900, duration_days: 365, unit_price: 0, free_tier_days: 14, free_tier_units: 0, sort_order: 0 },
+    { slug: 'digital-card-monthly', name: 'Дижитал нэрийн хуудас (сарын)', description: 'NFC + QR дижитал нэрийн хуудас, сар бүрийн төлбөр', product_type: 'digital_card', price_model: 'subscription', price: 4900, duration_days: 30, unit_price: 0, free_tier_days: 7, free_tier_units: 0, sort_order: 1 },
+    { slug: 'loyalty-basic', name: 'Loyalty програм (Basic)', description: 'QR тамга цуглуулах програм — 1 кампанит', product_type: 'loyalty_campaign', price_model: 'subscription', price: 19900, duration_days: 365, unit_price: 0, free_tier_days: 30, free_tier_units: 0, sort_order: 2 },
+    { slug: 'loyalty-unlimited', name: 'Loyalty програм (Unlimited)', description: 'Хязгааргүй loyalty кампанит + аналитик', product_type: 'loyalty_campaign', price_model: 'subscription', price: 49900, duration_days: 365, unit_price: 0, free_tier_days: 14, free_tier_units: 0, sort_order: 3 },
+    { slug: 'qr-campaign-basic', name: 'QR кампанит (Basic)', description: 'Бүтээгдэхүүний QR код — 50 ширхэг хүртэл', product_type: 'qr_campaign', price_model: 'one_time', price: 9900, duration_days: 365, unit_price: 0, free_tier_days: 0, free_tier_units: 5, sort_order: 4 },
+    { slug: 'qr-campaign-pro', name: 'QR кампанит (Pro)', description: 'Бүтээгдэхүүний QR код — 500 ширхэг, аналитик дашбоард', product_type: 'qr_campaign', price_model: 'one_time', price: 29900, duration_days: 365, unit_price: 0, free_tier_days: 0, free_tier_units: 10, sort_order: 5 },
+    { slug: 'qr-per-unit', name: 'QR код (ширхэгээр)', description: 'Нэг бүр QR код үүсгэх', product_type: 'qr_campaign', price_model: 'per_unit', price: 0, duration_days: 365, unit_price: 500, free_tier_days: 0, free_tier_units: 3, sort_order: 6 },
+    { slug: 'invitation-premium', name: 'Урилга Premium', description: 'Дижитал урилга — хурим, баяр, арга хэмжээ', product_type: 'invitation_premium', price_model: 'one_time', price: 14900, duration_days: 365, unit_price: 0, free_tier_days: 0, free_tier_units: 1, sort_order: 7 },
+    { slug: 'invitation-bulk', name: 'Урилга (багцаар)', description: 'Олон хүнд дижитал урилга — 100 хүртэл', product_type: 'invitation_premium', price_model: 'per_unit', price: 0, duration_days: 365, unit_price: 200, free_tier_days: 0, free_tier_units: 5, sort_order: 8 },
+  ];
+
+  for (const p of products) {
+    await client.query(`
+      INSERT INTO product_pricing (
+        id, slug, name, description, product_type, price_model,
+        price, duration_days, unit_price, free_tier_days, free_tier_units,
+        is_active, sort_order
+      ) VALUES (
+        gen_random_uuid(), $1, $2, $3, $4, $5,
+        $6, $7, $8, $9, $10,
+        true, $11
+      ) ON CONFLICT (slug) DO UPDATE SET
+        name = EXCLUDED.name, price = EXCLUDED.price, description = EXCLUDED.description,
+        unit_price = EXCLUDED.unit_price, free_tier_days = EXCLUDED.free_tier_days, free_tier_units = EXCLUDED.free_tier_units
+    `, [p.slug, p.name, p.description, p.product_type, p.price_model, p.price, p.duration_days, p.unit_price, p.free_tier_days, p.free_tier_units, p.sort_order]);
+    console.log(`✓ ${p.name} pricing seeded`);
+  }
+
   await client.end();
   console.log('Done!');
 }

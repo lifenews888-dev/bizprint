@@ -1,8 +1,9 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { apiFetch } from '@/lib/api'
-
-const FONT = "'DM Sans','Segoe UI',system-ui,sans-serif"
+import { AdminPageHeader } from '@/components/admin/AdminPageHeader'
+import { AdminDataTable, type Column } from '@/components/admin/AdminDataTable'
+import { Badge } from '@/components/ui/badge'
 
 export default function AdminSubscriptions() {
   const [subs, setSubs] = useState<any[]>([])
@@ -17,64 +18,50 @@ export default function AdminSubscriptions() {
     ]).catch(() => {}).finally(() => setLoading(false))
   }, [])
 
-  if (loading) return <div style={{ padding: 40, textAlign: 'center', fontFamily: FONT, color: '#9CA3AF' }}>Ачааллаж байна...</div>
+  const columns: Column<any>[] = [
+    { key: 'user', label: 'Хэрэглэгч', render: row => <span className="font-medium text-foreground">{row.user?.full_name || row.user?.email}</span> },
+    { key: 'plan', label: 'Багц', render: row => <span className="text-muted-foreground">{row.plan?.name}</span> },
+    { key: 'status', label: 'Статус', className: 'text-center', render: row => (
+      <Badge variant={row.status === 'active' ? 'default' : 'destructive'} className="text-[10px]">{row.status}</Badge>
+    )},
+    { key: 'expires_at', label: 'Дуусах', className: 'text-right', render: row => (
+      <span className="text-sm text-muted-foreground">{row.expires_at ? new Date(row.expires_at).toLocaleDateString('mn-MN') : '—'}</span>
+    )},
+  ]
 
   return (
-    <div style={{ padding: 24, fontFamily: FONT }}>
-      <h1 style={{ fontSize: 22, fontWeight: 700, margin: '0 0 24px' }}>Эрхийн удирдлага</h1>
+    <div className="p-4 md:p-6">
+      <AdminPageHeader title="Эрхийн удирдлага" description={`Нийт: ${total}`} />
 
       {stats && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 24 }}>
-          <Kpi label="Идэвхтэй эрх" value={stats.totalActive} color="#10B981" />
-          <Kpi label="Нийт орлого" value={`${Number(stats.totalRevenue).toLocaleString()}₮`} color="#FF6B00" />
-          <Kpi label="Багцаар" value={stats.byPlan?.length || 0} color="#8B5CF6" />
-        </div>
-      )}
-
-      {stats?.byPlan?.length > 0 && (
-        <div style={{ display: 'flex', gap: 12, marginBottom: 24 }}>
-          {stats.byPlan.map((p: any) => (
-            <div key={p.plan_name} style={{ background: 'var(--surface, #fff)', borderRadius: 12, padding: 16, border: '1px solid var(--border, #E5E7EB)', flex: 1, textAlign: 'center' }}>
-              <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--text, #111)' }}>{p.count}</div>
-              <div style={{ fontSize: 12, color: '#6B7280' }}>{p.plan_name}</div>
+        <div className="grid grid-cols-3 gap-3 mb-6">
+          {[
+            { label: 'Идэвхтэй эрх', value: stats.totalActive, color: '#10B981' },
+            { label: 'Нийт орлого', value: `${Number(stats.totalRevenue).toLocaleString()}₮`, color: '#FF6B00' },
+            { label: 'Багцаар', value: stats.byPlan?.length || 0, color: '#8B5CF6' },
+          ].map(k => (
+            <div key={k.label} className="rounded-xl border border-border bg-card p-5 text-center">
+              <div className="text-2xl font-bold" style={{ color: k.color }}>{k.value}</div>
+              <div className="text-sm text-muted-foreground mt-1">{k.label}</div>
             </div>
           ))}
         </div>
       )}
 
-      <div style={{ background: 'var(--surface, #fff)', borderRadius: 16, border: '1px solid var(--border, #E5E7EB)', overflow: 'hidden' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
-          <thead>
-            <tr style={{ background: 'var(--surface2, #F9FAFB)' }}>
-              <th style={{ padding: '12px 16px', textAlign: 'left', fontWeight: 600, color: '#6B7280' }}>Хэрэглэгч</th>
-              <th style={{ padding: '12px 16px', textAlign: 'left', fontWeight: 600, color: '#6B7280' }}>Багц</th>
-              <th style={{ padding: '12px 16px', textAlign: 'center', fontWeight: 600, color: '#6B7280' }}>Статус</th>
-              <th style={{ padding: '12px 16px', textAlign: 'right', fontWeight: 600, color: '#6B7280' }}>Дуусах</th>
-            </tr>
-          </thead>
-          <tbody>
-            {subs.map((s: any) => (
-              <tr key={s.id} style={{ borderTop: '1px solid var(--border, #E5E7EB)' }}>
-                <td style={{ padding: '12px 16px', color: 'var(--text, #111)' }}>{s.user?.full_name || s.user?.email}</td>
-                <td style={{ padding: '12px 16px', color: '#6B7280' }}>{s.plan?.name}</td>
-                <td style={{ padding: '12px 16px', textAlign: 'center' }}>
-                  <span style={{ padding: '3px 10px', borderRadius: 12, fontSize: 12, fontWeight: 600, background: s.status === 'active' ? '#DCFCE7' : '#FEE2E2', color: s.status === 'active' ? '#166534' : '#991B1B' }}>{s.status}</span>
-                </td>
-                <td style={{ padding: '12px 16px', textAlign: 'right', color: '#6B7280', fontSize: 13 }}>{s.expires_at ? new Date(s.expires_at).toLocaleDateString('mn-MN') : '-'}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  )
-}
+      {stats?.byPlan?.length > 0 && (
+        <div className="flex gap-3 mb-6">
+          {stats.byPlan.map((p: any) => (
+            <div key={p.plan_name} className="flex-1 rounded-xl border border-border bg-card p-4 text-center">
+              <div className="text-xl font-bold text-foreground">{p.count}</div>
+              <div className="text-xs text-muted-foreground">{p.plan_name}</div>
+            </div>
+          ))}
+        </div>
+      )}
 
-function Kpi({ label, value, color }: { label: string; value: string | number; color: string }) {
-  return (
-    <div style={{ background: 'var(--surface, #fff)', borderRadius: 14, padding: 20, border: '1px solid var(--border, #E5E7EB)', textAlign: 'center' }}>
-      <div style={{ fontSize: 24, fontWeight: 700, color }}>{value}</div>
-      <div style={{ fontSize: 13, color: '#6B7280', marginTop: 4 }}>{label}</div>
+      <div className="rounded-xl border border-border bg-card overflow-hidden">
+        <AdminDataTable data={subs} columns={columns} loading={loading} searchKeys={['user']} emptyIcon="💎" emptyText="Эрх байхгүй" />
+      </div>
     </div>
   )
 }

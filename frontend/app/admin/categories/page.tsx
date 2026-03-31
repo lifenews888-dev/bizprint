@@ -1,6 +1,8 @@
 'use client'
 import { apiFetch } from '@/lib/api'
 import { useState, useEffect } from 'react'
+import { AdminPageHeader } from '@/components/admin/AdminPageHeader'
+import { Button } from '@/components/ui/button'
 
 interface Category {
   id: string
@@ -175,7 +177,7 @@ export default function AdminCategoriesPage() {
   }
 
   return (
-    <div style={{ padding:'28px 32px', fontFamily:"'Segoe UI',system-ui,sans-serif", color:'var(--text)' }}>
+    <div className="p-4 md:p-6">
 
       {toast && (
         <div style={{ position:'fixed', top:20, right:20, zIndex:9999, background:'#10B981', color:'#fff', padding:'12px 20px', borderRadius:10, fontSize:14, fontWeight:600, boxShadow:'0 4px 20px rgba(0,0,0,0.4)' }}>
@@ -183,22 +185,15 @@ export default function AdminCategoriesPage() {
         </div>
       )}
 
-      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:28 }}>
-        <div>
-          <h1 style={{ fontSize:22, fontWeight:700, margin:0 }}>Ангилал</h1>
-          <p style={{ color:'var(--text2)', fontSize:13, margin:'4px 0 0' }}>Бүтээгдэхүүний ангилал, дэд ангилал, параметр</p>
-        </div>
+      <AdminPageHeader title="Ангилал" description="Бүтээгдэхүүний ангилал, дэд ангилал, параметр">
         {tab === 'categories' && (
-          <button onClick={()=>openCatCreate()} style={{ padding:'9px 20px', background:'#FF6B00', border:'none', borderRadius:8, color:'#fff', fontWeight:700, fontSize:13, cursor:'pointer' }}>
-            + Ангилал нэмэх
-          </button>
+          <Button size="sm" onClick={()=>openCatCreate()}>+ Ангилал нэмэх</Button>
         )}
         {tab === 'attributes' && selProduct && (
-          <button onClick={openAttrCreate} style={{ padding:'9px 20px', background:'#FF6B00', border:'none', borderRadius:8, color:'#fff', fontWeight:700, fontSize:13, cursor:'pointer' }}>
-            + Параметр нэмэх
-          </button>
+          <Button size="sm" onClick={openAttrCreate}>+ Параметр нэмэх</Button>
         )}
-      </div>
+      </AdminPageHeader>
+
 
       <div style={{ display:'flex', gap:4, borderBottom:'1px solid var(--border)', marginBottom:24 }}>
         {([['categories','Ангилалууд'],['attributes','Параметрүүд']] as [Tab,string][]).map(([k,lbl])=>(

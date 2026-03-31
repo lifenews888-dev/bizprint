@@ -132,9 +132,15 @@ const DEFAULT_MEGA_MENU = [
   { id: '7', nav_label: 'Үйлдвэрүүд', nav_url: '/factory', nav_type: 'LINK', is_active: true, sort_order: 7, columns: null, featured: null },
 ]
 
+interface MegaMenuV2Data {
+  columns: any[]
+  promos: any[]
+}
+
 interface SiteSettingsContextType {
   settings: Record<string, any>
   megaMenu: any[]
+  megaMenuV2: MegaMenuV2Data | null
   loading: boolean
   refetch: () => void
 }
@@ -142,6 +148,7 @@ interface SiteSettingsContextType {
 const SiteSettingsContext = createContext<SiteSettingsContextType>({
   settings: DEFAULT_SETTINGS,
   megaMenu: DEFAULT_MEGA_MENU,
+  megaMenuV2: null,
   loading: true,
   refetch: () => {},
 })
@@ -149,6 +156,7 @@ const SiteSettingsContext = createContext<SiteSettingsContextType>({
 export function SiteSettingsProvider({ children }: { children: ReactNode }) {
   const [settings, setSettings] = useState<Record<string, any>>(DEFAULT_SETTINGS)
   const [megaMenu, setMegaMenu] = useState<any[]>(DEFAULT_MEGA_MENU)
+  const [megaMenuV2, setMegaMenuV2] = useState<MegaMenuV2Data | null>(null)
   const [loading, setLoading] = useState(true)
   const { subscribe, onReconnect } = useRealtime()
 
@@ -156,7 +164,47 @@ export function SiteSettingsProvider({ children }: { children: ReactNode }) {
     Promise.all([
       fetch(`${API}/cms/settings/public`).then(r => r.ok ? r.json() : null).catch(() => null),
       fetch(`${API}/cms/mega-menu/public`).then(r => r.ok ? r.json() : null).catch(() => null),
-    ]).then(([s, m]) => {
+      fetch(`${API}/mega-menu/public`).then(r => r.ok ? r.json() : null).catch(() => null),
+    ]).then(([s, m, v2]) => {
+      // V2 mega menu → convert to unified megaMenu format
+      if (v2 && v2.columns?.length > 0) {
+        setMegaMenuV2(v2)
+        // Build a unified "Products" mega nav item from V2 data
+        const v2MegaItem = {
+          id: 'v2-products',
+          nav_label: 'Бүтээгдэхүүн',
+          nav_url: '/shop',
+          nav_type: 'MEGA',
+          is_active: true,
+          sort_order: 0,
+          columns: v2.columns.map((col: any) => ({
+            title: col.title,
+            icon: col.icon,
+            color: col.color,
+            items: (col.categories || []).flatMap((cat: any) =>
+              (cat.items || []).map((item: any) => ({
+                label: item.name,
+                url: item.link,
+                desc: item.description,
+                badge: item.badge,
+              }))
+            ),
+          })),
+          featured: v2.promos?.[0] ? {
+            badge: v2.promos[0].is_ai ? '⚡ AI' : 'ШИНЭ',
+            title: v2.promos[0].title,
+            description: v2.promos[0].description,
+            cta_text: v2.promos[0].cta_text || 'Дэлгэрэнгүй',
+            cta_url: v2.promos[0].link || '/smart-quote',
+            bg_color: v2.promos[0].bg_color || '#0f172a',
+          } : null,
+        }
+        // Build remaining nav items (Дэлгүүр, Үйлчилгээ, etc.) from old API or defaults
+        const otherItems = (Array.isArray(m) ? m : DEFAULT_MEGA_MENU)
+          .filter((item: any) => item.nav_type !== 'MEGA')
+          .map((item: any, idx: number) => ({ ...item, sort_order: idx + 1 }))
+        setMegaMenu([v2MegaItem, ...otherItems])
+      }
       if (s && typeof s === 'object') {
         const filtered: Record<string, any> = {}
         for (const [key, val] of Object.entries(s)) {
@@ -165,32 +213,28 @@ export function SiteSettingsProvider({ children }: { children: ReactNode }) {
           }
         }
 
-        // Map CMS fields → Frontend expected fields
-        if (filtered.phone) filtered.site_phone = filtered.phone
-        if (filtered.email) filtered.site_email = filtered.email
-        if (filtered.facebook) filtered.site_facebook = filtered.facebook
-        if (filtered.instagram) filtered.site_instagram = filtered.instagram
-        if (filtered.site_name) filtered.site_name = filtered.site_name
+        // Map legacy CMS fields → Frontend expected fields (only if not already set by bulk save)
+        if (filtered.phone && !filtered.site_phone) filtered.site_phone = filtered.phone
+        if (filtered.email && !filtered.site_email) filtered.site_email = filtered.email
+        if (filtered.facebook && !filtered.site_facebook) filtered.site_facebook = filtered.facebook
+        if (filtered.instagram && !filtered.site_instagram) filtered.site_instagram = filtered.instagram
 
-        // Map footer sub-object
+        // Map footer sub-object (legacy format — don't override bulk-saved values)
         if (filtered.footer && typeof filtered.footer === 'object') {
           const f = filtered.footer
-          if (f.description) filtered.footer_description = f.description
-          if (f.copyright) filtered.footer_copyright = f.copyright
-          if (f.columns) filtered.footer_columns = f.columns
+          if (f.description && !filtered.footer_description) filtered.footer_description = f.description
+          if (f.copyright && !filtered.footer_copyright) filtered.footer_copyright = f.copyright
+          if (f.columns && !filtered.footer_columns) filtered.footer_columns = f.columns
           if (f.socials) {
-            // Map social URLs
             f.socials.forEach((soc: any) => {
               if (soc.enabled && soc.url) {
-                if (soc.platform === 'facebook') filtered.site_facebook = soc.url
-                if (soc.platform === 'instagram') filtered.site_instagram = soc.url
-                if (soc.platform === 'youtube') filtered.site_youtube = soc.url
-                if (soc.platform === 'tiktok') filtered.site_tiktok = soc.url
+                const key = `site_${soc.platform}`
+                if (!filtered[key]) filtered[key] = soc.url
               }
             })
           }
           if (f.branches?.[0]) {
-            filtered.footer_location = f.branches[0].address
+            if (!filtered.footer_location) filtered.footer_location = f.branches[0].address
             if (!filtered.site_phone) filtered.site_phone = f.branches[0].phone
           }
         }
@@ -251,7 +295,7 @@ export function SiteSettingsProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <SiteSettingsContext.Provider value={{ settings, megaMenu, loading, refetch: fetchSettings }}>
+    <SiteSettingsContext.Provider value={{ settings, megaMenu, megaMenuV2, loading, refetch: fetchSettings }}>
       {children}
     </SiteSettingsContext.Provider>
   )

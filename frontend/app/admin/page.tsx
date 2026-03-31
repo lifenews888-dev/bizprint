@@ -2,6 +2,10 @@
 import { apiFetch, getToken } from '@/lib/api'
 import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
+import { BarChart, Bar, XAxis, YAxis, Tooltip as RTooltip, ResponsiveContainer, CartesianGrid } from 'recharts'
+import { Wallet, TrendingUp, Clock, Landmark, Users, Target } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
+import { cn } from '@/lib/utils'
 
 /* ═══ Helpers ═══ */
 const fmt = (n: number) => '₮' + n.toLocaleString()
@@ -28,19 +32,21 @@ const STATUS_MAP: Record<string, { label: string; color: string }> = {
 }
 
 /* ═══ KPI Card ═══ */
-function KpiCard({ icon, label, value, sub, change: ch, color = '#FF6B00', onClick }: {
-  icon: string; label: string; value: string; sub?: string
+function KpiCard({ icon: Icon, label, value, sub, change: ch, color = '#FF6B00', onClick }: {
+  icon: LucideIcon; label: string; value: string; sub?: string
   change?: { text: string; positive: boolean } | null; color?: string; onClick?: () => void
 }) {
   return (
-    <div onClick={onClick} className={`bg-white rounded-xl border border-[#E5E7EB] p-4 hover:shadow-md transition-shadow ${onClick ? 'cursor-pointer' : ''}`}>
+    <div onClick={onClick} className={cn('rounded-xl border border-border bg-card p-4 hover:shadow-md transition-shadow', onClick && 'cursor-pointer')}>
       <div className="flex items-center justify-between mb-2">
-        <div className="w-9 h-9 rounded-lg flex items-center justify-center text-lg" style={{ background: color + '12' }}>{icon}</div>
-        {ch && <span className={`text-[11px] font-bold px-1.5 py-0.5 rounded-full ${ch.positive ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'}`}>{ch.text}</span>}
+        <div className="w-9 h-9 rounded-lg flex items-center justify-center" style={{ background: color + '12' }}>
+          <Icon className="h-[18px] w-[18px]" style={{ color }} strokeWidth={1.8} />
+        </div>
+        {ch && <span className={cn('text-[11px] font-bold px-1.5 py-0.5 rounded-full', ch.positive ? 'bg-emerald-500/10 text-emerald-600' : 'bg-red-500/10 text-red-600')}>{ch.text}</span>}
       </div>
-      <div className="text-xl font-extrabold text-[#111] tracking-tight">{value}</div>
-      <div className="text-[11px] text-[#888] mt-0.5">{label}</div>
-      {sub && <div className="text-[10px] text-[#BBB] mt-0.5">{sub}</div>}
+      <div className="text-xl font-extrabold text-foreground tracking-tight">{value}</div>
+      <div className="text-[11px] text-muted-foreground mt-0.5">{label}</div>
+      {sub && <div className="text-[10px] text-muted-foreground/60 mt-0.5">{sub}</div>}
     </div>
   )
 }
@@ -100,35 +106,35 @@ function SystemTab({ services }: { services: { name: string; icon: string; port:
       {/* Service Control Panel */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 mb-6">
         {services.map(svc => (
-          <div key={svc.name} className="bg-white rounded-xl border border-[#E5E7EB] p-5 hover:shadow-md transition-shadow">
+          <div key={svc.name} className="rounded-xl border border-border bg-card p-5 hover:shadow-md transition-shadow">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
                 <span className="text-xl">{svc.icon}</span>
-                <span className="text-sm font-bold text-[#111]">{svc.name}</span>
+                <span className="text-sm font-bold text-foreground">{svc.name}</span>
               </div>
               <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-lg">🟢 Online</span>
             </div>
             <div className="grid grid-cols-3 gap-2 mb-3 text-center">
-              <div className="bg-[#F8F8F8] rounded-lg py-2"><div className="text-xs font-bold text-[#111]">99.9%</div><div className="text-[9px] text-[#888]">Uptime</div></div>
-              <div className="bg-[#F8F8F8] rounded-lg py-2"><div className="text-xs font-bold text-emerald-600">&lt;50ms</div><div className="text-[9px] text-[#888]">Response</div></div>
-              <div className="bg-[#F8F8F8] rounded-lg py-2"><div className="text-xs font-bold text-[#111]">0.1%</div><div className="text-[9px] text-[#888]">Error rate</div></div>
+              <div className="bg-muted rounded-lg py-2"><div className="text-xs font-bold text-foreground">99.9%</div><div className="text-[9px] text-muted-foreground">Uptime</div></div>
+              <div className="bg-muted rounded-lg py-2"><div className="text-xs font-bold text-emerald-600">&lt;50ms</div><div className="text-[9px] text-muted-foreground">Response</div></div>
+              <div className="bg-muted rounded-lg py-2"><div className="text-xs font-bold text-foreground">0.1%</div><div className="text-[9px] text-muted-foreground">Error rate</div></div>
             </div>
-            <div className="text-[10px] text-[#999]">Port: {svc.port}</div>
+            <div className="text-[10px] text-muted-foreground/70">Port: {svc.port}</div>
           </div>
         ))}
       </div>
 
       {/* Error Summary KPIs */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
-        <div className="bg-white rounded-xl border border-[#E5E7EB] p-4">
-          <div className="text-xs text-[#888]">Нийт алдаа</div>
-          <div className="text-2xl font-extrabold text-[#111]">{errorSummary?.total || 0}</div>
+        <div className="rounded-xl border border-border bg-card p-4">
+          <div className="text-xs text-muted-foreground">Нийт алдаа</div>
+          <div className="text-2xl font-extrabold text-foreground">{errorSummary?.total || 0}</div>
         </div>
         <div className={`rounded-xl border p-4 ${(errorSummary?.open || 0) > 0 ? 'bg-red-50 border-red-200' : 'bg-emerald-50 border-emerald-200'}`}>
           <div className={`text-xs ${(errorSummary?.open || 0) > 0 ? 'text-red-600' : 'text-emerald-600'}`}>Нээлттэй</div>
           <div className={`text-2xl font-extrabold ${(errorSummary?.open || 0) > 0 ? 'text-red-700' : 'text-emerald-700'}`}>{errorSummary?.open || 0}</div>
         </div>
-        <div className={`rounded-xl border p-4 ${(errorSummary?.critical || 0) > 0 ? 'bg-red-50 border-red-200' : 'bg-white border-[#E5E7EB]'}`}>
+        <div className={`rounded-xl border p-4 ${(errorSummary?.critical || 0) > 0 ? 'bg-red-50 border-red-200' : 'bg-white border-border'}`}>
           <div className="text-xs text-red-600">🚨 Critical</div>
           <div className="text-2xl font-extrabold text-red-700">{errorSummary?.critical || 0}</div>
         </div>
@@ -141,23 +147,23 @@ function SystemTab({ services }: { services: { name: string; icon: string; port:
       {/* Error Center + Source breakdown */}
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-5">
         {/* Error list */}
-        <div className="xl:col-span-2 bg-white rounded-xl border border-[#E5E7EB] overflow-hidden">
-          <div className="px-5 py-4 border-b border-[#E5E7EB] flex items-center justify-between flex-wrap gap-2">
-            <h2 className="text-sm font-bold text-[#111]">🔴 Алдааны төв</h2>
+        <div className="xl:col-span-2 rounded-xl border border-border bg-card overflow-hidden">
+          <div className="px-5 py-4 border-b border-border flex items-center justify-between flex-wrap gap-2">
+            <h2 className="text-sm font-bold text-foreground">🔴 Алдааны төв</h2>
             <div className="flex gap-1">
-              <button onClick={() => setErrorFilter('')} className={`px-2 py-1 text-[10px] font-medium rounded-lg ${!errorFilter ? 'bg-[#FF6B00] text-white' : 'bg-[#F3F4F6] text-[#555]'}`}>Бүгд</button>
+              <button onClick={() => setErrorFilter('')} className={`px-2 py-1 text-[10px] font-medium rounded-lg ${!errorFilter ? 'bg-primary text-white' : 'bg-muted text-muted-foreground'}`}>Бүгд</button>
               {Object.entries(SOURCE_CFG).slice(0, 5).map(([k, v]) => (
-                <button key={k} onClick={() => setErrorFilter(k)} className={`px-2 py-1 text-[10px] font-medium rounded-lg ${errorFilter === k ? 'bg-[#FF6B00] text-white' : 'bg-[#F3F4F6] text-[#555]'}`}>{v.icon}</button>
+                <button key={k} onClick={() => setErrorFilter(k)} className={`px-2 py-1 text-[10px] font-medium rounded-lg ${errorFilter === k ? 'bg-primary text-white' : 'bg-muted text-muted-foreground'}`}>{v.icon}</button>
               ))}
             </div>
           </div>
           {loadingErrors ? (
             <div className="p-5"><div className="animate-pulse space-y-2">{[1,2,3].map(i => <div key={i} className="h-12 bg-gray-100 rounded-lg" />)}</div></div>
           ) : filteredErrors.length === 0 ? (
-            <div className="p-8 text-center text-[#999]">
+            <div className="p-8 text-center text-muted-foreground/70">
               <div className="text-3xl mb-2">✅</div>
               <div className="text-sm font-medium">Нээлттэй алдаа байхгүй</div>
-              <div className="text-xs text-[#BBB] mt-1">Бүх систем хэвийн</div>
+              <div className="text-xs text-muted-foreground/50 mt-1">Бүх систем хэвийн</div>
             </div>
           ) : (
             <div className="divide-y divide-[#F3F4F6]">
@@ -165,17 +171,17 @@ function SystemTab({ services }: { services: { name: string; icon: string; port:
                 const src = SOURCE_CFG[err.source] || { label: err.source, icon: '❓', color: '#999' }
                 const sev = SEV_CFG[err.severity] || SEV_CFG.low
                 return (
-                  <div key={err.id} className="px-5 py-3 hover:bg-[#FAFAFA] transition-colors">
+                  <div key={err.id} className="px-5 py-3 hover:bg-muted/50 transition-colors">
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1 flex-wrap">
                           <span className="text-sm">{src.icon}</span>
                           <span className="text-[10px] font-bold px-1.5 py-0.5 rounded" style={{ background: src.color + '12', color: src.color }}>{src.label}</span>
                           <span className="text-[10px] font-bold px-1.5 py-0.5 rounded" style={{ background: sev.bg, color: sev.color }}>{sev.label}</span>
-                          {err.occurrence_count > 1 && <span className="text-[10px] text-[#999]">×{err.occurrence_count}</span>}
+                          {err.occurrence_count > 1 && <span className="text-[10px] text-muted-foreground/70">×{err.occurrence_count}</span>}
                         </div>
-                        <div className="text-xs text-[#333] truncate">{err.message}</div>
-                        <div className="flex gap-3 mt-1 text-[10px] text-[#BBB]">
+                        <div className="text-xs text-foreground/80 truncate">{err.message}</div>
+                        <div className="flex gap-3 mt-1 text-[10px] text-muted-foreground/50">
                           {err.endpoint && <span className="font-mono">{err.http_method} {err.endpoint}</span>}
                           {err.http_status && <span className={err.http_status >= 500 ? 'text-red-400' : 'text-amber-400'}>{err.http_status}</span>}
                           <span>{new Date(err.created_at).toLocaleString('mn')}</span>
@@ -195,28 +201,28 @@ function SystemTab({ services }: { services: { name: string; icon: string; port:
         {/* Source breakdown + Queue */}
         <div className="space-y-5">
           {/* By source */}
-          <div className="bg-white rounded-xl border border-[#E5E7EB] p-5">
-            <h2 className="text-sm font-bold text-[#111] mb-3">Эх үүсвэрээр</h2>
+          <div className="rounded-xl border border-border bg-card p-5">
+            <h2 className="text-sm font-bold text-foreground mb-3">Эх үүсвэрээр</h2>
             <div className="space-y-2">
               {(errorSummary?.by_source || []).map((s: any) => {
                 const cfg = SOURCE_CFG[s.source] || { label: s.source, icon: '❓', color: '#999' }
                 return (
-                  <div key={s.source} className="flex items-center justify-between text-xs cursor-pointer hover:bg-[#F8F8F8] rounded-lg px-2 py-1.5 -mx-2" onClick={() => setErrorFilter(s.source)}>
+                  <div key={s.source} className="flex items-center justify-between text-xs cursor-pointer hover:bg-muted rounded-lg px-2 py-1.5 -mx-2" onClick={() => setErrorFilter(s.source)}>
                     <div className="flex items-center gap-2">
                       <span>{cfg.icon}</span>
-                      <span className="text-[#555]">{cfg.label}</span>
+                      <span className="text-muted-foreground">{cfg.label}</span>
                     </div>
                     <span className="font-bold" style={{ color: cfg.color }}>{s.count}</span>
                   </div>
                 )
               })}
-              {!(errorSummary?.by_source?.length) && <div className="text-xs text-[#BBB] text-center py-4">Алдаа байхгүй ✅</div>}
+              {!(errorSummary?.by_source?.length) && <div className="text-xs text-muted-foreground/50 text-center py-4">Алдаа байхгүй ✅</div>}
             </div>
           </div>
 
           {/* Queue Monitor */}
-          <div className="bg-white rounded-xl border border-[#E5E7EB] p-5">
-            <h2 className="text-sm font-bold text-[#111] mb-3">📮 Queue (BullMQ)</h2>
+          <div className="rounded-xl border border-border bg-card p-5">
+            <h2 className="text-sm font-bold text-foreground mb-3">📮 Queue (BullMQ)</h2>
             <div className="grid grid-cols-3 gap-2 text-center">
               <div className="bg-amber-50 rounded-lg py-2"><div className="text-lg font-extrabold text-amber-600">0</div><div className="text-[9px] text-amber-500">Хүлээж буй</div></div>
               <div className="bg-blue-50 rounded-lg py-2"><div className="text-lg font-extrabold text-blue-600">0</div><div className="text-[9px] text-blue-500">Ажиллаж буй</div></div>
@@ -342,7 +348,33 @@ export default function AdminDashboard() {
 
   const [dashTab, setDashTab] = useState<'business' | 'system' | 'actions'>('business')
 
-  if (loading) return <div className="p-6"><div className="animate-pulse space-y-4"><div className="h-8 bg-gray-100 rounded w-48" /><div className="grid grid-cols-3 gap-4">{[1,2,3,4,5,6].map(i => <div key={i} className="h-24 bg-gray-100 rounded-xl" />)}</div></div></div>
+  if (loading) return (
+    <div className="p-4 md:p-6 max-w-[1400px] mx-auto">
+      <div className="animate-pulse space-y-5">
+        <div className="flex justify-between items-center">
+          <div><div className="h-7 w-48 bg-muted rounded-lg mb-2" /><div className="h-4 w-64 bg-muted/60 rounded" /></div>
+          <div className="flex gap-2"><div className="h-8 w-20 bg-muted rounded-lg" /><div className="h-8 w-24 bg-muted rounded-lg" /></div>
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
+          {[1,2,3,4,5,6].map(i => (
+            <div key={i} className="rounded-xl border border-border bg-card p-4 space-y-3">
+              <div className="h-9 w-9 bg-muted rounded-lg" />
+              <div className="h-6 w-20 bg-muted rounded" />
+              <div className="h-3 w-16 bg-muted/60 rounded" />
+            </div>
+          ))}
+        </div>
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-5">
+          <div className="xl:col-span-2 rounded-xl border border-border bg-card p-5 h-[220px]" />
+          <div className="rounded-xl border border-border bg-card p-5 h-[220px]" />
+        </div>
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-5">
+          <div className="xl:col-span-2 rounded-xl border border-border bg-card p-5 h-[240px]" />
+          <div className="rounded-xl border border-border bg-card p-5 h-[240px]" />
+        </div>
+      </div>
+    </div>
+  )
 
   const today = new Date().toLocaleDateString('mn-MN', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' })
   const s = summary
@@ -361,12 +393,12 @@ export default function AdminDashboard() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4">
         <div>
-          <h1 className="text-2xl font-extrabold text-[#111] tracking-tight">Control Tower</h1>
-          <p className="text-sm text-[#888] mt-0.5">{user?.email ? `${user.full_name || user.email} — ` : ''}{today}</p>
+          <h1 className="text-2xl font-extrabold text-foreground tracking-tight">Control Tower</h1>
+          <p className="text-sm text-muted-foreground mt-0.5">{user?.email ? `${user.full_name || user.email} — ` : ''}{today}</p>
         </div>
         <div className="flex gap-2">
-          <a href="/admin/reports" className="px-3 py-1.5 text-xs font-semibold bg-white border border-[#E5E7EB] rounded-lg hover:border-[#FF6B00] transition-colors no-underline text-[#555]">📊 Тайлан</a>
-          <a href="/admin/orders" className="px-3 py-1.5 text-xs font-bold bg-[#FF6B00] text-white rounded-lg hover:bg-[#E55D00] transition-colors no-underline">📋 Захиалгууд</a>
+          <a href="/admin/reports" className="px-3 py-1.5 text-xs font-semibold bg-white border border-border rounded-lg hover:border-primary transition-colors no-underline text-muted-foreground">📊 Тайлан</a>
+          <a href="/admin/orders" className="px-3 py-1.5 text-xs font-bold bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors no-underline">📋 Захиалгууд</a>
         </div>
       </div>
 
@@ -386,7 +418,7 @@ export default function AdminDashboard() {
         ].map(t => (
           <button key={t.key} onClick={() => setDashTab(t.key)}
             className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${
-              dashTab === t.key ? 'bg-[#FF6B00] text-white shadow-md shadow-orange-500/20' : 'bg-white text-[#555] border border-[#E5E7EB] hover:border-[#FF6B00]'
+              dashTab === t.key ? 'bg-primary text-white shadow-md shadow-orange-500/20' : 'bg-white text-muted-foreground border border-border hover:border-primary'
             }`}>
             {t.label}
           </button>
@@ -398,28 +430,28 @@ export default function AdminDashboard() {
 
       {/* ═══ KPI CARDS ═══ */}
       <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3 mb-5">
-        <KpiCard icon="💰" label="Нийт орлого" value={fmt(stats.revenue)}
+        <KpiCard icon={Wallet} label="Нийт орлого" value={fmt(stats.revenue)}
           change={s?.previous ? change(s.total_revenue, s.previous.total_revenue) : null}
           sub={`${orders.filter(o => o.status !== 'CANCELLED').length} захиалга`} onClick={() => router.push('/admin/reports')} />
-        <KpiCard icon="📈" label="Цэвэр ашиг" value={s ? fmt(s.total_profit) : '—'} color={s?.total_profit < 0 ? '#EF4444' : '#10B981'}
+        <KpiCard icon={TrendingUp} label="Цэвэр ашиг" value={s ? fmt(s.total_profit) : '—'} color={s?.total_profit < 0 ? '#EF4444' : '#10B981'}
           change={s?.previous ? change(s.total_profit, s.previous.total_profit) : null}
           onClick={() => router.push('/admin/reports')} />
-        <KpiCard icon="⏳" label="Хүлээгдэж буй" value={fmt(stats.pendingValue)} color="#F59E0B"
+        <KpiCard icon={Clock} label="Хүлээгдэж буй" value={fmt(stats.pendingValue)} color="#F59E0B"
           sub={`${stats.pending.length} захиалга`} onClick={() => router.push('/admin/orders')} />
-        <KpiCard icon="🏦" label="Шимтгэл" value={s ? fmt(s.total_commission) : '—'} color="#8B5CF6" />
-        <KpiCard icon="👥" label="Хэрэглэгчид" value={String(users.length)} color="#3B82F6"
+        <KpiCard icon={Landmark} label="Шимтгэл" value={s ? fmt(s.total_commission) : '—'} color="#8B5CF6" />
+        <KpiCard icon={Users} label="Хэрэглэгчид" value={String(users.length)} color="#3B82F6"
           sub={`${stats.roleCount['vendor'] || 0} vendor, ${stats.roleCount['designer'] || 0} designer`} />
-        <KpiCard icon="🎯" label="Хөрвүүлэлт" value={`${stats.convRate}%`} color="#EC4899"
+        <KpiCard icon={Target} label="Хөрвүүлэлт" value={`${stats.convRate}%`} color="#EC4899"
           sub={`${quotes.length} санал → ${orders.length} захиалга`} />
       </div>
 
       {/* ═══ PIPELINE + INSIGHTS ═══ */}
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-5 mb-5">
         {/* Pipeline */}
-        <div className="xl:col-span-2 bg-white rounded-xl border border-[#E5E7EB] p-5">
+        <div className="xl:col-span-2 rounded-xl border border-border bg-card p-5">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-base font-bold text-[#111]">Захиалгын Pipeline</h2>
-            <a href="/admin/orders" className="text-xs text-[#FF6B00] font-semibold no-underline hover:underline">Бүгдийг харах →</a>
+            <h2 className="text-base font-bold text-foreground">Захиалгын Pipeline</h2>
+            <a href="/admin/orders" className="text-xs text-primary font-semibold no-underline hover:underline">Бүгдийг харах →</a>
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
             {[
@@ -433,17 +465,17 @@ export default function AdminDashboard() {
               const maxCount = Math.max(...Object.values(stats.pipeline).map((p: any) => p.count || 0), 1)
               const barWidth = (data.count / maxCount) * 100
               return (
-                <div key={stage.key} className="bg-[#F8F8F8] rounded-xl p-3 hover:shadow-md transition-all cursor-pointer group" onClick={() => router.push('/admin/orders')}>
+                <div key={stage.key} className="bg-muted rounded-xl p-3 hover:shadow-md transition-all cursor-pointer group" onClick={() => router.push('/admin/orders')}>
                   <div className="flex items-center gap-1.5 mb-2">
                     <span className="text-sm">{stage.icon}</span>
-                    <span className="text-[11px] text-[#888] truncate">{stage.label}</span>
+                    <span className="text-[11px] text-muted-foreground truncate">{stage.label}</span>
                   </div>
                   <div className="text-xl font-extrabold mb-2 group-hover:scale-105 transition-transform origin-left" style={{ color: stage.color }}>{data.count}</div>
                   {/* Energy Bar */}
                   <div className="h-1.5 bg-[#E5E7EB] rounded-full overflow-hidden mb-1.5">
                     <div className="h-full rounded-full transition-all duration-700 ease-out" style={{ width: `${barWidth}%`, background: `linear-gradient(90deg, ${stage.color}, ${stage.color}88)`, boxShadow: data.count > 0 ? `0 0 8px ${stage.color}44` : 'none' }} />
                   </div>
-                  <div className="text-[10px] text-[#BBB]">{fmt(data.value)}</div>
+                  <div className="text-[10px] text-muted-foreground/50">{fmt(data.value)}</div>
                 </div>
               )
             })}
@@ -451,13 +483,13 @@ export default function AdminDashboard() {
         </div>
 
         {/* Insights */}
-        <div className="bg-white rounded-xl border border-[#E5E7EB] p-5">
-          <h2 className="text-base font-bold text-[#111] mb-3">🧠 Ухаалаг мэдээлэл</h2>
+        <div className="rounded-xl border border-border bg-card p-5">
+          <h2 className="text-base font-bold text-foreground mb-3">🧠 Ухаалаг мэдээлэл</h2>
           <div className="space-y-2.5">
             {insights.map((ins, i) => {
               const dotColor = ins.includes('🔴') || ins.includes('анхааруулга') ? '#EF4444' : ins.includes('📈') || ins.includes('өслөө') ? '#10B981' : ins.includes('💡') ? '#F59E0B' : '#3B82F6'
               return (
-              <div key={i} className="flex items-start gap-3 text-xs text-[#555] bg-[#F8F8F8] rounded-lg px-3 py-2.5 leading-relaxed hover:bg-[#F0F0F0] transition-colors">
+              <div key={i} className="flex items-start gap-3 text-xs text-muted-foreground bg-muted rounded-lg px-3 py-2.5 leading-relaxed hover:bg-muted transition-colors">
                 <div className="w-2 h-2 rounded-full mt-1 flex-shrink-0" style={{ background: dotColor, boxShadow: `0 0 6px ${dotColor}44` }} />
                 <span>{ins}</span>
               </div>
@@ -473,31 +505,27 @@ export default function AdminDashboard() {
       {/* ═══ CHART + STATUS BREAKDOWN ═══ */}
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-5 mb-5">
         {/* Revenue chart */}
-        <div className="xl:col-span-2 bg-white rounded-xl border border-[#E5E7EB] p-5">
-          <h2 className="text-base font-bold text-[#111] mb-4">Орлогын чиг хандлага (7 хоног)</h2>
-          <div className="flex items-end gap-2 h-[160px]">
-            {stats.dailyRevenue.map((d, i) => {
-              const maxVal = Math.max(...stats.dailyRevenue.map(x => x.value), 1)
-              const h = Math.max((d.value / maxVal) * 140, 4)
-              const isToday = i === stats.dailyRevenue.length - 1
-              return (
-                <div key={i} className="flex-1 flex flex-col items-center gap-1 group relative">
-                  {/* Tooltip */}
-                  <div className="absolute bottom-full mb-1 bg-[#111] text-white text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10">
-                    {fmt(d.value)}
-                  </div>
-                  <div className={`w-full rounded-t-md transition-all ${isToday ? 'bg-[#FF6B00]' : 'bg-[#FF6B00]/30'}`} style={{ height: h }} />
-                  <span className={`text-[9px] ${isToday ? 'text-[#FF6B00] font-bold' : 'text-[#BBB]'}`}>{d.date}</span>
-                </div>
-              )
-            })}
-          </div>
+        <div className="xl:col-span-2 rounded-xl border border-border bg-card p-5">
+          <h2 className="text-base font-bold text-foreground mb-4">Орлогын чиг хандлага (7 хоног)</h2>
+          <ResponsiveContainer width="100%" height={180}>
+            <BarChart data={stats.dailyRevenue} barSize={32}>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+              <XAxis dataKey="date" tick={{ fontSize: 10, fill: 'var(--text3)' }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fontSize: 10, fill: 'var(--text3)' }} axisLine={false} tickLine={false} tickFormatter={(v: number) => v >= 1000 ? `${(v/1000).toFixed(0)}K` : String(v)} width={40} />
+              <RTooltip
+                contentStyle={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, fontSize: 12 }}
+                labelStyle={{ color: 'var(--text2)', fontWeight: 600 }}
+                formatter={(value: any) => [fmt(Number(value)), 'Орлого']}
+              />
+              <Bar dataKey="value" fill="#FF6B00" radius={[6, 6, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
         </div>
 
         {/* Status breakdown */}
-        <div className="bg-white rounded-xl border border-[#E5E7EB] p-5">
-          <h2 className="text-base font-bold text-[#111] mb-3">Захиалгын төлөв</h2>
-          <div className="text-xs text-[#888] mb-3">Нийт {orders.length}</div>
+        <div className="rounded-xl border border-border bg-card p-5">
+          <h2 className="text-base font-bold text-foreground mb-3">Захиалгын төлөв</h2>
+          <div className="text-xs text-muted-foreground mb-3">Нийт {orders.length}</div>
           <div className="space-y-2">
             {Object.entries(stats.statusCounts).sort((a, b) => b[1] - a[1]).slice(0, 7).map(([status, count]) => {
               const cfg = STATUS_MAP[status] || { label: status, color: '#999' }
@@ -506,9 +534,9 @@ export default function AdminDashboard() {
                 <div key={status}>
                   <div className="flex justify-between text-[11px] mb-0.5">
                     <span className="font-medium" style={{ color: cfg.color }}>{cfg.label}</span>
-                    <span className="text-[#888]">{count} ({w}%)</span>
+                    <span className="text-muted-foreground">{count} ({w}%)</span>
                   </div>
-                  <div className="w-full h-1.5 bg-[#F3F4F6] rounded-full overflow-hidden">
+                  <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden">
                     <div className="h-full rounded-full transition-all" style={{ width: `${w}%`, background: cfg.color }} />
                   </div>
                 </div>
@@ -521,15 +549,15 @@ export default function AdminDashboard() {
       {/* ═══ RECENT ORDERS + QUICK ACTIONS ═══ */}
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-5 mb-5">
         {/* Recent orders */}
-        <div className="xl:col-span-2 bg-white rounded-xl border border-[#E5E7EB] overflow-hidden">
-          <div className="px-5 py-4 border-b border-[#E5E7EB] flex justify-between items-center">
-            <h2 className="text-base font-bold text-[#111]">Сүүлийн захиалгууд</h2>
-            <a href="/admin/orders" className="text-xs text-[#FF6B00] font-semibold no-underline">Бүгдийг →</a>
+        <div className="xl:col-span-2 rounded-xl border border-border bg-card overflow-hidden">
+          <div className="px-5 py-4 border-b border-border flex justify-between items-center">
+            <h2 className="text-base font-bold text-foreground">Сүүлийн захиалгууд</h2>
+            <a href="/admin/orders" className="text-xs text-primary font-semibold no-underline">Бүгдийг →</a>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
               <thead>
-                <tr className="text-[10px] text-[#888] uppercase tracking-wider border-b border-[#E5E7EB]">
+                <tr className="text-[10px] text-muted-foreground uppercase tracking-wider border-b border-border">
                   <th className="text-left px-5 py-2.5">ID</th>
                   <th className="text-left px-3 py-2.5">Хэрэглэгч</th>
                   <th className="text-left px-3 py-2.5">Бүтээгдэхүүн</th>
@@ -542,15 +570,15 @@ export default function AdminDashboard() {
                 {orders.slice(0, 8).map((o, i) => {
                   const st = STATUS_MAP[o.status] || { label: o.status, color: '#999' }
                   return (
-                    <tr key={o.id || i} className="border-t border-[#F3F4F6] hover:bg-[#FAFAFA] transition-colors cursor-pointer" onClick={() => router.push('/admin/orders')}>
-                      <td className="px-5 py-2.5 font-mono text-[#999]">#{(o.id || '').slice(-6)}</td>
-                      <td className="px-3 py-2.5 font-medium text-[#111]">{o.customer_name || o.customer_email || 'Зочин'}</td>
-                      <td className="px-3 py-2.5 text-[#555] truncate max-w-[140px]">{o.product_name || '—'}</td>
-                      <td className="px-3 py-2.5 text-right font-bold text-[#FF6B00]">{fmt(Number(o.total_price || 0))}</td>
+                    <tr key={o.id || i} className="border-t border-border/50 hover:bg-muted/50 transition-colors cursor-pointer" onClick={() => router.push('/admin/orders')}>
+                      <td className="px-5 py-2.5 font-mono text-muted-foreground/70">#{(o.id || '').slice(-6)}</td>
+                      <td className="px-3 py-2.5 font-medium text-foreground">{o.customer_name || o.customer_email || 'Зочин'}</td>
+                      <td className="px-3 py-2.5 text-muted-foreground truncate max-w-[140px]">{o.product_name || '—'}</td>
+                      <td className="px-3 py-2.5 text-right font-bold text-primary">{fmt(Number(o.total_price || 0))}</td>
                       <td className="px-3 py-2.5 text-center">
                         <span className="text-[9px] font-bold px-2 py-0.5 rounded-full" style={{ background: st.color + '15', color: st.color }}>{st.label}</span>
                       </td>
-                      <td className="px-5 py-2.5 text-right text-[#999]">{o.created_at ? new Date(o.created_at).toLocaleDateString('mn') : ''}</td>
+                      <td className="px-5 py-2.5 text-right text-muted-foreground/70">{o.created_at ? new Date(o.created_at).toLocaleDateString('mn') : ''}</td>
                     </tr>
                   )
                 })}
@@ -562,8 +590,8 @@ export default function AdminDashboard() {
         {/* Quick Actions + User Breakdown + System */}
         <div className="space-y-5">
           {/* Quick actions */}
-          <div className="bg-white rounded-xl border border-[#E5E7EB] p-5">
-            <h2 className="text-base font-bold text-[#111] mb-3">Шууд үйлдлүүд</h2>
+          <div className="rounded-xl border border-border bg-card p-5">
+            <h2 className="text-base font-bold text-foreground mb-3">Шууд үйлдлүүд</h2>
             <div className="space-y-1.5">
               {[
                 { label: 'Захиалгууд', icon: '📋', href: '/admin/orders' },
@@ -572,16 +600,16 @@ export default function AdminDashboard() {
                 { label: 'Ашгийн тайлан', icon: '📊', href: '/admin/reports' },
                 { label: 'Тохиргоо', icon: '⚙️', href: '/admin/settings' },
               ].map(a => (
-                <a key={a.label} href={a.href} className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm text-[#333] font-medium no-underline hover:bg-[#F8F8F8] transition-colors">
-                  <span>{a.icon}</span> {a.label} <span className="ml-auto text-[#CCC]">→</span>
+                <a key={a.label} href={a.href} className="flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm text-foreground/80 font-medium no-underline hover:bg-muted transition-colors">
+                  <span>{a.icon}</span> {a.label} <span className="ml-auto text-muted-foreground/40">→</span>
                 </a>
               ))}
             </div>
           </div>
 
           {/* User breakdown */}
-          <div className="bg-white rounded-xl border border-[#E5E7EB] p-5">
-            <h2 className="text-sm font-bold text-[#111] mb-3">Хэрэглэгчийн бүтэц</h2>
+          <div className="rounded-xl border border-border bg-card p-5">
+            <h2 className="text-sm font-bold text-foreground mb-3">Хэрэглэгчийн бүтэц</h2>
             <div className="space-y-2">
               {[
                 { role: 'admin', label: 'Админ', color: '#FF6B00' },
@@ -594,7 +622,7 @@ export default function AdminDashboard() {
                 <div key={r.role} className="flex items-center justify-between text-xs">
                   <div className="flex items-center gap-2">
                     <span className="w-2 h-2 rounded-full" style={{ background: r.color }} />
-                    <span className="text-[#555]">{r.label}</span>
+                    <span className="text-muted-foreground">{r.label}</span>
                   </div>
                   <span className="font-bold" style={{ color: r.color }}>{stats.roleCount[r.role] || 0}</span>
                 </div>
@@ -603,15 +631,15 @@ export default function AdminDashboard() {
           </div>
 
           {/* System status mini */}
-          <div className="bg-white rounded-xl border border-[#E5E7EB] p-5">
+          <div className="rounded-xl border border-border bg-card p-5">
             <div className="flex items-center justify-between mb-3">
-              <h2 className="text-sm font-bold text-[#111]">Систем</h2>
-              <button onClick={() => setDashTab('system')} className="text-[10px] text-[#FF6B00] font-semibold hover:underline">Дэлгэрэнгүй →</button>
+              <h2 className="text-sm font-bold text-foreground">Систем</h2>
+              <button onClick={() => setDashTab('system')} className="text-[10px] text-primary font-semibold hover:underline">Дэлгэрэнгүй →</button>
             </div>
             <div className="space-y-2">
               {systemServices.slice(0, 3).map(svc => (
                 <div key={svc.name} className="flex items-center justify-between text-xs">
-                  <span className="text-[#555]">{svc.icon} {svc.name}</span>
+                  <span className="text-muted-foreground">{svc.icon} {svc.name}</span>
                   <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded">online</span>
                 </div>
               ))}
@@ -644,27 +672,27 @@ export default function AdminDashboard() {
               { icon: '👥', label: 'Хэрэглэгчид', desc: 'CRM, хэрэглэгчийн мэдээлэл', href: '/admin/customers', color: '#6366F1' },
               { icon: '💬', label: 'Чат', desc: 'Хэрэглэгчтэй харилцах', href: '/admin/chat', color: '#F97316' },
             ].map(a => (
-              <a key={a.label} href={a.href} className="bg-white rounded-xl border border-[#E5E7EB] p-5 no-underline hover:shadow-md hover:-translate-y-0.5 transition-all group">
+              <a key={a.label} href={a.href} className="rounded-xl border border-border bg-card p-5 no-underline hover:shadow-md hover:-translate-y-0.5 transition-all group">
                 <div className="flex items-center gap-3 mb-2">
                   <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl" style={{ background: a.color + '12' }}>{a.icon}</div>
                   <div>
-                    <div className="text-sm font-bold text-[#111] group-hover:text-[#FF6B00] transition-colors">{a.label}</div>
-                    <div className="text-[11px] text-[#888]">{a.desc}</div>
+                    <div className="text-sm font-bold text-foreground group-hover:text-primary transition-colors">{a.label}</div>
+                    <div className="text-[11px] text-muted-foreground">{a.desc}</div>
                   </div>
-                  <span className="ml-auto text-[#CCC] group-hover:text-[#FF6B00] transition-colors">→</span>
+                  <span className="ml-auto text-muted-foreground/40 group-hover:text-primary transition-colors">→</span>
                 </div>
               </a>
             ))}
           </div>
 
           {/* Debug: Order lookup */}
-          <div className="bg-white rounded-xl border border-[#E5E7EB] p-5">
-            <h2 className="text-base font-bold text-[#111] mb-3">🔍 Захиалга хайх (Debug)</h2>
+          <div className="rounded-xl border border-border bg-card p-5">
+            <h2 className="text-base font-bold text-foreground mb-3">🔍 Захиалга хайх (Debug)</h2>
             <div className="flex gap-2">
-              <input placeholder="Захиалгын ID оруулах..." className="flex-1 px-3 py-2.5 border border-[#E5E7EB] rounded-lg text-sm outline-none focus:border-[#FF6B00] transition-colors font-mono" />
-              <button className="px-4 py-2.5 bg-[#FF6B00] hover:bg-[#E55D00] text-white rounded-lg text-sm font-bold transition-colors">Хайх</button>
+              <input placeholder="Захиалгын ID оруулах..." className="flex-1 px-3 py-2.5 border border-border rounded-lg text-sm outline-none focus:border-primary transition-colors font-mono bg-card text-foreground" />
+              <button className="px-4 py-2.5 bg-primary hover:bg-primary/90 text-white rounded-lg text-sm font-bold transition-colors">Хайх</button>
             </div>
-            <div className="text-xs text-[#999] mt-2">Захиалгын бүрэн event flow, лог, timeline, алдааг харна</div>
+            <div className="text-xs text-muted-foreground/70 mt-2">Захиалгын бүрэн event flow, лог, timeline, алдааг харна</div>
           </div>
         </div>
       )}

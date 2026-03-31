@@ -2,6 +2,7 @@
 
 import { apiFetch } from '@/lib/api'
 import { useEffect, useMemo, useState } from 'react'
+import { AdminPageHeader } from '@/components/admin/AdminPageHeader'
 
 // Types
 interface WithdrawRequest {
@@ -146,7 +147,7 @@ export default function AdminWalletRequestsPage() {
   }
 
   return (
-    <div style={{ padding: '28px 32px', color: 'var(--text)', fontFamily: "'DM Sans', 'Segoe UI', system-ui" }}>
+    <div className="p-4 md:p-6">
 
       {/* Toast */}
       {toast && (
@@ -160,15 +161,8 @@ export default function AdminWalletRequestsPage() {
         </div>
       )}
 
-      {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 28, gap: 16, flexWrap: 'wrap' }}>
-        <div>
-          <h1 style={{ fontSize: 24, fontWeight: 700, margin: 0 }}>Татах хүсэлтүүд</h1>
-          <p style={{ color: 'var(--text2)', fontSize: 14, margin: '4px 0 0' }}>
-            Хэтэвчний татах хүсэлтийг хянах, батлах, татгалзах
-          </p>
-        </div>
-        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+      <AdminPageHeader title="Татах хүсэлтүүд" description="Хэтэвчний татах хүсэлтийг хянах, батлах, татгалзах" />
+      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 28 }}>
           <input
             placeholder="Хэрэглэгч / имэйл / тэмдэглэл..."
             value={search}
@@ -207,7 +201,6 @@ export default function AdminWalletRequestsPage() {
           }}>
             ⭳ CSV Export
           </button>
-        </div>
       </div>
 
       {/* Stat cards */}

@@ -1,6 +1,7 @@
 'use client'
 import { apiFetch } from '@/lib/api'
 import { useState, useEffect, useCallback } from 'react'
+import { AdminPageHeader } from '@/components/admin/AdminPageHeader'
 
 /* ═══════════════════════════════════════
  *  CREATIVE PRODUCTION PIPELINE
@@ -108,20 +109,16 @@ export default function AdminDesignRequestsPage() {
   items.forEach(d => { pipelineCounts[d.status] = (pipelineCounts[d.status] || 0) + 1 })
 
   return (
-    <div style={{ padding: 24, fontFamily: "'DM Sans','Segoe UI',system-ui,sans-serif" }}>
+    <div className="p-4 md:p-6">
       <style>{`
         @keyframes fadeIn{from{opacity:0}to{opacity:1}}
         @keyframes slideIn{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:translateX(0)}}
         .dr-row{transition:background .15s}.dr-row:hover{background:var(--surface2)!important}
       `}</style>
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-        <div>
-          <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>Дизайн хүсэлтүүд</h1>
-          <p style={{ color: 'var(--text2)', fontSize: 13, margin: '4px 0 0' }}>Creative Production Pipeline · {items.length} хүсэлт</p>
-        </div>
+      <AdminPageHeader title="Дизайн хүсэлтүүд" description={`Creative Production Pipeline · ${items.length} хүсэлт`}>
         <button onClick={load} style={{ padding: '8px 16px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)', cursor: 'pointer', fontSize: 13 }}>🔄 Шинэчлэх</button>
-      </div>
+      </AdminPageHeader>
 
       {/* KPI CARDS */}
       {stats && (

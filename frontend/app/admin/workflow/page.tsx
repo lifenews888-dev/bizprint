@@ -2,6 +2,7 @@
 import { apiFetch, API_URL } from '@/lib/api'
 import { useState, useEffect, useRef } from 'react'
 import PdfViewer from '@/components/PdfViewer'
+import { AdminPageHeader } from '@/components/admin/AdminPageHeader'
 
 const STAGES = [
   { key: 'pending', label: 'Хүлээгдэж буй', color: '#F59E0B', icon: '📋', next: 'designing' },
@@ -294,7 +295,7 @@ export default function AdminWorkflowPage() {
   if (loading) return <div style={{ padding: 60, textAlign: 'center', color: 'var(--text2)' }}>Ачааллж байна...</div>
 
   return (
-    <div style={{ padding: '16px 20px', fontFamily: "'DM Sans','Segoe UI',system-ui,sans-serif", height: 'calc(100vh - 64px)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+    <div className="p-4 md:p-6" style={{ height: 'calc(100vh - 64px)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       {toast && <div style={{ position: 'fixed', top: 16, left: '50%', transform: 'translateX(-50%)', background: '#1e293b', color: '#e2e8f0', padding: '10px 24px', borderRadius: 10, fontSize: 13, fontWeight: 600, boxShadow: '0 8px 32px rgba(0,0,0,0.3)', zIndex: 9999, animation: 'toastIn 0.3s ease' }}>{toast}</div>}
       <style>{`
         @keyframes toastIn{from{opacity:0;transform:translateX(-50%) translateY(-12px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
@@ -309,21 +310,14 @@ export default function AdminWorkflowPage() {
         .revert-btn{transition:all .12s;cursor:pointer}.revert-btn:hover{filter:brightness(1.1);transform:scale(1.02)}.revert-btn:active{transform:scale(.98)}
       `}</style>
 
-      {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, flexWrap: 'wrap', gap: 8, flexShrink: 0 }}>
-        <div>
-          <h1 style={{ fontSize: 20, fontWeight: 700, margin: 0 }}>Production Workflow</h1>
-          <p style={{ color: 'var(--text2)', fontSize: 12, margin: '2px 0 0' }}>Захиалга → Дизайн → Prepress → Хэвлэл → QC → Хүргэлт → Дууссан</p>
-        </div>
-        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-          <button onClick={() => setIsLive(!isLive)} style={{ padding: '5px 12px', borderRadius: 6, border: '1px solid var(--border)', fontSize: 11, cursor: 'pointer', background: isLive ? '#dcfce7' : 'var(--surface2)', color: isLive ? '#16a34a' : 'var(--text3)' }}>{isLive ? '● Live' : '○ Live'}</button>
-          {(['pipeline', 'table', 'delivery'] as const).map(v => (
-            <button key={v} onClick={() => { setView(v); setFilter('') }} style={{ padding: '6px 14px', borderRadius: 8, border: view === v ? 'none' : '1px solid var(--border)', fontSize: 12, fontWeight: 500, cursor: 'pointer', background: view === v ? '#FF6B00' : 'var(--surface)', color: view === v ? '#fff' : 'var(--text2)' }}>
-              {v === 'pipeline' ? 'Pipeline' : v === 'table' ? 'Хүснэгт' : `Хүргэлт (${deliveries.length})`}
-            </button>
-          ))}
-        </div>
-      </div>
+      <AdminPageHeader title="Production Workflow" description="Захиалга → Дизайн → Prepress → Хэвлэл → QC → Хүргэлт → Дууссан">
+        <button onClick={() => setIsLive(!isLive)} style={{ padding: '5px 12px', borderRadius: 6, border: '1px solid var(--border)', fontSize: 11, cursor: 'pointer', background: isLive ? '#dcfce7' : 'var(--surface2)', color: isLive ? '#16a34a' : 'var(--text3)' }}>{isLive ? '● Live' : '○ Live'}</button>
+        {(['pipeline', 'table', 'delivery'] as const).map(v => (
+          <button key={v} onClick={() => { setView(v); setFilter('') }} style={{ padding: '6px 14px', borderRadius: 8, border: view === v ? 'none' : '1px solid var(--border)', fontSize: 12, fontWeight: 500, cursor: 'pointer', background: view === v ? '#FF6B00' : 'var(--surface)', color: view === v ? '#fff' : 'var(--text2)' }}>
+            {v === 'pipeline' ? 'Pipeline' : v === 'table' ? 'Хүснэгт' : `Хүргэлт (${deliveries.length})`}
+          </button>
+        ))}
+      </AdminPageHeader>
 
       {/* KPI */}
       <div style={{ display: 'flex', gap: 6, marginBottom: 12, flexWrap: 'wrap', flexShrink: 0 }}>

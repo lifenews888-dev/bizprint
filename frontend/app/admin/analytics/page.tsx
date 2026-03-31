@@ -1,9 +1,8 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { apiFetch } from '@/lib/api'
-
-const FONT = "'DM Sans','Segoe UI',system-ui,sans-serif"
-const ORANGE = '#FF6B00'
+import { AdminPageHeader } from '@/components/admin/AdminPageHeader'
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts'
 
 const ENTITY_LABELS: Record<string, string> = {
   digital_card: 'Дижитал карт', invitation: 'Урилга', product_qr: 'Бүтээгдэхүүн QR', quote: 'Үнийн санал',
@@ -19,74 +18,77 @@ export default function AdminAnalytics() {
     apiFetch(`/analytics/platform?days=${days}`).then(setStats).catch(() => {}).finally(() => setLoading(false))
   }, [days])
 
-  if (loading) return <div style={{ padding: 40, textAlign: 'center', fontFamily: FONT, color: '#9CA3AF' }}>Ачааллаж байна...</div>
+  if (loading) return (
+    <div className="p-4 md:p-6">
+      <div className="animate-pulse space-y-4">
+        <div className="h-7 w-48 bg-muted rounded-lg" />
+        <div className="grid grid-cols-4 gap-3">{[1,2,3,4].map(i => <div key={i} className="h-24 bg-muted rounded-xl" />)}</div>
+        <div className="h-[200px] bg-muted/40 rounded-xl" />
+      </div>
+    </div>
+  )
 
-  const maxDaily = Math.max(1, ...(stats?.dailyTotals?.map((d: any) => Number(d.count)) || [1]))
+  const chartData = (stats?.dailyTotals || []).map((d: any) => ({ date: d.date?.slice(5), count: Number(d.count) }))
 
   return (
-    <div style={{ padding: 24, fontFamily: FONT }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-        <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>Платформ аналитик</h1>
-        <select value={days} onChange={e => setDays(Number(e.target.value))} style={{ padding: '8px 16px', borderRadius: 10, border: '1px solid var(--border, #E5E7EB)', fontSize: 14, background: 'var(--bg, #fff)', color: 'var(--text, #000)' }}>
+    <div className="p-4 md:p-6">
+      <AdminPageHeader title="Платформ аналитик">
+        <select value={days} onChange={e => setDays(Number(e.target.value))} className="rounded-lg border border-border bg-background px-3 py-2 text-sm">
           <option value={7}>7 хоног</option>
           <option value={30}>30 хоног</option>
           <option value={90}>90 хоног</option>
         </select>
-      </div>
+      </AdminPageHeader>
 
-      {/* Overview by entity type */}
+      {/* Overview */}
       {stats?.overview && (
-        <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.min(stats.overview.length || 1, 4)}, 1fr)`, gap: 12, marginBottom: 24 }}>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
           {stats.overview.map((o: any) => (
-            <div key={o.entity_type} style={{ background: 'var(--surface, #fff)', borderRadius: 14, padding: 20, border: '1px solid var(--border, #E5E7EB)', textAlign: 'center' }}>
-              <div style={{ fontSize: 28, fontWeight: 700, color: ORANGE }}>{Number(o.total_events).toLocaleString()}</div>
-              <div style={{ fontSize: 13, color: '#6B7280', marginTop: 4 }}>{ENTITY_LABELS[o.entity_type] || o.entity_type}</div>
-              <div style={{ fontSize: 12, color: '#9CA3AF', marginTop: 2 }}>{o.unique_entities} entities</div>
+            <div key={o.entity_type} className="rounded-xl border border-border bg-card p-5 text-center">
+              <div className="text-2xl font-bold text-primary">{Number(o.total_events).toLocaleString()}</div>
+              <div className="text-sm text-muted-foreground mt-1">{ENTITY_LABELS[o.entity_type] || o.entity_type}</div>
+              <div className="text-xs text-muted-foreground/60 mt-0.5">{o.unique_entities} entities</div>
             </div>
           ))}
         </div>
       )}
 
       {/* Daily chart */}
-      {stats?.dailyTotals?.length > 0 && (
-        <div style={{ background: 'var(--surface, #fff)', borderRadius: 16, padding: 24, border: '1px solid var(--border, #E5E7EB)', marginBottom: 24 }}>
-          <h3 style={{ fontSize: 16, fontWeight: 600, margin: '0 0 16px' }}>Өдрийн идэвхжил</h3>
-          <div style={{ display: 'flex', alignItems: 'flex-end', gap: 2, height: 150 }}>
-            {stats.dailyTotals.map((d: any, i: number) => (
-              <div key={i} title={`${d.date}: ${d.count}`} style={{
-                flex: 1, background: ORANGE, borderRadius: '4px 4px 0 0', minHeight: 4, opacity: 0.8,
-                height: `${(Number(d.count) / maxDaily) * 100}%`,
-              }} />
-            ))}
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8, fontSize: 11, color: '#9CA3AF' }}>
-            <span>{stats.dailyTotals[0]?.date}</span>
-            <span>{stats.dailyTotals[stats.dailyTotals.length - 1]?.date}</span>
-          </div>
+      {chartData.length > 0 && (
+        <div className="rounded-xl border border-border bg-card p-5 mb-6">
+          <h3 className="text-base font-semibold text-foreground mb-4">Өдрийн идэвхжил</h3>
+          <ResponsiveContainer width="100%" height={180}>
+            <BarChart data={chartData} barSize={Math.max(4, Math.min(20, 600 / chartData.length))}>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+              <XAxis dataKey="date" tick={{ fontSize: 10, fill: 'var(--text3)' }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fontSize: 10, fill: 'var(--text3)' }} axisLine={false} tickLine={false} width={35} />
+              <Tooltip contentStyle={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, fontSize: 12 }} />
+              <Bar dataKey="count" fill="#FF6B00" radius={[4, 4, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
         </div>
       )}
 
-      {/* Device breakdown + Top entities */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+      {/* Device + Top entities */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {stats?.deviceBreakdown?.length > 0 && (
-          <div style={{ background: 'var(--surface, #fff)', borderRadius: 16, padding: 20, border: '1px solid var(--border, #E5E7EB)' }}>
-            <h3 style={{ fontSize: 15, fontWeight: 600, margin: '0 0 12px' }}>Төхөөрөмж</h3>
+          <div className="rounded-xl border border-border bg-card p-5">
+            <h3 className="text-sm font-semibold text-foreground mb-3">Төхөөрөмж</h3>
             {stats.deviceBreakdown.map((d: any) => (
-              <div key={d.device} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid var(--border, #F3F4F6)', fontSize: 14 }}>
-                <span style={{ color: '#6B7280' }}>{d.device || 'unknown'}</span>
-                <span style={{ fontWeight: 600, color: 'var(--text, #111)' }}>{d.count}</span>
+              <div key={d.device} className="flex justify-between py-2 border-b border-border/50 text-sm">
+                <span className="text-muted-foreground">{d.device || 'unknown'}</span>
+                <span className="font-semibold text-foreground">{d.count}</span>
               </div>
             ))}
           </div>
         )}
-
         {stats?.topEntities?.length > 0 && (
-          <div style={{ background: 'var(--surface, #fff)', borderRadius: 16, padding: 20, border: '1px solid var(--border, #E5E7EB)' }}>
-            <h3 style={{ fontSize: 15, fontWeight: 600, margin: '0 0 12px' }}>Топ entities</h3>
+          <div className="rounded-xl border border-border bg-card p-5">
+            <h3 className="text-sm font-semibold text-foreground mb-3">Топ entities</h3>
             {stats.topEntities.slice(0, 10).map((e: any, i: number) => (
-              <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid var(--border, #F3F4F6)', fontSize: 13 }}>
-                <span style={{ color: '#6B7280' }}>{ENTITY_LABELS[e.entity_type] || e.entity_type} #{e.entity_id?.slice(0, 8)}</span>
-                <span style={{ fontWeight: 600, color: 'var(--text, #111)' }}>{e.count}</span>
+              <div key={i} className="flex justify-between py-1.5 border-b border-border/50 text-sm">
+                <span className="text-muted-foreground">{ENTITY_LABELS[e.entity_type] || e.entity_type} #{e.entity_id?.slice(0, 8)}</span>
+                <span className="font-semibold text-foreground">{e.count}</span>
               </div>
             ))}
           </div>
@@ -94,10 +96,10 @@ export default function AdminAnalytics() {
       </div>
 
       {!stats?.overview?.length && (
-        <div style={{ background: 'var(--surface, #fff)', borderRadius: 16, padding: 48, textAlign: 'center', border: '1px solid var(--border, #E5E7EB)' }}>
-          <div style={{ fontSize: 48, marginBottom: 16 }}>&#x1F4CA;</div>
-          <div style={{ fontSize: 18, fontWeight: 600, color: 'var(--text, #374151)' }}>Аналитик мэдээлэл байхгүй</div>
-          <p style={{ color: '#9CA3AF', fontSize: 14, marginTop: 8 }}>QR скан, хуудас үзэлтүүд энд харагдана</p>
+        <div className="rounded-xl border border-border bg-card p-12 text-center">
+          <div className="text-5xl mb-4">📊</div>
+          <div className="text-lg font-semibold text-foreground">Аналитик мэдээлэл байхгүй</div>
+          <p className="text-muted-foreground text-sm mt-2">QR скан, хуудас үзэлтүүд энд харагдана</p>
         </div>
       )}
     </div>

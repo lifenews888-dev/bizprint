@@ -2,6 +2,7 @@
 import { apiFetch, getToken } from '@/lib/api'
 import React, { useState, useEffect, useCallback } from 'react'
 import ProductMediaUploader from '@/components/ProductMediaUploader'
+import { AdminPageHeader } from '@/components/admin/AdminPageHeader'
 
 const PRINT_CATEGORIES = [
   { value: 'HADAG_REKLAM', label: 'Хаяг реклам' },
@@ -417,11 +418,30 @@ function PrintProductsTab() {
 }
 
 // ─── SHOP PRODUCTS TAB ────────────────────────────────────────────────────────
+const SKU_PREFIXES: Record<string, string> = {
+  'offset': 'OF', 'digital': 'DG', 'stickers': 'ST', 'banners': 'BN',
+  'business-cards': 'BC', 'packaging': 'PK', 'book': 'BK', 'promo': 'PM',
+  'wide_format': 'WF', 'shop': 'SH',
+}
+
 const emptyShop = {
   name_mn: '', name_en: '', category: '', description: '',
-  base_price: 0, sale_price: '', stock_quantity: '', sku: '', thumbnail_url: '',
+  base_price: 0, sale_price: '', discount_pct: '', stock_quantity: '', sku: '', thumbnail_url: '',
   images: [] as string[], video_url: '',
+  is_featured: false, is_new: false, is_bestseller: false, is_out_of_stock: false,
+  is_flash_deal: false, flash_deal_end: '',
+  badge: '' as string,
+  compare_specs: '' as string,
 }
+
+const BADGE_OPTIONS = [
+  { value: '', label: 'Байхгүй' },
+  { value: 'NEW', label: '🆕 Шинэ', color: '#10B981' },
+  { value: 'HOT', label: '🔥 Хит', color: '#EF4444' },
+  { value: 'SALE', label: '🏷️ Хямдрал', color: '#F59E0B' },
+  { value: 'FEATURED', label: '⭐ Онцлох', color: '#8B5CF6' },
+  { value: 'LIMITED', label: '⏰ Хязгаартай', color: '#3B82F6' },
+]
 
 function ShopProductsTab() {
   const [items, setItems] = useState<any[]>([])
@@ -432,41 +452,85 @@ function ShopProductsTab() {
   const [form, setForm] = useState({ ...emptyShop })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [categories, setCategories] = useState<any[]>([])
+  const [validation, setValidation] = useState<Record<string, boolean>>({})
 
   const load = useCallback(async () => {
     setLoading(true)
     try {
       const data = await apiFetch<any>('/admin/shop-products?product_type=ready')
-      setItems(data.items || [])
-      setTotal(data.total || 0)
+      setItems(data.items || data || [])
+      setTotal(data.total || (data.items || data || []).length)
     } catch (e: any) {
       setItems([]); setError('Алдаа: ' + (e.message || ''))
     } finally { setLoading(false) }
   }, [])
 
-  useEffect(() => { load() }, [load])
+  useEffect(() => {
+    load()
+    apiFetch<any>('/categories', { auth: false }).then(d => { if (Array.isArray(d)) setCategories(d.filter((c: any) => c.is_active)) }).catch(() => {})
+  }, [load])
+
+  // Auto-generate SKU when category changes
+  const generateSku = (cat: string) => {
+    const prefix = SKU_PREFIXES[cat] || cat.slice(0, 2).toUpperCase()
+    const existing = items.filter(i => i.category === cat)
+    const nextNum = String(existing.length + 1).padStart(3, '0')
+    return `${prefix}-${nextNum}`
+  }
+
+  // Smart discount: percentage ↔ price sync
+  const setDiscountByPrice = (salePrice: string) => {
+    const sp = Number(salePrice)
+    const bp = Number(form.base_price)
+    const pct = bp > 0 && sp > 0 && sp < bp ? Math.round((1 - sp / bp) * 100) : ''
+    setForm(f => ({ ...f, sale_price: salePrice, discount_pct: String(pct) }))
+  }
+
+  const setDiscountByPct = (pct: string) => {
+    const p = Number(pct)
+    const bp = Number(form.base_price)
+    const sp = bp > 0 && p > 0 && p < 100 ? Math.round(bp * (1 - p / 100)) : ''
+    setForm(f => ({ ...f, discount_pct: pct, sale_price: String(sp) }))
+  }
 
   const openCreate = () => {
-    setEditing(null); setForm({ ...emptyShop }); setError(''); setModalOpen(true)
+    setEditing(null); setForm({ ...emptyShop }); setError(''); setValidation({}); setModalOpen(true)
   }
   const openEdit = (item: any) => {
     setEditing(item)
+    const bp = Number(item.base_price || 0)
+    const sp = Number(item.sale_price || 0)
+    const pct = bp > 0 && sp > 0 && sp < bp ? Math.round((1 - sp / bp) * 100) : ''
     setForm({ name_mn: item.name_mn || item.name || '', name_en: item.name || '', category: item.category || '',
       description: item.description || '', base_price: item.base_price || 0,
-      sale_price: item.sale_price || '', stock_quantity: item.stock_quantity || '',
-      sku: item.sku || '', thumbnail_url: item.thumbnail_url || '',
-      images: item.images || [], video_url: item.video_url || '' })
-    setError(''); setModalOpen(true)
+      sale_price: item.sale_price || '', discount_pct: String(pct),
+      stock_quantity: item.stock_quantity || '', sku: item.sku || '', thumbnail_url: item.thumbnail_url || '',
+      images: item.images || [], video_url: item.video_url || '',
+      is_featured: item.is_featured || false, is_new: item.is_new || false,
+      is_bestseller: item.is_bestseller || false, is_out_of_stock: item.is_out_of_stock || false,
+      is_flash_deal: item.is_flash_deal || false,
+      flash_deal_end: item.flash_deal_end ? new Date(item.flash_deal_end).toISOString().slice(0, 16) : '',
+      badge: item.badge || '', compare_specs: item.compare_specs ? JSON.stringify(item.compare_specs, null, 2) : '' })
+    setError(''); setValidation({}); setModalOpen(true)
   }
-  const closeModal = () => { setModalOpen(false); setEditing(null); setError('') }
+  const closeModal = () => { setModalOpen(false); setEditing(null); setError(''); setValidation({}) }
 
   const save = async () => {
-    if (!form.name_mn.trim()) { setError('Нэр оруулна уу'); return }
-    if (!form.base_price) { setError('Үнэ оруулна уу'); return }
+    const v: Record<string, boolean> = {}
+    if (!form.name_mn.trim()) v.name_mn = true
+    if (!form.base_price || Number(form.base_price) <= 0) v.base_price = true
+    if (!form.category) v.category = true
+    if (form.sale_price && Number(form.sale_price) >= Number(form.base_price)) v.sale_price = true
+    setValidation(v)
+    if (Object.keys(v).length) { setError('Заавал бөглөх талбаруудыг бөглөнө үү'); return }
+
     setSaving(true); setError('')
     try {
+      let specs = null
+      try { if (form.compare_specs) specs = JSON.parse(form.compare_specs) } catch {}
       const payload = {
-        name: form.name_mn, name_mn: form.name_mn, category: form.category || 'shop',
+        name: form.name_mn, name_mn: form.name_mn, category: form.category,
         description: form.description, base_price: Number(form.base_price),
         sale_price: form.sale_price ? Number(form.sale_price) : null,
         stock_quantity: form.stock_quantity ? Number(form.stock_quantity) : null,
@@ -474,6 +538,11 @@ function ShopProductsTab() {
         thumbnail_url: form.images[0] || form.thumbnail_url || null,
         images: form.images, video_url: form.video_url || null,
         product_type: 'ready',
+        is_featured: form.is_featured, is_new: form.is_new,
+        is_bestseller: form.is_bestseller, is_out_of_stock: form.is_out_of_stock,
+        is_flash_deal: form.is_flash_deal,
+        flash_deal_end: form.flash_deal_end ? new Date(form.flash_deal_end).toISOString() : null,
+        badge: form.badge || null, compare_specs: specs,
       }
       if (editing?.id) {
         await apiFetch<any>(`/admin/shop-products/${editing.id}`, { method: 'PATCH', body: payload })
@@ -487,14 +556,14 @@ function ShopProductsTab() {
 
   const deleteItem = async (id: string) => {
     if (!confirm('Устгах уу?')) return
-    await apiFetch<any>(`/admin/shop-products/${id}`, { method: 'DELETE' })
-    await load()
+    await apiFetch<any>(`/admin/shop-products/${id}`, { method: 'DELETE' }); await load()
   }
 
   const toggleActive = async (item: any) => {
-    await apiFetch<any>(`/admin/shop-products/${item.id}`, { method: 'PATCH', body: { is_active: !item.is_active } })
-    await load()
+    await apiFetch<any>(`/admin/shop-products/${item.id}`, { method: 'PATCH', body: { is_active: !item.is_active } }); await load()
   }
+
+  const vBorder = (field: string) => validation[field] ? { ...inp, borderColor: '#EF4444', background: 'rgba(239,68,68,0.03)' } : inp
 
   return (
     <div>
@@ -502,89 +571,199 @@ function ShopProductsTab() {
         <p style={{ color: 'var(--text2)', fontSize: 13, margin: 0 }}>Тогтмол үнэтэй дэлгүүрийн бүтээгдэхүүн — нийт {total}</p>
         <button onClick={openCreate} style={btnPrimary}>+ Нэмэх</button>
       </div>
-      {error && <div style={{ background: 'rgba(239,68,68,0.1)', color: '#EF4444', padding: '10px 14px', borderRadius: 8, marginBottom: 12, fontSize: 13 }}>{error}</div>}
+      {error && !modalOpen && <div style={{ background: 'rgba(239,68,68,0.1)', color: '#EF4444', padding: '10px 14px', borderRadius: 8, marginBottom: 12, fontSize: 13 }}>{error}</div>}
       {loading ? (
-        <div style={{ textAlign: 'center', padding: 60, color: 'var(--text2)' }}>Уншиж байна...</div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 14 }}>
+          {[1,2,3,4,5,6].map(i => <div key={i} style={{ height: 160, background: 'var(--surface2)', borderRadius: 12 }} className="animate-pulse" />)}
+        </div>
       ) : items.length === 0 ? (
         <div style={{ textAlign: 'center', padding: 60, color: 'var(--text3)', fontSize: 14 }}>
-          <div style={{ fontSize: 32, marginBottom: 12 }}>🛍️</div>
-          Дэлгүүрийн бүтээгдэхүүн олдсонгүй
-          <br /><br />
+          <div style={{ fontSize: 32, marginBottom: 12 }}>🛍️</div>Бүтээгдэхүүн олдсонгүй<br /><br />
           <button onClick={openCreate} style={btnPrimary}>+ Эхний бүтээгдэхүүн нэмэх</button>
         </div>
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 14 }}>
-          {items.map(item => (
-            <div key={item.id} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: 16, display: 'flex', flexDirection: 'column', gap: 8, opacity: item.is_active === false ? 0.55 : 1 }}>
-              <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
-                {item.thumbnail_url ? <img src={item.thumbnail_url} alt="" style={{ width: 52, height: 52, objectFit: 'cover', borderRadius: 8, flexShrink: 0 }} /> : <div style={{ width: 52, height: 52, borderRadius: 8, background: 'var(--surface2)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>🏷️</div>}
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)', marginBottom: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.name_mn || item.name || '—'}</div>
-                  {item.sku && <div style={{ fontSize: 11, color: 'var(--text3)', fontFamily: 'monospace' }}>SKU: {item.sku}</div>}
-                  <div style={{ fontSize: 13, fontWeight: 700, color: '#FF6B00', marginTop: 2 }}>
-                    {item.sale_price ? (
-                      <><span>₮{Number(item.sale_price).toLocaleString()}</span><span style={{ textDecoration: 'line-through', color: 'var(--text3)', marginLeft: 6, fontSize: 11 }}>₮{Number(item.base_price).toLocaleString()}</span></>
-                    ) : (
-                      <span>₮{Number(item.base_price).toLocaleString()}</span>
-                    )}
+          {items.map(item => {
+            const sp = Number(item.sale_price || 0)
+            const bp = Number(item.base_price || 0)
+            const disc = bp > 0 && sp > 0 && sp < bp ? Math.round((1 - sp / bp) * 100) : 0
+            return (
+              <div key={item.id} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden', opacity: item.is_active === false ? 0.55 : 1 }}>
+                {/* Thumbnail */}
+                <div style={{ height: 140, background: 'var(--surface2)', position: 'relative', overflow: 'hidden' }}>
+                  {item.thumbnail_url ? <img src={item.thumbnail_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> :
+                    <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 36 }}>🏷️</div>}
+                  <div style={{ position: 'absolute', top: 8, left: 8, display: 'flex', flexDirection: 'column', gap: 3 }}>
+                    {disc > 0 && <span style={{ background: '#EF4444', color: '#fff', fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 6 }}>-{disc}%</span>}
+                    {item.badge && <span style={{ background: BADGE_OPTIONS.find(b => b.value === item.badge)?.color || '#888', color: '#fff', fontSize: 9, fontWeight: 700, padding: '2px 6px', borderRadius: 6 }}>{BADGE_OPTIONS.find(b => b.value === item.badge)?.label?.replace(/^.\s/, '') || item.badge}</span>}
+                    {item.is_featured && !item.badge && <span style={{ background: '#8B5CF6', color: '#fff', fontSize: 9, fontWeight: 700, padding: '2px 6px', borderRadius: 6 }}>Онцлох</span>}
+                    {item.is_flash_deal && <span style={{ background: '#8B5CF6', color: '#fff', fontSize: 9, fontWeight: 700, padding: '2px 6px', borderRadius: 6 }}>⚡ Flash</span>}
+                    {item.is_out_of_stock && <span style={{ background: '#6B7280', color: '#fff', fontSize: 9, fontWeight: 700, padding: '2px 6px', borderRadius: 6 }}>Дууссан</span>}
+                  </div>
+                  {item.sku && <span style={{ position: 'absolute', top: 8, right: 8, background: 'rgba(0,0,0,0.5)', color: '#fff', fontSize: 9, fontWeight: 600, padding: '2px 6px', borderRadius: 4, fontFamily: 'monospace' }}>{item.sku}</span>}
+                </div>
+                <div style={{ padding: '10px 14px' }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', marginBottom: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.name_mn || item.name || '—'}</div>
+                  <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 4 }}>{categories.find(c => c.slug === item.category)?.name_mn || item.category}</div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: '#FF6B00' }}>
+                    {item.sale_price ? <><span>₮{sp.toLocaleString()}</span><span style={{ textDecoration: 'line-through', color: 'var(--text3)', marginLeft: 6, fontSize: 11 }}>₮{bp.toLocaleString()}</span></> : <span>₮{bp.toLocaleString()}</span>}
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 }}>
+                    <button onClick={() => toggleActive(item)} style={{ fontSize: 10, padding: '2px 8px', borderRadius: 99, border: 'none', cursor: 'pointer', fontWeight: 600, fontFamily: FONT, background: item.is_active !== false ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)', color: item.is_active !== false ? '#10B981' : '#EF4444' }}>
+                      {item.is_active !== false ? 'Идэвхтэй' : 'Идэвхгүй'}
+                    </button>
+                    <div style={{ display: 'flex', gap: 4 }}>
+                      <button onClick={() => openEdit(item)} style={{ padding: '3px 8px', background: 'rgba(59,130,246,0.1)', color: '#3B82F6', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 11, fontFamily: FONT }}>Засах</button>
+                      <button onClick={() => deleteItem(item.id)} style={{ padding: '3px 8px', background: 'rgba(239,68,68,0.1)', color: '#EF4444', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 11, fontFamily: FONT }}>Устгах</button>
+                    </div>
                   </div>
                 </div>
               </div>
-              {item.stock_quantity != null && <div style={{ fontSize: 12, color: 'var(--text2)' }}>Үлдэгдэл: <strong>{item.stock_quantity}</strong></div>}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 }}>
-                <button onClick={() => toggleActive(item)} style={{ fontSize: 11, padding: '3px 10px', borderRadius: 99, border: 'none', cursor: 'pointer', fontWeight: 600, fontFamily: FONT, background: item.is_active !== false ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)', color: item.is_active !== false ? '#10B981' : '#EF4444' }}>
-                  {item.is_active !== false ? '● Идэвхтэй' : '● Идэвхгүй'}
-                </button>
-                <div style={{ display: 'flex', gap: 6 }}>
-                  <button onClick={() => openEdit(item)} style={{ padding: '4px 10px', background: 'rgba(59,130,246,0.1)', color: '#3B82F6', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 12, fontFamily: FONT }}>Засах</button>
-                  <button onClick={() => deleteItem(item.id)} style={{ padding: '4px 10px', background: 'rgba(239,68,68,0.1)', color: '#EF4444', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 12, fontFamily: FONT }}>Устгах</button>
-                </div>
-              </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       )}
 
+      {/* ═══ PRODUCT MODAL ═══ */}
       {modalOpen && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 20 }}
           onClick={e => { if (e.target === e.currentTarget) closeModal() }}>
-          <div style={{ background: 'var(--surface)', borderRadius: 16, width: '100%', maxWidth: 520, maxHeight: '90vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', border: '1px solid var(--border)' }}>
-            <div style={{ padding: '18px 24px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h2 style={{ fontSize: 17, fontWeight: 700, margin: 0, color: 'var(--text)' }}>{editing?.id ? 'Бүтээгдэхүүн засах' : 'Дэлгүүрийн бүтээгдэхүүн нэмэх'}</h2>
+          <div style={{ background: 'var(--surface)', borderRadius: 16, width: '100%', maxWidth: 560, maxHeight: '90vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', border: '1px solid var(--border)' }}>
+            {/* Header */}
+            <div style={{ padding: '18px 24px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
+              <h2 style={{ fontSize: 17, fontWeight: 700, margin: 0, color: 'var(--text)' }}>{editing?.id ? 'Бүтээгдэхүүн засах' : 'Шинэ бүтээгдэхүүн'}</h2>
               <button onClick={closeModal} style={{ background: 'none', border: 'none', fontSize: 20, color: 'var(--text3)', cursor: 'pointer' }}>✕</button>
             </div>
             {error && <div style={{ margin: '12px 24px 0', background: 'rgba(239,68,68,0.1)', color: '#EF4444', padding: '8px 12px', borderRadius: 8, fontSize: 13 }}>{error}</div>}
-            <div style={{ padding: 24, overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: 14 }}>
+
+            {/* Scrollable form */}
+            <div style={{ padding: 24, overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: 16 }}>
+              {/* Name */}
               <div>
                 <label style={labelStyle}>Нэр *</label>
-                <input value={form.name_mn} onChange={e => setForm({ ...form, name_mn: e.target.value })} style={inp} placeholder="Бүтээгдэхүүний нэр" />
+                <input value={form.name_mn} onChange={e => setForm({ ...form, name_mn: e.target.value })} style={vBorder('name_mn')} placeholder="Бүтээгдэхүүний нэр" />
               </div>
+
+              {/* Category (dropdown from DB) */}
+              <div>
+                <label style={labelStyle}>Ангилал *</label>
+                <select value={form.category} onChange={e => {
+                  const cat = e.target.value
+                  const sku = !editing && cat ? generateSku(cat) : form.sku
+                  setForm({ ...form, category: cat, sku })
+                }} style={vBorder('category')}>
+                  <option value="">— Ангилал сонгох —</option>
+                  {categories.map(c => <option key={c.id} value={c.slug}>{c.icon} {c.name_mn || c.name}</option>)}
+                </select>
+              </div>
+
+              {/* Price + Discount */}
+              <div>
+                <label style={labelStyle}>Үнэ</label>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 80px', gap: 10 }}>
+                  <div>
+                    <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 4 }}>Суурь үнэ (₮) *</div>
+                    <input type="number" value={form.base_price} onChange={e => {
+                      const bp = Number(e.target.value)
+                      setForm(f => ({ ...f, base_price: bp }))
+                      // Recalc sale price if pct exists
+                      if (form.discount_pct) {
+                        const sp = Math.round(bp * (1 - Number(form.discount_pct) / 100))
+                        setForm(f => ({ ...f, base_price: bp, sale_price: String(sp > 0 ? sp : '') }))
+                      }
+                    }} style={vBorder('base_price')} placeholder="0" />
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 4 }}>Хямдрал үнэ (₮)</div>
+                    <input type="number" value={form.sale_price} onChange={e => setDiscountByPrice(e.target.value)}
+                      style={validation.sale_price ? { ...inp, borderColor: '#EF4444' } : inp} placeholder="Заавал биш" />
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 4 }}>Хувь %</div>
+                    <input type="number" value={form.discount_pct} onChange={e => setDiscountByPct(e.target.value)}
+                      style={{ ...inp, textAlign: 'center' as const }} placeholder="%" min={0} max={99} />
+                  </div>
+                </div>
+                {form.sale_price && Number(form.sale_price) > 0 && Number(form.sale_price) < Number(form.base_price) && (
+                  <div style={{ fontSize: 11, color: '#10B981', marginTop: 4, fontWeight: 600 }}>
+                    ✓ Хэмнэлт: ₮{(Number(form.base_price) - Number(form.sale_price)).toLocaleString()} ({form.discount_pct}%)
+                  </div>
+                )}
+                {validation.sale_price && <div style={{ fontSize: 11, color: '#EF4444', marginTop: 4 }}>Хямдрал үнэ суурь үнээс бага байх ёстой</div>}
+              </div>
+
+              {/* Stock + SKU */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                 <div>
-                  <label style={labelStyle}>Суурь үнэ (₮) *</label>
-                  <input type="number" value={form.base_price} onChange={e => setForm({ ...form, base_price: Number(e.target.value) })} style={inp} placeholder="0" />
-                </div>
-                <div>
-                  <label style={labelStyle}>Хямдарсан үнэ (₮)</label>
-                  <input type="number" value={form.sale_price} onChange={e => setForm({ ...form, sale_price: e.target.value })} style={inp} placeholder="Заавал биш" />
-                </div>
-                <div>
                   <label style={labelStyle}>Нөөцийн тоо</label>
-                  <input type="number" value={form.stock_quantity} onChange={e => setForm({ ...form, stock_quantity: e.target.value })} style={inp} />
+                  <input type="number" value={form.stock_quantity} onChange={e => setForm({ ...form, stock_quantity: e.target.value })} style={inp} placeholder="0" />
                 </div>
                 <div>
-                  <label style={labelStyle}>SKU</label>
-                  <input value={form.sku} onChange={e => setForm({ ...form, sku: e.target.value })} style={inp} />
+                  <label style={labelStyle}>SKU <span style={{ fontSize: 10, color: 'var(--text3)' }}>(автомат)</span></label>
+                  <input value={form.sku} onChange={e => setForm({ ...form, sku: e.target.value })} style={{ ...inp, fontFamily: 'monospace', background: form.sku ? 'rgba(16,185,129,0.05)' : 'var(--surface2)' }} placeholder="BC-001" />
                 </div>
               </div>
-              <div>
-                <label style={labelStyle}>Ангилал</label>
-                <input value={form.category} onChange={e => setForm({ ...form, category: e.target.value })} style={inp} placeholder="Жишээ: хэвлэл, промо..." />
-              </div>
+
+              {/* Description */}
               <div>
                 <label style={labelStyle}>Тайлбар</label>
-                <textarea value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} style={{ ...inp, minHeight: 80, resize: 'vertical' }} />
+                <textarea value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} style={{ ...inp, minHeight: 70, resize: 'vertical' }} placeholder="Бүтээгдэхүүний дэлгэрэнгүй тайлбар..." />
               </div>
+
+              {/* ═══ BADGES & FLAGS ═══ */}
+              <div>
+                <label style={labelStyle}>Тэмдэглэгээ & Шошго</label>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
+                  {BADGE_OPTIONS.map(b => (
+                    <button key={b.value} type="button" onClick={() => setForm({ ...form, badge: form.badge === b.value ? '' : b.value })}
+                      style={{ padding: '5px 12px', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: FONT,
+                        border: form.badge === b.value ? `2px solid ${b.color || 'var(--border)'}` : '1px solid var(--border)',
+                        background: form.badge === b.value ? (b.color || '#888') + '15' : 'var(--surface2)',
+                        color: form.badge === b.value ? (b.color || 'var(--text)') : 'var(--text2)',
+                      }}>{b.label}</button>
+                  ))}
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                  {[
+                    { key: 'is_featured', label: '⭐ Онцлох бараа', desc: 'Нүүр хуудасны онцлох хэсэгт' },
+                    { key: 'is_new', label: '🆕 Шинэ бараа', desc: '7 хоногийн дотор нэмэгдсэн' },
+                    { key: 'is_bestseller', label: '🔥 Илүү сонголттой', desc: 'Хамгийн эрэлттэй' },
+                    { key: 'is_out_of_stock', label: '🚫 Дууссан', desc: 'Нөөц дууссан' },
+                    { key: 'is_flash_deal', label: '⚡ Flash Deal', desc: 'Онцгой хямдрал хэсэгт' },
+                  ].map(flag => (
+                    <label key={flag.key} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', borderRadius: 8, cursor: 'pointer',
+                      border: '1px solid var(--border)', background: (form as any)[flag.key] ? 'rgba(255,107,0,0.05)' : 'transparent' }}>
+                      <input type="checkbox" checked={(form as any)[flag.key] || false}
+                        onChange={e => setForm({ ...form, [flag.key]: e.target.checked })}
+                        style={{ accentColor: '#FF6B00', width: 16, height: 16 }} />
+                      <div>
+                        <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)' }}>{flag.label}</div>
+                        <div style={{ fontSize: 10, color: 'var(--text3)' }}>{flag.desc}</div>
+                      </div>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {/* Flash deal end date */}
+              {form.is_flash_deal && (
+                <div>
+                  <label style={labelStyle}>⚡ Flash Deal дуусах хугацаа</label>
+                  <input type="datetime-local" value={form.flash_deal_end} onChange={e => setForm({ ...form, flash_deal_end: e.target.value })} style={inp} />
+                  <div style={{ fontSize: 10, color: 'var(--text3)', marginTop: 4 }}>Хугацаа дуусахад автоматаар Flash Deal-аас хасагдана</div>
+                </div>
+              )}
+
+              {/* ═══ COMPARE SPECS ═══ */}
+              <div>
+                <label style={labelStyle}>Харьцуулах шинж чанар <span style={{ fontSize: 10, color: 'var(--text3)' }}>(JSON)</span></label>
+                <textarea value={form.compare_specs} onChange={e => setForm({ ...form, compare_specs: e.target.value })}
+                  style={{ ...inp, minHeight: 60, resize: 'vertical', fontFamily: 'monospace', fontSize: 12 }}
+                  placeholder={'{\n  "Хэмжээ": "A4",\n  "Материал": "250gsm",\n  "Хэвлэл": "2 тал"\n}'} />
+                <div style={{ fontSize: 10, color: 'var(--text3)', marginTop: 4 }}>Бүтээгдэхүүн харьцуулах хүснэгтэд энэ мэдээлэл харагдана</div>
+              </div>
+
+              {/* Images + Video */}
               <ProductMediaUploader
                 images={form.images}
                 videoUrl={form.video_url}
@@ -592,9 +771,11 @@ function ShopProductsTab() {
                 onChange={(imgs, vid) => setForm(f => ({ ...f, images: imgs, thumbnail_url: imgs[0] || f.thumbnail_url, video_url: vid }))}
               />
             </div>
-            <div style={{ padding: '14px 24px', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+
+            {/* Fixed bottom actions */}
+            <div style={{ padding: '14px 24px', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'flex-end', gap: 10, flexShrink: 0, background: 'var(--surface)' }}>
               <button onClick={closeModal} style={btnSecondary}>Цуцлах</button>
-              <button onClick={save} disabled={saving} style={btnPrimary}>{saving ? 'Хадгалж байна...' : 'Хадгалах'}</button>
+              <button onClick={save} disabled={saving} style={{ ...btnPrimary, opacity: saving ? 0.6 : 1 }}>{saving ? 'Хадгалж байна...' : 'Хадгалах'}</button>
             </div>
           </div>
         </div>
@@ -721,21 +902,17 @@ function TemplatesTab() {
 
 // ─── MAIN PAGE ────────────────────────────────────────────────────────────────
 const MAIN_TABS = [
+  { key: 'shop', label: '🛍️ Дэлгүүрийн бүтээгдэхүүн', desc: '35 бүтээгдэхүүн · Тогтмол үнэ' },
   { key: 'print', label: '🖨️ Хэвлэлийн бүтээгдэхүүн', desc: 'Захиалгат тооцоолол' },
-  { key: 'shop', label: '🛍️ Дэлгүүрийн бүтээгдэхүүн', desc: 'Тогтмол үнэ' },
   { key: 'templates', label: '🎨 Дизайны загварууд', desc: 'Дизайнер → Батлах' },
 ]
 
 export default function AdminProductsPage() {
-  const [activeTab, setActiveTab] = useState('print')
+  const [activeTab, setActiveTab] = useState('shop')
 
   return (
-    <div style={{ padding: 24, fontFamily: FONT }}>
-      {/* Header */}
-      <div style={{ marginBottom: 24 }}>
-        <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0, color: 'var(--text)' }}>Бүтээгдэхүүн</h1>
-        <p style={{ color: 'var(--text2)', fontSize: 13, margin: '4px 0 0' }}>Бүх бүтээгдэхүүн, дэлгүүр болон загваруудыг удирдах</p>
-      </div>
+    <div className="p-4 md:p-6">
+      <AdminPageHeader title="Бүтээгдэхүүн" description="Бүх бүтээгдэхүүн, дэлгүүр болон загваруудыг удирдах" />
 
       {/* Type Tabs */}
       <div style={{ display: 'flex', gap: 0, borderBottom: '1px solid var(--border)', marginBottom: 24 }}>

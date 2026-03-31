@@ -2,6 +2,8 @@
 import { apiFetch } from '@/lib/api'
 import { useState, useEffect, useMemo } from 'react'
 import CreatorUgcPanel from './CreatorUgcPanel'
+import { AdminPageHeader } from '@/components/admin/AdminPageHeader'
+import { Button } from '@/components/ui/button'
 
 /* ═══ Config ═══ */
 const CAMPAIGN_TYPES = [
@@ -121,17 +123,9 @@ export default function AdminMarketingPage() {
 
   return (
     <div className="p-4 md:p-6 max-w-[1400px] mx-auto">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-5">
-        <div>
-          <h1 className="text-2xl font-extrabold text-[#111] tracking-tight">Growth Engine</h1>
-          <p className="text-sm text-[#888] mt-1">Маркетинг, кампанит ажил, хэрэглэгчийн өсөлт</p>
-        </div>
-        <button onClick={() => { resetForm(); setShowForm(true) }}
-          className="px-4 py-2 bg-[#FF6B00] hover:bg-[#E55D00] text-white rounded-lg text-sm font-bold transition-colors">
-          + Шинэ кампанит
-        </button>
-      </div>
+      <AdminPageHeader title="Growth Engine" description="Маркетинг, кампанит ажил, хэрэглэгчийн өсөлт">
+        <Button size="sm" onClick={() => { resetForm(); setShowForm(true) }}>+ Шинэ кампанит</Button>
+      </AdminPageHeader>
 
       {/* KPI */}
       <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3 mb-5">

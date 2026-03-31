@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { apiFetch, getToken } from '@/lib/api';
+import { AdminPageHeader } from '@/components/admin/AdminPageHeader';
 
 const F = "'Segoe UI',system-ui,sans-serif";
 
@@ -153,14 +154,8 @@ export default function CommissionPage() {
     .reduce((s, k) => s + parseFloat(roleRates[k as keyof typeof roleRates] || '0'), 0);
 
   return (
-    <div style={{ padding: 24, maxWidth: 1000, margin: '0 auto', fontFamily: F }}>
-      {/* Header */}
-      <div style={{ marginBottom: 24 }}>
-        <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--text)', margin: 0 }}>Commission System</h1>
-        <p style={{ color: 'var(--text2)', margin: '4px 0 0', fontSize: 14 }}>
-          Manage platform commission rates and vendor earnings
-        </p>
-      </div>
+    <div className="p-4 md:p-6">
+      <AdminPageHeader title="Commission System" description="Manage platform commission rates and vendor earnings" />
 
       {/* Admin wallet stats */}
       {adminWallet && (

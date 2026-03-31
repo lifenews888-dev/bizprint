@@ -4,10 +4,27 @@ import { SiteSettingsProvider } from '@/contexts/SiteSettingsContext'
 import { RealtimeProvider } from '@/contexts/RealtimeContext'
 import LayoutShell from '@/components/LayoutShell'
 import ErrorBoundary from '@/components/ErrorBoundary'
+import { Toaster } from '@/components/ui/sonner'
 
-export const metadata: Metadata = {
-  title: 'BizPrint — Хэвлэл, Дизайн, Бизнес Платформ',
-  description: 'AI-д суурилсан хэвлэлийн үнийн тооцоо, автомат үйлдвэр сонголт, бодит цагийн хүргэлт',
+const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'
+
+export async function generateMetadata(): Promise<Metadata> {
+  try {
+    const res = await fetch(`${API}/cms/settings/public`, { next: { revalidate: 60 } })
+    if (res.ok) {
+      const s = await res.json()
+      return {
+        title: s.seo_meta_title || s.site_name || 'BizPrint — Хэвлэл, Дизайн, Бизнес Платформ',
+        description: s.seo_meta_description || 'AI-д суурилсан хэвлэлийн үнийн тооцоо, автомат үйлдвэр сонголт',
+        openGraph: s.seo_og_image ? { images: [{ url: s.seo_og_image }] } : undefined,
+        icons: s.site_favicon ? { icon: s.site_favicon } : undefined,
+      }
+    }
+  } catch {}
+  return {
+    title: 'BizPrint — Хэвлэл, Дизайн, Бизнес Платформ',
+    description: 'AI-д суурилсан хэвлэлийн үнийн тооцоо, автомат үйлдвэр сонголт, бодит цагийн хүргэлт',
+  }
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -23,6 +40,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <RealtimeProvider>
           <SiteSettingsProvider>
             <LayoutShell>{children}</LayoutShell>
+            <Toaster richColors position="bottom-right" />
           </SiteSettingsProvider>
         </RealtimeProvider>
       </body>

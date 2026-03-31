@@ -3,6 +3,8 @@ import { apiFetch } from '@/lib/api'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useSiteSettings } from '@/contexts/SiteSettingsContext'
 import Link from 'next/link'
+import HeroSlider from '@/components/HeroSlider'
+import GlobalProductCard from '@/components/ProductCard'
 
 /* ───────────── helpers ───────────── */
 function parseJsonItems(raw: any, fallback: any[]): any[] {
@@ -83,67 +85,8 @@ function FlashCountdown() {
 }
 
 /* ───────────── Product Card (Merto-style) ───────────── */
-function ProductCard({ p, index }: { p: any; index: number }) {
-  const [hovered, setHovered] = useState(false)
-  const [wished, setWished] = useState(false)
-  const id = String(p.id || index)
-  const discount = p.sale_price && p.base_price && p.sale_price < p.base_price
-    ? Math.round((1 - p.sale_price / p.base_price) * 100) : null
-  const price = p.sale_price ?? p.basePrice ?? p.base_price
-  const hasImage = p.imageUrl || p.image
-
-  return (
-    <a
-      href={`/shop/${p.slug || p.id}`}
-      className="group block bg-[var(--surface)] border border-[var(--border)] rounded-xl overflow-hidden transition-all duration-300 hover:shadow-lg hover:-translate-y-1"
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-    >
-      {/* Image */}
-      <div className="relative aspect-square bg-[var(--surface2)] overflow-hidden">
-        {hasImage ? (
-          <img src={p.imageUrl || p.image} alt={p.name} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105" />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center text-5xl">{p.icon || '🖨️'}</div>
-        )}
-        {/* Discount badge */}
-        {discount && (
-          <span className="absolute top-2.5 left-2.5 bg-red-500 text-white text-xs font-bold px-2.5 py-1 rounded-md z-[2]">
-            -{discount}%
-          </span>
-        )}
-        {/* Wishlist button */}
-        <button
-          onClick={e => { e.preventDefault(); e.stopPropagation(); setWished(!wished) }}
-          className="absolute top-2.5 right-2.5 w-8 h-8 rounded-full bg-white/90 flex items-center justify-center shadow-sm z-[2] opacity-0 group-hover:opacity-100 transition-opacity duration-200 hover:bg-white"
-        >
-          <HeartIcon filled={wished} />
-        </button>
-        {/* Quick order overlay */}
-        <div className={`absolute bottom-0 left-0 right-0 bg-[#FF6B00] text-white text-center py-2.5 text-sm font-bold transition-transform duration-300 z-[2] ${hovered ? 'translate-y-0' : 'translate-y-full'}`}>
-          Захиалах
-        </div>
-      </div>
-      {/* Info */}
-      <div className="p-3.5">
-        {p.vendor_name && <div className="text-[11px] text-[var(--text3)] mb-1">{p.vendor_name}</div>}
-        <h3 className="text-sm font-semibold text-[var(--text)] mb-1.5 line-clamp-2 leading-snug">{p.name}</h3>
-        {/* Stars */}
-        {p.rating != null && (
-          <div className="flex items-center gap-0.5 mb-2">
-            {[1,2,3,4,5].map(s => <StarIcon key={s} filled={s <= Math.round(p.rating)} />)}
-            <span className="text-[11px] text-[var(--text3)] ml-1">({Number(p.rating).toFixed(1)})</span>
-          </div>
-        )}
-        {/* Price */}
-        <div className="flex items-center gap-2 flex-wrap">
-          {price != null && <span className="text-base font-bold text-[#FF6B00]">₮{Number(price).toLocaleString()}</span>}
-          {discount && p.base_price && <span className="text-xs text-[var(--text3)] line-through">₮{Number(p.base_price).toLocaleString()}</span>}
-        </div>
-      </div>
-    </a>
-  )
-}
+// ProductCard — use global component from @/components/ProductCard
+// (imported at top of file)
 
 /* ───────────── Product Carousel (scrollable) ───────────── */
 function ProductCarousel({ items }: { items: any[] }) {
@@ -162,9 +105,9 @@ function ProductCarousel({ items }: { items: any[] }) {
         <ChevronLeft />
       </button>
       <div ref={scrollRef} className="flex gap-4 overflow-x-auto pb-2 scroll-smooth" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
-        {items.map((p, i) => (
+        {items.map((p: any, i: number) => (
           <div key={p.id || i} className="flex-shrink-0 w-[220px]">
-            <ProductCard p={p} index={i} />
+            <GlobalProductCard product={p} />
           </div>
         ))}
       </div>
@@ -229,8 +172,9 @@ function DefaultHero({ s }: { s: Record<string, any> }) {
    MAIN HOMEPAGE
    ═══════════════════════════════════════════ */
 export default function HomePage() {
-  const { settings } = useSiteSettings()
+  const { settings, megaMenuV2 } = useSiteSettings()
   const [banners, setBanners] = useState<any[]>([])
+  const [heroSlides, setHeroSlides] = useState<any[]>([])
   const [current, setCurrent] = useState(0)
   const [categories, setCategories] = useState<any[]>([])
   const [activeCategory, setActiveCategory] = useState<string | null>(null)
@@ -242,6 +186,10 @@ export default function HomePage() {
     apiFetch<any>('/banners', { auth: false }).then(d => {
       const list = Array.isArray(d) ? d.filter((b: any) => b.isActive !== false) : []
       setBanners(list)
+    }).catch(() => {})
+
+    apiFetch<any>('/cms/hero-slides/public', { auth: false }).then(d => {
+      if (Array.isArray(d)) setHeroSlides(d)
     }).catch(() => {})
 
     apiFetch<any>('/templates?status=active&limit=8', { auth: false }).then(d => {
@@ -288,8 +236,8 @@ export default function HomePage() {
 
   const sideBanners = banners.slice(1, 3)
 
-  /* ── Product type icons (Merto circle style) ── */
-  const productTypes = [
+  /* ── Product type icons — from V2 mega menu API (admin-managed), fallback to defaults ── */
+  const FALLBACK_TYPES: { key: string; label: string; url: string; color: string; icon?: string }[] = [
     { key: 'business-card', label: 'Нэрийн хуудас', url: '/shop?cat=business-card', color: '#FF6B00' },
     { key: 'flyer', label: 'Флаер & Постер', url: '/shop?cat=flyer', color: '#8B5CF6' },
     { key: 'sticker', label: 'Стикер', url: '/shop?cat=sticker', color: '#10B981' },
@@ -298,13 +246,31 @@ export default function HomePage() {
     { key: 'template', label: 'Загвар сан', url: '/templates', color: '#EC4899' },
   ]
 
-  /* ── Feature highlights (premium subtle) ── */
-  const featureStrip = [
+  const productTypes = megaMenuV2?.columns?.length
+    ? megaMenuV2.columns.map((col: any) => ({
+        key: (col.categories?.[0]?.slug || col.title || '').toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/-+/g, '-'),
+        label: col.title,
+        url: col.categories?.[0]?.items?.[0]?.link || `/shop?cat=${(col.title || '').toLowerCase().replace(/\s+/g, '-')}`,
+        color: col.color || '#FF6B00',
+        icon: col.icon,
+      }))
+    : FALLBACK_TYPES
+
+  /* ── Feature highlights — from CMS settings or fallback ── */
+  const FALLBACK_FEATURES = [
     { icon: '◆', title: 'Хурдан хүргэлт', desc: '₮50,000+ үнэгүй' },
     { icon: '◆', title: '24 цагт бэлэн', desc: 'Дижитал хэвлэл' },
     { icon: '◆', title: 'Өрсөлдөхүйц үнэ', desc: 'Хямд үнийн баталгаа' },
     { icon: '◆', title: '100% баталгаа', desc: 'Чанарын стандарт' },
   ]
+  const featureStrip = (() => {
+    try {
+      const raw = settings.feature_strip
+      const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed
+    } catch {}
+    return FALLBACK_FEATURES
+  })()
 
   /* ── Recent orders for reorder section ── */
   const [recentOrders, setRecentOrders] = useState<any[]>([])
@@ -317,11 +283,49 @@ export default function HomePage() {
     }
   }, [])
 
-  return (
-    <div className="min-h-screen" style={{ background: 'var(--bg)' }}>
+  // Homepage background theme (from CMS or default)
+  const bgTheme = (() => {
+    try {
+      const raw = settings.homepage_bg_theme
+      if (typeof raw === 'string') {
+        const parsed = JSON.parse(raw)
+        if (parsed && typeof parsed === 'object') return parsed
+      }
+      if (raw && typeof raw === 'object') return raw
+    } catch {}
+    return {
+      mode: 'gradient', // 'solid' | 'gradient' | 'mesh' | 'image'
+      main: 'var(--bg)',
+      heroGlow: true,
+      sections: {
+        feature: 'var(--surface)',
+        categories: 'var(--bg)',
+        products: 'var(--bg)',
+        cta: 'var(--bg)',
+      },
+      glowColor: '#FF6B00',
+      glowOpacity: 0.04,
+    }
+  })()
 
-      {/* ═══ FEATURE STRIP — desktop only ═══ */}
-      <section className="hidden md:block border-b border-[var(--border)] bg-[var(--surface)]">
+  const heroGlowStyle = bgTheme.heroGlow ? {
+    background: `radial-gradient(ellipse 80% 50% at 50% 0%, ${bgTheme.glowColor || '#FF6B00'}${Math.round((bgTheme.glowOpacity || 0.04) * 255).toString(16).padStart(2, '0')}, transparent)`,
+  } : {}
+
+  return (
+    <div className="min-h-screen relative" style={{ background: bgTheme.main || 'var(--bg)' }}>
+      {/* Ambient glow from hero */}
+      {bgTheme.heroGlow && <div className="absolute top-0 left-0 right-0 h-[800px] pointer-events-none z-0" style={heroGlowStyle} />}
+
+      {/* ═══ HERO SLIDER ═══ */}
+      {heroSlides.length > 0 && (
+        <section className="w-full relative z-10">
+          <HeroSlider slides={heroSlides} />
+        </section>
+      )}
+
+      {/* ═══ FEATURE STRIP ═══ */}
+      <section className="hidden md:block border-b border-[var(--border)] relative z-10" style={{ background: bgTheme.sections?.feature || 'var(--surface)' }}>
         <div className="max-w-[1200px] mx-auto px-5">
           <div className="grid grid-cols-4 divide-x divide-[var(--border)]">
             {featureStrip.map((f, i) => (
@@ -417,8 +421,8 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ═══ CATEGORY ICONS — mobile first, above hero ═══ */}
-      <section className="max-w-[1200px] mx-auto px-4 md:px-5 py-4 md:py-8 md:order-none">
+      {/* ═══ CATEGORY ICONS ═══ */}
+      <section className="max-w-[1200px] mx-auto px-4 md:px-5 py-5 md:py-8 relative z-10">
         <div className="flex items-center justify-between mb-3 md:mb-6">
           <h2 className="text-base md:text-lg font-bold text-[var(--text)] m-0 tracking-tight">Хэвлэлийн үйлчилгээ</h2>
           <a href="/shop" className="text-xs md:text-sm font-semibold text-[#FF6B00] hover:underline no-underline">Бүгдийг харах →</a>
@@ -427,13 +431,15 @@ export default function HomePage() {
           {productTypes.map(pt => (
             <a key={pt.key} href={pt.url} className="flex flex-col items-center gap-1.5 md:gap-2.5 group no-underline">
               <div className="w-14 h-14 md:w-20 md:h-20 rounded-xl md:rounded-2xl bg-[var(--surface2)] border border-[var(--border)] flex items-center justify-center transition-all duration-300 group-hover:border-[var(--orange-30)] group-hover:bg-[var(--orange-05)] group-hover:-translate-y-0.5">
-                {CategoryIcons[pt.key] || <span className="text-xl md:text-2xl">🖨️</span>}
+                {CategoryIcons[pt.key] || (pt.icon ? <span className="text-xl md:text-2xl">{pt.icon}</span> : <span className="text-xl md:text-2xl">🖨️</span>)}
               </div>
               <span className="text-[10px] md:text-xs font-medium text-[var(--text2)] text-center group-hover:text-[#FF6B00] transition-colors leading-tight">{pt.label}</span>
             </a>
           ))}
         </div>
       </section>
+
+      {/* (Hero Slider moved to top) */}
 
       {/* ═══ MOBILE: Reorder Section ═══ */}
       {recentOrders.length > 0 && (
@@ -463,8 +469,8 @@ export default function HomePage() {
         </section>
       )}
 
-      {/* ═══ HERO BANNER — desktop full, mobile compact ═══ */}
-      <section className="max-w-[1200px] mx-auto px-4 md:px-5 pt-2 md:pt-6">
+      {/* ═══ HERO BANNER — shown only when no hero slides ═══ */}
+      {heroSlides.length === 0 && <section className="max-w-[1200px] mx-auto px-4 md:px-5 pt-2 md:pt-6">
         <div className="grid grid-cols-1 lg:grid-cols-[2fr_1fr] gap-4 h-auto lg:h-[420px]">
           <div className="relative h-[160px] sm:h-[340px] lg:h-full rounded-2xl overflow-hidden">
             {banners.length > 0 ? (
@@ -499,21 +505,28 @@ export default function HomePage() {
               sideBanners.map((b, i) => <BannerSlide key={i} b={b} style={{ flex: 1 }} />)
             ) : (
               <>
-                <a href="/quote" className="flex-1 rounded-2xl overflow-hidden bg-gradient-to-br from-[#7C3AED] to-[#5B21B6] flex flex-col justify-end p-5 no-underline relative group hover:shadow-xl transition-shadow">
-                  <div className="absolute top-4 right-4 w-12 h-12 rounded-xl bg-white/10 flex items-center justify-center text-2xl">🤖</div>
-                  <div className="text-[15px] font-bold text-white mb-1">AI Үнийн Тооцоо</div>
-                  <div className="text-xs text-white/60">PDF хуулаад шууд үнэ аваарай</div>
-                </a>
-                <a href="/shop" className="flex-1 rounded-2xl overflow-hidden bg-gradient-to-br from-[#FF6B00] to-[#E55D00] flex flex-col justify-end p-5 no-underline relative group hover:shadow-xl transition-shadow">
-                  <div className="absolute top-4 right-4 w-12 h-12 rounded-xl bg-white/10 flex items-center justify-center text-2xl">🏭</div>
-                  <div className="text-[15px] font-bold text-white mb-1">Хэвлэлийн Дэлгүүр</div>
-                  <div className="text-xs text-white/60">Бүтээгдэхүүн захиалах</div>
-                </a>
+                {((() => {
+                  try {
+                    const raw = settings.hero_side_cards
+                    const cards = typeof raw === 'string' ? JSON.parse(raw) : raw
+                    if (Array.isArray(cards) && cards.length > 0) return cards
+                  } catch {}
+                  return [
+                    { title: 'AI Үнийн Тооцоо', desc: 'PDF хуулаад шууд үнэ аваарай', icon: '🤖', url: '/quote', gradient: 'from-[#7C3AED] to-[#5B21B6]' },
+                    { title: 'Хэвлэлийн Дэлгүүр', desc: 'Бүтээгдэхүүн захиалах', icon: '🏭', url: '/shop', gradient: 'from-[#FF6B00] to-[#E55D00]' },
+                  ]
+                })()).map((card: any, i: number) => (
+                  <a key={i} href={card.url || '#'} className={`flex-1 rounded-2xl overflow-hidden bg-gradient-to-br ${card.gradient || (i === 0 ? 'from-[#7C3AED] to-[#5B21B6]' : 'from-[#FF6B00] to-[#E55D00]')} flex flex-col justify-end p-5 no-underline relative group hover:shadow-xl transition-shadow`}>
+                    <div className="absolute top-4 right-4 w-12 h-12 rounded-xl bg-white/10 flex items-center justify-center text-2xl">{card.icon || '📦'}</div>
+                    <div className="text-[15px] font-bold text-white mb-1">{card.title}</div>
+                    <div className="text-xs text-white/60">{card.desc}</div>
+                  </a>
+                ))}
               </>
             )}
           </div>
         </div>
-      </section>
+      </section>}
 
       {/* ═══ DESKTOP: BUSINESS CARD + QR — full cards ═══ */}
       <section className="hidden md:block max-w-[1200px] mx-auto px-5 pt-8 pb-6">
@@ -587,24 +600,19 @@ export default function HomePage() {
           </div>
         </div>
         <div className="flex md:grid md:grid-cols-4 gap-3 md:gap-4 overflow-x-auto md:overflow-visible pb-1 md:pb-0" style={{ scrollbarWidth: 'none' }}>
-          {[
-            {
-              tag: 'Шинэ', title: 'QR Нэрийн хуудас', desc: 'Дижитал нэрийн хуудас + QR код. Утсаар хуваалцаж, хэвлүүлэх боломжтой.',
-              color: '#8B5CF6', href: '/dashboard/customer/digital-card', icon: '📱',
-            },
-            {
-              tag: 'AI', title: 'Ухаалаг үнийн санал', desc: 'PDF файлаа оруулаад AI хэдхэн секундэд үнийн санал, хэмжээ тооцоолно.',
-              color: '#3B82F6', href: '/smart-quote', icon: '🤖',
-            },
-            {
-              tag: 'Хурдан', title: 'Нэрийн хуудас 3 алхамаар', desc: 'Мэдээллээ оруулаад загвар сонгоод шууд захиалга өгнө.',
-              color: '#FF6B00', href: '/business-cards', icon: '⚡',
-            },
-            {
-              tag: 'Creator', title: 'Marketplace нээлттэй', desc: 'Мэргэжлийн дизайнер, контент бүтээгчдээс захиалга өгөх боломжтой.',
-              color: '#EC4899', href: '/marketplace', icon: '🎨',
-            },
-          ].map(item => (
+          {((() => {
+            try {
+              const raw = settings.whats_new_cards
+              const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw
+              if (Array.isArray(parsed) && parsed.length > 0) return parsed
+            } catch {}
+            return [
+              { tag: 'Шинэ', title: 'QR Нэрийн хуудас', desc: 'Дижитал нэрийн хуудас + QR код. Утсаар хуваалцаж, хэвлүүлэх боломжтой.', color: '#8B5CF6', href: '/dashboard/customer/digital-card', icon: '📱' },
+              { tag: 'AI', title: 'Ухаалаг үнийн санал', desc: 'PDF файлаа оруулаад AI хэдхэн секундэд үнийн санал, хэмжээ тооцоолно.', color: '#3B82F6', href: '/smart-quote', icon: '🤖' },
+              { tag: 'Хурдан', title: 'Нэрийн хуудас 3 алхамаар', desc: 'Мэдээллээ оруулаад загвар сонгоод шууд захиалга өгнө.', color: '#FF6B00', href: '/business-cards', icon: '⚡' },
+              { tag: 'Creator', title: 'Marketplace нээлттэй', desc: 'Мэргэжлийн дизайнер, контент бүтээгчдээс захиалга өгөх боломжтой.', color: '#EC4899', href: '/marketplace', icon: '🎨' },
+            ]
+          })()).map((item: any) => (
             <a key={item.title} href={item.href} className="no-underline group flex-shrink-0 w-[160px] md:w-auto">
               <div className="bg-[var(--surface)] border border-[var(--border)] rounded-xl md:rounded-2xl p-3.5 md:p-5 h-full transition-all duration-300 hover:shadow-md hover:-translate-y-0.5 hover:border-[var(--border2)]">
                 <div className="flex items-center gap-2 mb-2 md:mb-3">
@@ -622,12 +630,19 @@ export default function HomePage() {
       {/* ═══ SERVICES — hidden on mobile (quick actions already cover it) ═══ */}
       <section className="hidden md:block max-w-[1200px] mx-auto px-5 pb-8">
         <div className="grid grid-cols-4 gap-4">
-          {[
-            { icon: '🛒', title: 'Дэлгүүр', desc: 'Бэлэн бүтээгдэхүүн захиалах', color: '#FF6B00', href: '/shop', cta: 'Дэлгүүр үзэх →' },
-            { icon: '🖨️', title: 'Хэвлэл захиалах', desc: 'Файлаа оруулж AI-тай үнэ авах', color: '#8B5CF6', href: '/quote', cta: 'Үнэ тооцоолох →' },
-            { icon: '🤖', title: 'AI Smart Quote', desc: 'Хаяг реклам ухаалаг үнийн санал', color: '#3B82F6', href: '/smart-quote', cta: 'AI Quote →' },
-            { icon: '🎨', title: 'Marketplace', desc: 'Creator-уудаар дизайн хийлгэх', color: '#EC4899', href: '/marketplace', cta: 'Creator олох →' },
-          ].map(s => (
+          {((() => {
+            try {
+              const raw = settings.service_cards
+              const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw
+              if (Array.isArray(parsed) && parsed.length > 0) return parsed
+            } catch {}
+            return [
+              { icon: '🛒', title: 'Дэлгүүр', desc: 'Бэлэн бүтээгдэхүүн захиалах', color: '#FF6B00', href: '/shop', cta: 'Дэлгүүр үзэх →' },
+              { icon: '🖨️', title: 'Хэвлэл захиалах', desc: 'Файлаа оруулж AI-тай үнэ авах', color: '#8B5CF6', href: '/quote', cta: 'Үнэ тооцоолох →' },
+              { icon: '🤖', title: 'AI Smart Quote', desc: 'Хаяг реклам ухаалаг үнийн санал', color: '#3B82F6', href: '/smart-quote', cta: 'AI Quote →' },
+              { icon: '🎨', title: 'Marketplace', desc: 'Creator-уудаар дизайн хийлгэх', color: '#EC4899', href: '/marketplace', cta: 'Creator олох →' },
+            ]
+          })()).map((s: any) => (
             <a key={s.title} href={s.href} className="no-underline group">
               <div className="bg-[var(--surface)] border border-[var(--border)] rounded-2xl p-5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg hover:border-[var(--border2)]">
                 <div className="text-2xl mb-3">{s.icon}</div>
@@ -640,47 +655,65 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ═══ DUAL CTA ═══ */}
+      {/* ═══ DUAL CTA — from CMS or fallback ═══ */}
       <section className="max-w-[1200px] mx-auto px-4 md:px-5 pb-5 md:pb-8">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-4">
-          <a href="/templates" className="rounded-2xl bg-gradient-to-br from-[#FF6B00] to-[#E55D00] p-5 md:p-8 no-underline flex flex-col relative overflow-hidden min-h-[140px] md:min-h-[180px] group hover:-translate-y-0.5 transition-all duration-300">
-            <div className="absolute -top-10 -right-10 w-32 md:w-40 h-32 md:h-40 bg-white/[0.06] rounded-full" />
-            <div className="text-[10px] md:text-[11px] font-bold tracking-[0.15em] text-white/50 uppercase mb-2 md:mb-3">Загвар сан</div>
-            <div className="text-lg md:text-2xl font-extrabold text-white leading-tight mb-2 md:mb-3 tracking-tight">Онлайн дизайн хийх</div>
-            <div className="text-xs md:text-sm text-white/70 leading-relaxed mb-3 md:mb-5 flex-1">Бэлэн загвараас сонгоод брэндэд тохируулаарай</div>
-            <div className="inline-flex items-center bg-white/15 border border-white/20 rounded-xl px-4 md:px-5 py-2 md:py-2.5 text-white text-xs md:text-sm font-semibold w-fit">Загвар сан →</div>
-          </a>
-          <a href="/quote" className="rounded-2xl bg-gradient-to-br from-[#1A1A2E] to-[#16213E] p-5 md:p-8 no-underline flex flex-col relative overflow-hidden min-h-[140px] md:min-h-[180px] group hover:-translate-y-0.5 transition-all duration-300 border border-[#2A2A4A]">
-            <div className="absolute -top-10 -right-10 w-32 md:w-40 h-32 md:h-40 bg-[#FF6B00]/[0.04] rounded-full" />
-            <div className="text-[10px] md:text-[11px] font-bold tracking-[0.15em] text-white/30 uppercase mb-2 md:mb-3">Файл байршуулах</div>
-            <div className="text-lg md:text-2xl font-extrabold text-white leading-tight mb-2 md:mb-3 tracking-tight">AI Үнийн тооцоолол</div>
-            <div className="text-xs md:text-sm text-white/40 leading-relaxed mb-3 md:mb-5 flex-1">PDF файлаа оруулаад секундэд үнийн санал аваарай</div>
-            <div className="inline-flex items-center bg-[#FF6B00]/20 border border-[#FF6B00]/30 rounded-xl px-4 md:px-5 py-2 md:py-2.5 text-[#FF6B00] text-xs md:text-sm font-semibold w-fit">Үнэ тооцоолох →</div>
-          </a>
+          {((() => {
+            try {
+              const raw = settings.dual_cta_banners
+              const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw
+              if (Array.isArray(parsed) && parsed.length > 0) return parsed
+            } catch {}
+            return [
+              { tag: 'Загвар сан', title: 'Онлайн дизайн хийх', desc: 'Бэлэн загвараас сонгоод брэндэд тохируулаарай', cta: 'Загвар сан →', url: '/templates', from: '#FF6B00', to: '#E55D00', dark: false },
+              { tag: 'Файл байршуулах', title: 'AI Үнийн тооцоолол', desc: 'PDF файлаа оруулаад секундэд үнийн санал аваарай', cta: 'Үнэ тооцоолох →', url: '/quote', from: '#1A1A2E', to: '#16213E', dark: true },
+            ]
+          })()).map((b: any, i: number) => (
+            <a key={i} href={b.url || '#'} className={`rounded-2xl p-5 md:p-8 no-underline flex flex-col relative overflow-hidden min-h-[140px] md:min-h-[180px] group hover:-translate-y-0.5 transition-all duration-300 ${b.dark ? 'border border-[#2A2A4A]' : ''}`}
+              style={{ background: `linear-gradient(135deg, ${b.from || '#FF6B00'}, ${b.to || '#E55D00'})` }}>
+              <div className="absolute -top-10 -right-10 w-32 md:w-40 h-32 md:h-40 bg-white/[0.06] rounded-full" />
+              <div className={`text-[10px] md:text-[11px] font-bold tracking-[0.15em] uppercase mb-2 md:mb-3 ${b.dark ? 'text-white/30' : 'text-white/50'}`}>{b.tag}</div>
+              <div className="text-lg md:text-2xl font-extrabold text-white leading-tight mb-2 md:mb-3 tracking-tight">{b.title}</div>
+              <div className={`text-xs md:text-sm leading-relaxed mb-3 md:mb-5 flex-1 ${b.dark ? 'text-white/40' : 'text-white/70'}`}>{b.desc}</div>
+              <div className={`inline-flex items-center rounded-xl px-4 md:px-5 py-2 md:py-2.5 text-xs md:text-sm font-semibold w-fit ${b.dark ? 'bg-[#FF6B00]/20 border border-[#FF6B00]/30 text-[#FF6B00]' : 'bg-white/15 border border-white/20 text-white'}`}>{b.cta}</div>
+            </a>
+          ))}
         </div>
       </section>
 
-      {/* ═══ FLASH DEALS ═══ */}
-      {categories.length > 0 && activeCategory && productsByCategory[activeCategory] && productsByCategory[activeCategory].length > 0 && (
-        <section className="max-w-[1200px] mx-auto px-4 md:px-5 pb-6 md:pb-10">
-          <div className="bg-[var(--surface)] border border-[var(--border)] rounded-xl md:rounded-2xl overflow-hidden">
-            <div className="flex items-center justify-between gap-3 px-4 md:px-6 py-3 md:py-5 border-b border-[var(--border)]">
-              <div className="flex items-center gap-2 md:gap-3">
-                <h2 className="text-base md:text-xl font-bold text-[var(--text)] m-0">Flash Deals</h2>
-                <span className="text-[10px] md:text-xs font-medium text-[var(--text3)] hidden sm:inline">Онцгой хямдрал</span>
+      {/* ═══ FLASH DEALS — only sale_price products ═══ */}
+      {(() => {
+        const allProducts = Object.values(productsByCategory).flat()
+        const now = new Date()
+        const deals = allProducts.filter((p: any) => {
+          // Flash deal flag from admin OR has sale_price
+          const isFlash = p.is_flash_deal && (!p.flash_deal_end || new Date(p.flash_deal_end) > now)
+          const hasSale = p.sale_price && Number(p.sale_price) > 0 && Number(p.sale_price) < Number(p.base_price)
+          return isFlash || hasSale
+        })
+        const seen = new Set<string>()
+        const uniqueDeals = deals.filter((p: any) => { if (seen.has(p.id)) return false; seen.add(p.id); return true })
+        if (!uniqueDeals.length) return null
+        return (
+          <section className="max-w-[1200px] mx-auto px-4 md:px-5 pb-6 md:pb-10">
+            <div className="bg-[var(--surface)] border border-[var(--border)] rounded-xl md:rounded-2xl overflow-hidden">
+              <div className="flex items-center justify-between gap-3 px-4 md:px-6 py-3 md:py-5 border-b border-[var(--border)]">
+                <div className="flex items-center gap-2 md:gap-3">
+                  <h2 className="text-base md:text-xl font-bold text-[var(--text)] m-0">Flash Deals</h2>
+                  <span className="text-[10px] md:text-xs font-medium text-[var(--text3)] hidden sm:inline">Онцгой хямдрал</span>
+                </div>
+                <div className="flex items-center gap-4">
+                  <FlashCountdown />
+                  <a href="/shop?deals=true" className="text-sm font-semibold text-[#FF6B00] hover:underline hidden sm:block">Бүгдийг үзэх →</a>
+                </div>
               </div>
-              <div className="flex items-center gap-4">
-                <FlashCountdown />
-                <a href="/shop" className="text-sm font-semibold text-[#FF6B00] hover:underline hidden sm:block">Бүгдийг үзэх →</a>
+              <div className="p-5">
+                <ProductCarousel items={uniqueDeals} />
               </div>
             </div>
-            {/* Products */}
-            <div className="p-5">
-              <ProductCarousel items={productsByCategory[activeCategory]} />
-            </div>
-          </div>
-        </section>
-      )}
+          </section>
+        )
+      })()}
 
       {/* ═══ CATEGORY TABS + PRODUCTS ═══ */}
       {categories.length > 0 && (
@@ -725,30 +758,7 @@ export default function HomePage() {
         </section>
       )}
 
-      {/* ═══ ALL CATEGORY CAROUSELS ═══ */}
-      {categories.length > 0 && (
-        <section className="max-w-[1200px] mx-auto px-5 pb-6">
-          {categories.map(cat => {
-            const id = String(cat.id)
-            const items = productsByCategory[id] || []
-            if (!items.length) return null
-            return (
-              <div key={id} className="mb-10">
-                <div className="flex items-center justify-between mb-5">
-                  <h2 className="text-lg font-bold text-[var(--text)] m-0 flex items-center gap-2">
-                    {cat.icon && <span>{cat.icon}</span>}
-                    {cat.name_mn || cat.name}
-                  </h2>
-                  <a href={`/shop?category=${id}`} className="text-sm font-semibold text-[#FF6B00] hover:underline no-underline">
-                    Бүгдийг үзэх →
-                  </a>
-                </div>
-                <ProductCarousel items={items} />
-              </div>
-            )
-          })}
-        </section>
-      )}
+      {/* Category carousels removed — products shown in Category Tabs above */}
 
       {/* ═══ PROMO BANNER GRID ═══ */}
       <section className="max-w-[1200px] mx-auto px-4 md:px-5 pb-5 md:pb-8">

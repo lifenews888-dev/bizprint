@@ -1,6 +1,8 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { apiFetch } from '@/lib/api'
+import { AdminPageHeader } from '@/components/admin/AdminPageHeader'
+import { Button } from '@/components/ui/button'
 
 const F = "'DM Sans','Segoe UI',system-ui,sans-serif"
 const O = '#FF6B00'
@@ -196,18 +198,12 @@ export default function AdminPlanManagement() {
 
   // ═══ LIST VIEW ═══
   return (
-    <div style={{ padding: 24, fontFamily: F }}>
+    <div className="p-4 md:p-6">
       {toast && <div style={{ position: 'fixed', top: 20, left: '50%', transform: 'translateX(-50%)', background: '#1F2937', color: '#fff', padding: '10px 28px', borderRadius: 99, fontSize: 14, fontWeight: 500, zIndex: 9999 }}>{toast}</div>}
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-        <div>
-          <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>Багцын удирдлага</h1>
-          <p style={{ color: '#6B7280', fontSize: 14, margin: '4px 0 0' }}>Үнэ, хязгаар, функцуудыг удирдах</p>
-        </div>
-        <button onClick={() => setEditing({ ...EMPTY_PLAN })} style={{ padding: '10px 24px', background: O, color: '#fff', border: 'none', borderRadius: 10, fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: F }}>
-          + Шинэ багц
-        </button>
-      </div>
+      <AdminPageHeader title="Багцын удирдлага" description="Үнэ, хязгаар, функцуудыг удирдах">
+        <Button size="sm" onClick={() => setEditing({ ...EMPTY_PLAN })}>+ Шинэ багц</Button>
+      </AdminPageHeader>
 
       {/* Plan cards */}
       <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.min(plans.length || 3, 4)}, 1fr)`, gap: 16 }}>

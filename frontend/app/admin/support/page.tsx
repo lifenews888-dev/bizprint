@@ -2,6 +2,8 @@
 
 import { apiFetch } from '@/lib/api'
 import { useState, useEffect, useRef } from 'react'
+import { AdminPageHeader } from '@/components/admin/AdminPageHeader'
+import { Button } from '@/components/ui/button'
 
 // Types
 interface TicketMessage {
@@ -253,7 +255,7 @@ export default function AdminSupportPage() {
   }
 
   return (
-    <div style={{ padding: 24, fontFamily: FONT, color: 'var(--text)', minHeight: '100vh' }}>
+    <div className="p-4 md:p-6">
       {/* Toast */}
       {toast && (
         <div style={{
@@ -267,20 +269,9 @@ export default function AdminSupportPage() {
         </div>
       )}
 
-      {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
-        <div>
-          <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0, color: 'var(--text)' }}>
-            Тусламж & Тикет
-          </h1>
-          <p style={{ color: 'var(--text2)', fontSize: 13, margin: '4px 0 0' }}>
-            Хэрэглэгчдийн асуулт, хүсэлт, гомдол удирдах
-          </p>
-        </div>
-        <button style={btnPrimary} onClick={() => setShowCreate(true)}>
-          + Шинэ тикет
-        </button>
-      </div>
+      <AdminPageHeader title="Тусламж & Тикет" description="Хэрэглэгчдийн асуулт, хүсэлт, гомдол удирдах">
+        <Button size="sm" onClick={() => setShowCreate(true)}>+ Шинэ тикет</Button>
+      </AdminPageHeader>
 
       {/* Status filter tabs */}
       <div style={{

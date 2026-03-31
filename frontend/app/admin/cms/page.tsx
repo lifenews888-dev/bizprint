@@ -1,6 +1,9 @@
 'use client'
 import { apiFetch } from '@/lib/api'
 import { useState, useEffect, useCallback } from 'react'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { AdminPageHeader } from '@/components/admin/AdminPageHeader'
+import { toast as sonnerToast } from 'sonner'
 
 type Setting = { id: string; key: string; value: string; group: string; label: string }
 type MegaMenuItem = {
@@ -86,8 +89,10 @@ function Toggle({ label, value, onChange }: { label: string; value: boolean; onC
 
 function SaveButton({ onClick }: { onClick: () => void }) {
   return (
-    <div style={{ marginTop: 24, display: 'flex', justifyContent: 'flex-end' }}>
-      <button onClick={onClick} style={primaryBtn}>Хадгалах</button>
+    <div className="mt-6 flex justify-end">
+      <button onClick={onClick} className="rounded-lg bg-primary px-5 py-2 text-sm font-semibold text-white hover:bg-primary/90 transition-colors cursor-pointer border-none">
+        Хадгалах
+      </button>
     </div>
   )
 }
@@ -152,10 +157,10 @@ export default function AdminCmsPage() {
       await apiFetch<any>(`/cms/settings/bulk`, {
         method: 'POST', body: { items },
       })
-      setToast('Амжилттай хадгалагдлаа!')
+      sonnerToast.success('Амжилттай хадгалагдлаа')
       loadSettings()
     } catch {
-      setToast('Алдаа гарлаа')
+      sonnerToast.error('Алдаа гарлаа')
     }
   }
 
@@ -376,7 +381,23 @@ export default function AdminCmsPage() {
     const keys = [
       'footer_logo_url', 'footer_description', 'footer_copyright', 'footer_location',
       'footer_show_social', 'footer_show_location', 'footer_columns',
+      'site_facebook', 'site_instagram', 'site_twitter', 'site_linkedin',
+      'site_tiktok', 'site_youtube', 'site_pinterest',
+      'footer_help_cards', 'footer_payments',
     ]
+
+    // Help cards helpers
+    const getHelpCards = (): { title: string; cta: string; url: string; icon: string }[] => {
+      try { return JSON.parse(form.footer_help_cards || '[]') } catch { return [] }
+    }
+    const setHelpCards = (cards: any[]) => sf('footer_help_cards', JSON.stringify(cards))
+
+    // Payment helpers
+    const ALL_PAYMENTS = ['visa', 'mastercard', 'qpay', 'socialpay', 'monpay']
+    const getPayments = (): string[] => {
+      try { const p = JSON.parse(form.footer_payments || '[]'); return Array.isArray(p) ? p : ALL_PAYMENTS } catch { return ALL_PAYMENTS }
+    }
+    const setPayments = (p: string[]) => sf('footer_payments', JSON.stringify(p))
     const columns = getFooterColumns()
 
     const updateColumn = (idx: number, col: FooterColumn) => {
@@ -414,6 +435,21 @@ export default function AdminCmsPage() {
         <Toggle label="Сошиал линкүүд харуулах" value={fb('footer_show_social')} onChange={v => sfb('footer_show_social', v)} />
         <Toggle label="Байршил харуулах" value={fb('footer_show_location')} onChange={v => sfb('footer_show_location', v)} />
 
+        {fb('footer_show_social') && (
+          <>
+            <h3 style={{ ...sectionTitle, marginTop: 20 }}>Сошиал холбоосууд</h3>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 20px' }}>
+              <Field label="Facebook" value={f('site_facebook')} onChange={v => sf('site_facebook', v)} placeholder="https://facebook.com/bizprint" />
+              <Field label="Instagram" value={f('site_instagram')} onChange={v => sf('site_instagram', v)} placeholder="https://instagram.com/bizprint" />
+              <Field label="X (Twitter)" value={f('site_twitter')} onChange={v => sf('site_twitter', v)} placeholder="https://x.com/bizprint" />
+              <Field label="LinkedIn" value={f('site_linkedin')} onChange={v => sf('site_linkedin', v)} placeholder="https://linkedin.com/company/bizprint" />
+              <Field label="TikTok" value={f('site_tiktok')} onChange={v => sf('site_tiktok', v)} placeholder="https://tiktok.com/@bizprint" />
+              <Field label="YouTube" value={f('site_youtube')} onChange={v => sf('site_youtube', v)} placeholder="https://youtube.com/@bizprint" />
+              <Field label="Pinterest" value={f('site_pinterest')} onChange={v => sf('site_pinterest', v)} placeholder="https://pinterest.com/bizprint" />
+            </div>
+          </>
+        )}
+
         <h3 style={{ ...sectionTitle, marginTop: 24 }}>Footer баганууд</h3>
         {columns.map((col, ci) => (
           <div key={ci} style={{ background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 10, padding: 16, marginBottom: 14 }}>
@@ -439,6 +475,45 @@ export default function AdminCmsPage() {
           </div>
         ))}
         <button style={{ ...secondaryBtn, marginTop: 4 }} onClick={addColumn}>+ Багана нэмэх</button>
+
+        {/* ── Тусламж cards ── */}
+        <h3 style={{ ...sectionTitle, marginTop: 24 }}>Тусламж хэсэг (3 карт)</h3>
+        {getHelpCards().length === 0 && (
+          <div style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 10 }}>Default утга ашиглагдаж байна. Нэмэхэд custom болно.</div>
+        )}
+        {getHelpCards().map((card, ci) => (
+          <div key={ci} style={{ background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 10, padding: 14, marginBottom: 10 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+              <span style={{ fontSize: 13, fontWeight: 600 }}>Карт {ci + 1}</span>
+              <button style={dangerBtn} onClick={() => setHelpCards(getHelpCards().filter((_, i) => i !== ci))}>Устгах</button>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+              <div><label style={labelStyle}>Гарчиг</label><input style={inputStyle} value={card.title} onChange={e => { const c = [...getHelpCards()]; c[ci] = { ...c[ci], title: e.target.value }; setHelpCards(c) }} /></div>
+              <div><label style={labelStyle}>CTA текст</label><input style={inputStyle} value={card.cta} onChange={e => { const c = [...getHelpCards()]; c[ci] = { ...c[ci], cta: e.target.value }; setHelpCards(c) }} /></div>
+              <div><label style={labelStyle}>URL</label><input style={inputStyle} value={card.url} onChange={e => { const c = [...getHelpCards()]; c[ci] = { ...c[ci], url: e.target.value }; setHelpCards(c) }} /></div>
+              <div><label style={labelStyle}>Icon (phone/help/feedback)</label><input style={inputStyle} value={card.icon} onChange={e => { const c = [...getHelpCards()]; c[ci] = { ...c[ci], icon: e.target.value }; setHelpCards(c) }} /></div>
+            </div>
+          </div>
+        ))}
+        <button style={{ ...secondaryBtn, marginTop: 4 }} onClick={() => setHelpCards([...getHelpCards(), { title: '', cta: '', url: '', icon: 'phone' }])}>+ Тусламж карт нэмэх</button>
+
+        {/* ── Төлбөрийн аргууд ── */}
+        <h3 style={{ ...sectionTitle, marginTop: 24 }}>Төлбөрийн аргууд (Footer доод)</h3>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+          {ALL_PAYMENTS.map(p => {
+            const active = getPayments().includes(p)
+            return (
+              <button key={p} onClick={() => {
+                const current = getPayments()
+                setPayments(active ? current.filter(x => x !== p) : [...current, p])
+              }} style={{
+                padding: '6px 14px', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                background: active ? '#FF6B00' : 'var(--surface2)', color: active ? '#fff' : 'var(--text2)',
+                border: `1px solid ${active ? '#FF6B00' : 'var(--border)'}`,
+              }}>{p.toUpperCase()}</button>
+            )
+          })}
+        </div>
 
         <SaveButton onClick={() => saveBulk(keys)} />
       </div>
@@ -557,30 +632,35 @@ export default function AdminCmsPage() {
 
   if (loading) {
     return (
-      <div style={{ padding: 48, textAlign: 'center', fontFamily: font, color: 'var(--text2)' }}>
-        Уншиж байна...
+      <div className="p-4 md:p-6">
+        <div className="animate-pulse space-y-4">
+          <div className="h-7 w-48 bg-muted rounded-lg" />
+          <div className="h-4 w-64 bg-muted/60 rounded" />
+          <div className="flex gap-2">{TABS.map(t => <div key={t} className="h-9 w-24 bg-muted rounded-lg" />)}</div>
+          <div className="h-[400px] bg-muted/40 rounded-xl" />
+        </div>
       </div>
     )
   }
 
   return (
-    <div style={{ padding: 24, fontFamily: font }}>
-      <div style={{ marginBottom: 24 }}>
-        <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0, color: 'var(--text)' }}>CMS тохиргоо</h1>
-        <p style={{ color: 'var(--text2)', fontSize: 13, margin: '4px 0 0' }}>Сайтын агуулга, дизайн тохиргоо</p>
-      </div>
+    <div className="p-4 md:p-6" style={{ fontFamily: font }}>
+      <AdminPageHeader title="CMS тохиргоо" description="Сайтын агуулга, дизайн тохиргоо" />
 
       {/* Tabs */}
-      <div style={{ display: 'flex', gap: 6, marginBottom: 24, flexWrap: 'wrap' }}>
-        {TABS.map((t, i) => (
-          <button key={t} onClick={() => setTab(i)} style={{
-            padding: '8px 18px', borderRadius: 8, border: 'none', cursor: 'pointer',
-            fontSize: 13, fontWeight: 600, fontFamily: font, transition: 'all 0.15s',
-            background: tab === i ? '#FF6B00' : 'var(--surface2)',
-            color: tab === i ? '#fff' : 'var(--text2)',
-          }}>{t}</button>
-        ))}
-      </div>
+      <Tabs value={String(tab)} onValueChange={v => setTab(Number(v))} className="mb-6">
+        <TabsList className="h-auto flex-wrap gap-1 bg-transparent p-0">
+          {TABS.map((t, i) => (
+            <TabsTrigger
+              key={t}
+              value={String(i)}
+              className="rounded-lg px-4 py-2 text-sm font-semibold data-[state=active]:bg-primary data-[state=active]:text-white data-[state=inactive]:bg-muted data-[state=inactive]:text-muted-foreground"
+            >
+              {t}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+      </Tabs>
 
       {/* Tab content */}
       {tabRenderers[tab]()}

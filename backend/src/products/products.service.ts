@@ -34,8 +34,19 @@ export class ProductsService {
     return this.productRepo.find({ where: { is_active: true, category: categoryId }, order: { sort_order: 'ASC', created_at: 'DESC' } });
   }
 
-  findOne(id: string) {
-    return this.productRepo.findOne({ where: { id } });
+  async search(query: string, category?: string) {
+    const qb = this.productRepo.createQueryBuilder('p')
+      .where('p.is_active = true')
+      .andWhere('(p.name ILIKE :q OR p.description ILIKE :q OR p.category ILIKE :q)', { q: `%${query}%` })
+    if (category) qb.andWhere('p.category = :cat', { cat: category })
+    return qb.orderBy('p.sort_order', 'ASC').addOrderBy('p.created_at', 'DESC').limit(20).getMany()
+  }
+
+  async findOne(id: string) {
+    // Try by UUID first, then by slug
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+    if (isUuid) return this.productRepo.findOne({ where: { id } });
+    return this.productRepo.findOne({ where: { slug: id } });
   }
 
   async update(id: string, data: Partial<Product>) {
