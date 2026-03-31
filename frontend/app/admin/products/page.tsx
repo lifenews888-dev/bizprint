@@ -258,12 +258,19 @@ function PrintProductsTab() {
               <button onClick={closeModal} style={{ background: 'none', border: 'none', fontSize: 20, color: 'var(--text3)', cursor: 'pointer' }}>✕</button>
             </div>
             <div style={{ display: 'flex', borderBottom: '1px solid var(--border)', paddingLeft: 24 }}>
-              {PRINT_TABS.map((t, i) => (
-                <button key={t} onClick={() => setFormTab(i)} disabled={i > 0 && !editing?.id}
-                  style={{ padding: '10px 18px', fontSize: 13, fontWeight: formTab === i ? 600 : 400, color: formTab === i ? '#FF6B00' : 'var(--text2)', background: 'none', border: 'none', borderBottom: formTab === i ? '2px solid #FF6B00' : '2px solid transparent', cursor: i > 0 && !editing?.id ? 'not-allowed' : 'pointer', fontFamily: FONT }}>
-                  {t}
-                </button>
-              ))}
+              {PRINT_TABS.map((t, i) => {
+                const locked = i > 0 && !editing?.id
+                return (
+                  <button key={t} onClick={() => {
+                    if (locked) { setError('Эхлээд "Хадгалах" дараад, дараа нь Материал/Хэмжээ нэмнэ үү'); return }
+                    setFormTab(i)
+                  }}
+                    style={{ padding: '10px 18px', fontSize: 13, fontWeight: formTab === i ? 600 : 400, color: locked ? 'var(--text3)' : formTab === i ? '#FF6B00' : 'var(--text2)', background: 'none', border: 'none', borderBottom: formTab === i ? '2px solid #FF6B00' : '2px solid transparent', cursor: locked ? 'help' : 'pointer', fontFamily: FONT, opacity: locked ? 0.5 : 1 }}
+                    title={locked ? 'Эхлээд бүтээгдэхүүнийг хадгална уу' : ''}>
+                    {t} {locked && '🔒'}
+                  </button>
+                )
+              })}
             </div>
             {error && <div style={{ margin: '0 24px', marginTop: 12, background: 'rgba(239,68,68,0.1)', color: '#EF4444', padding: '8px 12px', borderRadius: 8, fontSize: 13 }}>{error}</div>}
             <div style={{ padding: 24, overflowY: 'auto', flex: 1 }}>
