@@ -19,16 +19,18 @@ export default function PriceCalculator({ product, onPriceChange }: Props) {
   const isQuote = p.pricing_mode === 'quote_required'
   const isFixed = !isArea && !isTier && !isQuote
 
-  const [widthStr, setWidthStr] = useState('1000')
-  const [heightStr, setHeightStr] = useState('1000')
+  const [widthStr, setWidthStr] = useState('1.0')
+  const [heightStr, setHeightStr] = useState('1.0')
   const [qtyStr, setQtyStr] = useState(String(p.min_quantity || 1))
   const [options, setOptions] = useState<Record<string, boolean>>({})
   const [result, setResult] = useState<any>(null)
   const [calculating, setCalculating] = useState(false)
 
-  // Parse safe numbers (never NaN, never negative)
-  const width = Math.max(0, parseInt(widthStr) || 0)
-  const height = Math.max(0, parseInt(heightStr) || 0)
+  // Parse: meters → millimeters for API
+  const widthM = Math.max(0, parseFloat(widthStr) || 0)
+  const heightM = Math.max(0, parseFloat(heightStr) || 0)
+  const width = Math.round(widthM * 1000) // API expects mm
+  const height = Math.round(heightM * 1000)
   const qty = Math.max(1, parseInt(qtyStr) || 1)
 
   // Initialize options from formula
@@ -106,14 +108,20 @@ export default function PriceCalculator({ product, onPriceChange }: Props) {
         {/* Dimensions (for area-based) */}
         {(isArea || isQuote) && <>
           <div>
-            <label className="text-[10px] font-semibold text-[var(--text3)] mb-1 block flex items-center gap-1"><Ruler className="w-3 h-3" strokeWidth={1.5} />Өргөн (мм)</label>
-            <input type="text" inputMode="numeric" value={widthStr} onChange={e => setWidthStr(e.target.value.replace(/[^0-9]/g, ''))}
-              className="w-full h-9 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 text-sm font-bold text-[var(--text)] outline-none focus:border-[#FF6B00] transition-colors" />
+            <label className="text-[10px] font-semibold text-[var(--text3)] mb-1 block flex items-center gap-1"><Ruler className="w-3 h-3" strokeWidth={1.5} />Өргөн (м)</label>
+            <div className="relative">
+              <input type="text" inputMode="decimal" value={widthStr} onChange={e => setWidthStr(e.target.value.replace(/[^0-9.]/g, ''))}
+                className="w-full h-9 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 pr-8 text-sm font-bold text-[var(--text)] outline-none focus:border-[#FF6B00] transition-colors" />
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-[var(--text3)]">м</span>
+            </div>
           </div>
           <div>
-            <label className="text-[10px] font-semibold text-[var(--text3)] mb-1 block flex items-center gap-1"><Ruler className="w-3 h-3" strokeWidth={1.5} />Өндөр (мм)</label>
-            <input type="text" inputMode="numeric" value={heightStr} onChange={e => setHeightStr(e.target.value.replace(/[^0-9]/g, ''))}
-              className="w-full h-9 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 text-sm font-bold text-[var(--text)] outline-none focus:border-[#FF6B00] transition-colors" />
+            <label className="text-[10px] font-semibold text-[var(--text3)] mb-1 block flex items-center gap-1"><Ruler className="w-3 h-3" strokeWidth={1.5} />Өндөр (м)</label>
+            <div className="relative">
+              <input type="text" inputMode="decimal" value={heightStr} onChange={e => setHeightStr(e.target.value.replace(/[^0-9.]/g, ''))}
+                className="w-full h-9 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 pr-8 text-sm font-bold text-[var(--text)] outline-none focus:border-[#FF6B00] transition-colors" />
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-[var(--text3)]">м</span>
+            </div>
           </div>
         </>}
 
