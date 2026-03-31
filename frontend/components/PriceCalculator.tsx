@@ -19,12 +19,17 @@ export default function PriceCalculator({ product, onPriceChange }: Props) {
   const isQuote = p.pricing_mode === 'quote_required'
   const isFixed = !isArea && !isTier && !isQuote
 
-  const [width, setWidth] = useState(1000)
-  const [height, setHeight] = useState(1000)
-  const [qty, setQty] = useState(p.min_quantity || 1)
+  const [widthStr, setWidthStr] = useState('1000')
+  const [heightStr, setHeightStr] = useState('1000')
+  const [qtyStr, setQtyStr] = useState(String(p.min_quantity || 1))
   const [options, setOptions] = useState<Record<string, boolean>>({})
   const [result, setResult] = useState<any>(null)
   const [calculating, setCalculating] = useState(false)
+
+  // Parse safe numbers (never NaN, never negative)
+  const width = Math.max(0, parseInt(widthStr) || 0)
+  const height = Math.max(0, parseInt(heightStr) || 0)
+  const qty = Math.max(1, parseInt(qtyStr) || 1)
 
   // Initialize options from formula
   useEffect(() => {
@@ -73,9 +78,9 @@ export default function PriceCalculator({ product, onPriceChange }: Props) {
         <div className="flex items-center gap-3">
           <span className="text-xs text-[var(--text3)]">Тоо:</span>
           <div className="flex items-center border border-[var(--border)] rounded-lg overflow-hidden">
-            <button onClick={() => setQty(Math.max(1, qty - 1))} className="w-9 h-9 bg-[var(--surface2)] border-none cursor-pointer text-sm text-[var(--text2)]">−</button>
-            <input type="number" value={qty} onChange={e => setQty(Math.max(1, +e.target.value))} className="w-12 h-9 border-none text-center text-sm font-bold bg-[var(--surface)] text-[var(--text)] outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none" />
-            <button onClick={() => setQty(qty + 1)} className="w-9 h-9 bg-[var(--surface2)] border-none cursor-pointer text-sm text-[var(--text2)]">+</button>
+            <button onClick={() => setQtyStr(String(Math.max(1, qty - 1)))} className="w-9 h-9 bg-[var(--surface2)] border-none cursor-pointer text-sm text-[var(--text2)]">−</button>
+            <input type="text" inputMode="numeric" value={qtyStr} onChange={e => setQtyStr(e.target.value.replace(/[^0-9]/g, '') || '1')} className="w-12 h-9 border-none text-center text-sm font-bold bg-[var(--surface)] text-[var(--text)] outline-none" />
+            <button onClick={() => setQtyStr(String(qty + 1))} className="w-9 h-9 bg-[var(--surface2)] border-none cursor-pointer text-sm text-[var(--text2)]">+</button>
           </div>
           <span className="text-xs text-[var(--text3)]">=</span>
           <motion.span key={qty} initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} className="text-lg font-extrabold text-[#FF6B00]">{fmt(price * qty)}</motion.span>
@@ -102,21 +107,21 @@ export default function PriceCalculator({ product, onPriceChange }: Props) {
         {(isArea || isQuote) && <>
           <div>
             <label className="text-[10px] font-semibold text-[var(--text3)] mb-1 block flex items-center gap-1"><Ruler className="w-3 h-3" strokeWidth={1.5} />Өргөн (мм)</label>
-            <input type="number" value={width} onChange={e => setWidth(Math.max(100, +e.target.value))}
-              className="w-full h-9 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 text-sm font-bold text-[var(--text)] outline-none focus:border-[#FF6B00] transition-colors [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none" />
+            <input type="text" inputMode="numeric" value={widthStr} onChange={e => setWidthStr(e.target.value.replace(/[^0-9]/g, ''))}
+              className="w-full h-9 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 text-sm font-bold text-[var(--text)] outline-none focus:border-[#FF6B00] transition-colors" />
           </div>
           <div>
             <label className="text-[10px] font-semibold text-[var(--text3)] mb-1 block flex items-center gap-1"><Ruler className="w-3 h-3" strokeWidth={1.5} />Өндөр (мм)</label>
-            <input type="number" value={height} onChange={e => setHeight(Math.max(100, +e.target.value))}
-              className="w-full h-9 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 text-sm font-bold text-[var(--text)] outline-none focus:border-[#FF6B00] transition-colors [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none" />
+            <input type="text" inputMode="numeric" value={heightStr} onChange={e => setHeightStr(e.target.value.replace(/[^0-9]/g, ''))}
+              className="w-full h-9 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 text-sm font-bold text-[var(--text)] outline-none focus:border-[#FF6B00] transition-colors" />
           </div>
         </>}
 
         {/* Quantity */}
         <div>
           <label className="text-[10px] font-semibold text-[var(--text3)] mb-1 block flex items-center gap-1"><Package className="w-3 h-3" strokeWidth={1.5} />Тоо ширхэг</label>
-          <input type="number" value={qty} onChange={e => setQty(Math.max(1, +e.target.value))}
-            className="w-full h-9 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 text-sm font-bold text-[var(--text)] outline-none focus:border-[#FF6B00] transition-colors [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none" />
+          <input type="text" inputMode="numeric" value={qtyStr} onChange={e => setQtyStr(e.target.value.replace(/[^0-9]/g, '') || '1')}
+            className="w-full h-9 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 text-sm font-bold text-[var(--text)] outline-none focus:border-[#FF6B00] transition-colors" />
         </div>
 
         {/* Area display */}

@@ -75,10 +75,10 @@ export class ProductPriceCalculatorService {
     if (input.quantity > 100000) {
       throw new BadRequestException('Тоо ширхэг 100,000-аас хэтрэхгүй');
     }
-    if (input.width_mm !== undefined && input.width_mm <= 0) {
+    if (input.width_mm !== undefined && input.width_mm < 0) {
       throw new BadRequestException('Өргөн сөрөг байж болохгүй');
     }
-    if (input.height_mm !== undefined && input.height_mm <= 0) {
+    if (input.height_mm !== undefined && input.height_mm < 0) {
       throw new BadRequestException('Өндөр сөрөг байж болохгүй');
     }
     if (input.width_mm && input.width_mm > 50000) {
