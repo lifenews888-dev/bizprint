@@ -4,7 +4,8 @@ import React, { useState, useEffect, useCallback } from 'react'
 import ProductMediaUploader from '@/components/ProductMediaUploader'
 import { AdminPageHeader } from '@/components/admin/AdminPageHeader'
 
-const PRINT_CATEGORIES = [
+// PRINT_CATEGORIES — legacy fallback, replaced by DB categories in component
+const PRINT_CATEGORIES_FALLBACK = [
   { value: 'HADAG_REKLAM', label: 'Хаяг реклам' },
   { value: 'KHEVLEL', label: 'Хэвлэл' },
   { value: 'PROMO', label: 'Промо' },
@@ -70,6 +71,24 @@ function PrintProductsTab() {
   const [editingSize, setEditingSize] = useState<any>(null)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+
+  // Dynamic categories from DB (root + children)
+  const [allCats, setAllCats] = useState<any[]>([])
+  useEffect(() => {
+    apiFetch<any>('/categories', { auth: false }).then(cats => {
+      if (Array.isArray(cats)) setAllCats(cats.filter((c: any) => c.is_active))
+    }).catch(() => {})
+  }, [])
+  const rootCats = allCats.filter(c => !c.parent_id)
+  const PRINT_CATEGORIES = rootCats.length > 0
+    ? rootCats.map(c => ({ value: c.slug || c.name, label: `${c.icon || ''} ${c.name_mn || c.name}`.trim() }))
+    : PRINT_CATEGORIES_FALLBACK
+  // Sub-categories for selected parent
+  const getSubCategories = (parentSlug: string) => {
+    const parent = allCats.find(c => (c.slug || c.name) === parentSlug)
+    if (!parent) return []
+    return allCats.filter(c => c.parent_id === parent.id).map(c => ({ value: c.slug || c.name, label: c.name_mn || c.name }))
+  }
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -297,7 +316,14 @@ function PrintProductsTab() {
                   </div>
                   <div>
                     <label style={labelStyle}>Дэд ангилал</label>
-                    <input value={form.subcategory} onChange={e => setForm({ ...form, subcategory: e.target.value })} style={inp} />
+                    {getSubCategories(form.category).length > 0 ? (
+                      <select value={form.subcategory} onChange={e => setForm({ ...form, subcategory: e.target.value })} style={{ ...inp, cursor: 'pointer' }}>
+                        <option value="">— Сонгох —</option>
+                        {getSubCategories(form.category).map(sc => <option key={sc.value} value={sc.value}>{sc.label}</option>)}
+                      </select>
+                    ) : (
+                      <input value={form.subcategory} onChange={e => setForm({ ...form, subcategory: e.target.value })} style={inp} placeholder="Дэд ангилал байхгүй — гараар бичих" />
+                    )}
                   </div>
                   <div>
                     <label style={labelStyle}>Хэмжих нэгж</label>
