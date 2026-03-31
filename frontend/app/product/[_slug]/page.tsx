@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useStore } from '@/lib/store'
 import { toast } from 'sonner'
 import { Heart, Share2, GitCompareArrows, ShoppingCart, Zap, Link2, ExternalLink } from 'lucide-react'
+import PriceCalculator from '@/components/PriceCalculator'
 
 const fmt = (n: number) => '₮' + n.toLocaleString('mn-MN')
 
@@ -284,6 +285,11 @@ export default function ProductPage({ params }: { params: Promise<{ _slug: strin
               </div>
               {oldPrice && <div className="text-[10px] text-emerald-600 font-semibold mt-0.5">Хэмнэлт: {fmt(oldPrice - price)}</div>}
             </div>
+
+            {/* Smart Price Calculator */}
+            {(p.pricing_mode === 'formula' || p.pricing_mode === 'tier' || p.pricing_mode === 'quote_required' || p.requires_dimensions) && (
+              <PriceCalculator product={p} onPriceChange={(total) => { /* could update displayed price */ }} />
+            )}
 
             {p.description && <p className="text-[11px] text-[var(--text2)] leading-relaxed line-clamp-3 m-0 !mt-1">{p.description}</p>}
 

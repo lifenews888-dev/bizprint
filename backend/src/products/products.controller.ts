@@ -1,6 +1,7 @@
 import { Controller, Get, Post, Patch, Delete, Body, Param, Query, UseGuards, Request } from '@nestjs/common';
 import { ProductsService } from './products.service';
 import { ProductsMasterService } from '../products-master/products-master.service';
+import { ProductPriceCalculatorService } from './product-price-calculator.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AdminGuard } from '../admin/admin.guard';
 
@@ -9,6 +10,7 @@ export class ProductsController {
   constructor(
     private readonly productsService: ProductsService,
     private readonly masterService: ProductsMasterService,
+    private readonly priceCalc: ProductPriceCalculatorService,
   ) {}
 
   @Get()
@@ -20,6 +22,13 @@ export class ProductsController {
   search(@Query('q') q: string, @Query('category') category?: string) {
     if (!q || q.length < 2) return [];
     return this.productsService.search(q, category);
+  }
+
+  @Post(':id/calculate')
+  async calculatePrice(@Param('id') id: string, @Body() input: any) {
+    const product = await this.productsService.findOne(id);
+    if (!product) return { error: 'Product not found' };
+    return this.priceCalc.calculate(product, input);
   }
 
   @Get('catalog')
