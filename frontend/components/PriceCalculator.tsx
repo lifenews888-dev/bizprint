@@ -104,38 +104,56 @@ export default function PriceCalculator({ product, onPriceChange }: Props) {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 mb-4">
+      <div className="space-y-3 mb-4">
         {/* Dimensions (for area-based) */}
-        {(isArea || isQuote) && <>
+        {(isArea || isQuote) && (
           <div>
-            <label className="text-[10px] font-semibold text-[var(--text3)] mb-1 block flex items-center gap-1"><Ruler className="w-3 h-3" strokeWidth={1.5} />Өргөн (м)</label>
-            <div className="relative">
-              <input type="text" inputMode="decimal" value={widthStr} onChange={e => setWidthStr(e.target.value.replace(/[^0-9.]/g, ''))}
-                className="w-full h-9 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 pr-8 text-sm font-bold text-[var(--text)] outline-none focus:border-[#FF6B00] transition-colors" />
-              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-[var(--text3)]">м</span>
+            <div className="text-[10px] font-semibold text-[var(--text3)] mb-2">Хэмжээ оруулах</div>
+            <div className="grid grid-cols-[1fr_auto_1fr] gap-2 items-center">
+              <div>
+                <div className="text-[9px] text-[var(--text3)] mb-1">Өргөн</div>
+                <div className="relative">
+                  <input type="text" inputMode="decimal" value={widthStr} placeholder="1.2"
+                    onChange={e => { const v = e.target.value.replace(/[^0-9.]/g, '').replace(/(\..*)\./g, '$1'); setWidthStr(v) }}
+                    className="w-full h-10 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 pr-8 text-base font-bold text-[var(--text)] outline-none focus:border-[#FF6B00] transition-colors" />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-[var(--text3)]">м</span>
+                </div>
+              </div>
+              <span className="text-lg text-[var(--text3)] mt-4">×</span>
+              <div>
+                <div className="text-[9px] text-[var(--text3)] mb-1">Өндөр</div>
+                <div className="relative">
+                  <input type="text" inputMode="decimal" value={heightStr} placeholder="2.5"
+                    onChange={e => { const v = e.target.value.replace(/[^0-9.]/g, '').replace(/(\..*)\./g, '$1'); setHeightStr(v) }}
+                    className="w-full h-10 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 pr-8 text-base font-bold text-[var(--text)] outline-none focus:border-[#FF6B00] transition-colors" />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-[var(--text3)]">м</span>
+                </div>
+              </div>
             </div>
-          </div>
-          <div>
-            <label className="text-[10px] font-semibold text-[var(--text3)] mb-1 block flex items-center gap-1"><Ruler className="w-3 h-3" strokeWidth={1.5} />Өндөр (м)</label>
-            <div className="relative">
-              <input type="text" inputMode="decimal" value={heightStr} onChange={e => setHeightStr(e.target.value.replace(/[^0-9.]/g, ''))}
-                className="w-full h-9 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 pr-8 text-sm font-bold text-[var(--text)] outline-none focus:border-[#FF6B00] transition-colors" />
-              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-[var(--text3)]">м</span>
+            {/* Live area calculation display */}
+            <div className="mt-2 px-3 py-2 rounded-lg bg-[var(--surface)] border border-[var(--border)]/50 text-xs">
+              <span className="text-[var(--text3)]">{widthM > 0 ? widthM : '?'}м × {heightM > 0 ? heightM : '?'}м = </span>
+              <span className="font-bold text-[var(--text)]">{widthM > 0 && heightM > 0 ? (widthM * heightM).toFixed(2) : '?'} м²</span>
+              {result?.area_m2 && widthM * heightM < (formula.min_area_m2 || 0.25) && (
+                <span className="text-[#F59E0B] ml-1">⚠️ мин. {formula.min_area_m2 || 0.25}м²</span>
+              )}
             </div>
+            <div className="text-[9px] text-[var(--text3)] mt-1">💡 Жишээ: 1.2м × 2.5м = 3.0 м². Таслалтай тоо (1.2, 0.5) оруулна уу.</div>
           </div>
-        </>}
+        )}
 
         {/* Quantity */}
         <div>
-          <label className="text-[10px] font-semibold text-[var(--text3)] mb-1 block flex items-center gap-1"><Package className="w-3 h-3" strokeWidth={1.5} />Тоо ширхэг</label>
-          <input type="text" inputMode="numeric" value={qtyStr} onChange={e => setQtyStr(e.target.value.replace(/[^0-9]/g, '') || '1')}
-            className="w-full h-9 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 text-sm font-bold text-[var(--text)] outline-none focus:border-[#FF6B00] transition-colors" />
+          <div className="text-[10px] font-semibold text-[var(--text3)] mb-1 flex items-center gap-1"><Package className="w-3 h-3" strokeWidth={1.5} />Тоо ширхэг</div>
+          <input type="text" inputMode="numeric" value={qtyStr} placeholder="1"
+            onChange={e => setQtyStr(e.target.value.replace(/[^0-9]/g, '') || '1')}
+            className="w-full h-10 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 text-base font-bold text-[var(--text)] outline-none focus:border-[#FF6B00] transition-colors" />
         </div>
 
-        {/* Area display */}
+        {/* Area display for result */}
         {isArea && result?.area_m2 && (
           <div className="flex items-end">
-            <div className="text-xs text-[var(--text3)]">Талбай: <span className="font-bold text-[var(--text)]">{result.area_m2.toFixed(2)} м²</span></div>
+            <div className="text-xs text-[var(--text3)]">Тооцоолсон талбай: <span className="font-bold text-[var(--text)]">{result.area_m2.toFixed(2)} м²</span></div>
           </div>
         )}
       </div>
