@@ -2,6 +2,7 @@ import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateCol
 import { ProductMaterial } from './product-material.entity'
 import { ProductSizeOption } from './product-size-option.entity'
 
+// Legacy enum — now stored as varchar in DB, any category slug accepted
 export enum ProductCategory {
   HADAG_REKLAM = 'HADAG_REKLAM',
   KHEVLEL = 'KHEVLEL',
@@ -30,8 +31,8 @@ export class ProductMaster {
   @Column({ nullable: true })
   name_en: string
 
-  @Column({ type: 'enum', enum: ProductCategory })
-  category: ProductCategory
+  @Column({ type: 'varchar', length: 100 })
+  category: string
 
   @Column({ nullable: true })
   subcategory: string
