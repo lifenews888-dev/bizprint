@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
-import { Repository, Like } from 'typeorm'
+import { DataSource, Repository, Like } from 'typeorm'
 import { ProductMaster } from './entities/product-master.entity'
 import { ProductMaterial } from './entities/product-material.entity'
 import { ProductSizeOption } from './entities/product-size-option.entity'
@@ -15,6 +15,7 @@ export class ProductsMasterService {
     @InjectRepository(ProductSizeOption) private sizeRepo: Repository<ProductSizeOption>,
     @InjectRepository(ProductFinishing) private finishingRepo: Repository<ProductFinishing>,
     @InjectRepository(ProductAddon) private addonRepo: Repository<ProductAddon>,
+    private dataSource: DataSource,
   ) {}
 
   async create(data: Partial<ProductMaster>) {
@@ -23,7 +24,34 @@ export class ProductsMasterService {
       data.code = `${prefix}-${Date.now()}`
     }
     const item = this.masterRepo.create(data)
-    return this.masterRepo.save(item)
+    const saved = await this.masterRepo.save(item)
+
+    // Auto-sync to products table so it appears on homepage/shop
+    try {
+      const isSignage = data.category === 'HADAG_REKLAM'
+      const slug = `${(data.name_mn || data.name_en || 'product').toLowerCase().replace(/[^a-zа-яөүё0-9]+/gi, '-')}-${Date.now()}`
+      await this.dataSource.query(`
+        INSERT INTO products (id, name, name_mn, slug, category, description, product_type, product_master_id,
+          pricing_mode, order_flow, requires_file_upload, requires_dimensions, requires_quote_approval,
+          thumbnail_url, images, is_active, base_price)
+        VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, true, 0)
+      `, [
+        data.name_en || data.name_mn, data.name_mn, slug,
+        isSignage ? 'signage' : (data.category || '').toLowerCase().replace(/_/g, '-'),
+        data.description || '',
+        isSignage ? 'signage' : 'print',
+        saved.id,
+        isSignage ? 'formula' : 'tier',
+        isSignage ? 'site_survey' : 'file_upload',
+        !isSignage, // requires_file_upload for print
+        isSignage,  // requires_dimensions for signage
+        isSignage,  // requires_quote_approval for signage
+        data.thumbnail_url || null,
+        JSON.stringify(data.images || []),
+      ])
+    } catch (e) { console.log('Product sync warning:', (e as any).message) }
+
+    return saved
   }
 
   async findAll(query?: { search?: string; category?: string; page?: number; limit?: number }) {
