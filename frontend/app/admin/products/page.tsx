@@ -491,7 +491,7 @@ function ShopProductsTab() {
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const data = await apiFetch<any>('/admin/shop-products?product_type=ready')
+      const data = await apiFetch<any>('/admin/shop-products?product_type=shop')
       setItems(data.items || data || [])
       setTotal(data.total || (data.items || data || []).length)
     } catch (e: any) {
@@ -570,7 +570,7 @@ function ShopProductsTab() {
         sku: form.sku || null,
         thumbnail_url: form.images[0] || form.thumbnail_url || null,
         images: form.images, video_url: form.video_url || null,
-        product_type: 'ready',
+        product_type: 'shop',
         is_featured: form.is_featured, is_new: form.is_new,
         is_bestseller: form.is_bestseller, is_out_of_stock: form.is_out_of_stock,
         is_flash_deal: form.is_flash_deal,
