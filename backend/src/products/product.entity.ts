@@ -4,8 +4,11 @@ import {
 } from 'typeorm';
 
 export enum ProductType {
+  SHOP    = 'shop',
   PRINT   = 'print',
-  READY   = 'ready',
+  SIGNAGE = 'signage',
+  DESIGN  = 'design',
+  READY   = 'ready', // legacy alias for shop
 }
 
 @Entity('products')
@@ -98,6 +101,37 @@ export class Product {
   /** Specs for comparison: { "Хэмжээ": "A4", "Материал": "250gsm" } */
   @Column({ type: 'jsonb', nullable: true })
   compare_specs: Record<string, string>;
+
+  // ─── Product Type System ───
+
+  /** Link to product_masters for PRINT/SIGNAGE */
+  @Column({ nullable: true })
+  product_master_id: string;
+
+  /** Link to templates for DESIGN */
+  @Column({ nullable: true })
+  template_id: string;
+
+  /** Pricing mode: fixed | formula | tier | quote_required */
+  @Column({ default: 'fixed' })
+  pricing_mode: string;
+
+  /** Price formula JSON for dynamic pricing (signage area-based, print tier-based) */
+  @Column({ type: 'jsonb', nullable: true })
+  price_formula: Record<string, any>;
+
+  /** Order flow type: standard | file_upload | site_survey | template_customize */
+  @Column({ default: 'standard' })
+  order_flow: string;
+
+  @Column({ default: false })
+  requires_file_upload: boolean;
+
+  @Column({ default: false })
+  requires_dimensions: boolean;
+
+  @Column({ default: false })
+  requires_quote_approval: boolean;
 
   @CreateDateColumn()
   created_at: Date;

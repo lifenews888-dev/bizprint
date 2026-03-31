@@ -784,6 +784,169 @@ function ShopProductsTab() {
   )
 }
 
+// ─── SIGNAGE PRODUCTS TAB (Хаяг самбар) ──────────────────────────────────────
+function SignageProductsTab() {
+  const [items, setItems] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [modalOpen, setModalOpen] = useState(false)
+  const [editing, setEditing] = useState<any>(null)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+  const [form, setForm] = useState({
+    name_mn: '', description: '', category: 'signage', thumbnail_url: '', images: [] as string[],
+    pricing_mode: 'formula', order_flow: 'site_survey', requires_dimensions: true, requires_quote_approval: true,
+    price_formula: { type: 'area_based', price_per_m2: 0, min_area_m2: 0.25, options: {} as Record<string, { type: string; price: number }> },
+    badge: '', is_featured: false, is_new: false, video_url: '',
+  })
+  const [newOptionKey, setNewOptionKey] = useState('')
+
+  const load = useCallback(async () => {
+    setLoading(true)
+    try {
+      const data = await apiFetch<any>('/admin/shop-products?product_type=signage')
+      setItems(data.items || data || [])
+    } catch { setItems([]) } finally { setLoading(false) }
+  }, [])
+
+  useEffect(() => { load() }, [load])
+
+  const save = async () => {
+    if (!form.name_mn.trim()) { setError('Нэр оруулна уу'); return }
+    setSaving(true); setError('')
+    try {
+      const payload = {
+        name: form.name_mn, name_mn: form.name_mn, category: 'signage',
+        description: form.description, product_type: 'signage',
+        pricing_mode: 'formula', order_flow: 'site_survey',
+        requires_dimensions: true, requires_quote_approval: true,
+        price_formula: form.price_formula,
+        base_price: form.price_formula.price_per_m2 || 0,
+        thumbnail_url: form.images[0] || form.thumbnail_url || null,
+        images: form.images, video_url: form.video_url || null,
+        badge: form.badge || null, is_featured: form.is_featured, is_new: form.is_new,
+      }
+      if (editing?.id) await apiFetch(`/admin/shop-products/${editing.id}`, { method: 'PATCH', body: payload })
+      else await apiFetch('/admin/shop-products', { method: 'POST', body: payload })
+      await load(); setModalOpen(false); setEditing(null)
+    } catch (e: any) { setError(e.message || 'Алдаа') } finally { setSaving(false) }
+  }
+
+  const editItem = (item: any) => {
+    setEditing(item)
+    setForm({
+      name_mn: item.name_mn || item.name || '', description: item.description || '',
+      category: 'signage', thumbnail_url: item.thumbnail_url || '', images: item.images || [],
+      pricing_mode: 'formula', order_flow: 'site_survey', requires_dimensions: true, requires_quote_approval: true,
+      price_formula: item.price_formula || { type: 'area_based', price_per_m2: 0, min_area_m2: 0.25, options: {} },
+      badge: item.badge || '', is_featured: item.is_featured || false, is_new: item.is_new || false, video_url: item.video_url || '',
+    })
+    setModalOpen(true)
+  }
+
+  const pf = form.price_formula
+
+  return (
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+        <p style={{ color: 'var(--text2)', fontSize: 13, margin: 0 }}>Гадна/дотор хаяг реклам, самбар — М² тооцоолол, суурилуулалт</p>
+        <button onClick={() => { setEditing(null); setForm({ name_mn: '', description: '', category: 'signage', thumbnail_url: '', images: [], pricing_mode: 'formula', order_flow: 'site_survey', requires_dimensions: true, requires_quote_approval: true, price_formula: { type: 'area_based', price_per_m2: 0, min_area_m2: 0.25, options: {} }, badge: '', is_featured: false, is_new: false, video_url: '' }); setModalOpen(true) }} style={btnPrimary}>+ Шинэ самбар</button>
+      </div>
+
+      {loading ? <div style={{ textAlign: 'center', padding: 40, color: 'var(--text3)' }}>Уншиж байна...</div> :
+      items.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: 60, color: 'var(--text3)' }}>
+          <div style={{ fontSize: 40, marginBottom: 12 }}>🪧</div>
+          <p>Хаяг самбар бүтээгдэхүүн бүртгэгдээгүй</p>
+          <button onClick={() => setModalOpen(true)} style={btnPrimary}>+ Эхний бүтээгдэхүүн нэмэх</button>
+        </div>
+      ) : (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 14 }}>
+          {items.map(item => {
+            const pf = item.price_formula || {}
+            return (
+              <div key={item.id} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: 16 }}>
+                <div style={{ display: 'flex', gap: 10 }}>
+                  {item.thumbnail_url ? <img src={item.thumbnail_url} alt="" style={{ width: 60, height: 60, objectFit: 'cover', borderRadius: 8 }} /> :
+                    <div style={{ width: 60, height: 60, borderRadius: 8, background: 'var(--surface2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24 }}>🪧</div>}
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: 600, fontSize: 14, color: 'var(--text)' }}>{item.name_mn || item.name}</div>
+                    <div style={{ fontSize: 12, color: '#FF6B00', fontWeight: 700, marginTop: 2 }}>₮{Number(pf.price_per_m2 || item.base_price || 0).toLocaleString()} / м²</div>
+                    {pf.options && Object.keys(pf.options).length > 0 && (
+                      <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 4 }}>
+                        {Object.keys(pf.options).map(k => <span key={k} style={{ fontSize: 10, padding: '1px 6px', borderRadius: 4, background: 'var(--surface2)', color: 'var(--text3)' }}>{k}</span>)}
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <div style={{ display: 'flex', gap: 6, marginTop: 10 }}>
+                  <button onClick={() => editItem(item)} style={{ flex: 1, padding: '6px', background: 'rgba(59,130,246,0.1)', color: '#3B82F6', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 12, fontFamily: FONT }}>Засах</button>
+                  <button onClick={async () => { if (!confirm('Устгах уу?')) return; await apiFetch(`/admin/shop-products/${item.id}`, { method: 'DELETE' }); load() }} style={{ padding: '6px 10px', background: 'rgba(239,68,68,0.1)', color: '#EF4444', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 12, fontFamily: FONT }}>Устгах</button>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      {/* Modal */}
+      {modalOpen && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 20 }} onClick={e => { if (e.target === e.currentTarget) setModalOpen(false) }}>
+          <div style={{ background: 'var(--surface)', borderRadius: 16, width: '100%', maxWidth: 600, maxHeight: '90vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', border: '1px solid var(--border)' }}>
+            <div style={{ padding: '18px 24px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h2 style={{ fontSize: 17, fontWeight: 700, margin: 0 }}>🪧 {editing?.id ? 'Самбар засах' : 'Шинэ хаяг самбар'}</h2>
+              <button onClick={() => setModalOpen(false)} style={{ background: 'none', border: 'none', fontSize: 20, color: 'var(--text3)', cursor: 'pointer' }}>✕</button>
+            </div>
+            {error && <div style={{ margin: '12px 24px 0', background: 'rgba(239,68,68,0.1)', color: '#EF4444', padding: '8px 12px', borderRadius: 8, fontSize: 13 }}>{error}</div>}
+            <div style={{ padding: 24, overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: 16 }}>
+              {/* Name */}
+              <div><label style={labelStyle}>Нэр *</label><input value={form.name_mn} onChange={e => setForm({ ...form, name_mn: e.target.value })} style={inp} placeholder="3D нерж үсэг, Лайтбокс..." /></div>
+              <div><label style={labelStyle}>Тайлбар</label><textarea value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} style={{ ...inp, minHeight: 60, resize: 'vertical' }} /></div>
+
+              {/* Price Formula */}
+              <div style={{ background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 12, padding: 16 }}>
+                <h3 style={{ fontSize: 14, fontWeight: 700, margin: '0 0 12px', color: 'var(--text)' }}>💰 Үнийн тооцоолол (М²)</h3>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                  <div><label style={labelStyle}>М²-ын үнэ (₮) *</label><input type="number" value={pf.price_per_m2} onChange={e => setForm({ ...form, price_formula: { ...pf, price_per_m2: +e.target.value } })} style={inp} placeholder="280000" /></div>
+                  <div><label style={labelStyle}>Мин. талбай (м²)</label><input type="number" value={pf.min_area_m2} onChange={e => setForm({ ...form, price_formula: { ...pf, min_area_m2: +e.target.value } })} style={inp} placeholder="0.25" step="0.01" /></div>
+                </div>
+                <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 8 }}>Томьёо: (Өргөн × Өндөр ÷ 1,000,000) × М² үнэ + Нэмэлт сонголтууд</div>
+              </div>
+
+              {/* Dynamic Options */}
+              <div style={{ background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 12, padding: 16 }}>
+                <h3 style={{ fontSize: 14, fontWeight: 700, margin: '0 0 12px', color: 'var(--text)' }}>⚙️ Нэмэлт сонголтууд (Үнэд нөлөөлөх)</h3>
+                {Object.entries(pf.options || {}).map(([key, opt]) => (
+                  <div key={key} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, padding: '8px 10px', background: 'var(--surface)', borderRadius: 8, border: '1px solid var(--border)' }}>
+                    <span style={{ fontSize: 13, fontWeight: 600, flex: 1, color: 'var(--text)' }}>{key}</span>
+                    <select value={(opt as any).type} onChange={e => setForm({ ...form, price_formula: { ...pf, options: { ...pf.options, [key]: { ...(opt as any), type: e.target.value } } } })} style={{ ...inp, width: 120 }}>
+                      <option value="FIXED">Тогтмол (₮)</option>
+                      <option value="PER_M2">М²-д (₮)</option>
+                    </select>
+                    <input type="number" value={(opt as any).price} onChange={e => setForm({ ...form, price_formula: { ...pf, options: { ...pf.options, [key]: { ...(opt as any), price: +e.target.value } } } })} style={{ ...inp, width: 100 }} placeholder="₮" />
+                    <button onClick={() => { const next = { ...pf.options }; delete next[key]; setForm({ ...form, price_formula: { ...pf, options: next } }) }} style={{ background: 'none', border: 'none', color: '#EF4444', cursor: 'pointer', fontSize: 16 }}>✕</button>
+                  </div>
+                ))}
+                <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
+                  <input value={newOptionKey} onChange={e => setNewOptionKey(e.target.value)} style={{ ...inp, flex: 1 }} placeholder="Гэрэлтүүлэг, Төмөр рам, Суурилуулалт..." />
+                  <button onClick={() => { if (!newOptionKey.trim()) return; setForm({ ...form, price_formula: { ...pf, options: { ...pf.options, [newOptionKey.trim()]: { type: 'FIXED', price: 0 } } } }); setNewOptionKey('') }} style={{ ...btnPrimary, padding: '8px 14px', fontSize: 12 }}>+ Нэмэх</button>
+                </div>
+              </div>
+
+              {/* Images */}
+              <ProductMediaUploader images={form.images} videoUrl={form.video_url} token={getToken() || ''}
+                onChange={(imgs, vid) => setForm(f => ({ ...f, images: imgs, thumbnail_url: imgs[0] || f.thumbnail_url, video_url: vid }))} />
+            </div>
+            <div style={{ padding: '14px 24px', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'flex-end', gap: 10, background: 'var(--surface)' }}>
+              <button onClick={() => setModalOpen(false)} style={btnSecondary}>Цуцлах</button>
+              <button onClick={save} disabled={saving} style={{ ...btnPrimary, opacity: saving ? 0.6 : 1 }}>{saving ? '...' : 'Хадгалах'}</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ─── DESIGNER TEMPLATES TAB ───────────────────────────────────────────────────
 function TemplatesTab() {
   const [items, setItems] = useState<any[]>([])
@@ -902,9 +1065,10 @@ function TemplatesTab() {
 
 // ─── MAIN PAGE ────────────────────────────────────────────────────────────────
 const MAIN_TABS = [
-  { key: 'shop', label: '🛍️ Дэлгүүрийн бүтээгдэхүүн', desc: '35 бүтээгдэхүүн · Тогтмол үнэ' },
-  { key: 'print', label: '🖨️ Хэвлэлийн бүтээгдэхүүн', desc: 'Захиалгат тооцоолол' },
-  { key: 'templates', label: '🎨 Дизайны загварууд', desc: 'Дизайнер → Батлах' },
+  { key: 'shop', label: '🛍️ Дэлгүүр', desc: 'Бэлэн бүтээгдэхүүн · Тогтмол үнэ' },
+  { key: 'print', label: '🖨️ Хэвлэмэл', desc: 'Файл хавсаргах · Тооцоолол' },
+  { key: 'signage', label: '🪧 Хаяг самбар', desc: 'М² тооцоолол · Суурилуулалт' },
+  { key: 'templates', label: '🎨 Дизайн загвар', desc: 'Загвар · Дижитал' },
 ]
 
 export default function AdminProductsPage() {
@@ -925,8 +1089,9 @@ export default function AdminProductsPage() {
       </div>
 
       {/* Tab Content */}
-      {activeTab === 'print' && <PrintProductsTab />}
       {activeTab === 'shop' && <ShopProductsTab />}
+      {activeTab === 'print' && <PrintProductsTab />}
+      {activeTab === 'signage' && <SignageProductsTab />}
       {activeTab === 'templates' && <TemplatesTab />}
     </div>
   )
