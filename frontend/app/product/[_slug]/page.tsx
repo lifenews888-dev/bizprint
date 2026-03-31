@@ -152,6 +152,8 @@ export default function ProductPage({ params }: { params: Promise<{ _slug: strin
   const [tab, setTab] = useState('specs')
   const [adding, setAdding] = useState(false)
   const [shareOpen, setShareOpen] = useState(false)
+  const [livePrice, setLivePrice] = useState<number | null>(null)
+  const [liveBreakdown, setLiveBreakdown] = useState<any>(null)
   const { addToCart: storeAddToCart, cart, toggleWishlist, isWished, toggleCompare, isCompared } = useStore()
   const inCart = cart.some(c => c.id === product?.id)
   const wished = product ? isWished(product?.id) : false
@@ -175,7 +177,7 @@ export default function ProductPage({ params }: { params: Promise<{ _slug: strin
     storeAddToCart({
       id: product.id,
       name: product.name_mn || product.name,
-      price: Number(product.sale_price ?? product.base_price ?? 0),
+      price: liveBreakdown?.unit_price || Number(product.sale_price ?? product.base_price ?? 0),
       image: product.thumbnail_url,
     }, qty)
     toast.success('Сагсанд нэмэгдлээ', { description: `${product.name_mn || product.name} × ${qty}` })
@@ -277,19 +279,19 @@ export default function ProductPage({ params }: { params: Promise<{ _slug: strin
             <h1 className="text-lg font-extrabold leading-snug tracking-tight !mt-1">{p.name_mn || p.name}</h1>
             {p.sku && <div className="text-[10px] text-[var(--text3)] font-mono !mt-0">SKU: {p.sku}</div>}
 
-            {/* Price — glass card */}
+            {/* Price — glass card (live from calculator) */}
             <div className="rounded-xl p-3 border border-[var(--border)] bg-[var(--surface2)]/80 backdrop-blur-sm" style={{ boxShadow: '0 4px 20px rgba(0,0,0,0.03)' }}>
               <div className="flex items-baseline gap-2.5">
-                <AnimPrice value={price} />
+                <AnimPrice value={livePrice ?? price} />
                 {oldPrice && <><span className="text-xs text-[var(--text3)] line-through">{fmt(oldPrice)}</span><span className="text-[10px] font-bold text-emerald-600 bg-emerald-100 px-2 py-0.5 rounded-full">-{disc}%</span></>}
               </div>
-              {oldPrice && <div className="text-[10px] text-emerald-600 font-semibold mt-0.5">Хэмнэлт: {fmt(oldPrice - price)}</div>}
+              {oldPrice && !liveBreakdown && <div className="text-[10px] text-emerald-600 font-semibold mt-0.5">Хэмнэлт: {fmt(oldPrice - price)}</div>}
+              {liveBreakdown?.volume_discount > 0 && <div className="text-[10px] text-emerald-600 font-semibold mt-0.5">📦 Хөнгөлөлт: -{fmt(liveBreakdown.volume_discount)} ({(liveBreakdown.discount_rate * 100).toFixed(0)}%)</div>}
+              {liveBreakdown?.unit_price > 0 && liveBreakdown?.quantity > 1 && <div className="text-[10px] text-[var(--text3)] mt-0.5">Нэгж: {fmt(liveBreakdown.unit_price)} × {liveBreakdown.quantity}ш</div>}
             </div>
 
-            {/* Smart Price Calculator */}
-            {(p.pricing_mode === 'formula' || p.pricing_mode === 'tier' || p.pricing_mode === 'quote_required' || p.requires_dimensions) && (
-              <PriceCalculator product={p} onPriceChange={(total) => { /* could update displayed price */ }} />
-            )}
+            {/* Smart Price Calculator — always shown */}
+            <PriceCalculator product={p} onPriceChange={(total, breakdown) => { setLivePrice(total); setLiveBreakdown(breakdown) }} />
 
             {p.description && <p className="text-[11px] text-[var(--text2)] leading-relaxed line-clamp-3 m-0 !mt-1">{p.description}</p>}
 
