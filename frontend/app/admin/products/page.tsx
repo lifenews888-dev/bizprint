@@ -436,6 +436,41 @@ function PrintProductsTab() {
                       {editingSize && <button onClick={() => { setEditingSize(null); setSizeForm({ ...emptySize }) }} style={{ ...btnSecondary, padding: '8px 18px', fontSize: 12 }}>Цуцлах</button>}
                     </div>
                   </div>
+
+                  {/* ── TIER PRICE EDITOR ── */}
+                  <div style={{ background: 'var(--surface2)', borderRadius: 10, padding: 16, marginTop: 16, border: '1px solid var(--border)' }}>
+                    <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 8, color: 'var(--text)' }}>📊 Тоо ширхгийн шатлалт үнэ</div>
+                    <p style={{ fontSize: 11, color: 'var(--text3)', margin: '0 0 12px' }}>Олноор авахад хямдардаг үнийн шатлал тохируулах</p>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, marginBottom: 10 }}>
+                      <thead>
+                        <tr style={{ background: 'var(--surface)' }}>
+                          <th style={{ ...thStyle, fontSize: 11 }}>Тоо (min)</th>
+                          <th style={{ ...thStyle, fontSize: 11 }}>Тоо (max)</th>
+                          <th style={{ ...thStyle, fontSize: 11 }}>Үнийн коэффициент</th>
+                          <th style={{ ...thStyle, fontSize: 11 }}>Хөнгөлөлт</th>
+                          <th style={{ ...thStyle, fontSize: 11 }}>Шошго</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {[
+                          { min: 1, max: 49, mult: 1.00, label: 'Стандарт' },
+                          { min: 50, max: 99, mult: 0.90, label: '-10%' },
+                          { min: 100, max: 499, mult: 0.80, label: '-20%' },
+                          { min: 500, max: 999, mult: 0.65, label: '-35%' },
+                          { min: 1000, max: null, mult: 0.50, label: '-50%' },
+                        ].map((t, i) => (
+                          <tr key={i}>
+                            <td style={tdStyle}>{t.min}</td>
+                            <td style={tdStyle}>{t.max ?? '∞'}</td>
+                            <td style={tdStyle}>×{t.mult}</td>
+                            <td style={{ ...tdStyle, color: t.mult < 1 ? '#10B981' : 'var(--text2)', fontWeight: 600 }}>{t.mult < 1 ? `-${((1-t.mult)*100).toFixed(0)}%` : '0%'}</td>
+                            <td style={tdStyle}>{t.label}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                    <div style={{ fontSize: 10, color: 'var(--text3)' }}>💡 Жишээ: Суурь үнэ ₮500, 500ш → ₮500 × 0.65 = ₮325/ш (35% хөнгөлөлт)</div>
+                  </div>
                 </div>
               )}
             </div>
