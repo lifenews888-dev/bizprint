@@ -5,6 +5,7 @@ import { useSiteSettings } from '@/contexts/SiteSettingsContext'
 import Link from 'next/link'
 import HeroSlider from '@/components/HeroSlider'
 import GlobalProductCard from '@/components/ProductCard'
+import GalleryPreview from '@/components/GalleryPreview'
 
 /* ───────────── helpers ───────────── */
 function parseJsonItems(raw: any, fallback: any[]): any[] {
@@ -899,6 +900,9 @@ export default function HomePage() {
           </div>
         </section>
       )}
+
+      {/* Gallery Preview */}
+      <GalleryPreview />
     </div>
   )
 }

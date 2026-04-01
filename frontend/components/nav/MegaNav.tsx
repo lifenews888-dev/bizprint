@@ -62,6 +62,7 @@ export default function MegaNav() {
     { label: 'AI Quote', url: '/smart-quote', icon: '🤖', color: '#3B82F6' },
     { label: 'Marketplace', url: '/marketplace', icon: '🎨', color: '#EC4899' },
     { label: 'Үнэ', url: '/pricing', icon: '💎', color: '#F59E0B' },
+    { label: 'Галерей', url: '/gallery', icon: '🖼️', color: '#10B981' },
   ]
 
   const quickLinks: { label: string; url: string; icon: string; color: string }[] =

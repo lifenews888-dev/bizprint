@@ -5,7 +5,7 @@ import {
   Settings, Edit3, Mail, Ticket, Archive, BarChart2,
   MessageCircle, Server, Shield, TrendingUp, Link, DollarSign,
   BookOpen, CreditCard as CreditCardIcon, ExternalLink, LogOut,
-  PanelTop,
+  PanelTop, GalleryHorizontalEnd,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
@@ -87,6 +87,7 @@ export const ADMIN_NAV: AdminNavGroup[] = [
       { label: 'Тохиргоо', href: '/admin/settings', icon: Settings },
       { label: 'CMS / Меню', href: '/admin/cms', icon: Edit3 },
       { label: 'Mega Menu Builder', href: '/admin/mega-menu', icon: PanelTop },
+      { label: 'Галерей', href: '/admin/gallery', icon: GalleryHorizontalEnd },
     ],
   },
   {
