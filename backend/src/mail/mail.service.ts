@@ -9,6 +9,31 @@ export class MailService {
     return Number(n).toLocaleString('mn-MN')
   }
 
+  /** Professional BizPrint HTML email wrapper */
+  private wrap(title: string, color: string, body: string): string {
+    return `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f4f4f5;font-family:'Segoe UI',Arial,sans-serif">
+<div style="max-width:600px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;margin-top:20px;margin-bottom:20px;box-shadow:0 2px 8px rgba(0,0,0,0.06)">
+  <div style="background:${color};padding:28px 32px">
+    <table width="100%"><tr>
+      <td><h1 style="margin:0;color:#fff;font-size:22px;font-weight:800">Biz<span style="font-weight:400">Print</span></h1></td>
+      <td align="right"><span style="color:rgba(255,255,255,0.7);font-size:12px">${title}</span></td>
+    </tr></table>
+  </div>
+  <div style="padding:32px">${body}</div>
+  <div style="padding:20px 32px;background:#f9fafb;border-top:1px solid #e5e7eb;text-align:center">
+    <p style="margin:0;color:#9ca3af;font-size:11px">© ${new Date().getFullYear()} BizPrint — Хэвлэлийн үйлчилгээний платформ</p>
+    <p style="margin:4px 0 0;color:#9ca3af;font-size:11px">📞 7711-8899 | 📧 info@bizprint.mn</p>
+  </div>
+</div></body></html>`
+  }
+
+  /** Product specs table row */
+  private specRow(label: string, value: string | number | null | undefined): string {
+    if (!value) return ''
+    return `<tr><td style="padding:8px 12px;color:#6b7280;font-size:13px;border-bottom:1px solid #f3f4f6">${label}</td><td style="padding:8px 12px;font-weight:600;font-size:13px;color:#111;border-bottom:1px solid #f3f4f6">${value}</td></tr>`
+  }
+
   // ── iCalendar (.ics) үүсгэгч — Google/Apple/Outlook Calendar автоматаар нэмдэг ─
   private generateIcs(params: {
     uid: string
@@ -60,22 +85,43 @@ export class MailService {
     quantity: number
     total: number
     invoiceCode: string
+    specs?: Record<string, string>
   }) {
+    const specsHtml = params.specs
+      ? Object.entries(params.specs).map(([k, v]) => this.specRow(k, v)).join('')
+      : ''
+
+    const body = `
+      <h2 style="margin:0 0 8px;color:#111;font-size:20px">Захиалга баталгаажлаа ✓</h2>
+      <p style="color:#6b7280;margin:0 0 24px;font-size:14px">Сайн байна уу, <strong>${params.name}</strong>!</p>
+
+      <div style="background:#f0fdf4;border:1px solid #86efac;border-radius:10px;padding:16px;margin-bottom:20px">
+        <div style="font-size:12px;color:#059669;font-weight:600;margin-bottom:4px">Захиалгын дугаар</div>
+        <div style="font-size:20px;font-weight:800;color:#059669">${params.invoiceCode}</div>
+      </div>
+
+      <table style="width:100%;border-collapse:collapse;margin-bottom:20px">
+        <tr style="background:#f9fafb"><td colspan="2" style="padding:10px 12px;font-weight:700;font-size:14px;color:#111;border-bottom:2px solid #e5e7eb">Захиалгын мэдээлэл</td></tr>
+        ${this.specRow('Бүтээгдэхүүн', params.productName)}
+        ${this.specRow('Тоо ширхэг', String(params.quantity))}
+        ${specsHtml}
+        <tr style="background:#fff7ed"><td style="padding:12px;font-weight:700;font-size:14px;color:#111">Нийт дүн</td><td style="padding:12px;font-weight:800;font-size:18px;color:#FF6B00">₮${this.fmt(params.total)}</td></tr>
+      </table>
+
+      <p style="color:#6b7280;font-size:13px;line-height:1.6">
+        Таны захиалга амжилттай баталгаажлаа. Удахгүй бид тантай холбогдох болно.<br>
+        Асуулт байвал <strong>7711-8899</strong> дугаарт холбогдоно уу.
+      </p>
+
+      <div style="text-align:center;margin-top:24px">
+        <a href="https://bizprint.mn/dashboard/customer/orders" style="display:inline-block;background:#FF6B00;color:#fff;padding:12px 28px;border-radius:10px;text-decoration:none;font-weight:700;font-size:14px">Захиалга харах →</a>
+      </div>
+    `
+
     await this.mailerService.sendMail({
       to: params.to,
-      subject: 'BizPrint - Zakhialgaa batalgaajlaa - ' + params.invoiceCode,
-      html:
-        '<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto">' +
-        '<div style="background:#FF6B00;padding:24px;color:#fff"><h2 style="margin:0">BizPrint</h2></div>' +
-        '<div style="padding:28px">' +
-        '<h3>Sain baina uu, ' + params.name + '!</h3>' +
-        '<p>Tanii zakhialgaa <strong>' + params.invoiceCode + '</strong> amjilttai batalgaajlaa.</p>' +
-        '<table style="width:100%;border-collapse:collapse">' +
-        '<tr><td style="padding:8px;color:#666">Buteegedkheen</td><td style="padding:8px">' + params.productName + '</td></tr>' +
-        '<tr><td style="padding:8px;color:#666">Too</td><td style="padding:8px">' + params.quantity + '</td></tr>' +
-        '<tr><td style="padding:8px;color:#666;font-weight:700">Niit</td><td style="padding:8px;color:#FF6B00;font-weight:700">' + this.fmt(params.total) + 'T</td></tr>' +
-        '</table>' +
-        '</div></div>',
+      subject: `BizPrint — Захиалга баталгаажлаа #${params.invoiceCode}`,
+      html: this.wrap('Захиалга баталгаажсан', '#FF6B00', body),
     })
   }
 
