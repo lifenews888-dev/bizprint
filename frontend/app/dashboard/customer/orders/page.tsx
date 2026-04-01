@@ -2,9 +2,14 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { apiFetch } from '@/lib/api'
+import { toast } from 'sonner'
 
 const F = "'DM Sans','Segoe UI',system-ui,sans-serif"
 const O = '#FF6B00'
+
+// Product types that can schedule Zoom meetings
+const ZOOM_ELIGIBLE_TYPES = ['design', 'signage']
+const ZOOM_ELIGIBLE_STATUSES = ['confirmed', 'pending_file', 'file_review', 'file_rejected']
 
 const STATUS: Record<string, { label: string; color: string; bg: string }> = {
   draft: { label: 'Ноорог', color: '#6B7280', bg: '#F3F4F6' },
@@ -146,12 +151,31 @@ export default function OrdersPage() {
                   </div>
                 </div>
 
-                {/* Expanded: Timeline stepper */}
+                {/* Expanded: Timeline stepper + Zoom + Actions */}
                 {isExpanded && o.status !== 'cancelled' && (
                   <div style={{ padding: '0 22px 20px', borderTop: '1px solid var(--border)' }}>
                     <div style={{ padding: '18px 0 10px' }}>
                       <OrderStepper status={o.status} />
                     </div>
+
+                    {/* Order items */}
+                    {o.items?.length > 0 && (
+                      <div style={{ marginBottom: 12 }}>
+                        <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text3)', marginBottom: 6 }}>Барааны жагсаалт:</div>
+                        {o.items.map((item: any) => (
+                          <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, padding: '4px 0', borderBottom: '1px solid var(--border)' }}>
+                            <span>{item.specs?.product_name || item.product_id?.slice(0, 8)}</span>
+                            <span style={{ fontWeight: 600 }}>{item.quantity}ш × ₮{Number(item.unit_price).toLocaleString()}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Zoom meeting section */}
+                    <ZoomSection order={o} onUpdate={(updated: any) => {
+                      setOrders(prev => prev.map(ord => ord.id === updated.id ? { ...ord, ...updated } : ord))
+                    }} />
+
                     {/* Actions */}
                     <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
                       {o.status === 'pending_file' && (
@@ -217,6 +241,132 @@ function OrderStepper({ status }: { status: string }) {
           </div>
         )
       })}
+    </div>
+  )
+}
+
+function ZoomSection({ order, onUpdate }: { order: any; onUpdate: (o: any) => void }) {
+  const [scheduling, setScheduling] = useState(false)
+  const [showPicker, setShowPicker] = useState(false)
+  const [scheduledAt, setScheduledAt] = useState('')
+
+  const isEligible = ZOOM_ELIGIBLE_STATUSES.includes(order.status) &&
+    (ZOOM_ELIGIBLE_TYPES.includes(order.options?.product_type) ||
+     order.product_name?.includes('Хаяг') || order.product_name?.includes('реклам') ||
+     order.product_name?.includes('Эх бэлтгэл') || order.product_name?.includes('дизайн') ||
+     order.product_name?.includes('самбар') || order.product_name?.includes('signage') ||
+     order.product_name?.includes('design'))
+
+  // Already has a meeting
+  if (order.zoom_join_url && order.zoom_status !== 'completed') {
+    return (
+      <div style={{ background: '#EFF6FF', border: '1px solid #BFDBFE', borderRadius: 12, padding: 16, marginBottom: 12 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+          <span style={{ fontSize: 16 }}>📹</span>
+          <span style={{ fontSize: 14, fontWeight: 700, color: '#1D4ED8' }}>
+            Zoom уулзалт {order.zoom_status === 'active' ? '— Идэвхтэй!' : '— Товлогдсон'}
+          </span>
+        </div>
+        {order.zoom_scheduled_at && (
+          <div style={{ fontSize: 13, color: '#1E40AF', marginBottom: 8 }}>
+            🕐 {new Date(order.zoom_scheduled_at).toLocaleString('mn-MN', { timeZone: 'Asia/Ulaanbaatar' })}
+          </div>
+        )}
+        {order.zoom_meeting_id && (
+          <div style={{ fontSize: 12, color: '#3B82F6', marginBottom: 4 }}>
+            Meeting ID: <strong>{order.zoom_meeting_id}</strong>
+          </div>
+        )}
+        {order.zoom_password && (
+          <div style={{ fontSize: 12, color: '#3B82F6', marginBottom: 8 }}>
+            Passcode: <strong style={{ letterSpacing: 1 }}>{order.zoom_password}</strong>
+          </div>
+        )}
+        <a href={order.zoom_join_url} target="_blank" rel="noopener noreferrer"
+          onClick={e => e.stopPropagation()}
+          style={{
+            display: 'inline-flex', alignItems: 'center', gap: 6,
+            background: '#2563EB', color: '#fff', padding: '8px 20px', borderRadius: 8,
+            textDecoration: 'none', fontWeight: 700, fontSize: 13,
+          }}>
+          📹 Zoom-д нэгдэх
+        </a>
+      </div>
+    )
+  }
+
+  // Meeting completed
+  if (order.zoom_status === 'completed') {
+    return (
+      <div style={{ background: '#F0FDF4', border: '1px solid #86EFAC', borderRadius: 12, padding: 12, marginBottom: 12, fontSize: 13, color: '#166534' }}>
+        ✅ Zoom уулзалт амжилттай дууслаа. Файлаа оруулна уу.
+      </div>
+    )
+  }
+
+  if (!isEligible) return null
+
+  const handleSchedule = async () => {
+    setScheduling(true)
+    try {
+      const res = await apiFetch<any>(`/orders/${order.id}/schedule-zoom`, {
+        method: 'POST',
+        body: { scheduled_at: scheduledAt || undefined },
+      })
+      if (res?.success) {
+        toast.success('Zoom уулзалт товлогдлоо!')
+        onUpdate({
+          id: order.id,
+          zoom_meeting_id: res.meeting_id,
+          zoom_join_url: res.join_url,
+          zoom_password: res.password,
+          zoom_scheduled_at: res.scheduled_at,
+          zoom_status: 'scheduled',
+        })
+        setShowPicker(false)
+      }
+    } catch (e: any) {
+      toast.error(e.message || 'Алдаа гарлаа')
+    } finally {
+      setScheduling(false)
+    }
+  }
+
+  return (
+    <div style={{ background: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: 12, padding: 16, marginBottom: 12 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+        <span style={{ fontSize: 16 }}>📹</span>
+        <span style={{ fontSize: 14, fontWeight: 700, color: '#92400E' }}>Zoom уулзалт товлох</span>
+      </div>
+      <p style={{ fontSize: 12, color: '#92400E', margin: '0 0 12px' }}>
+        Эх бэлтгэл / хаяг самбарын дизайны талаар ярилцах уулзалт товлох боломжтой.
+      </p>
+
+      {showPicker ? (
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+          <input type="datetime-local" value={scheduledAt}
+            onChange={e => setScheduledAt(e.target.value)}
+            onClick={e => e.stopPropagation()}
+            style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid #FDE68A', fontSize: 13, background: '#fff', color: '#374151' }} />
+          <button onClick={(e) => { e.stopPropagation(); handleSchedule() }} disabled={scheduling}
+            style={{ background: '#2563EB', color: '#fff', border: 'none', borderRadius: 8, padding: '8px 16px', fontSize: 13, fontWeight: 700, cursor: 'pointer', opacity: scheduling ? 0.6 : 1 }}>
+            {scheduling ? '⏳...' : '✅ Товлох'}
+          </button>
+          <button onClick={(e) => { e.stopPropagation(); handleSchedule() }} disabled={scheduling}
+            style={{ background: '#059669', color: '#fff', border: 'none', borderRadius: 8, padding: '8px 16px', fontSize: 13, fontWeight: 700, cursor: 'pointer', opacity: scheduling ? 0.6 : 1 }}>
+            ⚡ Одоо эхлүүлэх
+          </button>
+          <button onClick={(e) => { e.stopPropagation(); setShowPicker(false) }}
+            style={{ background: 'none', border: 'none', color: '#92400E', fontSize: 12, cursor: 'pointer' }}>
+            Болих
+          </button>
+        </div>
+      ) : (
+        <button onClick={(e) => { e.stopPropagation(); setShowPicker(true) }}
+          style={{ background: '#2563EB', color: '#fff', border: 'none', borderRadius: 8, padding: '8px 18px', fontSize: 13, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
+          📹 Zoom уулзалт товлох
+        </button>
+      )}
     </div>
   )
 }

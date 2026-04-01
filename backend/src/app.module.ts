@@ -3,6 +3,7 @@ import { ChatModule } from './chat/chat.module'
 import { ConfigModule } from '@nestjs/config'
 import { TypeOrmModule } from '@nestjs/typeorm'
 import { ThrottlerModule } from '@nestjs/throttler'
+import { ScheduleModule } from '@nestjs/schedule'
 import { EventsModule } from './events/events.module'
 import { SyncModule } from './sync/sync.module'
 
@@ -81,6 +82,7 @@ import { MegaMenuModule } from './mega-menu/mega-menu.module'
     SyncModule,     // ← WebSocket /sync gateway
     ChatModule,
     ConfigModule.forRoot({ isGlobal: true }),
+    ScheduleModule.forRoot(),
     TypeOrmModule.forRoot(
       process.env.DATABASE_URL
         ? {

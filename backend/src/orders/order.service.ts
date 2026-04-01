@@ -2,6 +2,7 @@ import { Injectable, NotFoundException, BadRequestException, Logger } from '@nes
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Order, OrderStatus } from './entities/order.entity';
+import { OrderItem } from './entities/order-item.entity';
 import { OrderVendorGroup } from './entities/order-vendor-group.entity';
 import { AuditTrail } from '../audit-trail/audit-trail.entity';
 import { MailService } from '../mail/mail.service';
@@ -12,6 +13,7 @@ import { BizEvent } from '../events/event-types';
 import { AssignmentEngineService } from '../vendors/services/assignment-engine.service';
 import { VendorTierService } from '../vendors/services/vendor-tier.service';
 import { ProductionGateService } from '../files/production-gate.service';
+import { ZoomService } from '../design-requests/zoom.service';
 
 // Canonical order state progression (matches OrderStatus enum exactly)
 // Production sub-stages (designing, printing, qc, etc.) belong in production_stages table
@@ -57,6 +59,8 @@ export class OrdersService {
   constructor(
     @InjectRepository(Order)
     private ordersRepo: Repository<Order>,
+    @InjectRepository(OrderItem)
+    private orderItemRepo: Repository<OrderItem>,
     @InjectRepository(OrderVendorGroup)
     private vendorGroupRepo: Repository<OrderVendorGroup>,
     @InjectRepository(AuditTrail)
@@ -68,11 +72,30 @@ export class OrdersService {
     private readonly assignmentEngine: AssignmentEngineService,
     private readonly vendorTier: VendorTierService,
     private readonly productionGate: ProductionGateService,
+    private readonly zoomService: ZoomService,
   ) {}
 
   async createOrder(data: any) {
-    const order = this.ordersRepo.create({ ...data, status: OrderStatus.DRAFT });
+    // Separate items from order data
+    const { items, ...orderData } = data;
+    const order = this.ordersRepo.create({ ...orderData, status: OrderStatus.DRAFT });
     const saved: Order = await this.ordersRepo.save(order as any);
+
+    // Save order items from cart
+    if (Array.isArray(items) && items.length > 0) {
+      const orderItems = items.map((item: any) =>
+        this.orderItemRepo.create({
+          order_id: saved.id,
+          product_id: item.product_id || null,
+          quantity: item.quantity || 1,
+          unit_price: Number(item.unit_price) || 0,
+          total_price: Number(item.total_price) || 0,
+          specs: { product_name: item.product_name, image: item.image },
+        }),
+      );
+      await this.orderItemRepo.save(orderItems);
+    }
+
     if (data.customer_email) {
       try {
         await this.mailService.sendOrderConfirmation({
@@ -335,6 +358,7 @@ export class OrdersService {
   async getOrdersByCustomer(customer_id: string) {
     return this.ordersRepo.find({
       where: { customer_id },
+      relations: ['items'],
       order: { created_at: 'DESC' },
     });
   }
@@ -487,5 +511,121 @@ export class OrdersService {
 
     this.logger.log(`Order ${orderId.slice(-8)} → manually re-assigned to ${vendor.company_name}`);
     return { order_id: orderId, vendor_id: vendorId, vendor_name: vendor.company_name };
+  }
+
+  // ── Zoom meeting for order ──────────────────────────────────
+  async scheduleZoom(orderId: string, userId: string, scheduledAt?: string, notes?: string) {
+    const order = await this.ordersRepo.findOne({ where: { id: orderId } });
+    if (!order) throw new NotFoundException('Захиалга олдсонгүй');
+    if (order.customer_id !== userId) throw new BadRequestException('Зөвхөн өөрийн захиалга дээр Zoom товлох боломжтой');
+
+    // Only allow for design/signage orders in relevant statuses
+    const allowedStatuses = ['confirmed', 'pending_file', 'file_review', 'file_rejected'];
+    if (!allowedStatuses.includes(order.status)) {
+      throw new BadRequestException('Энэ төлөвт Zoom уулзалт товлох боломжгүй');
+    }
+
+    const topic = `BizPrint — ${order.product_name || 'Захиалга'} #${orderId.slice(-8).toUpperCase()}`;
+    const meetingDate = scheduledAt ? new Date(scheduledAt) : undefined;
+
+    const meeting = await this.zoomService.createMeeting({
+      topic,
+      scheduledAt: meetingDate,
+      durationMinutes: 30,
+    });
+
+    if (meeting) {
+      order.zoom_meeting_id = meeting.meeting_id;
+      order.zoom_join_url = meeting.join_url;
+      order.zoom_start_url = meeting.start_url;
+      order.zoom_password = meeting.password;
+      order.zoom_scheduled_at = meetingDate || new Date();
+      order.zoom_status = 'scheduled';
+      order.zoom_reminder_sent = false;
+    } else {
+      // Fallback — save a placeholder for manual link
+      order.zoom_join_url = 'https://zoom.us';
+      order.zoom_scheduled_at = meetingDate || new Date();
+      order.zoom_status = 'scheduled';
+      order.zoom_reminder_sent = false;
+    }
+    await this.ordersRepo.save(order);
+
+    // Send email with calendar invite
+    if (order.customer_email) {
+      try {
+        await this.mailService.sendZoomCreated({
+          to: order.customer_email,
+          customerName: order.customer_name || 'Хэрэглэгч',
+          designerName: 'BizPrint баг',
+          productName: order.product_name || 'Захиалга',
+          joinUrl: meeting?.join_url || 'https://zoom.us',
+          password: meeting?.password,
+          scheduledAt: meetingDate,
+          meetingId: meeting?.meeting_id,
+        });
+      } catch (e) {
+        this.logger.warn(`Zoom email send failed: ${e.message}`);
+      }
+    }
+
+    // Notify customer
+    if (order.customer_id) {
+      await this.notificationService.create({
+        user_id: order.customer_id,
+        type: 'order',
+        title: '📹 Zoom уулзалт товлогдлоо',
+        message: meetingDate
+          ? `${order.product_name} — ${meetingDate.toLocaleString('mn-MN', { timeZone: 'Asia/Ulaanbaatar' })}`
+          : `${order.product_name} — Шуурхай уулзалт`,
+        data: {
+          order_id: orderId,
+          join_url: meeting?.join_url,
+          meeting_id: meeting?.meeting_id,
+        },
+      }).catch(() => {});
+    }
+
+    return {
+      success: true,
+      meeting_id: meeting?.meeting_id || null,
+      join_url: meeting?.join_url || 'https://zoom.us',
+      password: meeting?.password || null,
+      scheduled_at: order.zoom_scheduled_at,
+    };
+  }
+
+  // ── Get orders with upcoming Zoom meetings (for reminder cron) ──
+  async getOrdersWithUpcomingZoom(minutesBefore: number) {
+    const now = new Date();
+    const targetTime = new Date(now.getTime() + minutesBefore * 60000);
+    const windowStart = new Date(targetTime.getTime() - 60000); // 1-min window
+
+    return this.ordersRepo
+      .createQueryBuilder('o')
+      .where('o.zoom_status = :status', { status: 'scheduled' })
+      .andWhere('o.zoom_reminder_sent = false')
+      .andWhere('o.zoom_scheduled_at BETWEEN :start AND :end', {
+        start: windowStart.toISOString(),
+        end: targetTime.toISOString(),
+      })
+      .getMany();
+  }
+
+  async markZoomReminderSent(orderId: string) {
+    await this.ordersRepo.update(orderId, { zoom_reminder_sent: true });
+  }
+
+  async updateZoomStatus(meetingId: string, status: string) {
+    const order = await this.ordersRepo.findOne({ where: { zoom_meeting_id: meetingId } });
+    if (!order) return null;
+    order.zoom_status = status;
+    if (status === 'completed') {
+      // Auto-transition to file upload step (Алхам 4: Батлах → файл оруулах)
+      if (['confirmed', 'pending_file', 'file_review'].includes(order.status)) {
+        order.status = OrderStatus.PENDING_FILE;
+      }
+    }
+    return this.ordersRepo.save(order);
   }
 }

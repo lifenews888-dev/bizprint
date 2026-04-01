@@ -148,9 +148,28 @@ function CheckoutInner() {
           body: { quotation_id: quoteId, payment_method: payMethod },
         })
       } else {
+        // Include cart items and total
+        const cartItems = store.cart.map(c => ({
+          product_id: c.id,
+          product_name: c.name,
+          quantity: c.qty,
+          unit_price: c.price,
+          total_price: c.price * c.qty,
+          image: c.image,
+        }))
+        const cartTotal = store.cartTotal()
         data = await apiFetch<any>('/orders', {
           method: 'POST',
-          body: { ...form, payment_method: payMethod },
+          body: {
+            ...form,
+            payment_method: payMethod,
+            items: cartItems,
+            total_price: cartTotal,
+            quantity: store.cartCount(),
+            product_name: cartItems.length === 1
+              ? cartItems[0].product_name
+              : `${cartItems.length} бүтээгдэхүүн`,
+          },
         })
       }
       const orderData = data?.data || data
@@ -189,7 +208,7 @@ function CheckoutInner() {
   // Clear cart on successful order
   const onOrderSuccess = () => {
     store.clearCart()
-    onOrderSuccess()
+    setStep(4)
   }
 
   // Step 4 — Payment confirmed
@@ -428,25 +447,51 @@ function CheckoutInner() {
             </div>
           )}
 
-          {/* Physical order form */}
+          {/* Cart items summary OR manual form */}
           {!quoteId && !isDigitalPurchase && (
-            <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: 24 }}>
-              <h3 style={{ margin: '0 0 20px', fontSize: 16, fontWeight: 700 }}>🖨️ Захиалгын мэдээлэл</h3>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-                <div style={{ gridColumn: '1/-1' }}>
-                  <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text2)', display: 'block', marginBottom: 6 }}>БҮТЭЭГДЭХҮҮН</label>
-                  <input style={inp} placeholder="Визит карт, Флаер, Баннер..." value={form.product_name} onChange={e => set('product_name', e.target.value)} />
+            store.cart.length > 0 ? (
+              <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: 24 }}>
+                <h3 style={{ margin: '0 0 16px', fontSize: 16, fontWeight: 700 }}>🛒 Сагсны бараа ({store.cartCount()} ш)</h3>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  {store.cart.map(item => (
+                    <div key={item.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', background: 'var(--surface2)', borderRadius: 10, border: '1px solid var(--border)' }}>
+                      {item.image && <img src={item.image} alt="" style={{ width: 44, height: 44, borderRadius: 8, objectFit: 'cover' }} />}
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.name}</div>
+                        <div style={{ fontSize: 12, color: 'var(--text3)' }}>{fmt(item.price)} × {item.qty}</div>
+                      </div>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: '#FF6B00', whiteSpace: 'nowrap' }}>{fmt(item.price * item.qty)}</div>
+                    </div>
+                  ))}
                 </div>
-                <div>
-                  <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text2)', display: 'block', marginBottom: 6 }}>ТОО ШИРХЭГ</label>
-                  <input style={inp} type="number" min={1} value={form.quantity} onChange={e => set('quantity', Number(e.target.value))} />
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 16, paddingTop: 12, borderTop: '2px solid var(--border)', fontSize: 16 }}>
+                  <span style={{ fontWeight: 700 }}>Нийт дүн:</span>
+                  <span style={{ fontWeight: 800, color: '#FF6B00', fontSize: 20 }}>{fmt(store.cartTotal())}</span>
                 </div>
-                <div>
+                <div style={{ marginTop: 12 }}>
                   <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text2)', display: 'block', marginBottom: 6 }}>НЭМЭЛТ ТАЙЛБАР</label>
-                  <input style={inp} placeholder="2 тал, мат ламинат..." value={form.notes} onChange={e => set('notes', e.target.value)} />
+                  <input style={inp} placeholder="Нэмэлт тайлбар..." value={form.notes} onChange={e => set('notes', e.target.value)} />
                 </div>
               </div>
-            </div>
+            ) : (
+              <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: 24 }}>
+                <h3 style={{ margin: '0 0 20px', fontSize: 16, fontWeight: 700 }}>🖨️ Захиалгын мэдээлэл</h3>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+                  <div style={{ gridColumn: '1/-1' }}>
+                    <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text2)', display: 'block', marginBottom: 6 }}>БҮТЭЭГДЭХҮҮН</label>
+                    <input style={inp} placeholder="Визит карт, Флаер, Баннер..." value={form.product_name} onChange={e => set('product_name', e.target.value)} />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text2)', display: 'block', marginBottom: 6 }}>ТОО ШИРХЭГ</label>
+                    <input style={inp} type="number" min={1} value={form.quantity} onChange={e => set('quantity', Number(e.target.value))} />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text2)', display: 'block', marginBottom: 6 }}>НЭМЭЛТ ТАЙЛБАР</label>
+                    <input style={inp} placeholder="2 тал, мат ламинат..." value={form.notes} onChange={e => set('notes', e.target.value)} />
+                  </div>
+                </div>
+              </div>
+            )
           )}
 
           {error && <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 10, padding: '12px 16px', color: '#DC2626', fontSize: 14 }}>⚠️ {error}</div>}
@@ -515,12 +560,23 @@ function CheckoutInner() {
                 </>
               ) : (
                 <>
-                  {form.product_name && (
+                  {store.cart.length > 0 ? (
+                    <>
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span style={{ color: 'var(--text2)' }}>Бараа:</span>
+                        <span style={{ fontWeight: 600 }}>{store.cartCount()} ширхэг ({store.cart.length} төрөл)</span>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid var(--border)', paddingTop: 8, marginTop: 4 }}>
+                        <span style={{ fontWeight: 700 }}>Нийт:</span>
+                        <span style={{ fontWeight: 800, color: '#FF6B00', fontSize: 18 }}>{fmt(store.cartTotal())}</span>
+                      </div>
+                    </>
+                  ) : form.product_name ? (
                     <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                       <span style={{ color: 'var(--text2)' }}>Бүтээгдэхүүн:</span>
                       <span style={{ fontWeight: 600 }}>{form.product_name}</span>
                     </div>
-                  )}
+                  ) : null}
                 </>
               )}
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>

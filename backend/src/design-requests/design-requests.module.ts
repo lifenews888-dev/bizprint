@@ -15,6 +15,7 @@ import { GoogleCalendarService } from './google-calendar.service'
 import { Order } from '../orders/entities/order.entity'
 import { User } from '../users/user.entity'
 import { DeliveryModule } from '../delivery/delivery.module'
+import { NotificationModule } from '../notifications/notification.module'
 
 @Module({
   imports: [
@@ -23,9 +24,10 @@ import { DeliveryModule } from '../delivery/delivery.module'
     WalletModule,
     SettingsModule,
     DeliveryModule,
+    NotificationModule,
   ],
   controllers: [DesignRequestsController, ZoomWebhookController],
   providers: [DesignRequestsService, ZoomService, GoogleCalendarService],
-  exports: [DesignRequestsService, GoogleCalendarService],
+  exports: [DesignRequestsService, GoogleCalendarService, ZoomService],
 })
 export class DesignRequestsModule {}

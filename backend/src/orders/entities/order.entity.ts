@@ -114,6 +114,28 @@ export class Order {
   @Column({ nullable: true })
   file_url: string;
 
+  // ── Zoom meeting fields ──
+  @Column({ nullable: true })
+  zoom_meeting_id: string;
+
+  @Column({ nullable: true })
+  zoom_join_url: string;
+
+  @Column({ nullable: true })
+  zoom_start_url: string;
+
+  @Column({ nullable: true })
+  zoom_password: string;
+
+  @Column({ nullable: true })
+  zoom_scheduled_at: Date;
+
+  @Column({ nullable: true })
+  zoom_status: string; // scheduled | active | completed | cancelled
+
+  @Column({ nullable: true })
+  zoom_reminder_sent: boolean;
+
   @Column({ nullable: true })
   assigned_to: string;
 

@@ -143,6 +143,16 @@ export class OrdersController {
     return this.ops.getStatusLogs(id);
   }
 
+  @Post(':id/schedule-zoom')
+  @UseGuards(JwtAuthGuard)
+  async scheduleZoom(
+    @Param('id') orderId: string,
+    @Body() body: { scheduled_at?: string; notes?: string },
+    @Request() req: any,
+  ) {
+    return this.ordersService.scheduleZoom(orderId, req.user.id, body.scheduled_at, body.notes);
+  }
+
   @Post(':id/upload-file')
   @UseGuards(JwtAuthGuard)
   @UseInterceptors(FileInterceptor('file', {

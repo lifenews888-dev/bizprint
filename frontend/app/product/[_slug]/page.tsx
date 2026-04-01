@@ -6,6 +6,7 @@ import { useStore } from '@/lib/store'
 import { toast } from 'sonner'
 import { Heart, Share2, GitCompareArrows, ShoppingCart, Zap, Link2, ExternalLink } from 'lucide-react'
 import PriceCalculator from '@/components/PriceCalculator'
+import BookPriceCalculator from '@/components/BookPriceCalculator'
 
 const fmt = (n: number) => '₮' + n.toLocaleString('mn-MN')
 
@@ -290,8 +291,11 @@ export default function ProductPage({ params }: { params: Promise<{ _slug: strin
               {liveBreakdown?.unit_price > 0 && liveBreakdown?.quantity > 1 && <div className="text-[10px] text-[var(--text3)] mt-0.5">Нэгж: {fmt(liveBreakdown.unit_price)} × {liveBreakdown.quantity}ш</div>}
             </div>
 
-            {/* Smart Price Calculator — always shown */}
-            <PriceCalculator product={p} onPriceChange={(total, breakdown) => { setLivePrice(total); setLiveBreakdown(breakdown) }} />
+            {/* Smart Price Calculator — book/offset uses BookPriceCalculator, others use PriceCalculator */}
+            {p.category === 'book' || p.product_type === 'book' || p.category === 'offset' || p.name_mn?.includes('Ном') || p.name?.includes('Ном') || p.name_mn?.includes('Сэтгүүл') || p.name_mn?.includes('Календарь')
+              ? <BookPriceCalculator product={p} onPriceChange={(total, breakdown) => { setLivePrice(total); setLiveBreakdown(breakdown) }} />
+              : <PriceCalculator product={p} onPriceChange={(total, breakdown) => { setLivePrice(total); setLiveBreakdown(breakdown) }} />
+            }
 
             {p.description && <p className="text-[11px] text-[var(--text2)] leading-relaxed line-clamp-3 m-0 !mt-1">{p.description}</p>}
 

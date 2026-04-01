@@ -1,9 +1,13 @@
 'use client'
 import { apiFetch, getToken } from '@/lib/api'
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import ProductMediaUploader from '@/components/ProductMediaUploader'
 import { QrButton } from '@/components/admin/QrModal'
 import { AdminPageHeader } from '@/components/admin/AdminPageHeader'
+import {
+  type PricingConstants, type CalcInput, type CalcResult,
+  DEFAULT_CONSTANTS, calculate,
+} from '../print-calculator/pricing-engine'
 
 // PRINT_CATEGORIES — legacy fallback, replaced by DB categories in component
 const PRINT_CATEGORIES_FALLBACK = [
@@ -1191,10 +1195,855 @@ function TemplatesTab() {
   )
 }
 
+// ─── OFFSET PRODUCTS TAB ──────────────────────────────────────────────────────
+
+interface OffsetPaperConfig {
+  label: string
+  gsm: number
+  price: number
+}
+
+interface OffsetSizeConfig {
+  code: string
+  label: string
+  width_mm: number
+  height_mm: number
+  pagesPerSig: number
+}
+
+interface SavedOffsetProduct {
+  id: string
+  name: string
+  description: string
+  images: string[]
+  video_url: string
+  // Book standards & recommendations
+  book_info: {
+    standard_sizes: string      // e.g. "A4, A5, B5"
+    recommended_pages: string   // e.g. "64, 128, 256"
+    recommended_paper: string   // e.g. "80gsm дотор, 250gsm хавтас"
+    tips: string                // Markdown tips/recommendations
+    video_intro_url: string     // Video introduction URL
+  }
+  // Custom paper config (overrides global defaults)
+  paper_configs: OffsetPaperConfig[]
+  size_configs: OffsetSizeConfig[]
+  // Calculator
+  input: CalcInput
+  overrides: Record<string, number>
+  total: number
+  unitPrice: number
+  method: string
+  createdAt: string
+}
+
+const DEFAULT_BOOK_INFO: SavedOffsetProduct['book_info'] = {
+  standard_sizes: 'A4 (210×297мм), A5 (148×210мм), B5 (176×250мм)',
+  recommended_pages: '32, 48, 64, 96, 128, 192, 256',
+  recommended_paper: '80gsm дотор хуудас, 250gsm хавтас',
+  tips: '• Нүүрний тоо 4, 8, 16-д хуваагдвал цаас хэмнэнэ\n• Зөөлөн хавтас: 200-250gsm, Хатуу хавтас: 300gsm+\n• UV лак хавтсанд л хэрэглэнэ\n• Офсет 300+ ширхэгт хямд, дижитал 1-299 ширхэгт тохиромжтой\n• ISBN бүртгэл шаардлагатай бол урьдчилан мэдэгдэнэ үү',
+  video_intro_url: '',
+}
+
+const DEFAULT_PAPER_CONFIGS: OffsetPaperConfig[] = [
+  { label: '60gsm (Нимгэн)', gsm: 60, price: 45 },
+  { label: '70gsm (Сонин)', gsm: 70, price: 50 },
+  { label: '80gsm (Энгийн)', gsm: 80, price: 60 },
+  { label: '90gsm', gsm: 90, price: 70 },
+  { label: '100gsm', gsm: 100, price: 80 },
+  { label: '105gsm (Сэтгүүл)', gsm: 105, price: 85 },
+  { label: '115gsm', gsm: 115, price: 95 },
+  { label: '120gsm', gsm: 120, price: 100 },
+  { label: '128gsm (Мелован)', gsm: 128, price: 110 },
+  { label: '150gsm (Зузаан)', gsm: 150, price: 130 },
+  { label: '157gsm (Арт)', gsm: 157, price: 145 },
+  { label: '170gsm (Карт)', gsm: 170, price: 160 },
+  { label: '200gsm', gsm: 200, price: 200 },
+  { label: '210gsm (C1S)', gsm: 210, price: 220 },
+  { label: '230gsm', gsm: 230, price: 250 },
+  { label: '250gsm (Хавтас)', gsm: 250, price: 280 },
+  { label: '270gsm', gsm: 270, price: 310 },
+  { label: '300gsm (Картон)', gsm: 300, price: 350 },
+  { label: '350gsm (Хатуу)', gsm: 350, price: 420 },
+  { label: '400gsm (Хайрцаг)', gsm: 400, price: 500 },
+]
+
+const DEFAULT_SIZE_CONFIGS: OffsetSizeConfig[] = [
+  { code: 'A3', label: 'A3 (297×420мм)', width_mm: 297, height_mm: 420, pagesPerSig: 2 },
+  { code: 'B3', label: 'B3 (353×500мм)', width_mm: 353, height_mm: 500, pagesPerSig: 2 },
+  { code: 'A4', label: 'A4 (210×297мм)', width_mm: 210, height_mm: 297, pagesPerSig: 4 },
+  { code: 'B5', label: 'B5 (176×250мм)', width_mm: 176, height_mm: 250, pagesPerSig: 8 },
+  { code: 'A5', label: 'A5 (148×210мм)', width_mm: 148, height_mm: 210, pagesPerSig: 8 },
+  { code: 'A6', label: 'A6 (105×148мм)', width_mm: 105, height_mm: 148, pagesPerSig: 16 },
+  { code: '70x100', label: '70×100см (Том)', width_mm: 700, height_mm: 1000, pagesPerSig: 1 },
+  { code: 'CUSTOM', label: 'Захиалгат хэмжээ', width_mm: 0, height_mm: 0, pagesPerSig: 2 },
+]
+
+function OffsetProductsTab() {
+  const [products, setProducts] = useState<SavedOffsetProduct[]>([])
+  const [loading, setLoading] = useState(true)
+  const [modalOpen, setModalOpen] = useState(false)
+  const [editingIdx, setEditingIdx] = useState<number | null>(null)
+
+  const loadProducts = useCallback(async () => {
+    try {
+      const token = getToken()
+      const res = await apiFetch('/admin/products-master?product_type=offset', { headers: { Authorization: `Bearer ${token}` } })
+      if (Array.isArray(res)) {
+        setProducts(res.map((item: any) => ({
+          id: item.id,
+          name: item.name_mn || item.name || '',
+          description: item.description || '',
+          images: item.images || [],
+          video_url: item.video_url || '',
+          book_info: item.book_info || { ...DEFAULT_BOOK_INFO },
+          paper_configs: item.paper_configs || [...DEFAULT_PAPER_CONFIGS],
+          size_configs: item.size_configs || [...DEFAULT_SIZE_CONFIGS],
+          input: item.calc_input || { quantity: 500, totalPages: 64, paperSize: 'A3', paperGsm: 80, colorMode: 'color', folding: true, uvCoating: false, dieCutting: false, embossing: false, bindingType: 'Зөөлөн хавтас', hasCover: true, coverGsm: 250, coverColorMode: 'color' },
+          overrides: item.calc_overrides || {},
+          total: item.base_price || 0,
+          unitPrice: item.unit_price || 0,
+          method: item.calc_method || 'offset',
+          createdAt: item.created_at || new Date().toISOString(),
+        })))
+      }
+    } catch {
+      // Fallback to localStorage
+      try { setProducts(JSON.parse(localStorage.getItem('bizprint_offset_products') || '[]')) } catch { setProducts([]) }
+    }
+    setLoading(false)
+  }, [])
+
+  useEffect(() => { loadProducts() }, [loadProducts])
+
+  const saveToBackend = async (product: SavedOffsetProduct, isUpdate: boolean) => {
+    const token = getToken()
+    const body = {
+      name: product.name, name_mn: product.name, product_type: 'offset', category: 'book',
+      description: product.description, images: product.images, video_url: product.video_url,
+      base_price: product.total, thumbnail_url: product.images[0] || null,
+      book_info: product.book_info, paper_configs: product.paper_configs, size_configs: product.size_configs,
+      calc_input: product.input, calc_overrides: product.overrides, calc_method: product.method,
+      unit_price: product.unitPrice, pricing_mode: 'formula',
+    }
+    try {
+      if (isUpdate) {
+        await apiFetch(`/admin/products-master/${product.id}`, { method: 'PUT', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+      } else {
+        await apiFetch('/admin/products-master', { method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+      }
+    } catch {
+      // Fallback localStorage
+      const list = isUpdate ? products.map(p => p.id === product.id ? product : p) : [product, ...products]
+      localStorage.setItem('bizprint_offset_products', JSON.stringify(list))
+    }
+  }
+
+  const handleSave = async (product: SavedOffsetProduct) => {
+    const isUpdate = editingIdx !== null
+    if (isUpdate) {
+      setProducts(prev => { const next = [...prev]; next[editingIdx!] = product; return next })
+    } else {
+      setProducts(prev => [product, ...prev])
+    }
+    setModalOpen(false); setEditingIdx(null)
+    await saveToBackend(product, isUpdate)
+    loadProducts()
+  }
+
+  const handleDelete = async (idx: number) => {
+    if (!confirm('Устгах уу?')) return
+    const p = products[idx]
+    setProducts(prev => prev.filter((_, i) => i !== idx))
+    try {
+      const token = getToken()
+      await apiFetch(`/admin/products-master/${p.id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } })
+    } catch { /* silent */ }
+  }
+
+  const openEdit = (idx: number) => { setEditingIdx(idx); setModalOpen(true) }
+  const openNew = () => { setEditingIdx(null); setModalOpen(true) }
+  const fmt = (n: number) => '₮' + Math.round(n).toLocaleString('mn-MN')
+
+  if (loading) return <div style={{ textAlign: 'center', padding: 60, color: 'var(--text3)' }}>Ачааллаж байна...</div>
+
+  return (
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+        <p style={{ color: 'var(--text2)', fontSize: 13, margin: 0 }}>
+          Офсет/Дижитал бүтээгдэхүүн — нийт {products.length}
+        </p>
+        <button onClick={openNew} style={btnPrimary}>+ Шинэ бүтээгдэхүүн</button>
+      </div>
+
+      {products.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: 60, color: 'var(--text3)', fontSize: 14 }}>
+          <div style={{ fontSize: 48, marginBottom: 12 }}>📖</div>
+          <div style={{ fontWeight: 600 }}>Офсет бүтээгдэхүүн байхгүй</div>
+          <p style={{ fontSize: 13, marginTop: 8 }}>Ном, сэтгүүл, каталог зэрэг офсет бүтээгдэхүүн үүсгэнэ</p>
+          <button onClick={openNew} style={{ ...btnPrimary, marginTop: 12 }}>+ Шинэ бүтээгдэхүүн</button>
+        </div>
+      ) : (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 16 }}>
+          {products.map((p, i) => (
+            <div key={p.id} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden', cursor: 'pointer', transition: 'box-shadow 0.2s' }}
+              onClick={() => openEdit(i)} onMouseOver={e => (e.currentTarget.style.boxShadow = '0 4px 20px rgba(0,0,0,0.1)')} onMouseOut={e => (e.currentTarget.style.boxShadow = 'none')}>
+              {/* Image */}
+              <div style={{ height: 160, background: 'var(--surface2)', position: 'relative', overflow: 'hidden' }}>
+                {p.images?.[0] ? (
+                  <img src={p.images[0]} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                ) : (
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', fontSize: 48, opacity: 0.3 }}>📖</div>
+                )}
+                <span style={{ position: 'absolute', top: 8, left: 8, padding: '3px 10px', borderRadius: 99, fontSize: 10, fontWeight: 700,
+                  background: p.method === 'offset' ? 'rgba(139,92,246,0.9)' : 'rgba(59,130,246,0.9)', color: '#fff',
+                }}>{p.method === 'offset' ? 'Офсет' : 'Дижитал'}</span>
+                {p.images?.length > 1 && (
+                  <span style={{ position: 'absolute', top: 8, right: 8, padding: '3px 8px', borderRadius: 99, fontSize: 10, fontWeight: 600, background: 'rgba(0,0,0,0.6)', color: '#fff' }}>
+                    📷 {p.images.length}
+                  </span>
+                )}
+              </div>
+              {/* Info */}
+              <div style={{ padding: '12px 14px' }}>
+                <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)', marginBottom: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {p.name || 'Нэргүй бүтээгдэхүүн'}
+                </div>
+                {p.description && (
+                  <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 8, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.description}</div>
+                )}
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 8 }}>
+                  <span style={{ fontSize: 10, padding: '2px 6px', borderRadius: 4, background: 'var(--surface2)', color: 'var(--text2)' }}>{p.input.paperSize}</span>
+                  <span style={{ fontSize: 10, padding: '2px 6px', borderRadius: 4, background: 'var(--surface2)', color: 'var(--text2)' }}>{p.input.totalPages} нүүр</span>
+                  <span style={{ fontSize: 10, padding: '2px 6px', borderRadius: 4, background: 'var(--surface2)', color: 'var(--text2)' }}>{p.input.quantity}ш</span>
+                  <span style={{ fontSize: 10, padding: '2px 6px', borderRadius: 4, background: 'var(--surface2)', color: 'var(--text2)' }}>{p.input.paperGsm}gsm</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                  <span style={{ fontSize: 18, fontWeight: 800, color: '#FF6B00' }}>{fmt(p.total)}</span>
+                  <span style={{ fontSize: 11, color: 'var(--text3)' }}>Нэгж: {fmt(p.unitPrice)}</span>
+                </div>
+              </div>
+              {/* Actions */}
+              <div style={{ padding: '8px 14px', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', fontSize: 11 }}>
+                <span style={{ color: 'var(--text3)' }}>{new Date(p.createdAt).toLocaleDateString('mn-MN')}</span>
+                <div style={{ display: 'flex', gap: 10 }}>
+                  <button onClick={e => { e.stopPropagation(); openEdit(i) }} style={{ background: 'none', border: 'none', color: '#3B82F6', cursor: 'pointer', fontSize: 11, fontFamily: FONT }}>Засах</button>
+                  <button onClick={e => { e.stopPropagation(); handleDelete(i) }} style={{ background: 'none', border: 'none', color: '#EF4444', cursor: 'pointer', fontSize: 11, fontFamily: FONT }}>Устгах</button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {modalOpen && (
+        <OffsetCalculatorModal
+          initial={editingIdx !== null ? products[editingIdx] : undefined}
+          onSave={handleSave}
+          onClose={() => { setModalOpen(false); setEditingIdx(null) }}
+        />
+      )}
+    </div>
+  )
+}
+
+// ─── OFFSET CALCULATOR MODAL ─────────────────────────────────────────────────
+
+const OFFSET_MODAL_TABS = [
+  { key: 'info', label: '📋 Мэдээлэл', desc: 'Нэр, тайлбар, зураг, видео' },
+  { key: 'calc', label: '🧮 Тооцоолуур', desc: 'Үнэ бодох, задаргаа' },
+  { key: 'paper', label: '📄 Цаас & Хэмжээ', desc: 'Цаасны төрөл, үнэ тохируулах' },
+  { key: 'book', label: '📖 Стандарт & Зөвлөгөө', desc: 'Номын мэдээлэл, видео' },
+]
+
+function OffsetCalculatorModal({ initial, onSave, onClose }: {
+  initial?: SavedOffsetProduct
+  onSave: (p: SavedOffsetProduct) => void
+  onClose: () => void
+}) {
+  const [tab, setTab] = useState('info')
+
+  // ── Product info fields ──
+  const [name, setName] = useState(initial?.name || '')
+  const [description, setDescription] = useState(initial?.description || '')
+  const [images, setImages] = useState<string[]>(initial?.images || [])
+  const [videoUrl, setVideoUrl] = useState(initial?.video_url || '')
+
+  // ── Book info ──
+  const [bookInfo, setBookInfo] = useState<SavedOffsetProduct['book_info']>(initial?.book_info || { ...DEFAULT_BOOK_INFO })
+
+  // ── Paper & Size configs ──
+  const [paperConfigs, setPaperConfigs] = useState<OffsetPaperConfig[]>(initial?.paper_configs || [...DEFAULT_PAPER_CONFIGS])
+  const [sizeConfigs, setSizeConfigs] = useState<OffsetSizeConfig[]>(initial?.size_configs || [...DEFAULT_SIZE_CONFIGS])
+
+  // ── Calculator ──
+  const customConstants = useMemo<PricingConstants>(() => ({
+    ...DEFAULT_CONSTANTS,
+    paperPrices: paperConfigs.map(p => ({ label: p.label, gsm: p.gsm, price: p.price })),
+    pagesPerSignature: Object.fromEntries(sizeConfigs.filter(s => s.code !== 'CUSTOM').map(s => [s.code, s.pagesPerSig])),
+  }), [paperConfigs, sizeConfigs])
+
+  const [input, setInput] = useState<CalcInput>(initial?.input || {
+    quantity: 500, totalPages: 64, paperSize: 'A3', paperGsm: 80, colorMode: 'color',
+    folding: true, uvCoating: false, dieCutting: false, embossing: false,
+    bindingType: 'Зөөлөн хавтас', hasCover: true, coverGsm: 250, coverColorMode: 'color',
+  })
+  const [overrides, setOverrides] = useState<Record<string, number>>(initial?.overrides || {})
+  const [editingKey, setEditingKey] = useState<string | null>(null)
+
+  const set = (k: keyof CalcInput, v: any) => setInput(prev => ({ ...prev, [k]: v }))
+  const result = useMemo(() => calculate(input, customConstants), [input, customConstants])
+
+  const finalLines = useMemo(() => result.lines.map(l => ({
+    ...l,
+    amount: overrides[l.key] !== undefined ? overrides[l.key] : l.amount,
+    isOverridden: overrides[l.key] !== undefined,
+  })), [result.lines, overrides])
+
+  const finalTotal = finalLines.reduce((s, l) => s + l.amount, 0)
+  const finalUnit = input.quantity > 0 ? Math.round(finalTotal / input.quantity) : 0
+  const fmt = (n: number) => '₮' + Math.round(n).toLocaleString('mn-MN')
+
+  // ── Paper config helpers ──
+  const addPaper = () => setPaperConfigs(prev => [...prev, { label: '', gsm: 0, price: 0 }])
+  const updatePaper = (idx: number, field: keyof OffsetPaperConfig, val: any) => {
+    setPaperConfigs(prev => prev.map((p, i) => i === idx ? { ...p, [field]: val } : p))
+  }
+  const removePaper = (idx: number) => setPaperConfigs(prev => prev.filter((_, i) => i !== idx))
+
+  const addSize = () => setSizeConfigs(prev => [...prev, { code: '', label: '', width_mm: 0, height_mm: 0, pagesPerSig: 2 }])
+  const updateSize = (idx: number, field: keyof OffsetSizeConfig, val: any) => {
+    setSizeConfigs(prev => prev.map((s, i) => i === idx ? { ...s, [field]: val } : s))
+  }
+  const removeSize = (idx: number) => setSizeConfigs(prev => prev.filter((_, i) => i !== idx))
+
+  const handleSave = () => {
+    onSave({
+      id: initial?.id || crypto.randomUUID(),
+      name: name || `${input.paperSize} ${input.totalPages}нүүр ${input.quantity}ш`,
+      description, images, video_url: videoUrl, book_info: bookInfo,
+      paper_configs: paperConfigs, size_configs: sizeConfigs,
+      input, overrides, total: finalTotal, unitPrice: finalUnit,
+      method: result.method,
+      createdAt: initial?.createdAt || new Date().toISOString(),
+    })
+  }
+
+  const token = typeof window !== 'undefined' ? getToken() : ''
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', zIndex: 1000, padding: '20px', overflowY: 'auto' }}
+      onClick={e => { if (e.target === e.currentTarget) onClose() }}>
+      <div style={{ background: 'var(--surface)', borderRadius: 16, width: '100%', maxWidth: 1200, border: '1px solid var(--border)', overflow: 'hidden' }}>
+
+        {/* Header */}
+        <div style={{ padding: '16px 24px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div>
+            <h2 style={{ fontSize: 17, fontWeight: 700, margin: 0, color: 'var(--text)' }}>📖 Офсет бүтээгдэхүүн {initial ? '— Засах' : '— Шинэ'}</h2>
+            <p style={{ fontSize: 12, color: 'var(--text3)', margin: '4px 0 0' }}>Бүрэн мэдээлэл, зураг, тооцоолуур, цаасны тохиргоо</p>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            {/* Mini price badge in header */}
+            <div style={{ background: 'linear-gradient(135deg, #FF6B00, #FF8C42)', borderRadius: 10, padding: '8px 16px', color: '#fff', textAlign: 'right' }}>
+              <div style={{ fontSize: 10, opacity: 0.8 }}>Нийт дүн</div>
+              <div style={{ fontSize: 18, fontWeight: 800, letterSpacing: -0.5 }}>{fmt(finalTotal)}</div>
+            </div>
+            <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: 20, color: 'var(--text3)', cursor: 'pointer' }}>✕</button>
+          </div>
+        </div>
+
+        {/* Tabs */}
+        <div style={{ display: 'flex', borderBottom: '1px solid var(--border)', background: 'var(--surface2)', overflowX: 'auto' }}>
+          {OFFSET_MODAL_TABS.map(t => (
+            <button key={t.key} onClick={() => setTab(t.key)}
+              style={{ padding: '10px 20px', background: 'none', border: 'none', borderBottom: tab === t.key ? '2px solid #FF6B00' : '2px solid transparent', cursor: 'pointer', fontFamily: FONT, whiteSpace: 'nowrap' }}>
+              <div style={{ fontSize: 12, fontWeight: tab === t.key ? 700 : 500, color: tab === t.key ? '#FF6B00' : 'var(--text2)' }}>{t.label}</div>
+              <div style={{ fontSize: 10, color: 'var(--text3)' }}>{t.desc}</div>
+            </button>
+          ))}
+        </div>
+
+        {/* Tab Content */}
+        <div style={{ maxHeight: 'calc(100vh - 260px)', overflowY: 'auto' }}>
+
+          {/* ═══ TAB: INFO ═══ */}
+          {tab === 'info' && (
+            <div style={{ padding: 24 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 20 }}>
+                <div>
+                  <label style={labelStyle}>Бүтээгдэхүүний нэр *</label>
+                  <input value={name} onChange={e => setName(e.target.value)} style={inp} placeholder="Ном, Сэтгүүл, Каталог, Брошур..." />
+                </div>
+                <div>
+                  <label style={labelStyle}>Видео URL (YouTube, Vimeo)</label>
+                  <input value={videoUrl} onChange={e => setVideoUrl(e.target.value)} style={inp} placeholder="https://youtube.com/watch?v=..." />
+                </div>
+              </div>
+
+              <div style={{ marginBottom: 20 }}>
+                <label style={labelStyle}>Дэлгэрэнгүй тайлбар</label>
+                <textarea value={description} onChange={e => setDescription(e.target.value)}
+                  style={{ ...inp, minHeight: 120, resize: 'vertical' }}
+                  placeholder="Бүтээгдэхүүний дэлгэрэнгүй тайлбар, онцлог, давуу тал, хэрэглээ зэргийг бичнэ үү..." />
+              </div>
+
+              {/* Video preview */}
+              {videoUrl && (
+                <div style={{ marginBottom: 20 }}>
+                  <label style={labelStyle}>Видео урьдчилсан харагдац</label>
+                  <div style={{ borderRadius: 12, overflow: 'hidden', border: '1px solid var(--border)', aspectRatio: '16/9', maxWidth: 480 }}>
+                    {videoUrl.includes('youtube.com') || videoUrl.includes('youtu.be') ? (
+                      <iframe
+                        src={`https://www.youtube.com/embed/${videoUrl.includes('youtu.be') ? videoUrl.split('/').pop() : new URLSearchParams(videoUrl.split('?')[1]).get('v')}`}
+                        style={{ width: '100%', height: '100%', border: 'none' }} allowFullScreen />
+                    ) : (
+                      <video src={videoUrl} controls style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Images — 8 images */}
+              <div style={{ marginBottom: 16 }}>
+                <label style={labelStyle}>Бүтээгдэхүүний зургууд (8 хүртэл)</label>
+                <ProductMediaUploader
+                  images={images}
+                  videoUrl={videoUrl}
+                  token={token || ''}
+                  onChange={(imgs, vid) => { setImages(imgs); if (vid) setVideoUrl(vid) }}
+                />
+              </div>
+
+              {/* Quick specs preview */}
+              <div style={{ background: 'var(--surface2)', borderRadius: 10, padding: 16 }}>
+                <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text2)', marginBottom: 10 }}>Товч мэдээлэл</div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10, fontSize: 12 }}>
+                  <div><span style={{ color: 'var(--text3)' }}>Арга:</span> <strong>{result.method === 'offset' ? 'Офсет' : 'Дижитал'}</strong></div>
+                  <div><span style={{ color: 'var(--text3)' }}>Тираж:</span> <strong>{input.quantity}ш</strong></div>
+                  <div><span style={{ color: 'var(--text3)' }}>Нүүр:</span> <strong>{input.totalPages}</strong></div>
+                  <div><span style={{ color: 'var(--text3)' }}>Нийт:</span> <strong style={{ color: '#FF6B00' }}>{fmt(finalTotal)}</strong></div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ═══ TAB: CALCULATOR ═══ */}
+          {tab === 'calc' && (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 360px', overflow: 'hidden' }}>
+              {/* LEFT: Inputs */}
+              <div style={{ padding: 24, overflowY: 'auto', borderRight: '1px solid var(--border)', maxHeight: 'calc(100vh - 320px)' }}>
+                {/* Method badge */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderRadius: 10, marginBottom: 14,
+                  background: result.method === 'offset' ? 'rgba(139,92,246,0.08)' : 'rgba(59,130,246,0.08)',
+                  border: `1px solid ${result.method === 'offset' ? 'rgba(139,92,246,0.2)' : 'rgba(59,130,246,0.2)'}`,
+                }}>
+                  <span style={{ fontSize: 18 }}>{result.method === 'offset' ? '🖨️' : '⚡'}</span>
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: result.method === 'offset' ? '#7C3AED' : '#2563EB' }}>
+                      {result.method === 'offset' ? 'Офсет хэвлэл' : 'Дижитал хэвлэл (Шуурхай)'}
+                    </div>
+                    <div style={{ fontSize: 11, color: 'var(--text3)' }}>
+                      {input.quantity}ш {result.method === 'offset' ? '≥ 300 → Офсет' : '< 300 → Дижитал'} · {result.signatures} багц × {result.pagesPerSig} нүүр
+                    </div>
+                  </div>
+                </div>
+
+                {/* Core inputs */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 14 }}>
+                  <div>
+                    <label style={labelStyle}>Тоо ширхэг</label>
+                    <input type="number" min={1} value={input.quantity} onChange={e => set('quantity', Math.max(1, +e.target.value))} style={inp} />
+                  </div>
+                  <div>
+                    <label style={labelStyle}>Нийт нүүр</label>
+                    <input type="number" min={1} value={input.totalPages} onChange={e => set('totalPages', Math.max(1, +e.target.value))} style={inp} />
+                  </div>
+                  <div>
+                    <label style={labelStyle}>Хэмжээ</label>
+                    <select value={input.paperSize} onChange={e => set('paperSize', e.target.value)} style={{ ...inp, cursor: 'pointer' }}>
+                      {sizeConfigs.filter(s => s.code !== 'CUSTOM').map(s => <option key={s.code} value={s.code}>{s.label}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label style={labelStyle}>Цаасны GSM</label>
+                    <select value={String(input.paperGsm)} onChange={e => set('paperGsm', +e.target.value)} style={{ ...inp, cursor: 'pointer' }}>
+                      {paperConfigs.map(p => <option key={p.gsm} value={p.gsm}>{p.label} — {p.price}₮</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label style={labelStyle}>Өнгө</label>
+                    <select value={input.colorMode} onChange={e => set('colorMode', e.target.value)} style={{ ...inp, cursor: 'pointer' }}>
+                      <option value="color">Өнгөт (4+4)</option>
+                      <option value="bw">Хар цагаан (1+1)</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label style={labelStyle}>Хавтаслалт</label>
+                    <select value={input.bindingType} onChange={e => set('bindingType', e.target.value)} style={{ ...inp, cursor: 'pointer' }}>
+                      <option value="">Байхгүй</option>
+                      {Object.keys(customConstants.bindingPrices).map(k => <option key={k} value={k}>{k}</option>)}
+                    </select>
+                  </div>
+                </div>
+
+                {/* Post-press toggles */}
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 14 }}>
+                  {[
+                    { key: 'hasCover', label: '📄 Хавтас' },
+                    ...(result.method === 'offset' ? [
+                      { key: 'folding', label: '📑 Бүрэлт' },
+                      { key: 'uvCoating', label: '✨ UV лак' },
+                      { key: 'dieCutting', label: '✂️ Тигел' },
+                      { key: 'embossing', label: '🔖 Эмбосс' },
+                    ] : []),
+                  ].map(opt => {
+                    const val = (input as any)[opt.key]
+                    return (
+                      <button key={opt.key} onClick={() => set(opt.key as any, !val)}
+                        style={{ padding: '6px 14px', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: FONT,
+                          background: val ? 'rgba(255,107,0,0.08)' : 'var(--surface2)',
+                          color: val ? '#FF6B00' : 'var(--text3)',
+                          border: `1px solid ${val ? 'rgba(255,107,0,0.3)' : 'var(--border)'}`,
+                        }}>
+                        {opt.label}
+                      </button>
+                    )
+                  })}
+                </div>
+
+                {/* Cover config */}
+                {input.hasCover && (
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 14, background: 'var(--surface2)', borderRadius: 10, padding: 12 }}>
+                    <div>
+                      <label style={labelStyle}>Хавтас GSM</label>
+                      <select value={String(input.coverGsm)} onChange={e => set('coverGsm', +e.target.value)} style={{ ...inp, cursor: 'pointer' }}>
+                        {paperConfigs.filter(p => p.gsm >= 200).map(p => <option key={p.gsm} value={p.gsm}>{p.label} — {p.price}₮</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label style={labelStyle}>Хавтас өнгө</label>
+                      <select value={input.coverColorMode} onChange={e => set('coverColorMode', e.target.value)} style={{ ...inp, cursor: 'pointer' }}>
+                        <option value="color">Өнгөт</option><option value="bw">Хар цагаан</option>
+                      </select>
+                    </div>
+                  </div>
+                )}
+
+                {/* Warnings */}
+                {result.warnings.length > 0 && (
+                  <div style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.2)', borderRadius: 8, padding: '8px 12px', fontSize: 12, color: '#D97706' }}>
+                    ⚠️ {result.warnings.join(' | ')}
+                  </div>
+                )}
+              </div>
+
+              {/* RIGHT: Results */}
+              <div style={{ padding: 20, overflowY: 'auto', background: 'var(--surface2)', maxHeight: 'calc(100vh - 320px)' }}>
+                {/* Total card */}
+                <div style={{ background: 'linear-gradient(135deg, #FF6B00, #FF8C42)', borderRadius: 12, padding: '16px 18px', marginBottom: 16, color: '#fff' }}>
+                  <div style={{ fontSize: 11, fontWeight: 600, opacity: 0.8 }}>Нийт дүн</div>
+                  <div style={{ fontSize: 28, fontWeight: 800, letterSpacing: -1 }}>{fmt(finalTotal)}</div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8, paddingTop: 8, borderTop: '1px solid rgba(255,255,255,0.2)', fontSize: 13 }}>
+                    <span style={{ opacity: 0.8 }}>Нэгж үнэ</span><span style={{ fontWeight: 700 }}>{fmt(finalUnit)}</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
+                    <span style={{ opacity: 0.8 }}>Тираж</span><span style={{ fontWeight: 700 }}>{input.quantity} ш</span>
+                  </div>
+                  {Object.keys(overrides).length > 0 && (
+                    <div style={{ fontSize: 10, opacity: 0.7, marginTop: 6, cursor: 'pointer' }}
+                      onClick={() => { setOverrides({}); setEditingKey(null) }}>
+                      🖊 {Object.keys(overrides).length} гараар засагдсан · Арилгах
+                    </div>
+                  )}
+                </div>
+
+                {/* Line items */}
+                <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text2)', marginBottom: 8 }}>Үнийн задаргаа</div>
+                <div style={{ background: 'var(--surface)', borderRadius: 10, border: '1px solid var(--border)', overflow: 'hidden', marginBottom: 16 }}>
+                  {finalLines.map((line, i) => (
+                    <div key={line.key}
+                      style={{ padding: '10px 12px', borderBottom: i < finalLines.length - 1 ? '1px solid var(--border)' : 'none', cursor: 'pointer',
+                        background: line.isOverridden ? 'rgba(245,158,11,0.05)' : 'transparent',
+                      }}
+                      onClick={() => setEditingKey(editingKey === line.key ? null : line.key)}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)', display: 'flex', alignItems: 'center', gap: 4 }}>
+                          {line.label}
+                          {line.isOverridden && <span style={{ fontSize: 9, color: '#D97706' }}>🖊</span>}
+                        </div>
+                        <div style={{ fontSize: 12, fontWeight: 700, color: line.isOverridden ? '#D97706' : 'var(--text)' }}>{fmt(line.amount)}</div>
+                      </div>
+                      <div style={{ fontSize: 10, color: 'var(--text3)', marginTop: 2 }}>{line.detail}</div>
+                      {editingKey === line.key && (
+                        <div style={{ marginTop: 6, display: 'flex', gap: 6, alignItems: 'center' }} onClick={e => e.stopPropagation()}>
+                          <input type="number" defaultValue={line.amount} autoFocus
+                            onKeyDown={e => {
+                              if (e.key === 'Enter') { setOverrides(p => ({ ...p, [line.key]: +(e.target as HTMLInputElement).value })); setEditingKey(null) }
+                              if (e.key === 'Escape') setEditingKey(null)
+                            }}
+                            style={{ ...inp, width: 120, padding: '5px 8px', fontSize: 12, border: '1px solid #F59E0B' }} />
+                          <button onClick={e => {
+                            const el = (e.target as HTMLElement).parentElement?.querySelector('input') as HTMLInputElement
+                            if (el) { setOverrides(p => ({ ...p, [line.key]: +el.value })); setEditingKey(null) }
+                          }} style={{ padding: '4px 10px', background: '#FF6B00', color: '#fff', border: 'none', borderRadius: 6, fontSize: 11, fontWeight: 600, cursor: 'pointer', fontFamily: FONT }}>OK</button>
+                          {line.isOverridden && (
+                            <button onClick={() => { setOverrides(p => { const n = { ...p }; delete n[line.key]; return n }); setEditingKey(null) }}
+                              style={{ padding: '4px 8px', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 6, fontSize: 10, cursor: 'pointer', fontFamily: FONT, color: 'var(--text3)' }}>↩</button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                  <div style={{ padding: '10px 12px', background: 'var(--surface2)', display: 'flex', justifyContent: 'space-between', borderTop: '2px solid rgba(255,107,0,0.2)' }}>
+                    <span style={{ fontWeight: 700, fontSize: 13, color: 'var(--text)' }}>Нийт</span>
+                    <span style={{ fontWeight: 800, fontSize: 15, color: '#FF6B00' }}>{fmt(finalTotal)}</span>
+                  </div>
+                </div>
+                <div style={{ fontSize: 10, color: 'var(--text3)', lineHeight: 1.6 }}>
+                  Арга: <strong>{result.method === 'offset' ? 'Офсет' : 'Дижитал'}</strong> · Багц: <strong>{result.signatures}</strong> ({result.pagesPerSig}нүүр) · Хуудас: <strong>{result.sheetsNeeded.toLocaleString()}</strong>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ═══ TAB: PAPER & SIZE CONFIG ═══ */}
+          {tab === 'paper' && (
+            <div style={{ padding: 24 }}>
+              {/* Paper types */}
+              <div style={{ marginBottom: 28 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                  <div>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>📄 Цаасны төрөл & Үнэ</div>
+                    <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>Цаасны зузаан (GSM), нэр, хуудасны үнийг тохируулна</div>
+                  </div>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button onClick={() => { setPaperConfigs([...DEFAULT_PAPER_CONFIGS]); }} style={{ ...btnSecondary, fontSize: 11, padding: '6px 12px' }}>↩ Анхны утга</button>
+                    <button onClick={addPaper} style={{ ...btnPrimary, fontSize: 11, padding: '6px 12px' }}>+ Цаас нэмэх</button>
+                  </div>
+                </div>
+                <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, overflow: 'hidden' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                    <thead>
+                      <tr style={{ background: 'var(--surface2)' }}>
+                        <th style={{ ...thStyle, width: 40 }}>#</th>
+                        <th style={thStyle}>Нэр</th>
+                        <th style={{ ...thStyle, width: 100 }}>GSM</th>
+                        <th style={{ ...thStyle, width: 120 }}>Үнэ (₮/хуудас)</th>
+                        <th style={{ ...thStyle, width: 60 }}></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {paperConfigs.map((p, i) => (
+                        <tr key={i} style={{ borderBottom: '1px solid var(--border)' }}>
+                          <td style={{ ...tdStyle, color: 'var(--text3)', fontSize: 11 }}>{i + 1}</td>
+                          <td style={tdStyle}>
+                            <input value={p.label} onChange={e => updatePaper(i, 'label', e.target.value)}
+                              style={{ ...inp, padding: '6px 10px', fontSize: 12 }} placeholder="80gsm (Энгийн)" />
+                          </td>
+                          <td style={tdStyle}>
+                            <input type="number" value={p.gsm} onChange={e => updatePaper(i, 'gsm', +e.target.value)}
+                              style={{ ...inp, padding: '6px 10px', fontSize: 12, textAlign: 'center' }} />
+                          </td>
+                          <td style={tdStyle}>
+                            <input type="number" value={p.price} onChange={e => updatePaper(i, 'price', +e.target.value)}
+                              style={{ ...inp, padding: '6px 10px', fontSize: 12, textAlign: 'right', fontWeight: 700 }} />
+                          </td>
+                          <td style={{ ...tdStyle, textAlign: 'center' }}>
+                            <button onClick={() => removePaper(i)} style={{ background: 'none', border: 'none', color: '#EF4444', cursor: 'pointer', fontSize: 14 }}>✕</button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <div style={{ fontSize: 10, color: 'var(--text3)', marginTop: 6 }}>
+                  Нийт {paperConfigs.length} төрлийн цаас · GSM бага → том руу эрэмбэлнэ
+                </div>
+              </div>
+
+              {/* Size configs */}
+              <div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                  <div>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>📐 Хэмжээ & Багц тохиргоо</div>
+                    <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>Цаасны хэмжээ, мм, багц дахь нүүрний тоог тохируулна</div>
+                  </div>
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button onClick={() => { setSizeConfigs([...DEFAULT_SIZE_CONFIGS]); }} style={{ ...btnSecondary, fontSize: 11, padding: '6px 12px' }}>↩ Анхны утга</button>
+                    <button onClick={addSize} style={{ ...btnPrimary, fontSize: 11, padding: '6px 12px' }}>+ Хэмжээ нэмэх</button>
+                  </div>
+                </div>
+                <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, overflow: 'hidden' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                    <thead>
+                      <tr style={{ background: 'var(--surface2)' }}>
+                        <th style={{ ...thStyle, width: 40 }}>#</th>
+                        <th style={{ ...thStyle, width: 80 }}>Код</th>
+                        <th style={thStyle}>Нэр</th>
+                        <th style={{ ...thStyle, width: 90 }}>Өргөн (мм)</th>
+                        <th style={{ ...thStyle, width: 90 }}>Өндөр (мм)</th>
+                        <th style={{ ...thStyle, width: 100 }}>Нүүр/Багц</th>
+                        <th style={{ ...thStyle, width: 60 }}></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {sizeConfigs.map((s, i) => (
+                        <tr key={i} style={{ borderBottom: '1px solid var(--border)' }}>
+                          <td style={{ ...tdStyle, color: 'var(--text3)', fontSize: 11 }}>{i + 1}</td>
+                          <td style={tdStyle}>
+                            <input value={s.code} onChange={e => updateSize(i, 'code', e.target.value)}
+                              style={{ ...inp, padding: '6px 10px', fontSize: 12, fontWeight: 700 }} placeholder="A4" />
+                          </td>
+                          <td style={tdStyle}>
+                            <input value={s.label} onChange={e => updateSize(i, 'label', e.target.value)}
+                              style={{ ...inp, padding: '6px 10px', fontSize: 12 }} placeholder="A4 (210×297мм)" />
+                          </td>
+                          <td style={tdStyle}>
+                            <input type="number" value={s.width_mm} onChange={e => updateSize(i, 'width_mm', +e.target.value)}
+                              style={{ ...inp, padding: '6px 10px', fontSize: 12, textAlign: 'center' }} />
+                          </td>
+                          <td style={tdStyle}>
+                            <input type="number" value={s.height_mm} onChange={e => updateSize(i, 'height_mm', +e.target.value)}
+                              style={{ ...inp, padding: '6px 10px', fontSize: 12, textAlign: 'center' }} />
+                          </td>
+                          <td style={tdStyle}>
+                            <input type="number" value={s.pagesPerSig} onChange={e => updateSize(i, 'pagesPerSig', Math.max(1, +e.target.value))}
+                              style={{ ...inp, padding: '6px 10px', fontSize: 12, textAlign: 'center', fontWeight: 700 }} />
+                          </td>
+                          <td style={{ ...tdStyle, textAlign: 'center' }}>
+                            <button onClick={() => removeSize(i)} style={{ background: 'none', border: 'none', color: '#EF4444', cursor: 'pointer', fontSize: 14 }}>✕</button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <div style={{ fontSize: 10, color: 'var(--text3)', marginTop: 6 }}>
+                  Нүүр/Багц = 1 signature дотор хичнээн нүүр багтах · A3=2, A4=4, B5=8, A5=8
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ═══ TAB: BOOK STANDARDS & TIPS ═══ */}
+          {tab === 'book' && (
+            <div style={{ padding: 24 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+                {/* Left: Standards */}
+                <div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)', marginBottom: 14 }}>📖 Номын стандарт мэдээлэл</div>
+
+                  <div style={{ marginBottom: 14 }}>
+                    <label style={labelStyle}>Стандарт хэмжээнүүд</label>
+                    <input value={bookInfo.standard_sizes}
+                      onChange={e => setBookInfo(prev => ({ ...prev, standard_sizes: e.target.value }))}
+                      style={inp} placeholder="A4 (210×297мм), A5 (148×210мм), B5 (176×250мм)" />
+                  </div>
+
+                  <div style={{ marginBottom: 14 }}>
+                    <label style={labelStyle}>Зөвлөмж нүүрний тоо</label>
+                    <input value={bookInfo.recommended_pages}
+                      onChange={e => setBookInfo(prev => ({ ...prev, recommended_pages: e.target.value }))}
+                      style={inp} placeholder="32, 48, 64, 96, 128, 192, 256" />
+                  </div>
+
+                  <div style={{ marginBottom: 14 }}>
+                    <label style={labelStyle}>Зөвлөмж цаас</label>
+                    <input value={bookInfo.recommended_paper}
+                      onChange={e => setBookInfo(prev => ({ ...prev, recommended_paper: e.target.value }))}
+                      style={inp} placeholder="80gsm дотор хуудас, 250gsm хавтас" />
+                  </div>
+
+                  <div style={{ marginBottom: 14 }}>
+                    <label style={labelStyle}>Видео танилцуулга URL</label>
+                    <input value={bookInfo.video_intro_url}
+                      onChange={e => setBookInfo(prev => ({ ...prev, video_intro_url: e.target.value }))}
+                      style={inp} placeholder="https://youtube.com/watch?v=..." />
+                  </div>
+
+                  {/* Video preview */}
+                  {bookInfo.video_intro_url && (
+                    <div style={{ borderRadius: 10, overflow: 'hidden', border: '1px solid var(--border)', aspectRatio: '16/9' }}>
+                      {bookInfo.video_intro_url.includes('youtube.com') || bookInfo.video_intro_url.includes('youtu.be') ? (
+                        <iframe
+                          src={`https://www.youtube.com/embed/${bookInfo.video_intro_url.includes('youtu.be') ? bookInfo.video_intro_url.split('/').pop() : new URLSearchParams(bookInfo.video_intro_url.split('?')[1]).get('v')}`}
+                          style={{ width: '100%', height: '100%', border: 'none' }} allowFullScreen />
+                      ) : (
+                        <video src={bookInfo.video_intro_url} controls style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Right: Tips & Info */}
+                <div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)', marginBottom: 14 }}>💡 Зөвлөгөө & Тайлбар</div>
+
+                  <div style={{ marginBottom: 14 }}>
+                    <label style={labelStyle}>Зөвлөгөө (мөр бүр шинэ зөвлөгөө)</label>
+                    <textarea value={bookInfo.tips}
+                      onChange={e => setBookInfo(prev => ({ ...prev, tips: e.target.value }))}
+                      style={{ ...inp, minHeight: 200, resize: 'vertical', lineHeight: 1.8 }}
+                      placeholder="• Нүүрний тоо 4, 8, 16-д хуваагдвал цаас хэмнэнэ..." />
+                  </div>
+
+                  {/* Tips preview */}
+                  <div style={{ background: 'var(--surface2)', borderRadius: 10, padding: 16 }}>
+                    <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text2)', marginBottom: 8 }}>Урьдчилсан харагдац:</div>
+                    <div style={{ fontSize: 12, color: 'var(--text)', lineHeight: 2, whiteSpace: 'pre-wrap' }}>{bookInfo.tips}</div>
+                  </div>
+
+                  {/* Quick info cards */}
+                  <div style={{ marginTop: 16, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                    <div style={{ background: 'rgba(139,92,246,0.06)', border: '1px solid rgba(139,92,246,0.15)', borderRadius: 8, padding: 10 }}>
+                      <div style={{ fontSize: 10, color: '#7C3AED', fontWeight: 700, marginBottom: 4 }}>🖨️ ОФСЕТ</div>
+                      <div style={{ fontSize: 11, color: 'var(--text2)' }}>300+ ширхэг · Хавтан хэвлэл · 3-7 хоног</div>
+                    </div>
+                    <div style={{ background: 'rgba(59,130,246,0.06)', border: '1px solid rgba(59,130,246,0.15)', borderRadius: 8, padding: 10 }}>
+                      <div style={{ fontSize: 10, color: '#2563EB', fontWeight: 700, marginBottom: 4 }}>⚡ ДИЖИТАЛ</div>
+                      <div style={{ fontSize: 11, color: 'var(--text2)' }}>1-299 ширхэг · Шуурхай · 1-2 хоног</div>
+                    </div>
+                    <div style={{ background: 'rgba(16,185,129,0.06)', border: '1px solid rgba(16,185,129,0.15)', borderRadius: 8, padding: 10 }}>
+                      <div style={{ fontSize: 10, color: '#059669', fontWeight: 700, marginBottom: 4 }}>📐 ХЭМЖЭЭ</div>
+                      <div style={{ fontSize: 11, color: 'var(--text2)' }}>{bookInfo.standard_sizes}</div>
+                    </div>
+                    <div style={{ background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.15)', borderRadius: 8, padding: 10 }}>
+                      <div style={{ fontSize: 10, color: '#D97706', fontWeight: 700, marginBottom: 4 }}>📄 ЦААС</div>
+                      <div style={{ fontSize: 11, color: 'var(--text2)' }}>{bookInfo.recommended_paper}</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div style={{ padding: '14px 24px', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <button onClick={() => window.open('/admin/print-calculator', '_blank')}
+            style={{ ...btnSecondary, fontSize: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
+            ⚙️ Global тохиргоо
+          </button>
+          <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+            <span style={{ fontSize: 12, color: 'var(--text3)' }}>
+              {images.length} зураг · {paperConfigs.length} цаас · {sizeConfigs.length} хэмжээ
+            </span>
+            <button onClick={onClose} style={btnSecondary}>Хаах</button>
+            <button onClick={handleSave} style={btnPrimary}>
+              {initial ? '💾 Шинэчлэх' : '📖 Бүтээгдэхүүн үүсгэх'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ─── MAIN PAGE ────────────────────────────────────────────────────────────────
 const MAIN_TABS = [
   { key: 'shop', label: '🛍️ Дэлгүүр', desc: 'Бэлэн бүтээгдэхүүн · Тогтмол үнэ' },
   { key: 'print', label: '🖨️ Хэвлэмэл', desc: 'Файл хавсаргах · Тооцоолол' },
+  { key: 'offset', label: '📖 Офсет бүтээгдэхүүн', desc: 'Ном, Сэтгүүл · Ухаалаг тооцоолол' },
   { key: 'signage', label: '🪧 Хаяг самбар', desc: 'М² тооцоолол · Суурилуулалт' },
   { key: 'templates', label: '🎨 Дизайн загвар', desc: 'Загвар · Дижитал' },
 ]
@@ -1207,9 +2056,9 @@ export default function AdminProductsPage() {
       <AdminPageHeader title="Бүтээгдэхүүн" description="Бүх бүтээгдэхүүн, дэлгүүр болон загваруудыг удирдах" />
 
       {/* Type Tabs */}
-      <div style={{ display: 'flex', gap: 0, borderBottom: '1px solid var(--border)', marginBottom: 24 }}>
+      <div style={{ display: 'flex', gap: 0, borderBottom: '1px solid var(--border)', marginBottom: 24, overflowX: 'auto' }}>
         {MAIN_TABS.map(tab => (
-          <button key={tab.key} onClick={() => setActiveTab(tab.key)} style={{ padding: '12px 24px', background: 'none', border: 'none', borderBottom: activeTab === tab.key ? '2px solid #FF6B00' : '2px solid transparent', cursor: 'pointer', fontFamily: FONT, display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 2 }}>
+          <button key={tab.key} onClick={() => setActiveTab(tab.key)} style={{ padding: '12px 24px', background: 'none', border: 'none', borderBottom: activeTab === tab.key ? '2px solid #FF6B00' : '2px solid transparent', cursor: 'pointer', fontFamily: FONT, display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 2, whiteSpace: 'nowrap' }}>
             <span style={{ fontSize: 13, fontWeight: activeTab === tab.key ? 700 : 500, color: activeTab === tab.key ? '#FF6B00' : 'var(--text2)' }}>{tab.label}</span>
             <span style={{ fontSize: 11, color: 'var(--text3)' }}>{tab.desc}</span>
           </button>
@@ -1219,6 +2068,7 @@ export default function AdminProductsPage() {
       {/* Tab Content */}
       {activeTab === 'shop' && <ShopProductsTab />}
       {activeTab === 'print' && <PrintProductsTab />}
+      {activeTab === 'offset' && <OffsetProductsTab />}
       {activeTab === 'signage' && <SignageProductsTab />}
       {activeTab === 'templates' && <TemplatesTab />}
     </div>

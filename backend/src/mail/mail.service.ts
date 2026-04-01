@@ -541,6 +541,50 @@ export class MailService {
     })
   }
 
+  // ── Zoom: 15-min reminder before meeting ──────────────────────────────────
+
+  async sendMeetingReminder(params: {
+    to: string
+    customerName: string
+    productName: string
+    joinUrl: string
+    password?: string
+    scheduledAt?: Date
+    orderId: string
+  }) {
+    const timeStr = params.scheduledAt
+      ? new Date(params.scheduledAt).toLocaleString('mn-MN', { timeZone: 'Asia/Ulaanbaatar' })
+      : 'Удахгүй'
+    const pwHtml = params.password
+      ? '<div style="background:#fafafa;border-radius:6px;padding:8px 12px;margin:8px 0;text-align:center;font-size:13px;color:#374151">Нууц үг: <strong style="color:#111;letter-spacing:2px">' + params.password + '</strong></div>'
+      : ''
+
+    await this.mailerService.sendMail({
+      to: params.to,
+      subject: `⏰ BizPrint — Zoom уулзалт 15 минутын дараа! ${params.productName}`,
+      html: this.wrap('Уулзалтын сануулга', '#2563EB',
+        '<div style="text-align:center;margin-bottom:20px">' +
+        '<div style="font-size:48px;margin-bottom:8px">⏰</div>' +
+        '<h2 style="margin:0;color:#111;font-size:20px">Уулзалт эхлэхэд бэлэн боллоо!</h2>' +
+        '</div>' +
+        '<p style="color:#374151;font-size:14px;text-align:center;margin:0 0 16px">' +
+        '<strong>' + params.customerName + '</strong>, таны <strong>' + params.productName + '</strong> захиалгын Zoom уулзалт <strong>15 минутын дараа</strong> эхэлнэ.' +
+        '</p>' +
+        '<div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:16px;text-align:center;margin-bottom:16px">' +
+        '<div style="font-size:12px;color:#1e40af;font-weight:600;margin-bottom:4px">Уулзалтын цаг</div>' +
+        '<div style="font-size:20px;font-weight:700;color:#1d4ed8">' + timeStr + '</div>' +
+        '</div>' +
+        pwHtml +
+        '<div style="text-align:center;margin:20px 0">' +
+        '<a href="' + params.joinUrl + '" style="background:#2563EB;color:#fff;padding:14px 36px;border-radius:10px;text-decoration:none;font-weight:700;font-size:16px;display:inline-block">📹 Zoom-д нэгдэх →</a>' +
+        '</div>' +
+        '<div style="background:#fefce8;border:1px solid #fde68a;border-radius:8px;padding:10px 16px;text-align:center;font-size:12px;color:#92400e">' +
+        '💡 Интернэт холболтоо шалгаж, камер, микрофоноо бэлтгэнэ үү' +
+        '</div>',
+      ),
+    })
+  }
+
   private finishingLabel(finishing: string): string {
     const map: Record<string, string> = {
       mat:       'Мат ламинат',

@@ -4,6 +4,7 @@ import { OrdersController } from './order.controller';
 import { OrdersService } from './order.service';
 import { OrdersGateway } from './orders.gateway';
 import { OrderOpsService } from './services/order-ops.service';
+import { ZoomReminderService } from './services/zoom-reminder.service';
 import { Order } from './entities/order.entity';
 import { OrderItem } from './entities/order-item.entity';
 import { OrderVendorGroup } from './entities/order-vendor-group.entity';
@@ -17,6 +18,7 @@ import { FilesModule } from '../files/files.module';
 import { PdfInspectorModule } from '../ai/pdf-inspector/pdf-inspector.module';
 import { UploadModule } from '../upload/upload.module';
 import { VendorsModule } from '../vendors/vendors.module';
+import { DesignRequestsModule } from '../design-requests/design-requests.module';
 // ProductionGateService is exported from FilesModule
 
 @Module({
@@ -28,9 +30,10 @@ import { VendorsModule } from '../vendors/vendors.module';
     PdfInspectorModule,
     UploadModule,
     VendorsModule,
+    DesignRequestsModule,
   ],
   controllers: [OrdersController],
-  providers: [OrdersService, OrdersGateway, ProfitEngineService, OrderOpsService],
+  providers: [OrdersService, OrdersGateway, ProfitEngineService, OrderOpsService, ZoomReminderService],
   exports: [OrdersService, ProfitEngineService, OrderOpsService],
 })
 export class OrdersModule {}

@@ -3,8 +3,10 @@ import { InjectRepository } from '@nestjs/typeorm'
 import { Repository } from 'typeorm'
 import { DesignZoomSession } from './entities/design-zoom-session.entity'
 import { DesignRequest } from './design-request.entity'
+import { Order, OrderStatus } from '../orders/entities/order.entity'
 import { EventBusService } from '../events/event-bus.service'
 import { BizEvent } from '../events/event-types'
+import { NotificationService } from '../notifications/notification.service'
 import * as crypto from 'crypto'
 
 /* ═══════════════════════════════════════
@@ -25,7 +27,9 @@ export class ZoomWebhookController {
   constructor(
     @InjectRepository(DesignZoomSession) private sessionRepo: Repository<DesignZoomSession>,
     @InjectRepository(DesignRequest) private designRepo: Repository<DesignRequest>,
+    @InjectRepository(Order) private orderRepo: Repository<Order>,
     private readonly eventBus: EventBusService,
+    private readonly notificationService: NotificationService,
   ) {}
 
   @Post()
@@ -66,49 +70,82 @@ export class ZoomWebhookController {
 
     // ── meeting.started ──────────────────────────────────────────────
     if (event === 'meeting.started') {
+      // Design session
       const session = await this.sessionRepo.findOne({ where: { zoom_meeting_id: meetingId } })
       if (session) {
         session.status = 'active'
         await this.sessionRepo.save(session)
-
-        // Update design request status
         const design = await this.designRepo.findOne({ where: { id: session.design_request_id } })
         if (design) {
           design.status = 'in_meeting' as any
           await this.designRepo.save(design)
-
           this.eventBus.emit(BizEvent.DESIGN_COMMENT_ADDED, {
             designRequestId: design.id,
             message: '📹 Zoom уулзалт эхэллээ',
           })
         }
-
         this.logger.log(`Meeting ${meetingId} started → session ${session.id} active`)
       }
+
+      // Order-linked meeting
+      const order = await this.orderRepo.findOne({ where: { zoom_meeting_id: meetingId } })
+      if (order) {
+        order.zoom_status = 'active'
+        await this.orderRepo.save(order)
+        if (order.customer_id) {
+          this.notificationService.create({
+            user_id: order.customer_id,
+            type: 'order',
+            title: '📹 Zoom уулзалт эхэллээ',
+            message: `${order.product_name || 'Захиалга'} — уулзалт идэвхтэй`,
+            data: { order_id: order.id, join_url: order.zoom_join_url },
+          }).catch(() => {})
+        }
+        this.logger.log(`Order meeting ${meetingId} started → order ${order.id}`)
+      }
+
       return { status: 'ok', action: 'meeting_started' }
     }
 
     // ── meeting.ended ────────────────────────────────────────────────
     if (event === 'meeting.ended') {
+      // Design session
       const session = await this.sessionRepo.findOne({ where: { zoom_meeting_id: meetingId } })
       if (session) {
         session.status = 'completed'
         await this.sessionRepo.save(session)
-
-        // Move design to review state (trigger approval flow)
         const design = await this.designRepo.findOne({ where: { id: session.design_request_id } })
         if (design && ['zoom_scheduled', 'in_meeting'].includes(design.status)) {
           design.status = 'under_review' as any
           await this.designRepo.save(design)
-
           this.eventBus.emit(BizEvent.DESIGN_COMMENT_ADDED, {
             designRequestId: design.id,
             message: '📹 Zoom уулзалт дууслаа. Батлах эсвэл засвар хүсэх боломжтой.',
           })
         }
-
-        this.logger.log(`Meeting ${meetingId} ended → session ${session.id} completed, approval flow triggered`)
+        this.logger.log(`Meeting ${meetingId} ended → session ${session.id} completed`)
       }
+
+      // Order-linked meeting → auto-transition to PENDING_FILE (файл оруулах нээгдэнэ)
+      const order = await this.orderRepo.findOne({ where: { zoom_meeting_id: meetingId } })
+      if (order) {
+        order.zoom_status = 'completed'
+        if (['confirmed', 'pending_file', 'file_review'].includes(order.status)) {
+          order.status = OrderStatus.PENDING_FILE
+        }
+        await this.orderRepo.save(order)
+        if (order.customer_id) {
+          this.notificationService.create({
+            user_id: order.customer_id,
+            type: 'order',
+            title: '✅ Уулзалт дууслаа — Файл оруулах',
+            message: `${order.product_name || 'Захиалга'} — эх бэлтгэлийн файлаа оруулна уу`,
+            data: { order_id: order.id, action: 'pending_file' },
+          }).catch(() => {})
+        }
+        this.logger.log(`Order meeting ${meetingId} ended → order ${order.id} → PENDING_FILE`)
+      }
+
       return { status: 'ok', action: 'meeting_ended' }
     }
 

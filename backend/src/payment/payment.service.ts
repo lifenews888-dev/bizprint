@@ -77,6 +77,7 @@ export class PaymentService {
         status: 'pending',
         invoice_code: refCode,
       }))
+      await this.autoCreateInvoice(order_id, amount, 'bank', refCode);
       return {
         method,
         payment_id: payment.id,
@@ -94,15 +95,17 @@ export class PaymentService {
     }
 
     if (method === 'cash') {
+      const cashCode = `CASH-${Date.now()}`
       const payment = await this.paymentRepo.save(this.paymentRepo.create({
         order_id,
         customer_id: '',
         amount,
         provider: 'cash',
         status: 'pending',
-        invoice_code: `CASH-${Date.now()}`,
+        invoice_code: cashCode,
       }))
-      return { method, payment_id: payment.id, status: 'pending' }
+      await this.autoCreateInvoice(order_id, amount, 'cash', cashCode);
+      return { method, payment_id: payment.id, invoice_code: cashCode, status: 'pending' }
     }
 
     // Try TDB QR service
@@ -135,6 +138,7 @@ export class PaymentService {
           invoice_code: data.invoiceNo,
           qr_image: data.qrImage,
         }))
+        await this.autoCreateInvoice(order_id, amount, 'qr', data.invoiceNo);
 
         return {
           method: 'qr',
@@ -151,7 +155,7 @@ export class PaymentService {
       console.log('TDB QR service error, falling back to bank transfer:', (e as any).message)
     }
 
-    // Fallback: QR service байхгüй бол банк шилжүүлгийн мэдээлэл буцаана
+    // Fallback: QR service байхгүй бол банк шилжүүлгийн мэдээлэл буцаана
     const refCode = `BP-${Date.now().toString(36).toUpperCase()}`
     const fallbackPayment = await this.paymentRepo.save(this.paymentRepo.create({
       order_id,
@@ -161,6 +165,7 @@ export class PaymentService {
       status: 'pending',
       invoice_code: refCode,
     }))
+    await this.autoCreateInvoice(order_id, amount, 'bank', refCode);
     return {
       method: 'bank_fallback',
       payment_id: fallbackPayment.id,
@@ -171,6 +176,45 @@ export class PaymentService {
       bank: 'Худалдаа Хөгжлийн Банк (TDB)',
       description: `BizPrint ${refCode}`,
       amount,
+    }
+  }
+
+  // ─── Auto-create ISSUED invoice when payment is created ─
+  private async autoCreateInvoice(order_id: string, amount: number, paymentMethod: string, invoiceCode: string) {
+    try {
+      const order = await this.orderRepo.findOne({ where: { id: order_id } });
+      if (!order) return;
+      // Check if invoice already exists
+      const existing = await this.invoiceRepo.findOne({
+        where: { order_id, type: InvoiceType.CUSTOMER_INVOICE },
+      });
+      if (existing) return;
+
+      const invoiceNumber = `INV-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
+      const totalAmount = Number(amount) || Number(order.total_price) || 0;
+      const taxAmount = Math.round(totalAmount / 11);
+      const subtotal = totalAmount - taxAmount;
+
+      await this.invoiceRepo.save(this.invoiceRepo.create({
+        order_id,
+        invoice_number: invoiceNumber,
+        customer_id: order.customer_id || '',
+        type: InvoiceType.CUSTOMER_INVOICE,
+        subtotal,
+        tax_amount: taxAmount,
+        total_amount: totalAmount,
+        status: InvoiceStatus.ISSUED,
+        issued_at: new Date(),
+        due_date: new Date(Date.now() + 3 * 24 * 3600000),
+        metadata: {
+          payment_method: paymentMethod,
+          invoice_code: invoiceCode,
+          product_name: order.product_name,
+          quantity: order.quantity,
+        },
+      }));
+    } catch (e) {
+      console.log('Auto-create invoice note:', (e as any).message);
     }
   }
 
@@ -263,13 +307,14 @@ export class PaymentService {
 
   // ─── INVOICE GENERATION ──────────────────────────────────
   private async generateInvoice(order: Order, payment: Payment) {
-    // Check if invoice already exists for this order
+    // Check if invoice already exists (created at payment initiation as ISSUED)
     const existing = await this.invoiceRepo.findOne({
       where: { order_id: order.id, type: InvoiceType.CUSTOMER_INVOICE },
     });
     if (existing) {
       existing.status = InvoiceStatus.PAID;
       existing.paid_at = new Date();
+      existing.metadata = { ...existing.metadata, payment_id: payment.id, payment_method: payment.provider };
       return this.invoiceRepo.save(existing);
     }
 
