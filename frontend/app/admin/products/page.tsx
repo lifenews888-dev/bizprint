@@ -101,6 +101,7 @@ function PrintProductsTab() {
     setLoading(true)
     try {
       const params = new URLSearchParams()
+      params.set('product_type', 'print')
       if (search) params.set('search', search)
       if (categoryFilter) params.set('category', categoryFilter)
       const data = await apiFetch<any>(`/admin/products-master?${params}`)
@@ -143,6 +144,7 @@ function PrintProductsTab() {
     try {
       const payload = {
         ...form,
+        product_type: 'print',
         thumbnail_url: form.images[0] || form.thumbnail_url,
         base_price: form.pricing_type === 'area' ? form.price_per_m2 : form.base_price,
       }

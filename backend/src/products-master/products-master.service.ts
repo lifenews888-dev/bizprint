@@ -54,8 +54,9 @@ export class ProductsMasterService {
     return saved
   }
 
-  async findAll(query?: { search?: string; category?: string; page?: number; limit?: number }) {
+  async findAll(query?: { search?: string; category?: string; product_type?: string; page?: number; limit?: number }) {
     const where: any = { is_active: true }
+    if (query?.product_type) where.product_type = query.product_type
     if (query?.category) where.category = query.category
     if (query?.search) where.name_mn = Like(`%${query.search}%`)
     const page = query?.page || 1
