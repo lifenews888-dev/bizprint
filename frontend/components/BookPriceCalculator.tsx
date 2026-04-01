@@ -1,7 +1,7 @@
 'use client'
 import { useState, useMemo, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Calculator, Lock, Download, ShoppingCart, ChevronDown, ChevronUp, AlertTriangle } from 'lucide-react'
+import { Calculator, Lock, Download, ChevronDown, ChevronUp, AlertTriangle } from 'lucide-react'
 import { toast } from 'sonner'
 import {
   type PricingConstants, type CalcInput,
@@ -13,9 +13,10 @@ const fmt = (n: number) => '₮' + Math.round(n).toLocaleString('mn-MN')
 interface Props {
   product: any
   onPriceChange?: (total: number, breakdown: any) => void
+  isAdminView?: boolean
 }
 
-export default function BookPriceCalculator({ product, onPriceChange }: Props) {
+export default function BookPriceCalculator({ product, onPriceChange, isAdminView = false }: Props) {
   const [constants] = useState<PricingConstants>(DEFAULT_CONSTANTS)
   const [expanded, setExpanded] = useState(false)
   const [input, setInput] = useState<CalcInput>({
@@ -63,6 +64,7 @@ export default function BookPriceCalculator({ product, onPriceChange }: Props) {
             <span className="text-sm font-bold text-[var(--text)]">Номын үнэ тооцоолуур</span>
             <div className="text-[10px] text-[var(--text3)]">
               {result.method === 'offset' ? '🖨️ Офсет хэвлэл' : '⚡ Дижитал хэвлэл'} · {result.signatures} багц
+              {result.sizeMultiplier > 1 && ` × ${result.sizeMultiplier} (${input.paperSize})`}
             </div>
           </div>
         </div>
@@ -101,6 +103,7 @@ export default function BookPriceCalculator({ product, onPriceChange }: Props) {
       }`}>
         {result.method === 'offset' ? '🖨️' : '⚡'}
         {input.quantity}ш → {result.method === 'offset' ? 'Офсет' : 'Дижитал'} · {result.signatures} багц × {result.pagesPerSig} нүүр
+        {result.sizeMultiplier > 1 && ` · ×${result.sizeMultiplier} коэфф`}
       </div>
 
       {/* Expand toggle */}
@@ -125,7 +128,10 @@ export default function BookPriceCalculator({ product, onPriceChange }: Props) {
                 <div className="text-[10px] text-[var(--text3)] mb-1 font-semibold">Хэмжээ</div>
                 <select value={input.paperSize} onChange={e => set('paperSize', e.target.value)}
                   className="w-full h-9 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 text-xs font-bold text-[var(--text)] outline-none focus:border-[#FF6B00] cursor-pointer">
-                  {Object.keys(constants.pagesPerSignature).map(k => <option key={k} value={k}>{k}</option>)}
+                  {Object.keys(constants.pagesPerSignature).map(k => {
+                    const mult = constants.sizeMultiplier?.[k] || 1
+                    return <option key={k} value={k}>{k}{mult > 1 ? ` (×${mult})` : ''}</option>
+                  })}
                 </select>
               </div>
               <div>
@@ -202,22 +208,33 @@ export default function BookPriceCalculator({ product, onPriceChange }: Props) {
             {result.warnings.length > 0 && (
               <div className="flex items-start gap-1.5 text-[10px] text-amber-600 bg-amber-50 rounded-lg p-2 mb-2 dark:bg-amber-900/20">
                 <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" strokeWidth={1.5} />
-                {result.warnings[0]}
+                <div>{result.warnings.map((w, i) => <div key={i}>{w}</div>)}</div>
               </div>
             )}
 
-            {/* Price breakdown */}
+            {/* Price breakdown — ADMIN: full detail, CUSTOMER: grouped */}
             <div className="rounded-lg bg-[var(--surface)] border border-[var(--border)] overflow-hidden mb-2">
               <div className="px-3 py-2 text-[10px] font-bold text-[var(--text3)] bg-[var(--surface2)]">Үнийн задаргаа</div>
-              {result.lines.map((line, i) => (
-                <div key={line.key} className="px-3 py-1.5 flex justify-between items-start text-[11px]" style={{ borderBottom: i < result.lines.length - 1 ? '1px solid var(--border)' : 'none' }}>
-                  <div>
-                    <div className="font-semibold text-[var(--text)]">{line.label}</div>
-                    <div className="text-[9px] text-[var(--text3)]">{line.detail}</div>
+              {isAdminView ? (
+                /* ═══ ADMIN VIEW: Full line-by-line detail ═══ */
+                result.lines.map((line, i) => (
+                  <div key={line.key} className="px-3 py-1.5 flex justify-between items-start text-[11px]" style={{ borderBottom: i < result.lines.length - 1 ? '1px solid var(--border)' : 'none' }}>
+                    <div>
+                      <div className="font-semibold text-[var(--text)]">{line.label}</div>
+                      <div className="text-[9px] text-[var(--text3)]">{line.detail}</div>
+                    </div>
+                    <span className="font-bold text-[var(--text)] whitespace-nowrap ml-2">{fmt(line.amount)}</span>
                   </div>
-                  <span className="font-bold text-[var(--text)] whitespace-nowrap ml-2">{fmt(line.amount)}</span>
-                </div>
-              ))}
+                ))
+              ) : (
+                /* ═══ CUSTOMER VIEW: Grouped (hides cost breakdown) ═══ */
+                result.grouped.map((group, i) => (
+                  <div key={group.key} className="px-3 py-2 flex justify-between items-center text-[12px]" style={{ borderBottom: i < result.grouped.length - 1 ? '1px solid var(--border)' : 'none' }}>
+                    <span className="font-semibold text-[var(--text)]">{group.label}</span>
+                    <span className="font-bold text-[var(--text)] whitespace-nowrap">{fmt(group.amount)}</span>
+                  </div>
+                ))
+              )}
               <div className="px-3 py-2 flex justify-between items-center bg-[var(--surface2)] border-t-2 border-[#FF6B00]/20">
                 <span className="text-xs font-bold text-[var(--text)]">Нийт</span>
                 <span className="text-base font-extrabold text-[#FF6B00]">{fmt(total)}</span>
@@ -236,7 +253,7 @@ export default function BookPriceCalculator({ product, onPriceChange }: Props) {
         </div>
         <div className="flex justify-between text-[10px] text-[var(--text3)] mt-1">
           <span>Нэгж: {fmt(unitPrice)} × {input.quantity}ш</span>
-          <span>{result.method === 'offset' ? 'Офсет' : 'Дижитал'} · {input.paperSize} · {input.totalPages}нүүр</span>
+          <span>{result.method === 'offset' ? 'Офсет' : 'Дижитал'} · {input.paperSize}{result.sizeMultiplier > 1 ? ` (×${result.sizeMultiplier})` : ''} · {input.totalPages}нүүр</span>
         </div>
       </div>
 

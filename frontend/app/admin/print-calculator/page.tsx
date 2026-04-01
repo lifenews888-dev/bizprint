@@ -112,7 +112,7 @@ export default function PrintCalculatorPage() {
               </div>
               <div className="text-[11px] text-[var(--text3)]">
                 {result.method === 'offset'
-                  ? `${input.quantity}ш ≥ 300 → Офсет | ${result.signatures} багц × ${result.pagesPerSig} нүүр`
+                  ? `${input.quantity}ш ≥ 300 → Офсет | ${result.signatures} багц × ${result.pagesPerSig} нүүр${result.sizeMultiplier > 1 ? ` × ${result.sizeMultiplier} коэфф (${input.paperSize}) = ${result.effectiveSignatures} нийт багц` : ''}`
                   : `${input.quantity}ш < 300 → Дижитал хэвлэл`}
               </div>
             </div>
@@ -130,7 +130,10 @@ export default function PrintCalculatorPage() {
               <InputField label="Нийт нүүр" value={input.totalPages} type="number" min={1}
                 onChange={v => set('totalPages', Math.max(1, +v))} />
               <SelectField label="Хэмжээ" value={input.paperSize}
-                options={Object.keys(constants.pagesPerSignature).map(k => ({ value: k, label: k }))}
+                options={Object.keys(constants.pagesPerSignature).map(k => {
+                  const mult = constants.sizeMultiplier?.[k] || 1
+                  return { value: k, label: mult > 1 ? `${k} (×${mult})` : k }
+                })}
                 onChange={v => set('paperSize', v)} />
               <SelectField label="Цаасны GSM" value={String(input.paperGsm)}
                 options={constants.paperPrices.map(p => ({ value: String(p.gsm), label: p.label }))}
@@ -263,7 +266,9 @@ export default function PrintCalculatorPage() {
           {/* Technical info */}
           <div className="bg-[var(--surface2)] rounded-xl p-4 text-xs text-[var(--text3)] space-y-1">
             <div>Хэвлэлийн арга: <strong className="text-[var(--text)]">{result.method === 'offset' ? 'Офсет' : 'Дижитал'}</strong></div>
-            <div>Багцын тоо: <strong className="text-[var(--text)]">{result.signatures}</strong> ({result.pagesPerSig} нүүр/багц)</div>
+            <div>Багцын тоо: <strong className="text-[var(--text)]">{result.signatures}</strong> ({result.pagesPerSig} нүүр/багц)
+              {result.sizeMultiplier > 1 && <> · Коэфф: <strong className="text-[#FF6B00]">×{result.sizeMultiplier}</strong> · Нийт: <strong className="text-[#FF6B00]">{result.effectiveSignatures} багц</strong></>}
+            </div>
             <div>Шаардлагатай хуудас: <strong className="text-[var(--text)]">{result.sheetsNeeded.toLocaleString()}</strong></div>
             <div>Хэмжээ: <strong className="text-[var(--text)]">{input.paperSize}</strong> · Цаас: <strong className="text-[var(--text)]">{input.paperGsm}gsm</strong></div>
           </div>

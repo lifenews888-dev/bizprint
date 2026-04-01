@@ -28,6 +28,10 @@ export interface PricingConstants {
   // Pages per signature by size
   pagesPerSignature: Record<string, number>
 
+  // Size multiplier — how many A3-equivalent signatures per page
+  // Base machine size is A3, so A3=1, A2=2, A1=4, A0=8
+  sizeMultiplier: Record<string, number>
+
   // Post-press: Folding
   foldingPrices: Record<string, number>  // per sheet
 
@@ -79,11 +83,33 @@ export const DEFAULT_CONSTANTS: PricingConstants = {
   digitalBwPerPage: 40,
 
   pagesPerSignature: {
+    'A0': 2,
+    'B0': 2,
+    'A1': 2,
+    'B1': 2,
+    'A2': 2,
+    'B2': 2,
     'A3': 2,
     'B3': 2,
     'A4': 4,
     'B5': 8,
     'A5': 8,
+  },
+
+  // Size multiplier: how many A3-equivalent signatures per page
+  // Base machine = A3, so larger sizes cost proportionally more
+  sizeMultiplier: {
+    'A0': 8,    // A0 = 8× A3
+    'B0': 8,
+    'A1': 4,    // A1 = 4× A3
+    'B1': 4,
+    'A2': 2,    // A2 = 2× A3
+    'B2': 2,
+    'A3': 1,    // Base
+    'B3': 1,
+    'A4': 1,
+    'B5': 1,
+    'A5': 1,
   },
 
   foldingPrices: {
@@ -158,12 +184,22 @@ export interface LineItem {
   amount: number
 }
 
+// Grouped line items for customer-facing view (hides cost breakdown)
+export interface GroupedLine {
+  key: string
+  label: string
+  amount: number
+}
+
 export interface CalcResult {
   method: 'digital' | 'offset'
   signatures: number
   pagesPerSig: number
   sheetsNeeded: number
-  lines: LineItem[]
+  sizeMultiplier: number       // A0=8, A1=4, A2=2, A3=1
+  effectiveSignatures: number  // signatures * sizeMultiplier
+  lines: LineItem[]            // Full detail (admin only)
+  grouped: GroupedLine[]       // Grouped for customer view
   subtotal: number
   total: number
   unitPrice: number
@@ -178,6 +214,7 @@ export function calculate(input: CalcInput, C: PricingConstants): CalcResult {
   const lines: LineItem[] = []
 
   const pagesPerSig = C.pagesPerSignature[paperSize] || 4
+  const multiplier = C.sizeMultiplier?.[paperSize] || 1
   const isOffset = quantity >= (C.digitalMaxQty + 1)
 
   // Validate pages vs signature
@@ -185,53 +222,68 @@ export function calculate(input: CalcInput, C: PricingConstants): CalcResult {
     warnings.push(`${totalPages} нүүр нь ${paperSize} хэмжээнд ${pagesPerSig}-аар хуваагдахгүй байна. Ойролцоо утга: ${Math.ceil(totalPages / pagesPerSig) * pagesPerSig}`)
   }
 
-  const signatures = Math.ceil(totalPages / pagesPerSig)
+  const rawSignatures = Math.ceil(totalPages / pagesPerSig)
+  // Effective signatures = raw signatures × size multiplier
+  // A0 page = 8 A3 signatures, A1 = 4, A2 = 2, A3 = 1
+  const effectiveSignatures = rawSignatures * multiplier
 
   // Paper unit price lookup
   const paperEntry = C.paperPrices.find(p => p.gsm === paperGsm) || C.paperPrices[0]
   const paperUnitPrice = paperEntry.price
 
+  if (multiplier > 1) {
+    warnings.push(`${paperSize} хэмжээ: ×${multiplier} коэффициент (А3 суурь машинаас ${multiplier} дахин том)`)
+  }
+
   if (isOffset) {
     // ═══ OFFSET CALCULATION ═══
 
-    // 1. Plates
-    const plateCount = signatures * C.platesPerSignature
+    // 1. Plates — uses effectiveSignatures
+    const plateCount = effectiveSignatures * C.platesPerSignature
     const plateCost = plateCount * C.platePrice
     lines.push({
       key: 'plates',
       label: 'Хавтан (Plate)',
-      detail: `${signatures} багц × ${C.platesPerSignature} хавтан × ${C.platePrice.toLocaleString()}₮`,
+      detail: multiplier > 1
+        ? `${rawSignatures} багц × ${multiplier} (${paperSize} коэфф) = ${effectiveSignatures} × ${C.platesPerSignature} хавтан × ${C.platePrice.toLocaleString()}₮`
+        : `${effectiveSignatures} багц × ${C.platesPerSignature} хавтан × ${C.platePrice.toLocaleString()}₮`,
       amount: plateCost,
     })
 
-    // 2. Press fee (per signature, tiered by quantity)
+    // 2. Press fee — uses effectiveSignatures
     const pressTier = C.pressFee.find(t => quantity >= t.min && quantity <= t.max) || C.pressFee[C.pressFee.length - 1]
-    const pressCost = signatures * pressTier.price
+    const pressCost = effectiveSignatures * pressTier.price
     lines.push({
       key: 'press',
       label: 'Машин ажиллагаа (Press)',
-      detail: `${signatures} багц × ${pressTier.price.toLocaleString()}₮ (${quantity}ш шатлал)`,
+      detail: multiplier > 1
+        ? `${effectiveSignatures} багц (${rawSignatures}×${multiplier}) × ${pressTier.price.toLocaleString()}₮ (${quantity}ш шатлал)`
+        : `${effectiveSignatures} багц × ${pressTier.price.toLocaleString()}₮ (${quantity}ш шатлал)`,
       amount: pressCost,
     })
 
-    // 3. Paper
-    const sheetsNeeded = Math.ceil(quantity * totalPages / pagesPerSig)
+    // 3. Paper — sheets also scaled by multiplier
+    const rawSheets = Math.ceil(quantity * totalPages / pagesPerSig)
+    const sheetsNeeded = rawSheets * multiplier
     const sheetsWithWaste = Math.ceil(sheetsNeeded * (1 + C.paperWaste))
     const paperCost = sheetsWithWaste * paperUnitPrice
     lines.push({
       key: 'paper',
       label: `Цаас (${paperGsm}gsm)`,
-      detail: `${sheetsNeeded.toLocaleString()} хуудас + ${(C.paperWaste * 100).toFixed(0)}% хаягдал = ${sheetsWithWaste.toLocaleString()} × ${paperUnitPrice}₮`,
+      detail: multiplier > 1
+        ? `${rawSheets.toLocaleString()} × ${multiplier} = ${sheetsNeeded.toLocaleString()} хуудас + ${(C.paperWaste * 100).toFixed(0)}% = ${sheetsWithWaste.toLocaleString()} × ${paperUnitPrice}₮`
+        : `${sheetsNeeded.toLocaleString()} хуудас + ${(C.paperWaste * 100).toFixed(0)}% хаягдал = ${sheetsWithWaste.toLocaleString()} × ${paperUnitPrice}₮`,
       amount: paperCost,
     })
 
     // Cover pages (if any)
     if (input.hasCover) {
       const coverPaper = C.paperPrices.find(p => p.gsm === input.coverGsm) || C.paperPrices.find(p => p.gsm === 250) || C.paperPrices[C.paperPrices.length - 1]
-      const coverSheets = Math.ceil(quantity * 1.05) // 1 sheet per copy + waste
-      const coverPlates = 1 * C.platesPerSignature // 1 signature for cover
+      const coverSheets = Math.ceil(quantity * 1.05) * multiplier
+      const coverEffSig = 1 * multiplier
+      const coverPlates = coverEffSig * C.platesPerSignature
       const coverPlateCost = coverPlates * C.platePrice
-      const coverPressCost = pressTier.price
+      const coverPressCost = coverEffSig * pressTier.price
       const coverPaperCost = coverSheets * coverPaper.price
 
       lines.push({
@@ -243,7 +295,7 @@ export function calculate(input: CalcInput, C: PricingConstants): CalcResult {
       lines.push({
         key: 'cover_press',
         label: 'Хавтас — Машин',
-        detail: `1 багц × ${pressTier.price.toLocaleString()}₮`,
+        detail: `${coverEffSig} багц × ${pressTier.price.toLocaleString()}₮`,
         amount: coverPressCost,
       })
       lines.push({
@@ -258,8 +310,8 @@ export function calculate(input: CalcInput, C: PricingConstants): CalcResult {
 
     // Folding
     if (input.folding) {
-      const foldPrice = C.foldingPrices[paperSize] || 100
-      const sheetsForFold = Math.ceil(quantity * totalPages / pagesPerSig)
+      const foldPrice = C.foldingPrices[paperSize] || C.foldingPrices['A3'] || 100
+      const sheetsForFold = Math.ceil(quantity * totalPages / pagesPerSig) * multiplier
       const foldCost = sheetsForFold * foldPrice
       lines.push({
         key: 'folding',
@@ -272,17 +324,18 @@ export function calculate(input: CalcInput, C: PricingConstants): CalcResult {
     // UV Coating
     if (input.uvCoating) {
       const uvTier = C.uvTiers.find(t => quantity >= t.min && quantity <= t.max) || C.uvTiers[C.uvTiers.length - 1]
+      const uvCost = uvTier.price * multiplier
       lines.push({
         key: 'uv',
         label: 'Лак (UV Coating)',
-        detail: `${quantity}ш шатлал → ${uvTier.price.toLocaleString()}₮`,
-        amount: uvTier.price,
+        detail: multiplier > 1 ? `${uvTier.price.toLocaleString()}₮ × ${multiplier} (${paperSize})` : `${quantity}ш шатлал → ${uvTier.price.toLocaleString()}₮`,
+        amount: uvCost,
       })
     }
 
     // Die-cutting
     if (input.dieCutting) {
-      const knifePrice = C.dieKnifePrices[paperSize] || 70000
+      const knifePrice = C.dieKnifePrices[paperSize] || C.dieKnifePrices['A3'] || 70000
       const strikeTier = [...C.dieStrikeTiers].reverse().find(t => quantity <= t.qty * 1.5) || C.dieStrikeTiers[C.dieStrikeTiers.length - 1]
       const dieCost = knifePrice + strikeTier.price
       lines.push({
@@ -319,12 +372,19 @@ export function calculate(input: CalcInput, C: PricingConstants): CalcResult {
     }
 
     const subtotal = lines.reduce((s, l) => s + l.amount, 0)
+
+    // ── Grouped lines for customer view ──
+    const grouped = buildGroupedLines(lines)
+
     return {
       method: 'offset',
-      signatures,
+      signatures: rawSignatures,
       pagesPerSig,
-      sheetsNeeded: Math.ceil(quantity * totalPages / pagesPerSig),
+      sizeMultiplier: multiplier,
+      effectiveSignatures,
+      sheetsNeeded: Math.ceil(quantity * totalPages / pagesPerSig) * multiplier,
       lines,
+      grouped,
       subtotal,
       total: subtotal,
       unitPrice: Math.round(subtotal / quantity),
@@ -384,16 +444,48 @@ export function calculate(input: CalcInput, C: PricingConstants): CalcResult {
     }
 
     const subtotal = lines.reduce((s, l) => s + l.amount, 0)
+    const grouped = buildGroupedLines(lines)
+
     return {
       method: 'digital',
-      signatures,
+      signatures: rawSignatures,
       pagesPerSig,
+      sizeMultiplier: multiplier,
+      effectiveSignatures,
       sheetsNeeded,
       lines,
+      grouped,
       subtotal,
       total: subtotal,
       unitPrice: Math.round(subtotal / quantity),
       warnings,
     }
   }
+}
+
+// ─── Build grouped lines for customer view (hides cost details) ──────────
+
+const PRINT_KEYS = ['plates', 'press', 'paper', 'print', 'cover_plates', 'cover_press', 'cover_paper', 'cover_print']
+const POSTPRESS_KEYS = ['folding', 'uv', 'die', 'emboss']
+const BINDING_KEYS = ['binding']
+
+function buildGroupedLines(lines: LineItem[]): GroupedLine[] {
+  const grouped: GroupedLine[] = []
+
+  const printTotal = lines.filter(l => PRINT_KEYS.includes(l.key)).reduce((s, l) => s + l.amount, 0)
+  if (printTotal > 0) {
+    grouped.push({ key: 'printing', label: 'Үндсэн хэвлэлт', amount: printTotal })
+  }
+
+  const postTotal = lines.filter(l => POSTPRESS_KEYS.includes(l.key)).reduce((s, l) => s + l.amount, 0)
+  if (postTotal > 0) {
+    grouped.push({ key: 'postpress', label: 'Нэмэлт ажилбарууд', amount: postTotal })
+  }
+
+  const bindTotal = lines.filter(l => BINDING_KEYS.includes(l.key)).reduce((s, l) => s + l.amount, 0)
+  if (bindTotal > 0) {
+    grouped.push({ key: 'binding', label: 'Хавтаслалт', amount: bindTotal })
+  }
+
+  return grouped
 }

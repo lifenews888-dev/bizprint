@@ -1645,7 +1645,7 @@ function OffsetCalculatorModal({ initial, onSave, onClose }: {
                       {result.method === 'offset' ? 'Офсет хэвлэл' : 'Дижитал хэвлэл (Шуурхай)'}
                     </div>
                     <div style={{ fontSize: 11, color: 'var(--text3)' }}>
-                      {input.quantity}ш {result.method === 'offset' ? '≥ 300 → Офсет' : '< 300 → Дижитал'} · {result.signatures} багц × {result.pagesPerSig} нүүр
+                      {input.quantity}ш {result.method === 'offset' ? '≥ 300 → Офсет' : '< 300 → Дижитал'} · {result.signatures} багц × {result.pagesPerSig} нүүр{result.sizeMultiplier > 1 ? ` × ${result.sizeMultiplier} коэфф = ${result.effectiveSignatures} нийт багц` : ''}
                     </div>
                   </div>
                 </div>
@@ -1802,7 +1802,7 @@ function OffsetCalculatorModal({ initial, onSave, onClose }: {
                   </div>
                 </div>
                 <div style={{ fontSize: 10, color: 'var(--text3)', lineHeight: 1.6 }}>
-                  Арга: <strong>{result.method === 'offset' ? 'Офсет' : 'Дижитал'}</strong> · Багц: <strong>{result.signatures}</strong> ({result.pagesPerSig}нүүр) · Хуудас: <strong>{result.sheetsNeeded.toLocaleString()}</strong>
+                  Арга: <strong>{result.method === 'offset' ? 'Офсет' : 'Дижитал'}</strong> · Багц: <strong>{result.signatures}</strong> ({result.pagesPerSig}нүүр){result.sizeMultiplier > 1 ? <> · Коэфф: <strong style={{ color: '#FF6B00' }}>×{result.sizeMultiplier}</strong> · Нийт: <strong style={{ color: '#FF6B00' }}>{result.effectiveSignatures}</strong></> : ''} · Хуудас: <strong>{result.sheetsNeeded.toLocaleString()}</strong>
                 </div>
               </div>
             </div>
