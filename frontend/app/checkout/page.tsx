@@ -3,6 +3,7 @@ import { apiFetch } from '@/lib/api'
 import { useState, useEffect, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Suspense } from 'react'
+import { useStore } from '@/lib/store'
 
 const FONT = "'DM Sans','Segoe UI',system-ui,sans-serif"
 const fmt = (n: number) => new Intl.NumberFormat('mn-MN').format(Math.round(n)) + '₮'
@@ -14,8 +15,9 @@ const inp: React.CSSProperties = {
 }
 
 const PAYMENT_METHODS = [
+  { value: 'qr', label: '📱 QR Код (Онлайн)', desc: 'QPay/SocialPay уншуулж төлөх' },
   { value: 'bank', label: '🏦 Банк шилжүүлэг', desc: 'ХХБ дансаар шилжүүлэх' },
-  { value: 'qr', label: '📱 QR Код', desc: 'QR уншуулж төлөх' },
+  { value: 'invoice', label: '📄 Нэхэмжлэх (Invoice)', desc: 'Байгууллагын нэр дээр нэхэмжлэх' },
   { value: 'cash', label: '💵 Бэлэн мөнгө', desc: 'Хүргэлтийн үед төлөх' },
 ]
 
@@ -29,7 +31,8 @@ function CheckoutInner() {
   const addonId = searchParams.get('addon_id')
   const productPricingId = searchParams.get('product_pricing_id')
 
-  const isDigitalPurchase = !!source // subscription, addon, or product — no physical delivery
+  const isDigitalPurchase = !!source
+  const store = useStore()
 
   const [step, setStep] = useState(1) // 1=form, 2=payment method, 3=pay, 4=done
   const [form, setForm] = useState({
@@ -92,7 +95,7 @@ function CheckoutInner() {
         if (res?.status === 'paid' || res?.status === 1 || res?.status === 'PAID') {
           setPaymentStatus('paid')
           if (pollRef.current) clearInterval(pollRef.current)
-          setStep(4)
+          onOrderSuccess()
         }
       } catch {}
     }, 5000)
@@ -133,7 +136,7 @@ function CheckoutInner() {
         })
         setStep(3)
         // For digital: skip payment flow, mark as success directly
-        setTimeout(() => setStep(4), 1500)
+        setTimeout(() => onOrderSuccess(), 1500)
         return
       }
 
@@ -181,6 +184,12 @@ function CheckoutInner() {
     } finally {
       setSaving(false)
     }
+  }
+
+  // Clear cart on successful order
+  const onOrderSuccess = () => {
+    store.clearCart()
+    onOrderSuccess()
   }
 
   // Step 4 — Payment confirmed
@@ -290,7 +299,7 @@ function CheckoutInner() {
                   try {
                     await apiFetch<any>(`/payment/confirm/${paymentData.invoice_code}`, { method: 'POST' })
                     setPaymentStatus('paid')
-                    setTimeout(() => setStep(4), 1500)
+                    setTimeout(() => onOrderSuccess(), 1500)
                   } catch (e: any) { alert(e.message) }
                 }} style={{
                   width: '100%', padding: '14px', background: '#059669', color: '#fff', border: 'none',
