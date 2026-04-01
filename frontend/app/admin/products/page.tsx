@@ -49,6 +49,8 @@ const emptyPrint = {
   name_mn: '', name_en: '', code: '', category: 'HADAG_REKLAM',
   subcategory: '', unit_type: 'PIECE', description: '', thumbnail_url: '',
   images: [] as string[], video_url: '',
+  base_price: 0, pricing_type: 'tier' as 'tier' | 'area',
+  price_per_m2: 0, min_area_m2: 0.25,
 }
 const emptyMaterial = { material_code: '', material_name_mn: '', unit: '', base_cost: 0, display_name: '', is_default: false }
 const emptySize = { size_code: '', size_label: '', width_mm: 0, height_mm: 0, base_price: 0, is_custom: false }
@@ -119,7 +121,9 @@ function PrintProductsTab() {
     setForm({ name_mn: item.name_mn || '', name_en: item.name_en || '', code: item.code || '',
       category: item.category || 'HADAG_REKLAM', subcategory: item.subcategory || '',
       unit_type: item.unit_type || 'PIECE', description: item.description || '',
-      thumbnail_url: item.thumbnail_url || '', images: item.images || [], video_url: item.video_url || '' })
+      thumbnail_url: item.thumbnail_url || '', images: item.images || [], video_url: item.video_url || '',
+      base_price: item.base_price || 0, pricing_type: item.unit_type === 'M2' ? 'area' : 'tier',
+      price_per_m2: item.price_per_m2 || 0, min_area_m2: item.min_area_m2 || 0.25 })
     setMaterials(item.materials || []); setSizes(item.sizes || [])
     setMaterialForm({ ...emptyMaterial }); setSizeForm({ ...emptySize })
     setEditingMaterial(null); setEditingSize(null); setFormTab(0); setError(''); setModalOpen(true)
@@ -128,13 +132,31 @@ function PrintProductsTab() {
 
   const saveProduct = async () => {
     if (!form.name_mn.trim()) { setError('Нэр (МН) оруулна уу'); return }
+    if (form.pricing_type === 'area' && !form.price_per_m2) { setError('М² үнэ оруулна уу'); return }
+    if (form.pricing_type === 'tier' && !form.base_price) { setError('Нэгж үнэ оруулна уу'); return }
     setSaving(true); setError('')
     try {
-      const payload = { ...form, thumbnail_url: form.images[0] || form.thumbnail_url }
+      const payload = {
+        ...form,
+        thumbnail_url: form.images[0] || form.thumbnail_url,
+        base_price: form.pricing_type === 'area' ? form.price_per_m2 : form.base_price,
+      }
       if (editing?.id) {
         await apiFetch<any>(`/admin/products-master/${editing.id}`, {
           method: 'PUT', body: payload,
         })
+        // Sync pricing to products table
+        try {
+          const isArea = form.pricing_type === 'area'
+          await apiFetch<any>(`/admin/shop-products/${editing.id}`, { method: 'PATCH', body: {
+            base_price: isArea ? form.price_per_m2 : form.base_price,
+            pricing_mode: isArea ? 'formula' : 'tier',
+            requires_dimensions: isArea,
+            product_type: isArea ? 'signage' : 'print',
+            order_flow: isArea ? 'site_survey' : 'file_upload',
+            price_formula: isArea ? { type: 'area_based', price_per_m2: form.price_per_m2, min_area_m2: form.min_area_m2 || 0.25, options: {} } : null,
+          }}).catch(() => {}) // Ignore if no matching product
+        } catch {}
       } else {
         const res = await apiFetch<any>(`/admin/products-master`, {
           method: 'POST', body: payload,
@@ -335,6 +357,40 @@ function PrintProductsTab() {
                     <label style={labelStyle}>Тайлбар</label>
                     <textarea value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} style={{ ...inp, minHeight: 80, resize: 'vertical' }} />
                   </div>
+                  {/* ── PRICING CONFIG ── */}
+                  <div style={{ gridColumn: 'span 2', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 10, padding: 14 }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 10, color: 'var(--text)' }}>💰 Үнийн тохиргоо</div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                      <div>
+                        <label style={labelStyle}>Үнэ тооцох арга</label>
+                        <select value={form.pricing_type} onChange={e => setForm({ ...form, pricing_type: e.target.value as any, unit_type: e.target.value === 'area' ? 'M2' : form.unit_type })} style={{ ...inp, cursor: 'pointer' }}>
+                          <option value="tier">📦 Ширхэгээр (Tier)</option>
+                          <option value="area">📐 М²-аар (Талбай)</option>
+                        </select>
+                      </div>
+                      {form.pricing_type === 'tier' ? (
+                        <div>
+                          <label style={labelStyle}>Нэгж үнэ (₮) *</label>
+                          <input type="number" value={form.base_price} onChange={e => setForm({ ...form, base_price: Number(e.target.value) })} style={inp} placeholder="18500" />
+                        </div>
+                      ) : (
+                        <>
+                          <div>
+                            <label style={labelStyle}>М² үнэ (₮) *</label>
+                            <input type="number" value={form.price_per_m2} onChange={e => setForm({ ...form, price_per_m2: Number(e.target.value) })} style={inp} placeholder="18500" />
+                          </div>
+                          <div>
+                            <label style={labelStyle}>Мин. талбай (м²)</label>
+                            <input type="number" value={form.min_area_m2} onChange={e => setForm({ ...form, min_area_m2: Number(e.target.value) })} style={inp} placeholder="0.25" step="0.01" />
+                          </div>
+                          <div style={{ fontSize: 11, color: 'var(--text3)' }}>
+                            💡 Жишээ: 2м × 3м = 6м² × ₮{(form.price_per_m2 || 0).toLocaleString()} = ₮{(6 * (form.price_per_m2 || 0)).toLocaleString()}
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  </div>
+
                   <div style={{ gridColumn: 'span 2' }}>
                     <ProductMediaUploader
                       images={form.images}
