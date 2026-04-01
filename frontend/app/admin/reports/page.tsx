@@ -1,6 +1,7 @@
 'use client'
 import { apiFetch } from '@/lib/api'
 import { useState, useEffect, useCallback } from 'react'
+import { MultiBarChart } from '@/components/chart-blocks'
 
 /* ═══════════════════════════════════════════
    TYPES
@@ -63,45 +64,26 @@ function KpiCard({ label, value, change, icon, color = '#FF6B00', tooltip }: {
 }
 
 /* ═══════════════════════════════════════════
-   SIMPLE BAR CHART (no dependency)
+   PROFIT CHART — VisActor MultiBarChart
    ═══════════════════════════════════════════ */
 function ProfitChart({ data, visibleSeries }: { data: TimePoint[]; visibleSeries: Set<string> }) {
   if (!data.length) return <div className="text-center text-[#999] py-16 text-sm">Өгөгдөл байхгүй</div>
-  const maxVal = Math.max(...data.map(d => Math.max(
-    visibleSeries.has('revenue') ? d.revenue : 0,
-    visibleSeries.has('cost') ? d.cost : 0,
-    Math.abs(visibleSeries.has('profit') ? d.profit : 0),
-  )), 1)
+
+  const yFields: { field: string; name: string; color: string }[] = []
+  if (visibleSeries.has('revenue')) yFields.push({ field: 'revenue', name: 'Орлого', color: '#FF6B00' })
+  if (visibleSeries.has('cost'))    yFields.push({ field: 'cost',    name: 'Зардал', color: '#8B5CF6' })
+  if (visibleSeries.has('profit'))  yFields.push({ field: 'profit',  name: 'Ашиг',   color: '#10B981' })
+
+  const chartData = data.map(d => ({ date: fmtDate(d.date), revenue: d.revenue, cost: d.cost, profit: d.profit }))
 
   return (
-    <div className="overflow-x-auto">
-      <div className="flex items-end gap-1 min-w-[600px] h-[220px] px-2 pt-4 pb-0">
-        {data.map((d, i) => {
-          const rH = visibleSeries.has('revenue') ? (d.revenue / maxVal) * 200 : 0
-          const cH = visibleSeries.has('cost') ? (d.cost / maxVal) * 200 : 0
-          const pH = visibleSeries.has('profit') ? (Math.abs(d.profit) / maxVal) * 200 : 0
-          return (
-            <div key={i} className="flex-1 flex flex-col items-center gap-0.5 group relative min-w-[20px]">
-              {/* Tooltip */}
-              <div className="absolute bottom-full mb-2 bg-[#111] text-white text-[10px] rounded-lg px-3 py-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 whitespace-nowrap left-1/2 -translate-x-1/2">
-                <div className="font-bold mb-1">{fmtDate(d.date)}</div>
-                {visibleSeries.has('revenue') && <div>Орлого: {fmt(d.revenue)}</div>}
-                {visibleSeries.has('cost') && <div>Зардал: {fmt(d.cost)}</div>}
-                {visibleSeries.has('profit') && <div>Ашиг: {fmt(d.profit)}</div>}
-                <div>Захиалга: {d.orders}</div>
-              </div>
-              {/* Bars */}
-              <div className="flex gap-px items-end w-full justify-center">
-                {visibleSeries.has('revenue') && <div style={{ height: Math.max(rH, 2), background: '#FF6B00' }} className="rounded-t flex-1 max-w-3 transition-all" />}
-                {visibleSeries.has('cost') && <div style={{ height: Math.max(cH, 2), background: '#8B5CF6' }} className="rounded-t flex-1 max-w-3 transition-all" />}
-                {visibleSeries.has('profit') && <div style={{ height: Math.max(pH, 2), background: d.profit >= 0 ? '#10B981' : '#EF4444' }} className="rounded-t flex-1 max-w-3 transition-all" />}
-              </div>
-              <span className="text-[9px] text-[#BBB] mt-1 truncate w-full text-center">{fmtDate(d.date)}</span>
-            </div>
-          )
-        })}
-      </div>
-    </div>
+    <MultiBarChart
+      data={chartData}
+      xField="date"
+      yFields={yFields}
+      height={220}
+      currency
+    />
   )
 }
 

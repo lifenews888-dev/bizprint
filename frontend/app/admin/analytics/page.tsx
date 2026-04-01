@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react'
 import { apiFetch } from '@/lib/api'
 import { AdminPageHeader } from '@/components/admin/AdminPageHeader'
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts'
+import { BarChart as VBarChart } from '@/components/chart-blocks'
 
 const ENTITY_LABELS: Record<string, string> = {
   digital_card: 'Дижитал карт', invitation: 'Урилга', product_qr: 'Бүтээгдэхүүн QR', quote: 'Үнийн санал',
@@ -53,19 +53,16 @@ export default function AdminAnalytics() {
         </div>
       )}
 
-      {/* Daily chart */}
+      {/* Daily chart — VisActor */}
       {chartData.length > 0 && (
         <div className="rounded-xl border border-border bg-card p-5 mb-6">
           <h3 className="text-base font-semibold text-foreground mb-4">Өдрийн идэвхжил</h3>
-          <ResponsiveContainer width="100%" height={180}>
-            <BarChart data={chartData} barSize={Math.max(4, Math.min(20, 600 / chartData.length))}>
-              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
-              <XAxis dataKey="date" tick={{ fontSize: 10, fill: 'var(--text3)' }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fontSize: 10, fill: 'var(--text3)' }} axisLine={false} tickLine={false} width={35} />
-              <Tooltip contentStyle={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, fontSize: 12 }} />
-              <Bar dataKey="count" fill="#FF6B00" radius={[4, 4, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
+          <VBarChart
+            data={chartData.map((d: any) => ({ label: d.date, value: d.count }))}
+            height={180}
+            color="#FF6B00"
+            gradient
+          />
         </div>
       )}
 

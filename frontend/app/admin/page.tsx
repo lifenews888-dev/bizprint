@@ -2,14 +2,13 @@
 import { apiFetch, getToken } from '@/lib/api'
 import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
-import { BarChart, Bar, XAxis, YAxis, Tooltip as RTooltip, ResponsiveContainer, CartesianGrid } from 'recharts'
+import { BarChart as VBarChart, DonutChart } from '@/components/chart-blocks'
 import { Wallet, TrendingUp, Clock, Landmark, Users, Target } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 /* ═══ Helpers ═══ */
 const fmt = (n: number) => '₮' + n.toLocaleString()
-const pct = (a: number, b: number) => b > 0 ? Math.round((a / b) * 100) : 0
 
 function change(current: number, previous: number): { text: string; positive: boolean } | null {
   if (!previous) return null
@@ -507,42 +506,27 @@ export default function AdminDashboard() {
         {/* Revenue chart */}
         <div className="xl:col-span-2 rounded-xl border border-border bg-card p-5">
           <h2 className="text-base font-bold text-foreground mb-4">Орлогын чиг хандлага (7 хоног)</h2>
-          <ResponsiveContainer width="100%" height={180}>
-            <BarChart data={stats.dailyRevenue} barSize={32}>
-              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
-              <XAxis dataKey="date" tick={{ fontSize: 10, fill: 'var(--text3)' }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fontSize: 10, fill: 'var(--text3)' }} axisLine={false} tickLine={false} tickFormatter={(v: number) => v >= 1000 ? `${(v/1000).toFixed(0)}K` : String(v)} width={40} />
-              <RTooltip
-                contentStyle={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10, fontSize: 12 }}
-                labelStyle={{ color: 'var(--text2)', fontWeight: 600 }}
-                formatter={(value: any) => [fmt(Number(value)), 'Орлого']}
-              />
-              <Bar dataKey="value" fill="#FF6B00" radius={[6, 6, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
+          <VBarChart
+            data={(stats.dailyRevenue || []).map((d: any) => ({ label: d.date, value: Number(d.value) || 0 }))}
+            height={180}
+            color="#FF6B00"
+            currency
+            gradient
+          />
         </div>
 
-        {/* Status breakdown */}
+        {/* Status breakdown — VChart Donut */}
         <div className="rounded-xl border border-border bg-card p-5">
           <h2 className="text-base font-bold text-foreground mb-3">Захиалгын төлөв</h2>
-          <div className="text-xs text-muted-foreground mb-3">Нийт {orders.length}</div>
-          <div className="space-y-2">
-            {Object.entries(stats.statusCounts).sort((a, b) => b[1] - a[1]).slice(0, 7).map(([status, count]) => {
+          <DonutChart
+            data={Object.entries(stats.statusCounts).sort((a: any, b: any) => b[1] - a[1]).slice(0, 7).map(([status, count]) => {
               const cfg = STATUS_MAP[status] || { label: status, color: '#999' }
-              const w = pct(count, orders.length)
-              return (
-                <div key={status}>
-                  <div className="flex justify-between text-[11px] mb-0.5">
-                    <span className="font-medium" style={{ color: cfg.color }}>{cfg.label}</span>
-                    <span className="text-muted-foreground">{count} ({w}%)</span>
-                  </div>
-                  <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden">
-                    <div className="h-full rounded-full transition-all" style={{ width: `${w}%`, background: cfg.color }} />
-                  </div>
-                </div>
-              )
+              return { label: cfg.label, value: count as number, color: cfg.color }
             })}
-          </div>
+            height={220}
+            centerText={String(orders.length)}
+            centerLabel="Нийт"
+          />
         </div>
       </div>
 

@@ -3,6 +3,7 @@ import { apiFetch } from '@/lib/api'
 import { useState, useEffect, useMemo } from 'react'
 import CreatorUgcPanel from './CreatorUgcPanel'
 import { AdminPageHeader } from '@/components/admin/AdminPageHeader'
+import { FunnelChart } from '@/components/chart-blocks'
 import { Button } from '@/components/ui/button'
 
 /* ═══ Config ═══ */
@@ -204,39 +205,24 @@ export default function AdminMarketingPage() {
           )}
 
           <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
-            {/* Funnel — interactive */}
-            <div className="bg-white rounded-xl border border-[#E5E7EB] p-5">
+            {/* Funnel — VisActor */}
+            <div className="bg-white dark:bg-[var(--surface)] rounded-xl border border-[#E5E7EB] dark:border-[var(--border)] p-5">
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-base font-bold text-[#111]">🔻 Маркетинг Funnel</h2>
+                <h2 className="text-base font-bold text-[#111] dark:text-[var(--text)]">🔻 Маркетинг Funnel</h2>
                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ color: Number(conversionRate) >= 5 ? '#10B981' : '#EF4444', background: Number(conversionRate) >= 5 ? '#10B98112' : '#EF444412' }}>
                   Conversion: {conversionRate}%
                 </span>
               </div>
-              <div className="space-y-3">
-                {[
-                  { label: 'Сайтын зочид', value: visitors, color: '#3B82F6', w: 100 },
-                  { label: 'Бүртгэл', value: stats.totalUsers, color: '#8B5CF6', w: visitors > 0 ? (stats.totalUsers / visitors * 100) : 0 },
-                  { label: 'Үнийн санал', value: Math.round(stats.totalUsers * 0.6), color: '#F59E0B', w: visitors > 0 ? (stats.totalUsers * 0.6 / visitors * 100) : 0 },
-                  { label: 'Захиалга', value: orders.length, color: '#FF6B00', w: visitors > 0 ? (orders.length / visitors * 100) : 0 },
-                  { label: 'Төлбөр', value: paidOrders, color: '#10B981', w: visitors > 0 ? (paidOrders / visitors * 100) : 0 },
-                ].map((f, i, arr) => {
-                  const dropRate = i > 0 && arr[i-1].value > 0 ? Math.round((1 - f.value / arr[i-1].value) * 100) : 0
-                  return (
-                    <div key={f.label}>
-                      <div className="flex justify-between text-xs mb-1">
-                        <span className="text-[#555]">{f.label}</span>
-                        <div className="flex items-center gap-2">
-                          {i > 0 && dropRate > 50 && <span className="text-[9px] text-[#EF4444] font-bold">⚠ -{dropRate}%</span>}
-                          <span className="font-bold" style={{ color: f.color }}>{f.value}</span>
-                        </div>
-                      </div>
-                      <div className="w-full h-6 bg-[#F3F4F6] rounded-lg overflow-hidden">
-                        <div className="h-full rounded-lg transition-all" style={{ width: `${Math.max(f.w, 3)}%`, background: f.color }} />
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
+              <FunnelChart
+                data={[
+                  { label: 'Сайтын зочид', value: visitors, color: '#3B82F6' },
+                  { label: 'Бүртгэл', value: stats.totalUsers, color: '#8B5CF6' },
+                  { label: 'Үнийн санал', value: Math.round(stats.totalUsers * 0.6), color: '#F59E0B' },
+                  { label: 'Захиалга', value: orders.length, color: '#FF6B00' },
+                  { label: 'Төлбөр', value: paidOrders, color: '#10B981' },
+                ]}
+                height={260}
+              />
             </div>
 
             {/* Campaign performance — with actions */}
