@@ -2,6 +2,7 @@
 import { apiFetch, getToken } from '@/lib/api'
 import React, { useState, useEffect, useCallback } from 'react'
 import ProductMediaUploader from '@/components/ProductMediaUploader'
+import { QrButton } from '@/components/admin/QrModal'
 import { AdminPageHeader } from '@/components/admin/AdminPageHeader'
 
 // PRINT_CATEGORIES — legacy fallback, replaced by DB categories in component
@@ -280,6 +281,7 @@ function PrintProductsTab() {
                   {item.is_active !== false ? '● Идэвхтэй' : '● Идэвхгүй'}
                 </span>
                 <div style={{ display: 'flex', gap: 6 }}>
+                  <QrButton product={item} type="print" />
                   <button onClick={() => openEdit(item)} style={{ padding: '5px 12px', background: 'rgba(59,130,246,0.1)', color: '#3B82F6', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 12, fontFamily: FONT }}>Засах</button>
                   <button onClick={() => deactivate(item.id)} style={{ padding: '5px 12px', background: 'rgba(239,68,68,0.1)', color: '#EF4444', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 12, fontFamily: FONT }}>Устгах</button>
                 </div>
@@ -737,6 +739,7 @@ function ShopProductsTab() {
                       {item.is_active !== false ? 'Идэвхтэй' : 'Идэвхгүй'}
                     </button>
                     <div style={{ display: 'flex', gap: 4 }}>
+                      <QrButton product={item} type="shop" />
                       <button onClick={() => openEdit(item)} style={{ padding: '3px 8px', background: 'rgba(59,130,246,0.1)', color: '#3B82F6', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 11, fontFamily: FONT }}>Засах</button>
                       <button onClick={() => deleteItem(item.id)} style={{ padding: '3px 8px', background: 'rgba(239,68,68,0.1)', color: '#EF4444', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 11, fontFamily: FONT }}>Устгах</button>
                     </div>
@@ -1003,6 +1006,7 @@ function SignageProductsTab() {
                   </div>
                 </div>
                 <div style={{ display: 'flex', gap: 6, marginTop: 10 }}>
+                  <QrButton product={item} type="signage" />
                   <button onClick={() => editItem(item)} style={{ flex: 1, padding: '6px', background: 'rgba(59,130,246,0.1)', color: '#3B82F6', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 12, fontFamily: FONT }}>Засах</button>
                   <button onClick={async () => { if (!confirm('Устгах уу?')) return; await apiFetch(`/admin/shop-products/${item.id}`, { method: 'DELETE' }); load() }} style={{ padding: '6px 10px', background: 'rgba(239,68,68,0.1)', color: '#EF4444', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 12, fontFamily: FONT }}>Устгах</button>
                 </div>
