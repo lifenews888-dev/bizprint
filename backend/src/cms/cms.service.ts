@@ -1,19 +1,23 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, OnModuleInit, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import { MegaMenu } from './entities/mega-menu.entity';
 import { HeroSlide } from './entities/hero-slide.entity';
+import { SiteSettings } from './entities/site-settings.entity';
 
 @Injectable()
-export class CmsService {
+export class CmsService implements OnModuleInit {
+  private readonly logger = new Logger(CmsService.name);
+
   constructor(
     private dataSource: DataSource,
     @InjectRepository(MegaMenu) private menuRepo: Repository<MegaMenu>,
     @InjectRepository(HeroSlide) private slideRepo: Repository<HeroSlide>,
+    @InjectRepository(SiteSettings) private settingsRepo: Repository<SiteSettings>,
   ) {}
 
-  // ─── Site Settings (in-memory) ───
-  private static siteSettings: Record<string, any> = {
+  // ─── Default settings (used only when DB is empty) ───
+  private static readonly DEFAULTS: Record<string, any> = {
     logo_url: '/uploads/logo.png',
     site_name: 'BizPrint',
     phone: '7711-8899',
@@ -30,6 +34,55 @@ export class CmsService {
     facebook: 'https://facebook.com/bizprint',
     instagram: 'https://instagram.com/bizprint',
   };
+
+  // In-memory cache (loaded from DB on startup)
+  private static siteSettings: Record<string, any> = { ...CmsService.DEFAULTS };
+
+  // ─── Load from DB on startup ───
+  async onModuleInit() {
+    try {
+      const rows = await this.settingsRepo.find({ where: { group: 'site' } });
+      if (rows.length > 0) {
+        for (const row of rows) {
+          CmsService.siteSettings[row.key] = row.value;
+        }
+        this.logger.log(`Loaded ${rows.length} settings from DB`);
+      } else {
+        // First run: seed defaults to DB
+        await this.persistAllSettings();
+        this.logger.log('Seeded default settings to DB');
+      }
+      // Also load footer config
+      const footerRow = await this.settingsRepo.findOne({ where: { key: 'footer_config', group: 'footer' } });
+      if (footerRow) {
+        CmsService.footerConfig = footerRow.value;
+        this.logger.log('Loaded footer config from DB');
+      }
+    } catch (e) {
+      this.logger.warn('Could not load settings from DB, using defaults');
+    }
+  }
+
+  // ─── Persist settings to DB ───
+  private async persistSetting(key: string, value: any, group = 'site') {
+    try {
+      const existing = await this.settingsRepo.findOne({ where: { key, group } });
+      if (existing) {
+        existing.value = value;
+        await this.settingsRepo.save(existing);
+      } else {
+        await this.settingsRepo.save(this.settingsRepo.create({ key, value, group, label: key }));
+      }
+    } catch (e) {
+      this.logger.warn(`Failed to persist setting ${key}: ${e.message}`);
+    }
+  }
+
+  private async persistAllSettings() {
+    for (const [key, value] of Object.entries(CmsService.siteSettings)) {
+      await this.persistSetting(key, value);
+    }
+  }
 
   // Mega menu column config — which categories to show as columns
   private static menuColumns: string[] = []; // category IDs in order
@@ -110,6 +163,7 @@ export class CmsService {
 
   async updateMegaMenuColumns(columnIds: string[]) {
     CmsService.menuColumns = columnIds;
+    await this.persistSetting('menu_columns', columnIds, 'menu');
     return { success: true, columns: columnIds };
   }
 
@@ -119,6 +173,10 @@ export class CmsService {
     if (dto.description) CmsService.siteSettings.promo_description = dto.description;
     if (dto.image !== undefined) CmsService.siteSettings.promo_image = dto.image;
     if (dto.link) CmsService.siteSettings.promo_link = dto.link;
+    // Persist promo settings
+    for (const key of ['promo_enabled', 'promo_title', 'promo_description', 'promo_image', 'promo_link']) {
+      await this.persistSetting(key, CmsService.siteSettings[key]);
+    }
     return { success: true };
   }
 
@@ -150,8 +208,9 @@ export class CmsService {
 
   getFooter() { return CmsService.footerConfig; }
 
-  updateFooter(dto: any) {
+  async updateFooter(dto: any) {
     Object.assign(CmsService.footerConfig, dto);
+    await this.persistSetting('footer_config', CmsService.footerConfig, 'footer');
     return { success: true, footer: CmsService.footerConfig };
   }
 
@@ -166,16 +225,29 @@ export class CmsService {
 
   getSettingsObject() { return { ...CmsService.siteSettings, footer: CmsService.footerConfig }; }
 
-  updateHeader(dto: any) { Object.assign(CmsService.siteSettings, dto); return { success: true }; }
-  updateSettings(dto: any) { Object.assign(CmsService.siteSettings, dto); return { success: true }; }
+  async updateHeader(dto: any) {
+    Object.assign(CmsService.siteSettings, dto);
+    for (const [key, value] of Object.entries(dto)) {
+      await this.persistSetting(key, value);
+    }
+    return { success: true };
+  }
 
-  bulkUpdateSettings(items: { key: string; value: string }[]) {
+  async updateSettings(dto: any) {
+    Object.assign(CmsService.siteSettings, dto);
+    for (const [key, value] of Object.entries(dto)) {
+      await this.persistSetting(key, value);
+    }
+    return { success: true };
+  }
+
+  async bulkUpdateSettings(items: { key: string; value: string }[]) {
     for (const item of items) {
-      // Parse booleans
       let val: any = item.value;
       if (val === 'true') val = true;
       if (val === 'false') val = false;
       CmsService.siteSettings[item.key] = val;
+      await this.persistSetting(item.key, val);
     }
     return { success: true, updated: items.length };
   }
