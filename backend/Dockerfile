@@ -1,10 +1,13 @@
 # ── Stage 1: Build ────────────────────────────────────────────────────────────
 FROM node:20-alpine AS builder
 
+# Install native build tools for bcrypt
+RUN apk add --no-cache python3 make g++
+
 WORKDIR /app
 
 COPY package*.json ./
-RUN npm ci --ignore-scripts
+RUN npm ci
 
 COPY . .
 RUN npm run build
@@ -12,11 +15,17 @@ RUN npm run build
 # ── Stage 2: Production ───────────────────────────────────────────────────────
 FROM node:20-alpine AS production
 
+# Install native build tools for bcrypt
+RUN apk add --no-cache python3 make g++
+
 WORKDIR /app
 
 # Only install production deps
 COPY package*.json ./
-RUN npm ci --only=production --ignore-scripts && npm cache clean --force
+RUN npm ci --only=production && npm cache clean --force
+
+# Remove build tools to keep image small
+RUN apk del python3 make g++
 
 # Copy compiled output
 COPY --from=builder /app/dist ./dist
