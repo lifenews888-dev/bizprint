@@ -76,6 +76,7 @@ import { LoyaltyModule } from './loyalty/loyalty.module'
 import { ZoomModule } from './zoom/zoom.module'
 import { MegaMenuModule } from './mega-menu/mega-menu.module'
 import { GalleryModule } from './gallery/gallery.module'
+import { AgentModule } from './ai/agent/agent.module'
 
 @Module({
   imports: [
@@ -173,6 +174,7 @@ import { GalleryModule } from './gallery/gallery.module'
     ZoomModule,
     MegaMenuModule,
     GalleryModule,
+    AgentModule,
   ],
   controllers: [], // PricingCatalogController removed — duplicate
   providers: [],   // PricingCatalogService removed — duplicate
