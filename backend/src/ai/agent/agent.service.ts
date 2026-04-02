@@ -27,9 +27,32 @@ export class AgentService {
   }) {
     const { message, userId, userRole, conversationHistory = [] } = params
 
-    // Build messages array
+    // Build messages array — only keep simple text messages from history
+    // (tool_use/tool_result blocks cause errors when replayed)
+    const cleanHistory = (conversationHistory || [])
+      .filter((m: any) => m.role === 'user' || m.role === 'assistant')
+      .map((m: any) => {
+        if (typeof m.content === 'string') return m
+        // For assistant messages with content blocks, extract text only
+        if (Array.isArray(m.content)) {
+          const text = m.content
+            .filter((b: any) => b.type === 'text')
+            .map((b: any) => b.text)
+            .join('\n')
+          return text ? { role: m.role, content: text } : null
+        }
+        return m
+      })
+      .filter(Boolean)
+      // Ensure alternating user/assistant pattern
+      .reduce((acc: any[], m: any) => {
+        if (acc.length === 0) return [m]
+        if (acc[acc.length - 1].role !== m.role) return [...acc, m]
+        return acc // Skip duplicate roles
+      }, [])
+
     const messages: any[] = [
-      ...conversationHistory,
+      ...cleanHistory,
       { role: 'user', content: message },
     ]
 
@@ -84,7 +107,12 @@ export class AgentService {
     return {
       reply,
       toolsUsed: toolResults.map(t => t.tool),
-      conversationHistory: messages,
+      // Return only simple text messages for history (no tool blocks)
+      conversationHistory: [
+        ...cleanHistory,
+        { role: 'user', content: message },
+        { role: 'assistant', content: reply },
+      ].slice(-20),
     }
   }
 
