@@ -1231,6 +1231,7 @@ interface SavedOffsetProduct {
   paper_configs: OffsetPaperConfig[]
   size_configs: OffsetSizeConfig[]
   // Calculator
+  marginPercent: number    // ашгийн хувь (0.25 = 25%)
   input: CalcInput
   overrides: Record<string, number>
   total: number
@@ -1479,11 +1480,14 @@ function OffsetCalculatorModal({ initial, onSave, onClose }: {
   const [sizeConfigs, setSizeConfigs] = useState<OffsetSizeConfig[]>(initial?.size_configs || [...DEFAULT_SIZE_CONFIGS])
 
   // ── Calculator ──
+  const [marginPercent, setMarginPercent] = useState(initial?.marginPercent ?? 0.25)
+
   const customConstants = useMemo<PricingConstants>(() => ({
     ...DEFAULT_CONSTANTS,
+    marginPercent,
     paperPrices: paperConfigs.map(p => ({ label: p.label, gsm: p.gsm, price: p.price })),
     pagesPerSignature: Object.fromEntries(sizeConfigs.filter(s => s.code !== 'CUSTOM').map(s => [s.code, s.pagesPerSig])),
-  }), [paperConfigs, sizeConfigs])
+  }), [paperConfigs, sizeConfigs, marginPercent])
 
   const [input, setInput] = useState<CalcInput>(initial?.input || {
     quantity: 500, totalPages: 64, paperSize: 'A3', paperGsm: 80, colorMode: 'color',
@@ -1525,7 +1529,7 @@ function OffsetCalculatorModal({ initial, onSave, onClose }: {
       name: name || `${input.paperSize} ${input.totalPages}нүүр ${input.quantity}ш`,
       description, images, video_url: videoUrl, book_info: bookInfo,
       paper_configs: paperConfigs, size_configs: sizeConfigs,
-      input, overrides, total: finalTotal, unitPrice: finalUnit,
+      marginPercent, input, overrides, total: finalTotal, unitPrice: finalUnit,
       method: result.method,
       createdAt: initial?.createdAt || new Date().toISOString(),
     })
@@ -1685,6 +1689,17 @@ function OffsetCalculatorModal({ initial, onSave, onClose }: {
                       <option value="">Байхгүй</option>
                       {Object.keys(customConstants.bindingPrices).map(k => <option key={k} value={k}>{k}</option>)}
                     </select>
+                  </div>
+                  <div style={{ gridColumn: '1 / -1' }}>
+                    <label style={labelStyle}>Ашгийн хувь (%)</label>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <input type="number" min={0} max={100} value={Math.round(marginPercent * 100)}
+                        onChange={e => setMarginPercent(Math.max(0, Math.min(100, +e.target.value)) / 100)}
+                        style={{ ...inp, width: 100, fontWeight: 700, color: '#FF6B00' }} />
+                      <span style={{ fontSize: 12, color: 'var(--text3)' }}>
+                        Хэрэглэгчид харагдахгүй, нийт үнэд шингэнэ
+                      </span>
+                    </div>
                   </div>
                 </div>
 

@@ -511,7 +511,6 @@ export function calculate(input: CalcInput, C: PricingConstants): CalcResult {
 const PRINT_KEYS = ['plates', 'press', 'paper', 'print', 'cover_plates', 'cover_press', 'cover_paper', 'cover_print']
 const POSTPRESS_KEYS = ['folding', 'uv', 'die', 'emboss']
 const BINDING_KEYS = ['binding']
-const MARGIN_KEYS = ['margin']
 
 function buildGroupedLines(lines: LineItem[]): GroupedLine[] {
   const grouped: GroupedLine[] = []
@@ -531,10 +530,8 @@ function buildGroupedLines(lines: LineItem[]): GroupedLine[] {
     grouped.push({ key: 'binding', label: 'Хавтаслалт', amount: bindTotal })
   }
 
-  const marginTotal = lines.filter(l => MARGIN_KEYS.includes(l.key)).reduce((s, l) => s + l.amount, 0)
-  if (marginTotal > 0) {
-    grouped.push({ key: 'margin', label: 'Ашиг', amount: marginTotal })
-  }
+  // Ашгийг grouped view-д нуух — нийт дүнд шингэсэн байна
+  // Хэрэглэгчид зөвхөн хэвлэл, нэмэлт, хавтаслалт харагдана
 
   return grouped
 }
