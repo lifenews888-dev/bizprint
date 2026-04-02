@@ -48,10 +48,10 @@ export class AgentService {
     // Process tool calls in a loop
     const toolResults: any[] = []
     while (response.stop_reason === 'tool_use') {
-      const toolBlocks = response.content.filter((b: any) => b.type === 'tool_use')
+      const toolBlocks = (response.content as any[]).filter(b => b.type === 'tool_use')
 
       const toolResultMessages: any[] = []
-      for (const toolCall of toolBlocks) {
+      for (const toolCall of toolBlocks as any[]) {
         this.logger.log(`Tool call: ${toolCall.name}(${JSON.stringify(toolCall.input)})`)
 
         const result = await this.executeTool(toolCall.name, toolCall.input, userId, userRole)
@@ -65,7 +65,7 @@ export class AgentService {
       }
 
       // Continue conversation with tool results
-      messages.push({ role: 'assistant', content: response.content })
+      messages.push({ role: 'assistant', content: response.content as any })
       messages.push({ role: 'user', content: toolResultMessages })
 
       response = await this.anthropic.messages.create({
@@ -78,8 +78,8 @@ export class AgentService {
     }
 
     // Extract final text response
-    const textBlocks = response.content.filter((b: any) => b.type === 'text')
-    const reply = textBlocks.map((b: any) => b.text).join('\n')
+    const textBlocks = (response.content as any[]).filter(b => b.type === 'text')
+    const reply = textBlocks.map(b => b.text).join('\n')
 
     return {
       reply,
