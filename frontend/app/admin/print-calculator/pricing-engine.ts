@@ -10,10 +10,16 @@
 export interface PricingConstants {
   // Offset plates
   platePrice: number              // per plate (₮)
-  platesPerSignature: number      // 8 for 4+4 color
+  platesPerSignatureColor: number // 8 for 4+4 (CMYK front + back)
+  platesPerSignatureBw: number    // 2 for 1+1 (black front + back)
 
-  // Offset press fee tiers (per signature)
+  // Offset press fee tiers (per signature) — color
   pressFee: { min: number; max: number; price: number }[]
+  // Offset press fee tiers (per signature) — BW (cheaper)
+  pressFeeBw: { min: number; max: number; price: number }[]
+
+  // Profit margin (ашгийн хувь)
+  marginPercent: number           // e.g. 0.25 = 25%
 
   // Paper prices per sheet by GSM range
   paperPrices: { label: string; gsm: number; price: number }[]
@@ -57,7 +63,8 @@ export interface PricingConstants {
 
 export const DEFAULT_CONSTANTS: PricingConstants = {
   platePrice: 3500,
-  platesPerSignature: 8,
+  platesPerSignatureColor: 8,  // 4+4 CMYK
+  platesPerSignatureBw: 2,     // 1+1 Black
 
   pressFee: [
     { min: 300,  max: 500,  price: 35000 },
@@ -65,6 +72,15 @@ export const DEFAULT_CONSTANTS: PricingConstants = {
     { min: 1001, max: 2000, price: 25000 },
     { min: 2001, max: 999999, price: 20000 },
   ],
+
+  pressFeeBw: [
+    { min: 300,  max: 500,  price: 20000 },
+    { min: 501,  max: 1000, price: 17000 },
+    { min: 1001, max: 2000, price: 14000 },
+    { min: 2001, max: 999999, price: 11000 },
+  ],
+
+  marginPercent: 0.25,  // 25% ашгийн хувь
 
   paperPrices: [
     { label: '80gsm (Энгийн)',    gsm: 80,  price: 60 },
@@ -238,20 +254,22 @@ export function calculate(input: CalcInput, C: PricingConstants): CalcResult {
   if (isOffset) {
     // ═══ OFFSET CALCULATION ═══
 
-    // 1. Plates — uses effectiveSignatures
-    const plateCount = effectiveSignatures * C.platesPerSignature
+    // 1. Plates — color mode determines plate count
+    const platesPerSig = colorMode === 'color' ? C.platesPerSignatureColor : C.platesPerSignatureBw
+    const plateCount = effectiveSignatures * platesPerSig
     const plateCost = plateCount * C.platePrice
     lines.push({
       key: 'plates',
       label: 'Хавтан (Plate)',
       detail: multiplier > 1
-        ? `${rawSignatures} багц × ${multiplier} (${paperSize} коэфф) = ${effectiveSignatures} × ${C.platesPerSignature} хавтан × ${C.platePrice.toLocaleString()}₮`
-        : `${effectiveSignatures} багц × ${C.platesPerSignature} хавтан × ${C.platePrice.toLocaleString()}₮`,
+        ? `${rawSignatures} багц × ${multiplier} (${paperSize} коэфф) = ${effectiveSignatures} × ${platesPerSig} хавтан × ${C.platePrice.toLocaleString()}₮`
+        : `${effectiveSignatures} багц × ${platesPerSig} хавтан × ${C.platePrice.toLocaleString()}₮`,
       amount: plateCost,
     })
 
-    // 2. Press fee — uses effectiveSignatures
-    const pressTier = C.pressFee.find(t => quantity >= t.min && quantity <= t.max) || C.pressFee[C.pressFee.length - 1]
+    // 2. Press fee — color mode determines tier pricing
+    const pressTiers = colorMode === 'color' ? C.pressFee : (C.pressFeeBw || C.pressFee)
+    const pressTier = pressTiers.find(t => quantity >= t.min && quantity <= t.max) || pressTiers[pressTiers.length - 1]
     const pressCost = effectiveSignatures * pressTier.price
     lines.push({
       key: 'press',
@@ -281,7 +299,8 @@ export function calculate(input: CalcInput, C: PricingConstants): CalcResult {
       const coverPaper = C.paperPrices.find(p => p.gsm === input.coverGsm) || C.paperPrices.find(p => p.gsm === 250) || C.paperPrices[C.paperPrices.length - 1]
       const coverSheets = Math.ceil(quantity * 1.05) * multiplier
       const coverEffSig = 1 * multiplier
-      const coverPlates = coverEffSig * C.platesPerSignature
+      const coverPlatesPerSig = input.coverColorMode === 'color' ? C.platesPerSignatureColor : C.platesPerSignatureBw
+      const coverPlates = coverEffSig * coverPlatesPerSig
       const coverPlateCost = coverPlates * C.platePrice
       const coverPressCost = coverEffSig * pressTier.price
       const coverPaperCost = coverSheets * coverPaper.price
@@ -373,6 +392,18 @@ export function calculate(input: CalcInput, C: PricingConstants): CalcResult {
 
     const subtotal = lines.reduce((s, l) => s + l.amount, 0)
 
+    // Margin (ашгийн хувь)
+    const marginAmount = Math.round(subtotal * C.marginPercent)
+    if (C.marginPercent > 0) {
+      lines.push({
+        key: 'margin',
+        label: `Ашиг (${(C.marginPercent * 100).toFixed(0)}%)`,
+        detail: `${subtotal.toLocaleString()}₮ × ${(C.marginPercent * 100).toFixed(0)}%`,
+        amount: marginAmount,
+      })
+    }
+    const total = subtotal + marginAmount
+
     // ── Grouped lines for customer view ──
     const grouped = buildGroupedLines(lines)
 
@@ -386,8 +417,8 @@ export function calculate(input: CalcInput, C: PricingConstants): CalcResult {
       lines,
       grouped,
       subtotal,
-      total: subtotal,
-      unitPrice: Math.round(subtotal / quantity),
+      total,
+      unitPrice: Math.round(total / quantity),
       warnings,
     }
   } else {
@@ -444,6 +475,18 @@ export function calculate(input: CalcInput, C: PricingConstants): CalcResult {
     }
 
     const subtotal = lines.reduce((s, l) => s + l.amount, 0)
+
+    // Margin (ашгийн хувь)
+    const marginAmount = Math.round(subtotal * C.marginPercent)
+    if (C.marginPercent > 0) {
+      lines.push({
+        key: 'margin',
+        label: `Ашиг (${(C.marginPercent * 100).toFixed(0)}%)`,
+        detail: `${subtotal.toLocaleString()}₮ × ${(C.marginPercent * 100).toFixed(0)}%`,
+        amount: marginAmount,
+      })
+    }
+    const total = subtotal + marginAmount
     const grouped = buildGroupedLines(lines)
 
     return {
@@ -456,8 +499,8 @@ export function calculate(input: CalcInput, C: PricingConstants): CalcResult {
       lines,
       grouped,
       subtotal,
-      total: subtotal,
-      unitPrice: Math.round(subtotal / quantity),
+      total,
+      unitPrice: Math.round(total / quantity),
       warnings,
     }
   }
@@ -468,6 +511,7 @@ export function calculate(input: CalcInput, C: PricingConstants): CalcResult {
 const PRINT_KEYS = ['plates', 'press', 'paper', 'print', 'cover_plates', 'cover_press', 'cover_paper', 'cover_print']
 const POSTPRESS_KEYS = ['folding', 'uv', 'die', 'emboss']
 const BINDING_KEYS = ['binding']
+const MARGIN_KEYS = ['margin']
 
 function buildGroupedLines(lines: LineItem[]): GroupedLine[] {
   const grouped: GroupedLine[] = []
@@ -485,6 +529,11 @@ function buildGroupedLines(lines: LineItem[]): GroupedLine[] {
   const bindTotal = lines.filter(l => BINDING_KEYS.includes(l.key)).reduce((s, l) => s + l.amount, 0)
   if (bindTotal > 0) {
     grouped.push({ key: 'binding', label: 'Хавтаслалт', amount: bindTotal })
+  }
+
+  const marginTotal = lines.filter(l => MARGIN_KEYS.includes(l.key)).reduce((s, l) => s + l.amount, 0)
+  if (marginTotal > 0) {
+    grouped.push({ key: 'margin', label: 'Ашиг', amount: marginTotal })
   }
 
   return grouped

@@ -357,17 +357,19 @@ function AdminSettings({ constants, setConstants }: {
         Тогтмол үнүүд (Constants)
       </h3>
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">
+        <SettingInput label="Ашгийн хувь (%)" value={Math.round(constants.marginPercent * 100)} onChange={v => upd('marginPercent', +v / 100)} />
         <SettingInput label="Хавтан (₮)" value={constants.platePrice} onChange={v => upd('platePrice', +v)} />
-        <SettingInput label="Хавтан/багц" value={constants.platesPerSignature} onChange={v => upd('platesPerSignature', +v)} />
+        <SettingInput label="Хавтан/багц (Өнгөт)" value={constants.platesPerSignatureColor} onChange={v => upd('platesPerSignatureColor', +v)} />
+        <SettingInput label="Хавтан/багц (ХЦ)" value={constants.platesPerSignatureBw} onChange={v => upd('platesPerSignatureBw', +v)} />
         <SettingInput label="Дижитал өнгөт (₮/нүүр)" value={constants.digitalColorPerPage} onChange={v => upd('digitalColorPerPage', +v)} />
         <SettingInput label="Дижитал ХЦ (₮/нүүр)" value={constants.digitalBwPerPage} onChange={v => upd('digitalBwPerPage', +v)} />
         <SettingInput label="Хаягдал (%)" value={Math.round(constants.paperWaste * 100)} onChange={v => upd('paperWaste', +v / 100)} />
         <SettingInput label="Дижитал хязгаар" value={constants.digitalMaxQty} onChange={v => upd('digitalMaxQty', +v)} />
       </div>
 
-      {/* Press fee tiers */}
+      {/* Press fee tiers — Color */}
       <div className="mb-4">
-        <div className="text-xs font-semibold text-[var(--text3)] mb-2">Машин ажиллагаа (шатлал)</div>
+        <div className="text-xs font-semibold text-[var(--text3)] mb-2">Машин ажиллагаа — Өнгөт (шатлал)</div>
         <div className="grid grid-cols-4 gap-2">
           {constants.pressFee.map((tier, i) => (
             <div key={i} className="bg-[var(--surface2)] rounded-lg p-2">
@@ -375,6 +377,22 @@ function AdminSettings({ constants, setConstants }: {
               <input type="number" value={tier.price} onChange={e => {
                 const newFees = [...constants.pressFee]; newFees[i] = { ...tier, price: +e.target.value }
                 setConstants({ ...constants, pressFee: newFees })
+              }} className="w-full mt-1 px-2 py-1 rounded border border-[var(--border)] bg-[var(--surface)] text-xs font-bold text-[var(--text)] outline-none" />
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Press fee tiers — BW */}
+      <div className="mb-4">
+        <div className="text-xs font-semibold text-[var(--text3)] mb-2">Машин ажиллагаа — Хар цагаан (шатлал)</div>
+        <div className="grid grid-cols-4 gap-2">
+          {constants.pressFeeBw.map((tier, i) => (
+            <div key={i} className="bg-[var(--surface2)] rounded-lg p-2">
+              <div className="text-[10px] text-[var(--text3)]">{tier.min}-{tier.max === 999999 ? '∞' : tier.max}</div>
+              <input type="number" value={tier.price} onChange={e => {
+                const newFees = [...constants.pressFeeBw]; newFees[i] = { ...tier, price: +e.target.value }
+                setConstants({ ...constants, pressFeeBw: newFees })
               }} className="w-full mt-1 px-2 py-1 rounded border border-[var(--border)] bg-[var(--surface)] text-xs font-bold text-[var(--text)] outline-none" />
             </div>
           ))}
