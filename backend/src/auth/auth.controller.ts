@@ -41,6 +41,18 @@ export class AuthController {
     return this.authService.getMe(req.user.id);
   }
 
+  // TEMP: One-time seed endpoint — REMOVE after first admin is created
+  @Post('seed-admin')
+  async seedAdmin(@Body('email') email: string, @Body('secret') secret: string) {
+    if (secret !== 'bizprint-seed-2026') throw new Error('Invalid secret');
+    return this.authService['userRepository']
+      .findOne({ where: { email } })
+      .then((u: any) => {
+        if (!u) throw new Error('User not found');
+        return this.authService.changeRole(u.id, 'admin');
+      });
+  }
+
   // Admin: change any user's role
   @UseGuards(JwtAuthGuard, AdminGuard)
   @Patch('users/:id/role')
