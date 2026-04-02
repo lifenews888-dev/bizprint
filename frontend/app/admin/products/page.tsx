@@ -159,7 +159,6 @@ function PrintProductsTab() {
             base_price: isArea ? form.price_per_m2 : form.base_price,
             pricing_mode: isArea ? 'formula' : 'tier',
             requires_dimensions: isArea,
-            product_type: isArea ? 'signage' : 'print',
             order_flow: isArea ? 'site_survey' : 'file_upload',
             price_formula: isArea ? { type: 'area_based', price_per_m2: form.price_per_m2, min_area_m2: form.min_area_m2 || 0.25, options: {} } : null,
           }}).catch(() => {}) // Ignore if no matching product
