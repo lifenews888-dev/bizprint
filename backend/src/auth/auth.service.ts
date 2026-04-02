@@ -235,6 +235,25 @@ export class AuthService {
     return this.generateTokens(user);
   }
 
+  async updateDocuments(userId: string, docs: {
+    id_card_front_url?: string; id_card_back_url?: string;
+    business_license_url?: string; certification_url?: string;
+  }) {
+    const user = await this.userRepository.findOne({ where: { id: userId } });
+    if (!user) throw new BadRequestException('Хэрэглэгч олдсонгүй');
+    if (docs.id_card_front_url) user.id_card_front_url = docs.id_card_front_url;
+    if (docs.id_card_back_url) user.id_card_back_url = docs.id_card_back_url;
+    if (docs.business_license_url) user.business_license_url = docs.business_license_url;
+    if (docs.certification_url) user.certification_url = docs.certification_url;
+    // Move to under_review if pending and docs uploaded
+    if (user.verification_status === 'pending' && (docs.id_card_front_url || docs.business_license_url)) {
+      user.verification_status = 'under_review';
+    }
+    await this.userRepository.save(user);
+    const { password_hash, totp_secret, ...result } = user;
+    return result;
+  }
+
   // ─── Forgot / Reset Password ─────────────────────────────────
 
   async forgotPassword(email: string) {

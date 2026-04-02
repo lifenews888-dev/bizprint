@@ -49,4 +49,17 @@ export class AdminController {
 
   @Get('stats')
   getStats() { return this.adminService.getStats() }
+
+  // ─── Verification Management ───
+  @Get('users/pending-verification')
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  getPendingVerifications() {
+    return this.adminService.getPendingVerifications()
+  }
+
+  @Patch('users/:id/verify')
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  verifyUser(@Param('id') id: string, @Body() body: { status: string; note?: string; verified_by?: string }) {
+    return this.adminService.verifyUser(id, body.status, body.note, body.verified_by)
+  }
 }

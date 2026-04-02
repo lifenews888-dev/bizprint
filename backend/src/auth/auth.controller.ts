@@ -44,6 +44,16 @@ export class AuthController {
     return this.authService.getMe(req.user.id);
   }
 
+  // Upload KYC documents (URLs from /upload endpoint)
+  @UseGuards(JwtAuthGuard)
+  @Patch('me/documents')
+  updateDocuments(@Request() req: any, @Body() body: {
+    id_card_front_url?: string; id_card_back_url?: string;
+    business_license_url?: string; certification_url?: string;
+  }) {
+    return this.authService.updateDocuments(req.user.sub || req.user.id, body);
+  }
+
   // ─── Forgot / Reset Password (public, no auth) ───
   @Post('forgot-password')
   @Throttle({ default: { limit: 5, ttl: 60000 } })

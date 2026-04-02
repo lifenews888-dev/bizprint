@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import ThemeToggle from '@/components/ThemeToggle'
+import VerificationBanner from '@/components/VerificationBanner'
 
 interface NavItem { label: string; href: string; icon: string }
 interface NavGroup { section: string; items: NavItem[] }
@@ -248,6 +249,15 @@ export default function DashboardLayout({ children, navGroups, creatorNavGroups,
 
         {/* Page content */}
         <div style={{ flex: 1, overflowY: 'auto' }}>
+          {(() => {
+            try {
+              const u = JSON.parse(localStorage.getItem('user') || '{}')
+              if (u.verification_status && u.verification_status !== 'verified') {
+                return <div style={{ padding: '16px 24px 0' }}><VerificationBanner status={u.verification_status} note={u.verification_note} /></div>
+              }
+            } catch {}
+            return null
+          })()}
           {children}
         </div>
       </div>

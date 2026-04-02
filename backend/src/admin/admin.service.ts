@@ -123,4 +123,41 @@ export class AdminService {
       roles: params.roles || ['all'],
     }
   }
+
+  // ─── Verification Management ───
+
+  async getPendingVerifications() {
+    return this.userRepo.find({
+      where: { verification_status: In(['pending', 'under_review']) },
+      order: { created_at: 'ASC' },
+      select: [
+        'id', 'full_name', 'email', 'phone', 'role', 'company_name', 'register_number',
+        'verification_status', 'created_at', 'avatar_url',
+        'id_card_front_url', 'id_card_back_url', 'business_license_url', 'certification_url',
+        'portfolio_url', 'professional_bio', 'driver_license_number', 'vehicle_plate_number',
+        'vehicle_type', 'tax_id', 'office_address',
+      ],
+    })
+  }
+
+  async verifyUser(id: string, status: string, note?: string, verifiedBy?: string) {
+    const user = await this.userRepo.findOne({ where: { id } })
+    if (!user) return { error: 'Хэрэглэгч олдсонгүй' }
+
+    const validStatuses = ['pending', 'under_review', 'verified', 'rejected']
+    if (!validStatuses.includes(status)) return { error: 'Буруу төлөв' }
+
+    user.verification_status = status
+    user.verification_note = note || null
+    if (status === 'verified') {
+      user.is_active = true
+      user.verified_at = new Date()
+      user.verified_by = verifiedBy || null
+    } else if (status === 'rejected') {
+      user.is_active = false
+    }
+
+    await this.userRepo.save(user)
+    return { success: true, user_id: id, verification_status: status }
+  }
 }
