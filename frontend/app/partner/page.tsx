@@ -94,13 +94,16 @@ export default function PartnerPage() {
           password: form.password,
           full_name: form.full_name.trim(),
           phone: form.phone.trim(),
-          company_name: form.company.trim() || undefined,
+          company_name: form.company.trim() || form.full_name.trim(),
+          register_number: form.company.trim() || 'pending',
+          professional_bio: form.message?.trim() || undefined,
+          portfolio_url: form.message?.trim() || undefined,
           role: selected,
         },
       })
       setSubmitted(true)
-    } catch {
-      setError('Серверт холбогдож чадсангүй. Дахин оролдоно уу.')
+    } catch (e: any) {
+      setError(e.message || 'Серверт холбогдож чадсангүй. Дахин оролдоно уу.')
     }
     setSubmitting(false)
   }
