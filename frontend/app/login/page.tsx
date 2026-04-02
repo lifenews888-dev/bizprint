@@ -137,6 +137,7 @@ export default function LoginPage() {
           <div style={{ marginBottom: '24px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
               <label style={{ fontSize: '12px', color: '#888', fontWeight: 500 }}>Нууц үг</label>
+              <a href="/forgot-password" style={{ fontSize: '12px', color: 'var(--orange)', textDecoration: 'none', fontWeight: 500 }}>Нууц үг мартсан?</a>
             </div>
             <div style={{ position: 'relative' }}>
               <input type={showPass ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)}

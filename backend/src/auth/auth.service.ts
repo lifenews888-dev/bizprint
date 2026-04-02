@@ -11,10 +11,12 @@ import * as bcrypt from 'bcrypt';
 import { randomBytes } from 'crypto';
 import { User } from '../users/user.entity';
 import { RefreshToken } from './entities/refresh-token.entity';
+import { PasswordReset } from './entities/password-reset.entity';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 
 const REFRESH_TOKEN_DAYS = 30;
+const RESET_TOKEN_HOURS = 2;
 
 @Injectable()
 export class AuthService {
@@ -23,6 +25,8 @@ export class AuthService {
     private userRepository: Repository<User>,
     @InjectRepository(RefreshToken)
     private refreshTokenRepo: Repository<RefreshToken>,
+    @InjectRepository(PasswordReset)
+    private resetRepo: Repository<PasswordReset>,
     private jwtService: JwtService,
   ) {}
 
@@ -186,6 +190,94 @@ export class AuthService {
   // Backward compatibility — old method name
   private generateToken(user: User) {
     return this.generateTokens(user);
+  }
+
+  // ─── Forgot / Reset Password ─────────────────────────────────
+
+  async forgotPassword(email: string) {
+    const user = await this.userRepository.findOne({ where: { email } });
+    // Always return success to prevent email enumeration
+    if (!user) return { success: true, message: 'Хэрэв бүртгэлтэй имэйл бол нууц үг сэргээх линк илгээгдлээ' };
+
+    // Generate token
+    const token = randomBytes(32).toString('hex');
+    const expires_at = new Date();
+    expires_at.setHours(expires_at.getHours() + RESET_TOKEN_HOURS);
+
+    // Invalidate old tokens
+    await this.resetRepo.update(
+      { user_id: user.id, used_at: null as any },
+      { used_at: new Date() },
+    );
+
+    // Save new token
+    await this.resetRepo.save(this.resetRepo.create({
+      user_id: user.id,
+      token,
+      expires_at,
+    }));
+
+    // Send email (try mail service, fallback to log)
+    try {
+      const resetUrl = `${process.env.FRONTEND_URL || 'https://frontend-biz6.vercel.app'}/reset-password?token=${token}`;
+      // Use internal fetch to mail endpoint if available
+      const port = process.env.PORT || 4000;
+      await fetch(`http://localhost:${port}/mail/send`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          to: user.email,
+          subject: 'BizPrint — Нууц үг сэргээх',
+          html: `
+            <div style="font-family:Arial,sans-serif;max-width:500px;margin:0 auto;padding:20px">
+              <h2 style="color:#FF6B00">BizPrint</h2>
+              <p>Сайн байна уу, ${user.full_name || ''}!</p>
+              <p>Та нууц үг сэргээх хүсэлт илгээсэн байна.</p>
+              <a href="${resetUrl}" style="display:inline-block;padding:12px 24px;background:#FF6B00;color:#fff;text-decoration:none;border-radius:8px;font-weight:bold;margin:16px 0">
+                Нууц үг сэргээх
+              </a>
+              <p style="font-size:12px;color:#666">Энэ линк ${RESET_TOKEN_HOURS} цагийн дотор хүчинтэй.</p>
+              <p style="font-size:12px;color:#666">Хэрэв та хүсэлт илгээгээгүй бол энэ имэйлийг үл тоомсорлоно уу.</p>
+            </div>
+          `,
+        }),
+      }).catch(() => {});
+    } catch {}
+
+    return { success: true, message: 'Хэрэв бүртгэлтэй имэйл бол нууц үг сэргээх линк илгээгдлээ' };
+  }
+
+  async resetPassword(token: string, newPassword: string) {
+    if (!newPassword || newPassword.length < 8) {
+      throw new BadRequestException('Нууц үг хамгийн багадаа 8 тэмдэгт байх ёстой');
+    }
+
+    const record = await this.resetRepo.findOne({ where: { token, used_at: null as any } });
+    if (!record) {
+      throw new BadRequestException('Нууц үг сэргээх линк буруу эсвэл хугацаа дууссан');
+    }
+
+    if (record.expires_at < new Date()) {
+      throw new BadRequestException('Нууц үг сэргээх линкийн хугацаа дууссан. Дахин хүсэлт илгээнэ үү.');
+    }
+
+    // Update password
+    const password_hash = await bcrypt.hash(newPassword, 12);
+    await this.userRepository.update(record.user_id, { password_hash });
+
+    // Mark token as used
+    record.used_at = new Date();
+    await this.resetRepo.save(record);
+
+    return { success: true, message: 'Нууц үг амжилттай шинэчлэгдлээ. Нэвтэрнэ үү.' };
+  }
+
+  async validateResetToken(token: string) {
+    const record = await this.resetRepo.findOne({ where: { token, used_at: null as any } });
+    if (!record || record.expires_at < new Date()) {
+      return { valid: false };
+    }
+    return { valid: true };
   }
 
   private async cleanupExpiredTokens() {

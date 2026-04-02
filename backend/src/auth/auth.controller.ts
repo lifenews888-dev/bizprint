@@ -41,6 +41,22 @@ export class AuthController {
     return this.authService.getMe(req.user.id);
   }
 
+  // ─── Forgot / Reset Password (public, no auth) ───
+  @Post('forgot-password')
+  forgotPassword(@Body('email') email: string) {
+    return this.authService.forgotPassword(email);
+  }
+
+  @Post('reset-password')
+  resetPassword(@Body('token') token: string, @Body('password') password: string) {
+    return this.authService.resetPassword(token, password);
+  }
+
+  @Get('validate-reset-token/:token')
+  validateResetToken(@Param('token') token: string) {
+    return this.authService.validateResetToken(token);
+  }
+
   // Admin: change any user's role
   @UseGuards(JwtAuthGuard, AdminGuard)
   @Patch('users/:id/role')
