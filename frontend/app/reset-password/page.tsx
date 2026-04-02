@@ -1,11 +1,19 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { apiFetch } from '@/lib/api'
 import Link from 'next/link'
 import { Lock, CheckCircle, XCircle, Loader2, Eye, EyeOff } from 'lucide-react'
 
 export default function ResetPasswordPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center bg-[var(--bg)]"><Loader2 className="w-8 h-8 animate-spin text-[#FF6B00]" /></div>}>
+      <ResetPasswordInner />
+    </Suspense>
+  )
+}
+
+function ResetPasswordInner() {
   const searchParams = useSearchParams()
   const token = searchParams.get('token') || ''
 
