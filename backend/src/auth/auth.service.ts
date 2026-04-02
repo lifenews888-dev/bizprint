@@ -14,6 +14,7 @@ import { RefreshToken } from './entities/refresh-token.entity';
 import { PasswordReset } from './entities/password-reset.entity';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
+import { MailService } from '../mail/mail.service';
 
 const REFRESH_TOKEN_DAYS = 30;
 const RESET_TOKEN_HOURS = 2;
@@ -32,6 +33,7 @@ export class AuthService {
     @InjectRepository(PasswordReset)
     private resetRepo: Repository<PasswordReset>,
     private jwtService: JwtService,
+    private mailService: MailService,
   ) {}
 
   async register(dto: RegisterDto) {
@@ -225,35 +227,15 @@ export class AuthService {
     });
     await this.resetRepo.save(entity);
 
-    // Send email
+    // Send email via MailService
     const resetUrl = `${process.env.FRONTEND_URL || 'https://frontend-biz6.vercel.app'}/reset-password?token=${rawToken}`;
     try {
-      const port = process.env.PORT || 4000;
-      await fetch(`http://localhost:${port}/mail/send`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          to: user.email,
-          subject: 'BizPrint — Нууц үг сэргээх',
-          html: `
-            <div style="font-family:'Segoe UI',Arial,sans-serif;max-width:500px;margin:0 auto;padding:30px;background:#fff;border-radius:12px">
-              <div style="text-align:center;margin-bottom:24px">
-                <span style="font-size:24px;font-weight:800;color:#FF6B00">BizPrint</span>
-              </div>
-              <p style="font-size:15px;color:#333">Сайн байна уу, <strong>${user.full_name || ''}</strong>!</p>
-              <p style="font-size:14px;color:#555">Та нууц үг сэргээх хүсэлт илгээсэн байна. Доорх товч дарж шинэ нууц үгээ тохируулна уу:</p>
-              <div style="text-align:center;margin:24px 0">
-                <a href="${resetUrl}" style="display:inline-block;padding:14px 32px;background:#FF6B00;color:#fff;text-decoration:none;border-radius:8px;font-weight:700;font-size:14px">
-                  Нууц үг сэргээх
-                </a>
-              </div>
-              <p style="font-size:12px;color:#999">Энэ линк ${RESET_TOKEN_HOURS} цагийн дотор хүчинтэй. Нэг л удаа ашиглах боломжтой.</p>
-              <p style="font-size:12px;color:#999">Хэрэв та энэ хүсэлтийг илгээгээгүй бол энэ имэйлийг үл тоомсорлоно уу.</p>
-              <hr style="border:none;border-top:1px solid #eee;margin:20px 0" />
-              <p style="font-size:11px;color:#bbb;text-align:center">© BizPrint — Хэвлэлийн үйлчилгээний платформ</p>
-            </div>`,
-        }),
-      }).catch(() => {});
+      await this.mailService.sendPasswordReset({
+        to: user.email,
+        name: user.full_name || '',
+        resetUrl,
+        expiresHours: RESET_TOKEN_HOURS,
+      });
     } catch {}
 
     return successMsg;

@@ -585,6 +585,28 @@ export class MailService {
     })
   }
 
+  async sendPasswordReset(params: { to: string; name: string; resetUrl: string; expiresHours: number }) {
+    await this.mailerService.sendMail({
+      to: params.to,
+      subject: 'BizPrint — Нууц үг сэргээх',
+      html: this.wrap('Нууц үг сэргээх', '#FF6B00',
+        '<div style="text-align:center;margin-bottom:16px">' +
+        '<div style="font-size:48px;margin-bottom:8px">🔐</div>' +
+        '<h2 style="margin:0;color:#111;font-size:20px">Нууц үг сэргээх хүсэлт</h2>' +
+        '</div>' +
+        '<p style="color:#374151;font-size:14px;text-align:center;margin:0 0 20px">' +
+        'Сайн байна уу, <strong>' + (params.name || '') + '</strong>! Та нууц үг сэргээх хүсэлт илгээсэн байна.</p>' +
+        '<div style="text-align:center;margin:24px 0">' +
+        '<a href="' + params.resetUrl + '" style="display:inline-block;padding:14px 32px;background:#FF6B00;color:#fff;text-decoration:none;border-radius:8px;font-weight:700;font-size:14px">' +
+        'Нууц үг сэргээх</a></div>' +
+        '<div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;padding:12px 16px;text-align:center;font-size:12px;color:#9a3412;margin-top:16px">' +
+        '⏰ Энэ линк ' + params.expiresHours + ' цагийн дотор хүчинтэй. Нэг л удаа ашиглах боломжтой.</div>' +
+        '<p style="font-size:12px;color:#999;text-align:center;margin-top:16px">' +
+        'Хэрэв та энэ хүсэлтийг илгээгээгүй бол энэ имэйлийг үл тоомсорлоно уу.</p>',
+      ),
+    })
+  }
+
   private finishingLabel(finishing: string): string {
     const map: Record<string, string> = {
       mat:       'Мат ламинат',

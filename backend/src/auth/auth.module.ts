@@ -9,11 +9,13 @@ import { User } from '../users/user.entity';
 import { RefreshToken } from './entities/refresh-token.entity';
 import { Role } from './entities/role.entity';
 import { PasswordReset } from './entities/password-reset.entity';
+import { MailModule } from '../mail/mail.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([User, RefreshToken, Role, PasswordReset]),
     PassportModule,
+    MailModule,
     JwtModule.register({
       secret: 'bizprint_super_secret_key_2026',
       signOptions: { expiresIn: '15m' },
