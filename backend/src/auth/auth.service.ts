@@ -36,28 +36,65 @@ export class AuthService {
     private mailService: MailService,
   ) {}
 
+  private static readonly BUSINESS_ROLES = ['vendor', 'factory', 'sales'];
+  private static readonly DESIGNER_ROLES = ['designer', 'creator'];
+  private static readonly DRIVER_ROLES = ['courier'];
+  private static readonly REQUIRES_VERIFICATION = ['vendor', 'factory', 'designer', 'courier', 'sales', 'creator'];
+
   async register(dto: RegisterDto) {
-    // Password is REQUIRED for new registration
     if (!dto.password || dto.password.length < 8) {
       throw new BadRequestException('Нууц үг хамгийн багадаа 8 тэмдэгт байх ёстой');
     }
 
-    const existing = await this.userRepository.findOne({
-      where: { email: dto.email },
-    });
-    if (existing) {
-      throw new ConflictException('Энэ имэйл бүртгэлтэй байна');
+    const existing = await this.userRepository.findOne({ where: { email: dto.email } });
+    if (existing) throw new ConflictException('Энэ имэйл бүртгэлтэй байна');
+
+    const role = dto.role || 'customer';
+
+    // Role-specific validation
+    if (AuthService.BUSINESS_ROLES.includes(role)) {
+      if (!dto.company_name?.trim()) throw new BadRequestException('Компанийн нэр заавал шаардлагатай');
+      if (!dto.register_number?.trim()) throw new BadRequestException('Регистрийн дугаар заавал шаардлагатай');
+    }
+    if (AuthService.DESIGNER_ROLES.includes(role)) {
+      if (!dto.portfolio_url?.trim() && !dto.professional_bio?.trim()) {
+        throw new BadRequestException('Портфолио эсвэл мэргэжлийн танилцуулга заавал шаардлагатай');
+      }
+    }
+    if (AuthService.DRIVER_ROLES.includes(role)) {
+      if (!dto.driver_license_number?.trim()) throw new BadRequestException('Жолооны үнэмлэхний дугаар заавал шаардлагатай');
+      if (!dto.vehicle_plate_number?.trim()) throw new BadRequestException('Тээврийн хэрэгслийн улсын дугаар заавал шаардлагатай');
     }
 
     const password_hash = await bcrypt.hash(dto.password, 12);
+    const needsVerification = AuthService.REQUIRES_VERIFICATION.includes(role);
 
     const user = this.userRepository.create({
       email: dto.email,
       password_hash,
       full_name: dto.full_name,
       phone: dto.phone,
+      role,
+      // Business fields
       company_name: dto.company_name,
-      role: dto.role || 'customer',
+      register_number: dto.register_number,
+      tax_id: dto.tax_id,
+      bank_name: dto.bank_name,
+      bank_account: dto.bank_account,
+      bank_account_name: dto.bank_account_name,
+      office_address: dto.office_address,
+      // Designer fields
+      portfolio_url: dto.portfolio_url,
+      professional_bio: dto.professional_bio,
+      skill_certifications: dto.skill_certifications,
+      // Courier fields
+      driver_license_number: dto.driver_license_number,
+      vehicle_plate_number: dto.vehicle_plate_number,
+      vehicle_type: dto.vehicle_type,
+      insurance_details: dto.insurance_details,
+      // Verification
+      verification_status: needsVerification ? 'pending' : 'verified',
+      is_active: !needsVerification, // Business roles start inactive until verified
     });
 
     await this.userRepository.save(user);

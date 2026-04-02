@@ -107,6 +107,60 @@ export class User {
   @Column({ nullable: true })
   contract_signed_at: Date;
 
+  // ─── Verification & KYC ───
+  /** pending | under_review | verified | rejected */
+  @Column({ type: 'varchar', length: 20, default: 'pending' })
+  verification_status: string;
+
+  @Column({ nullable: true })
+  verification_note: string;
+
+  @Column({ nullable: true })
+  verified_at: Date;
+
+  @Column({ nullable: true })
+  verified_by: string;
+
+  // ─── Document Uploads (KYC) ───
+  @Column({ nullable: true })
+  id_card_front_url: string;
+
+  @Column({ nullable: true })
+  id_card_back_url: string;
+
+  @Column({ nullable: true })
+  business_license_url: string;
+
+  @Column({ nullable: true })
+  certification_url: string;
+
+  // ─── Role-specific: Vendor/Factory ───
+  @Column({ nullable: true })
+  tax_id: string;
+
+  @Column({ nullable: true })
+  office_address: string;
+
+  // ─── Role-specific: Designer ───
+  @Column({ nullable: true })
+  professional_bio: string;
+
+  @Column('simple-array', { nullable: true })
+  skill_certifications: string[];
+
+  // ─── Role-specific: Courier/Driver ───
+  @Column({ nullable: true })
+  driver_license_number: string;
+
+  @Column({ nullable: true })
+  vehicle_plate_number: string;
+
+  @Column({ nullable: true })
+  vehicle_type: string;
+
+  @Column({ nullable: true })
+  insurance_details: string;
+
   @UpdateDateColumn()
   updated_at: Date;
 }
