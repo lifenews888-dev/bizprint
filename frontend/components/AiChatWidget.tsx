@@ -1,7 +1,8 @@
 'use client'
 import { useState, useRef, useEffect } from 'react'
+import { usePathname } from 'next/navigation'
 import { apiFetch } from '@/lib/api'
-import { Bot, Send, Loader2, Sparkles, Wrench } from 'lucide-react'
+import { Send, Loader2, Sparkles, Wrench, X, Megaphone } from 'lucide-react'
 
 interface AiMsg {
   role: 'user' | 'assistant'
@@ -15,11 +16,81 @@ function getUser() {
   try { return JSON.parse(localStorage.getItem('user') || 'null') } catch { return null }
 }
 
+// ─── Цагаас хамааран мэндчилгээ ──────────────────────────────
+function getGreeting() {
+  const hour = new Date().getHours()
+  if (hour < 6) return 'Сайхан шөнө! 🌙'
+  if (hour < 12) return 'Өглөөний мэнд! ☀️'
+  if (hour < 17) return 'Өдрийн мэнд! 👋'
+  if (hour < 21) return 'Оройн мэнд! 🌆'
+  return 'Сайхан орой! 🌙'
+}
+
+// ─── Хуудаснаас хамааран контекст мэдээлэл ──────────────────
+function getPageContext(pathname: string): string {
+  if (pathname === '/' || pathname === '') return 'home'
+  if (pathname.startsWith('/shop')) return 'shop'
+  if (pathname.startsWith('/product')) return 'product'
+  if (pathname.startsWith('/quote') || pathname.startsWith('/smart-quote')) return 'quote'
+  if (pathname.startsWith('/cart') || pathname.startsWith('/checkout')) return 'cart'
+  if (pathname.startsWith('/dashboard')) return 'dashboard'
+  if (pathname.startsWith('/admin')) return 'admin'
+  if (pathname.startsWith('/gallery')) return 'gallery'
+  return 'other'
+}
+
+function getContextMessage(context: string, user: any): AiMsg[] {
+  const name = user?.full_name || user?.name || ''
+  const greeting = getGreeting()
+  const nameGreet = name ? `${name}, ${greeting.toLowerCase()}` : greeting
+
+  const msgs: Record<string, string> = {
+    home: `${nameGreet}\n\nБи BizPrint AI туслах 🤖\n\n🔥 **Шинэ мэдээлэл:**\n• Офсет хэвлэлд 15% хөнгөлөлт — энэ сарын эцэс хүртэл!\n• AI үнийн тооцоолуур ашиглаж секундын дотор үнэ мэдэх боломжтой\n• Хүргэлт ҮНЭГҮЙ — 500,000₮-с дээш захиалгад\n\n💬 Та надаас:\n• 🖨️ Үнэ бодуулах\n• 📦 Бүтээгдэхүүн хайх\n• 💡 Зөвлөгөө авах`,
+
+    shop: `${nameGreet}\n\n🛍️ Дэлгүүрээс сонголтоо хийж байна уу? Тусалъя!\n\n• Ямар бүтээгдэхүүн хайж байна?\n• Тоо ширхэг, хэмжээ хэлвэл үнэ шууд бодож өгнө\n• Хамгийн хямд сонголтыг санал болгоно`,
+
+    product: `${nameGreet}\n\n📋 Энэ бүтээгдэхүүний талаар асуух зүйл байна уу?\n\n• Яг хэдэн ширхэг хэрэгтэй вэ?\n• Хэмжээ, өнгө, цаасны төрлөө хэлээрэй — үнэ бодож өгнө\n• Яаралтай хэрэгтэй юу? Хурдан хүргэлтийн сонголт байна`,
+
+    quote: `${nameGreet}\n\n🧮 Үнийн тооцоолуур ашиглаж байна уу? Сайн байна!\n\nНадад тоо ширхэг, хэмжээ, нүүрний тоо хэлвэл илүү нарийн тооцоо хийж өгнө. Жишээ:\n• "500 ширхэг A4 флаер, 2 тал өнгөт"\n• "1000 ном, 64 нүүр, B5"`,
+
+    cart: `${nameGreet}\n\n🛒 Захиалгаа баталгаажуулахаас өмнө:\n\n• Нэмэлт бүтээгдэхүүн хэрэгтэй юу?\n• Хүргэлтийн хаяг зөв үү?\n• Асуух зүйл байвал бичээрэй!`,
+
+    dashboard: `${nameGreet}\n\n📊 Dashboard-д тавтай морил!\n\n• Захиалгын төлөв шалгах уу?\n• Шинэ захиалга хийх үү?\n• Юу ч асууж болно!`,
+
+    admin: `${nameGreet}\n\n⚙️ Админ горим. Би тусалж чадна:\n\n• 📦 Захиалгын төлөв шилжүүлэх\n• 🏭 Үйлдвэрлэлийн ачаалал шалгах\n• 📊 Мэдээлэл харуулах\n• 🔔 Мэдэгдэл илгээх`,
+
+    gallery: `${nameGreet}\n\n🖼️ Галлерей хэсэгт байна! Манай ажлуудтай танилцаарай.`,
+
+    other: `${nameGreet}\n\nБи BizPrint AI туслах 🤖 Та юу хийхийг хүсэж байна?`,
+  }
+
+  return [{
+    role: 'assistant',
+    text: msgs[context] || msgs.other,
+    tools: [],
+    timestamp: new Date().toISOString(),
+  }]
+}
+
+// ─── Маркетингийн мэдэгдлүүд ──────────────────────────────
+const PROMOS = [
+  { text: '🔥 Офсет хэвлэлд 15% хөнгөлөлт!', delay: 10000 },
+  { text: '📦 500,000₮+ захиалгад ҮНЭГҮЙ хүргэлт', delay: 30000 },
+  { text: '⚡ AI-тай секундын дотор үнэ бодоорой', delay: 60000 },
+]
+
 export default function AiChatWidget() {
+  const pathname = usePathname()
   const [open, setOpen] = useState(false)
-  const [messages, setMessages] = useState<AiMsg[]>([
-    { role: 'assistant', text: 'Сайн байна уу! Би BizPrint AI туслах. Та юу хийхийг хүсэж байна?\n\n🖨️ Үнэ бодох\n📦 Захиалга шалгах\n🏭 Үйлдвэрлэлийн мэдээлэл\n💡 Бүтээгдэхүүн санал авах', tools: [], timestamp: new Date().toISOString() },
-  ])
+  const [promoVisible, setPromoVisible] = useState(false)
+  const [promoText, setPromoText] = useState('')
+  const [promoIdx, setPromoIdx] = useState(0)
+  const [hasGreeted, setHasGreeted] = useState(false)
+
+  const user = getUser()
+  const context = getPageContext(pathname)
+
+  const [messages, setMessages] = useState<AiMsg[]>(() => getContextMessage(context, user))
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const [conversationHistory, setConversationHistory] = useState<any[]>([])
@@ -28,11 +99,55 @@ export default function AiChatWidget() {
 
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [messages])
 
+  // Update greeting when page changes
+  useEffect(() => {
+    if (!open) {
+      setMessages(getContextMessage(context, user))
+      setConversationHistory([])
+    }
+  }, [context])
+
+  // Promo bubble — show after delay, cycle through promos
+  useEffect(() => {
+    if (open) { setPromoVisible(false); return }
+    const timer = setTimeout(() => {
+      if (!open) {
+        setPromoText(PROMOS[promoIdx % PROMOS.length].text)
+        setPromoVisible(true)
+        // Auto-hide after 8s
+        setTimeout(() => setPromoVisible(false), 8000)
+        setPromoIdx(prev => prev + 1)
+      }
+    }, PROMOS[promoIdx % PROMOS.length]?.delay || 15000)
+    return () => clearTimeout(timer)
+  }, [open, promoIdx])
+
+  // Auto-open greeting after 5s on first visit
+  useEffect(() => {
+    if (hasGreeted) return
+    const shown = sessionStorage.getItem('ai_greeted')
+    if (shown) { setHasGreeted(true); return }
+    const timer = setTimeout(() => {
+      setPromoText(`${getGreeting()} BizPrint-д тавтай морил!`)
+      setPromoVisible(true)
+      setHasGreeted(true)
+      sessionStorage.setItem('ai_greeted', '1')
+      setTimeout(() => setPromoVisible(false), 8000)
+    }, 5000)
+    return () => clearTimeout(timer)
+  }, [hasGreeted])
+
   const send = async () => {
     const text = input.trim()
     if (!text || loading) return
-    const user = getUser()
-    if (!user?.id) { setMessages(prev => [...prev, { role: 'assistant', text: 'Нэвтэрсний дараа AI Agent ашиглах боломжтой.', tools: [], timestamp: new Date().toISOString() }]); return }
+    const u = getUser()
+    if (!u?.id) {
+      setMessages(prev => [...prev, {
+        role: 'assistant', text: 'Нэвтэрсний дараа AI Agent ашиглах боломжтой.\n\n👉 [Нэвтрэх](/login) | [Бүртгүүлэх](/register)',
+        tools: [], timestamp: new Date().toISOString(),
+      }])
+      return
+    }
 
     setInput('')
     setMessages(prev => [...prev, { role: 'user', text, tools: [], timestamp: new Date().toISOString() }])
@@ -49,17 +164,14 @@ export default function AiChatWidget() {
         tools: res.toolsUsed || [],
         timestamp: new Date().toISOString(),
       }])
-      // Keep last 20 messages in history to avoid token overflow
       if (res.conversationHistory) {
-        const hist = res.conversationHistory.slice(-20)
-        setConversationHistory(hist)
+        setConversationHistory(res.conversationHistory.slice(-20))
       }
     } catch (e: any) {
       setMessages(prev => [...prev, {
         role: 'assistant',
         text: `Алдаа: ${e.message || 'Серверт холбогдож чадсангүй'}`,
-        tools: [],
-        timestamp: new Date().toISOString(),
+        tools: [], timestamp: new Date().toISOString(),
       }])
     } finally {
       setLoading(false)
@@ -67,15 +179,37 @@ export default function AiChatWidget() {
     }
   }
 
+  // ─── Floating button + promo bubble ─────────────────────────
   if (!open) {
     return (
-      <button onClick={() => setOpen(true)}
-        className="fixed bottom-6 left-6 w-14 h-14 rounded-full bg-gradient-to-br from-[#FF6B00] to-[#E55D00] text-white shadow-lg shadow-[#FF6B00]/30 flex items-center justify-center hover:scale-105 transition-transform z-[9999] cursor-pointer">
-        <Bot className="w-6 h-6" strokeWidth={1.5} />
-      </button>
+      <div className="fixed bottom-6 left-6 z-[9999] flex flex-col items-start gap-2">
+        {/* Promo bubble */}
+        {promoVisible && (
+          <div className="relative bg-white dark:bg-[var(--surface)] border border-[var(--border)] rounded-xl px-4 py-2.5 shadow-lg max-w-[260px] animate-in slide-in-from-bottom-2 fade-in duration-300">
+            <button onClick={() => setPromoVisible(false)} className="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-[var(--surface2)] border border-[var(--border)] flex items-center justify-center text-[10px] text-[var(--text3)] cursor-pointer hover:bg-[var(--surface)]">
+              <X className="w-3 h-3" />
+            </button>
+            <div className="flex items-start gap-2">
+              <Megaphone className="w-4 h-4 text-[#FF6B00] shrink-0 mt-0.5" strokeWidth={1.5} />
+              <p className="text-[12px] text-[var(--text)] leading-relaxed">{promoText}</p>
+            </div>
+            <button onClick={() => { setOpen(true); setPromoVisible(false) }}
+              className="mt-2 text-[11px] font-semibold text-[#FF6B00] hover:underline cursor-pointer">
+              💬 Дэлгэрэнгүй →
+            </button>
+          </div>
+        )}
+
+        {/* AI Button */}
+        <button onClick={() => { setOpen(true); setPromoVisible(false) }}
+          className="w-14 h-14 rounded-full bg-gradient-to-br from-[#FF6B00] to-[#E55D00] text-white shadow-lg shadow-[#FF6B00]/30 flex items-center justify-center hover:scale-105 active:scale-95 transition-transform cursor-pointer group">
+          <Sparkles className="w-6 h-6 group-hover:animate-pulse" strokeWidth={1.5} />
+        </button>
+      </div>
     )
   }
 
+  // ─── Chat panel ─────────────────────────────────────────────
   return (
     <div className="fixed bottom-6 left-6 w-[380px] max-w-[calc(100vw-24px)] rounded-2xl border border-[var(--border)] bg-[var(--surface)] shadow-2xl z-[9999] flex flex-col overflow-hidden"
       style={{ height: 540, maxHeight: 'calc(100vh - 48px)' }}>
@@ -127,6 +261,16 @@ export default function AiChatWidget() {
           </div>
         )}
         <div ref={endRef} />
+      </div>
+
+      {/* Quick actions */}
+      <div className="shrink-0 px-3 pb-1 flex gap-1.5 flex-wrap">
+        {['🖨️ Үнэ бодох', '📦 Захиалга шалгах', '💡 Санал болгох'].map(q => (
+          <button key={q} onClick={() => { setInput(q.slice(3)); send() }}
+            className="text-[10px] px-2.5 py-1 rounded-full border border-[var(--border)] bg-[var(--surface2)] text-[var(--text2)] hover:border-[#FF6B00] hover:text-[#FF6B00] transition-colors cursor-pointer">
+            {q}
+          </button>
+        ))}
       </div>
 
       {/* Input */}
