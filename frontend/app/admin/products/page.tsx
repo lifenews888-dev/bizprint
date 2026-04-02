@@ -1328,7 +1328,7 @@ function OffsetProductsTab() {
       base_price: product.total, thumbnail_url: product.images[0] || null,
       book_info: product.book_info, paper_configs: product.paper_configs, size_configs: product.size_configs,
       calc_input: product.input, calc_overrides: product.overrides, calc_method: product.method,
-      unit_price: product.unitPrice, pricing_mode: 'formula',
+      unit_price: product.unitPrice, pricing_mode: 'formula', margin_percent: product.marginPercent,
     }
     try {
       if (isUpdate) {

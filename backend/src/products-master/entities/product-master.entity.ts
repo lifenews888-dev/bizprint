@@ -88,6 +88,12 @@ export class ProductMaster {
   @Column({ type: 'decimal', precision: 14, scale: 2, nullable: true })
   unit_price: number
 
+  @Column({ type: 'varchar', length: 20, default: 'tier' })
+  pricing_type: string  // 'tier' | 'area'
+
+  @Column({ type: 'decimal', precision: 5, scale: 2, default: 0.25 })
+  margin_percent: number  // ашгийн хувь (0.25 = 25%)
+
   @OneToMany(() => ProductMaterial, m => m.product, { cascade: true })
   materials: ProductMaterial[]
 
