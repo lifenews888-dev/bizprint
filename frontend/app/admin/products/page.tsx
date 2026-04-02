@@ -78,6 +78,15 @@ function PrintProductsTab() {
   const [editingSize, setEditingSize] = useState<any>(null)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [allAddons, setAllAddons] = useState<any[]>([])
+  const [selectedAddonIds, setSelectedAddonIds] = useState<string[]>([])
+
+  // Load all addons
+  useEffect(() => {
+    apiFetch<any>('/admin/products-master/addons/all').then(res => {
+      if (Array.isArray(res)) setAllAddons(res)
+    }).catch(() => {})
+  }, [])
 
   // Dynamic categories from DB (root + children)
   const [allCats, setAllCats] = useState<any[]>([])
@@ -131,10 +140,12 @@ function PrintProductsTab() {
       base_price: item.base_price || 0, pricing_type: item.unit_type === 'M2' ? 'area' : 'tier',
       price_per_m2: item.price_per_m2 || 0, min_area_m2: item.min_area_m2 || 0.25 })
     setMaterials(item.materials || []); setSizes(item.sizes || [])
+    // Load addons linked to this product
+    setSelectedAddonIds(allAddons.filter(a => a.applicable_products?.includes(item.id)).map((a: any) => a.id))
     setMaterialForm({ ...emptyMaterial }); setSizeForm({ ...emptySize })
     setEditingMaterial(null); setEditingSize(null); setFormTab(0); setError(''); setModalOpen(true)
   }
-  const closeModal = () => { setModalOpen(false); setEditing(null); setError('') }
+  const closeModal = () => { setModalOpen(false); setEditing(null); setSelectedAddonIds([]); setError('') }
 
   const saveProduct = async () => {
     if (!form.name_mn.trim()) { setError('Нэр (МН) оруулна уу'); return }
@@ -170,6 +181,24 @@ function PrintProductsTab() {
         const created = res
         setEditing(created)
         setFormTab(1)  // advance to Materials tab after creating
+      }
+      // Sync addon applicable_products
+      const productId = editing?.id || (await apiFetch<any>(`/admin/products-master?product_type=print&search=${encodeURIComponent(form.name_mn)}`)).items?.[0]?.id
+      if (productId) {
+        for (const addon of allAddons) {
+          const isSelected = selectedAddonIds.includes(addon.id)
+          const currentProducts: string[] = addon.applicable_products || []
+          const alreadyLinked = currentProducts.includes(productId)
+          if (isSelected && !alreadyLinked) {
+            await apiFetch(`/admin/products-master/addons/${addon.id}`, {
+              method: 'PUT', body: { applicable_products: [...currentProducts, productId] },
+            }).catch(() => {})
+          } else if (!isSelected && alreadyLinked) {
+            await apiFetch(`/admin/products-master/addons/${addon.id}`, {
+              method: 'PUT', body: { applicable_products: currentProducts.filter(p => p !== productId) },
+            }).catch(() => {})
+          }
+        }
       }
       await load()
     } catch (e: any) {
@@ -233,7 +262,7 @@ function PrintProductsTab() {
     await load()
   }
 
-  const PRINT_TABS = ['Үндсэн мэдээлэл', 'Материал', 'Хэмжээ / Үнэ']
+  const PRINT_TABS = ['Үндсэн мэдээлэл', 'Материал', 'Хэмжээ / Үнэ', 'Дагалдах']
 
   return (
     <div>
@@ -536,10 +565,56 @@ function PrintProductsTab() {
                   </div>
                 </div>
               )}
+
+              {/* ── Tab 3: Дагалдах бүтээгдэхүүн ── */}
+              {formTab === 3 && (
+                <div style={{ padding: 20 }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 12, color: 'var(--text)' }}>
+                    🔗 Дагалдах бүтээгдэхүүн (Add-ons)
+                  </div>
+                  <p style={{ fontSize: 12, color: 'var(--text3)', marginBottom: 16 }}>
+                    Хэрэглэгч энэ бүтээгдэхүүнийг захиалахад &quot;Хамт авах уу?&quot; гэж санал болгох бүтээгдэхүүнүүдийг сонгоно уу.
+                  </p>
+                  {allAddons.length === 0 ? (
+                    <div style={{ padding: 20, textAlign: 'center', color: 'var(--text3)', fontSize: 13 }}>
+                      Дагалдах бүтээгдэхүүн бүртгэгдээгүй байна. &quot;Seed&quot; хийж үүсгэнэ үү.
+                    </div>
+                  ) : (
+                    <div style={{ display: 'grid', gap: 8 }}>
+                      {allAddons.map(addon => {
+                        const checked = selectedAddonIds.includes(addon.id)
+                        return (
+                          <label key={addon.id} style={{
+                            display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px',
+                            borderRadius: 8, cursor: 'pointer', transition: 'all 0.15s',
+                            border: `1px solid ${checked ? '#FF6B00' : 'var(--border)'}`,
+                            background: checked ? 'rgba(255,107,0,0.05)' : 'var(--surface2)',
+                          }}>
+                            <input type="checkbox" checked={checked}
+                              onChange={() => setSelectedAddonIds(prev =>
+                                checked ? prev.filter(id => id !== addon.id) : [...prev, addon.id]
+                              )}
+                              style={{ accentColor: '#FF6B00', width: 16, height: 16 }} />
+                            <div style={{ flex: 1 }}>
+                              <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>{addon.name_mn}</div>
+                              <div style={{ fontSize: 11, color: 'var(--text3)' }}>
+                                {addon.code} · {addon.price_type === 'FIXED' ? 'Тогтмол' : addon.price_type === 'PER_M2' ? 'М²' : addon.price_type === 'PER_PIECE' ? 'Ширхэг' : 'Цагийн'}
+                              </div>
+                            </div>
+                            <div style={{ fontSize: 13, fontWeight: 700, color: '#FF6B00' }}>
+                              ₮{Number(addon.price).toLocaleString()}
+                            </div>
+                          </label>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
             <div style={{ padding: '16px 24px', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
               <button onClick={closeModal} style={btnSecondary}>Хаах</button>
-              {formTab === 0 && <button onClick={saveProduct} disabled={saving} style={btnPrimary}>{saving ? 'Хадгалж байна...' : editing?.id ? 'Шинэчлэх' : 'Бүтээгдэхүүн нэмэх'}</button>}
+              {(formTab === 0 || formTab === 3) && <button onClick={saveProduct} disabled={saving} style={btnPrimary}>{saving ? 'Хадгалж байна...' : editing?.id ? 'Шинэчлэх' : 'Хадгалах'}</button>}
             </div>
           </div>
         </div>

@@ -160,9 +160,20 @@ export default function ProductPage({ params }: { params: Promise<{ _slug: strin
   const wished = product ? isWished(product?.id) : false
   const compared = product ? isCompared(product?.id) : false
 
+  const [addons, setAddons] = useState<any[]>([])
+  const [selectedAddons, setSelectedAddons] = useState<string[]>([])
+
   useEffect(() => {
     apiFetch<any>(`/products/${_slug}`, { auth: false })
-      .then(p => { if (p?.id) setProduct(p); else throw new Error() })
+      .then(p => {
+        if (p?.id) {
+          setProduct(p)
+          // Load addons for this product
+          apiFetch<any>(`/products/${p.id}/addons`, { auth: false })
+            .then(a => { if (Array.isArray(a)) setAddons(a) })
+            .catch(() => {})
+        } else throw new Error()
+      })
       .catch(() => apiFetch<any>('/products', { auth: false }).then(list => {
         setProduct(Array.isArray(list) ? list.find((i: any) => i.slug === _slug || i.id === _slug) || null : null)
       }).catch(() => setProduct(null)))
@@ -181,11 +192,24 @@ export default function ProductPage({ params }: { params: Promise<{ _slug: strin
       price: liveBreakdown?.unit_price || Number(product.sale_price ?? product.base_price ?? 0),
       image: product.thumbnail_url,
     }, qty)
-    toast.success('Сагсанд нэмэгдлээ', { description: `${product.name_mn || product.name} × ${qty}` })
+    // Add selected addons to cart
+    for (const addonId of selectedAddons) {
+      const addon = addons.find(a => a.id === addonId)
+      if (addon) {
+        storeAddToCart({
+          id: `addon-${addon.id}`,
+          name: `↳ ${addon.name_mn}`,
+          price: Number(addon.price),
+          image: product.thumbnail_url,
+        }, qty)
+      }
+    }
+    const addonCount = selectedAddons.length
+    toast.success('Сагсанд нэмэгдлээ', { description: `${product.name_mn || product.name} × ${qty}${addonCount ? ` + ${addonCount} дагалдах` : ''}` })
     // Also try API
     try {
       const u = JSON.parse(localStorage.getItem('user') || '{}')
-      if (u?.id) apiFetch('/cart/items', { method: 'POST', body: { user_id: u.id, product_id: product.id, quantity: qty } }).catch(() => {})
+      if (u?.id) apiFetch('/cart/items', { method: 'POST', body: { user_id: u.id, product_id: product.id, quantity: qty, specs: { addons: selectedAddons } } }).catch(() => {})
     } catch {}
     setTimeout(() => setAdding(false), 500)
   }
@@ -338,6 +362,45 @@ export default function ProductPage({ params }: { params: Promise<{ _slug: strin
                 <Zap className="w-4 h-4 inline mr-1" strokeWidth={1.5} />ХУДАЛДАН АВАХ
               </motion.button>
             </div>
+
+            {/* Хамт авах уу? — Add-on upsell */}
+            {addons.length > 0 && (
+              <div className="mt-3 rounded-xl border border-[var(--border)] bg-[var(--surface)] overflow-hidden">
+                <div className="px-4 py-2.5 bg-[var(--surface2)] border-b border-[var(--border)]">
+                  <span className="text-xs font-bold text-[var(--text)]">🔗 Хамт авах уу?</span>
+                </div>
+                <div className="divide-y divide-[var(--border)]">
+                  {addons.map(addon => {
+                    const checked = selectedAddons.includes(addon.id)
+                    return (
+                      <label key={addon.id}
+                        className={`flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors ${checked ? 'bg-[#FF6B00]/5' : 'hover:bg-[var(--surface2)]'}`}>
+                        <input type="checkbox" checked={checked}
+                          onChange={() => setSelectedAddons(prev =>
+                            checked ? prev.filter(id => id !== addon.id) : [...prev, addon.id]
+                          )}
+                          className="accent-[#FF6B00] w-4 h-4 shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <div className="text-[12px] font-semibold text-[var(--text)] truncate">{addon.name_mn}</div>
+                          {addon.description && <div className="text-[10px] text-[var(--text3)] truncate">{addon.description}</div>}
+                        </div>
+                        <div className="text-[12px] font-bold text-[#FF6B00] whitespace-nowrap">
+                          +₮{Number(addon.price).toLocaleString()}
+                        </div>
+                      </label>
+                    )
+                  })}
+                </div>
+                {selectedAddons.length > 0 && (
+                  <div className="px-4 py-2 bg-[#FF6B00]/5 border-t border-[#FF6B00]/20 flex justify-between text-xs">
+                    <span className="text-[var(--text2)]">{selectedAddons.length} дагалдах сонгосон</span>
+                    <span className="font-bold text-[#FF6B00]">
+                      +₮{addons.filter(a => selectedAddons.includes(a.id)).reduce((s, a) => s + Number(a.price), 0).toLocaleString()}
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
 
             <PromoDrawer />
 

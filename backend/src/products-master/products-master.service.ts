@@ -135,6 +135,18 @@ export class ProductsMasterService {
     return this.addonRepo.findOne({ where: { id } })
   }
 
+  async deleteAddon(id: string) {
+    await this.addonRepo.update(id, { is_active: false })
+    return { success: true }
+  }
+
+  async findAddonsByProductId(productId: string) {
+    const all = await this.addonRepo.find({ where: { is_active: true } })
+    return all.filter(a =>
+      a.applicable_products && a.applicable_products.includes(productId),
+    )
+  }
+
   // Public catalog
   async getCatalog() {
     return this.masterRepo.find({

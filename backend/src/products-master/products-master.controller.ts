@@ -87,6 +87,24 @@ export class ProductsMasterController {
     return this.service.createAddon(body)
   }
 
+  @Put('admin/products-master/addons/:id')
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  updateAddon(@Param('id') id: string, @Body() body: any) {
+    return this.service.updateAddon(id, body)
+  }
+
+  @Delete('admin/products-master/addons/:id')
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  deleteAddon(@Param('id') id: string) {
+    return this.service.deleteAddon(id)
+  }
+
+  // Public: Get addons for a specific product (customer-facing)
+  @Get('products/:id/addons')
+  getProductAddons(@Param('id') productId: string) {
+    return this.service.findAddonsByProductId(productId)
+  }
+
   // Seed
   @Post('admin/products-master/seed')
   @UseGuards(JwtAuthGuard, AdminGuard)
