@@ -1304,6 +1304,7 @@ function OffsetProductsTab() {
           size_configs: item.size_configs || [...DEFAULT_SIZE_CONFIGS],
           input: item.calc_input || { quantity: 500, totalPages: 64, paperSize: 'A3', paperGsm: 80, colorMode: 'color', folding: true, uvCoating: false, dieCutting: false, embossing: false, bindingType: 'Зөөлөн хавтас', hasCover: true, coverGsm: 250, coverColorMode: 'color' },
           overrides: item.calc_overrides || {},
+          marginPercent: item.margin_percent ?? 0.25,
           total: item.base_price || 0,
           unitPrice: item.unit_price || 0,
           method: item.calc_method || 'offset',
