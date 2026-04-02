@@ -71,10 +71,12 @@ export class AgentService {
     // Process tool calls in a loop
     const toolResults: any[] = []
     while (response.stop_reason === 'tool_use') {
-      const toolBlocks = (response.content as any[]).filter(b => b.type === 'tool_use')
+      const toolBlocks = response.content.filter(
+        (block): block is Anthropic.ToolUseBlock => block.type === 'tool_use',
+      )
 
       const toolResultMessages: any[] = []
-      for (const toolCall of toolBlocks as any[]) {
+      for (const toolCall of toolBlocks) {
         this.logger.log(`Tool call: ${toolCall.name}(${JSON.stringify(toolCall.input)})`)
 
         const result = await this.executeTool(toolCall.name, toolCall.input, userId, userRole)
