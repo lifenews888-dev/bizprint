@@ -77,6 +77,11 @@ import { ZoomModule } from './zoom/zoom.module'
 import { MegaMenuModule } from './mega-menu/mega-menu.module'
 import { GalleryModule } from './gallery/gallery.module'
 import { AgentModule } from './ai/agent/agent.module'
+import { MaterialsModule } from './materials/materials.module'
+import { QaModule } from './qa/qa.module'
+import { WarehouseModule } from './warehouse/warehouse.module'
+import { B2BModule } from './b2b/b2b.module'
+import { ProofingModule } from './proofing/proofing.module'
 
 @Module({
   imports: [
@@ -175,6 +180,11 @@ import { AgentModule } from './ai/agent/agent.module'
     MegaMenuModule,
     GalleryModule,
     AgentModule,
+    MaterialsModule,
+    QaModule,
+    WarehouseModule,
+    B2BModule,
+    ProofingModule,
   ],
   controllers: [], // PricingCatalogController removed — duplicate
   providers: [],   // PricingCatalogService removed — duplicate

@@ -4,6 +4,7 @@ import pdfParse from 'pdf-parse'
 import { PDFDocument } from 'pdf-lib'
 import { QuoteEngineService } from '../../quote-engine/quote-engine.service'
 import { PdfInspectorService } from '../pdf-inspector/pdf-inspector.service'
+import { MaterialsService } from '../../materials/materials.service'
 
 // Claude-аас буцаж ирэх print specs
 export interface PrintSpec {
@@ -29,6 +30,7 @@ export class SmartQuoteService {
   constructor(
     private readonly quoteEngine: QuoteEngineService,
     private readonly pdfInspector: PdfInspectorService,
+    private readonly materialsService: MaterialsService,
   ) {
     const apiKey = process.env.ANTHROPIC_API_KEY
     if (!apiKey || apiKey === 'your_api_key_here') {
@@ -269,8 +271,80 @@ ${extraHint ? `- Нэмэлт мэдээлэл: ${extraHint}` : ''}
   }
 
   // Бүтээгдэхүүний төрлөөс category_id буцаах (future use)
-  private productTypeToCategory(type: string): null {
+  private productTypeToCategory(_type: string): null {
     // TODO: categories table-тай холбох
     return null
+  }
+
+  // ── Бодит материалын үнэ ашиглах метод ───────────────────────────────────────
+  async calculateWithRealMaterials(printSpec: PrintSpec & { quantity?: number }): Promise<{
+    aiEstimate: number;
+    materialCost: any;
+    finalPrice: number;
+    breakdown: any;
+  }> {
+    const quantity = printSpec.quantity ?? 100
+
+    const paperDefaults: Record<string, { size: string; gsm: number }> = {
+      vizit_kart:  { size: 'A4', gsm: 300 },
+      flyar:       { size: 'A4', gsm: 130 },
+      broushur:    { size: 'A4', gsm: 170 },
+      poster:      { size: 'A4', gsm: 170 },
+      banner:      { size: 'custom', gsm: 510 },
+      sticker:     { size: 'A4', gsm: 130 },
+      nom:         { size: 'A4', gsm: 80 },
+      packaging:   { size: 'custom', gsm: 250 },
+    }
+
+    const def = paperDefaults[printSpec.product_type] ?? { size: 'A4', gsm: 130 }
+
+    let paper: any = null
+    let ink: any = null
+    try {
+      paper = await this.materialsService.findPaperBySpec(def.size, printSpec.paper_gsm || def.gsm)
+      const inks = await this.materialsService.findAllInk()
+      ink = inks.find(i => i.type === 'CMYK') ?? inks[0]
+    } catch { /* materials not seeded yet */ }
+
+    if (!paper || !ink) {
+      // Materials seed хийгдээгүй — fallback estimate
+      const base = quantity * 80
+      return {
+        aiEstimate: base,
+        materialCost: null,
+        finalPrice: base,
+        breakdown: { total: base, note: 'Materials DB seed хийгдээгүй — approximate estimate' },
+      }
+    }
+
+    // Бодит өртөг тооцоолох
+    const materialCost = await this.materialsService.calcMaterialCost({
+      paperStockId: paper.id,
+      inkProfileId: ink.id,
+      finishingOptionIds: [],
+      quantity,
+      widthMm: printSpec.width_mm ?? 210,
+      heightMm: printSpec.height_mm ?? 297,
+      colorMode: printSpec.color_mode === 'bw' ? 'BW' : 'CMYK',
+    })
+
+    // Markup + platform commission
+    const markup = 1.25  // 25% markup
+    const platform = 0.05 // 5% commission
+    const finalPrice = Math.round(materialCost.subtotal * markup * (1 + platform))
+
+    return {
+      aiEstimate: finalPrice,
+      materialCost,
+      finalPrice,
+      breakdown: {
+        paper: Math.round(materialCost.paperCost),
+        ink: Math.round(materialCost.inkCost),
+        finishing: Math.round(materialCost.finishingCost),
+        markup: Math.round(materialCost.subtotal * (markup - 1)),
+        platform: Math.round(materialCost.subtotal * markup * platform),
+        total: finalPrice,
+      },
+    }
   }
 }

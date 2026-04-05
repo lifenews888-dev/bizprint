@@ -9,6 +9,7 @@ import { ProductionController } from './production.controller'
 @Module({
   imports: [TypeOrmModule.forFeature([ProductionJob, ProductionStage])],
   providers: [ProductionService],
-  controllers: [ProductionController]
+  controllers: [ProductionController],
+  exports: [ProductionService],
 })
 export class ProductionModule {}

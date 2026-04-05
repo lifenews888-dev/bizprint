@@ -12,61 +12,41 @@ export class VendorDashboardService {
   ) {}
 
   async getVendorJobs(vendorId: string) {
-
     return this.productionRepo.find({
-      where: { vendor_id: vendorId }
+      where: { vendorId }
     })
-
   }
 
   async getQueue(vendorId: string) {
-
     return this.productionRepo.find({
       where: {
-        vendor_id: vendorId,
+        vendorId,
         status: ProductionStatus.QUEUED
       }
     })
-
   }
 
   async assignMachine(jobId: string, machineId: string) {
-
     await this.productionRepo.update(jobId, {
-      machine_id: machineId,
+      machineId,
       status: ProductionStatus.ASSIGNED
     })
-
-    return this.productionRepo.findOne({
-      where: { id: jobId }
-    })
-
+    return this.productionRepo.findOne({ where: { id: jobId } })
   }
 
   async startPrinting(jobId: string) {
-
     await this.productionRepo.update(jobId, {
       status: ProductionStatus.PRINTING,
-      start_time: new Date()
+      startedAt: new Date()
     })
-
-    return this.productionRepo.findOne({
-      where: { id: jobId }
-    })
-
+    return this.productionRepo.findOne({ where: { id: jobId } })
   }
 
   async finishJob(jobId: string) {
-
     await this.productionRepo.update(jobId, {
       status: ProductionStatus.COMPLETED,
-      end_time: new Date()
+      completedAt: new Date()
     })
-
-    return this.productionRepo.findOne({
-      where: { id: jobId }
-    })
-
+    return this.productionRepo.findOne({ where: { id: jobId } })
   }
-
 }

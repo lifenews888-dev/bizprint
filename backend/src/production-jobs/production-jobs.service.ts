@@ -14,7 +14,7 @@ export class ProductionJobsService {
   findAll() {
     return this.repo.find({
       relations: ['stages'],
-      order: { start_time: 'DESC' },
+      order: { createdAt: 'DESC' },
     })
   }
 
@@ -25,10 +25,10 @@ export class ProductionJobsService {
     await this.repo.save(job)
 
     // If job completed -> update order status to completed
-    if (status === ProductionStatus.COMPLETED && job.order_id) {
+    if (status === ProductionStatus.COMPLETED && job.orderId) {
       try {
         const orderRepo = this.repo.manager.getRepository(Order)
-        await orderRepo.update(job.order_id, { status: OrderStatus.COMPLETED })
+        await orderRepo.update(job.orderId, { status: OrderStatus.COMPLETED })
       } catch (e) {
         console.log('Order status update error:', e.message)
       }
@@ -40,12 +40,12 @@ export class ProductionJobsService {
   async createFromOrder(orderId: string) {
     // Check if job already exists for this order
     const existing = await this.repo.findOne({
-      where: { order_id: orderId },
+      where: { orderId },
     })
     if (existing) return existing
 
     const job = this.repo.create({
-      order_id: orderId,
+      orderId,
       status: ProductionStatus.QUEUED,
     })
     return this.repo.save(job)
