@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { QaCheckpoint, QaStage, QaStatus } from './entities/qa-checkpoint.entity';
@@ -7,6 +7,8 @@ import { NonConformanceLog } from './entities/non-conformance-log.entity';
 
 @Injectable()
 export class QaService {
+  private readonly logger = new Logger(QaService.name);
+
   constructor(
     @InjectRepository(QaCheckpoint)
     private checkpointRepo: Repository<QaCheckpoint>,
@@ -99,16 +101,73 @@ export class QaService {
     return this.nclRepo.findOne({ where: { id } });
   }
 
+  // ── Operator Sign-Off ──────────────────────────────────────
+  async operatorSignOff(checkpointId: string, operatorId: string, signOffNote?: string): Promise<QaCheckpoint> {
+    const checkpoint = await this.checkpointRepo.findOne({ where: { id: checkpointId } });
+    if (!checkpoint) throw new Error('Checkpoint олдсонгүй');
+
+    this.logger.log(`Operator sign-off: checkpoint=${checkpointId}, operator=${operatorId}`);
+
+    await this.checkpointRepo.update(checkpointId, {
+      checkedById: operatorId,
+      notes: signOffNote
+        ? `${checkpoint.notes ?? ''}\n[Sign-off] ${signOffNote}`.trim()
+        : checkpoint.notes,
+    });
+    return this.checkpointRepo.findOne({ where: { id: checkpointId } });
+  }
+
+  // ── Order QA report (бүх шалгалтууд нэг дор) ─────────────
+  async getOrderQaReport(orderId: string): Promise<{
+    passport: PrintPassport | null;
+    checkpoints: QaCheckpoint[];
+    ncls: NonConformanceLog[];
+    allPassed: boolean;
+    hasOpenNcls: boolean;
+  }> {
+    const [passport, checkpoints, ncls] = await Promise.all([
+      this.getPassport(orderId),
+      this.getCheckpointsByOrder(orderId),
+      this.getNclByOrder(orderId),
+    ]);
+
+    const allPassed = checkpoints.length > 0 && checkpoints.every(c => c.status === QaStatus.PASSED);
+    const hasOpenNcls = ncls.some(n => n.status === 'open' || n.status === 'in_review');
+
+    return { passport, checkpoints, ncls, allPassed, hasOpenNcls };
+  }
+
+  // ── NCL-г review горимд шилжүүлэх ────────────────────────
+  async reviewNcl(id: string, _reviewedById: string): Promise<NonConformanceLog> {
+    await this.nclRepo.update(id, { status: 'in_review' });
+    return this.nclRepo.findOne({ where: { id } });
+  }
+
+  // ── NCL reject ────────────────────────────────────────────
+  async rejectNcl(id: string, reason: string, rejectedById: string): Promise<NonConformanceLog> {
+    await this.nclRepo.update(id, {
+      status: 'rejected',
+      resolution: `[Rejected] ${reason}`,
+      resolvedById: rejectedById,
+      resolvedAt: new Date(),
+    });
+    return this.nclRepo.findOne({ where: { id } });
+  }
+
   // ── QA Summary ────────────────────────────────────────────
   async getQaSummary(): Promise<{
     totalChecks: number;
     passedRate: number;
+    failedRate: number;
     openNcls: number;
     criticalNcls: number;
+    reworkCount: number;
   }> {
-    const [total, passed, openNcls, critical] = await Promise.all([
+    const [total, passed, failed, rework, openNcls, critical] = await Promise.all([
       this.checkpointRepo.count(),
       this.checkpointRepo.count({ where: { status: QaStatus.PASSED } }),
+      this.checkpointRepo.count({ where: { status: QaStatus.FAILED } }),
+      this.checkpointRepo.count({ where: { status: QaStatus.NEEDS_REWORK } }),
       this.nclRepo.count({ where: { status: 'open' } }),
       this.nclRepo.count({ where: { severity: 'critical', status: 'open' } }),
     ]);
@@ -116,8 +175,10 @@ export class QaService {
     return {
       totalChecks: total,
       passedRate: total > 0 ? Math.round((passed / total) * 100) : 0,
+      failedRate: total > 0 ? Math.round((failed / total) * 100) : 0,
       openNcls,
       criticalNcls: critical,
+      reworkCount: rework,
     };
   }
 }

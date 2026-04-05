@@ -1,5 +1,5 @@
 import {
-  Controller, Get, Post, Put, Patch, Body, Param,
+  Controller, Get, Post, Put, Patch, Delete, Body, Param,
   UseGuards,
 } from '@nestjs/common';
 import { ApiTags, ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
@@ -13,6 +13,19 @@ import { MaterialsService, CalcMaterialCostDto } from './materials.service';
 @Controller('materials')
 export class MaterialsController {
   constructor(private readonly svc: MaterialsService) {}
+
+  // ── Summary ─────────────────────────────────────────────
+  @Get('summary')
+  @ApiOperation({ summary: 'Материалын ерөнхий мэдээлэл + low stock' })
+  getSummary() {
+    return this.svc.getSummary();
+  }
+
+  @Get('low-stock')
+  @ApiOperation({ summary: 'Нөөц багатай цаасууд' })
+  getLowStock() {
+    return this.svc.getLowStockPapers();
+  }
 
   // ── Paper ────────────────────────────────────────────────
   @Get('paper')
@@ -40,6 +53,13 @@ export class MaterialsController {
     return this.svc.updatePaper(id, dto);
   }
 
+  @Delete('paper/:id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin', 'superadmin')
+  deletePaper(@Param('id') id: string) {
+    return this.svc.deletePaper(id);
+  }
+
   @Patch('paper/:id/stock')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('admin', 'superadmin', 'factory')
@@ -61,6 +81,20 @@ export class MaterialsController {
     return this.svc.createInk(dto);
   }
 
+  @Put('ink/:id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin', 'superadmin')
+  updateInk(@Param('id') id: string, @Body() dto: any) {
+    return this.svc.updateInk(id, dto);
+  }
+
+  @Delete('ink/:id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin', 'superadmin')
+  deleteInk(@Param('id') id: string) {
+    return this.svc.deleteInk(id);
+  }
+
   // ── Finishing ────────────────────────────────────────────
   @Get('finishing')
   @ApiOperation({ summary: 'Боловсруулалтын сонголтууд' })
@@ -73,6 +107,20 @@ export class MaterialsController {
   @Roles('admin', 'superadmin')
   createFinishing(@Body() dto: any) {
     return this.svc.createFinishing(dto);
+  }
+
+  @Put('finishing/:id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin', 'superadmin')
+  updateFinishing(@Param('id') id: string, @Body() dto: any) {
+    return this.svc.updateFinishing(id, dto);
+  }
+
+  @Delete('finishing/:id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin', 'superadmin')
+  deleteFinishing(@Param('id') id: string) {
+    return this.svc.deleteFinishing(id);
   }
 
   // ── Cost Calculator ──────────────────────────────────────

@@ -9,6 +9,12 @@ import { PricingConfigService } from '../pricing-config/pricing-config.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { OptionalJwtAuthGuard } from '../auth/guards/optional-jwt-auth.guard';
 
+// ─── Instant quote hardcoded rates ───
+const INSTANT_PAPER_RATES: Record<string, number> = {
+  vizit_kart: 340, flyar: 180, broushur: 250, poster: 210,
+  banner: 1200, sticker: 280, nom: 170, packaging: 420,
+};
+
 @Controller('quote')
 export class QuoteController {
   constructor(
@@ -19,6 +25,56 @@ export class QuoteController {
     private pricingRules: PricingRulesService,
     private pricingConfig: PricingConfigService,
   ) {}
+
+  // ─── Instant Quote (10-second price) ───
+  @Post('instant')
+  async instantQuote(@Body() body: any) {
+    const { productType, widthMm, heightMm, quantity, colorMode, finishing } = body;
+    const qty = Number(quantity) || 100;
+    const w = Number(widthMm) || 210;
+    const h = Number(heightMm) || 297;
+
+    const areaM2 = (w / 1000) * (h / 1000);
+    const paperRate = INSTANT_PAPER_RATES[productType] ?? 200;
+
+    // Цаасны зардал
+    const paperCost = Math.round(paperRate * qty * (areaM2 / 0.0623)); // normalized to A4
+
+    // Бэхний зардал
+    const colorChannels = colorMode === 'CMYK' ? 4 : colorMode === '1C' ? 1 : colorMode === 'BW' ? 1 : 2;
+    const inkCostPerUnit = Math.round(areaM2 * 2.5 * colorChannels * 45);
+    const inkCost = inkCostPerUnit * qty;
+
+    // Боловсруулалт
+    const finIds = finishing?.length ? finishing : [];
+    const finishingCostPerUnit = finIds.length * 80;
+    const finishingSetup = finIds.length * 5000;
+    const finishingCost = finishingSetup + finishingCostPerUnit * qty;
+
+    // Overhead + Commission
+    const subtotal = paperCost + inkCost + finishingCost;
+    const overhead = Math.round(subtotal * 0.12);
+    const productionCost = subtotal + overhead;
+    const platform = Math.round(productionCost * 0.10);
+    const total = productionCost + platform;
+
+    // Хүргэх хугацаа
+    const leadDays = qty <= 100 ? 2 : qty <= 500 ? 3 : qty <= 2000 ? 5 : 7;
+
+    return {
+      total,
+      unitPrice: Math.round((total / qty) * 100) / 100,
+      breakdown: {
+        paper: paperCost,
+        ink: inkCost,
+        finishing: finishingCost,
+        platform,
+      },
+      leadDays,
+      quantity: qty,
+      productType,
+    };
+  }
 
   // ─── Calculate (proxy to QuoteEngine) ───
   @Post('calculate')

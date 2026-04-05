@@ -1,12 +1,25 @@
-import { Injectable, BadRequestException } from '@nestjs/common';
+import { Injectable, BadRequestException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Between } from 'typeorm';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InventoryTransaction, TransactionType } from './entities/inventory-transaction.entity';
 import { PaperStock } from '../materials/entities/paper-stock.entity';
 
+export interface ReorderSuggestion {
+  materialId: string;
+  materialName: string;
+  currentQty: number;
+  reorderLevel: number;
+  suggestedQty: number;
+  supplier: string;
+  estimatedCost: number;
+  urgency: 'critical' | 'low' | 'normal';
+}
+
 @Injectable()
 export class WarehouseService {
+  private readonly logger = new Logger(WarehouseService.name);
+
   constructor(
     @InjectRepository(InventoryTransaction)
     private txRepo: Repository<InventoryTransaction>,
@@ -157,5 +170,92 @@ export class WarehouseService {
       totalValue,
       recentMovements: recentTx,
     };
+  }
+
+  // ── Auto-reorder suggestions ────────────────────────────
+  async getReorderSuggestions(): Promise<ReorderSuggestion[]> {
+    const lowStock = await this.getLowStockItems();
+
+    return lowStock.map(p => {
+      const deficit = p.reorderLevel - p.stockQty;
+      // Order 2x reorder level to avoid frequent reorders
+      const suggestedQty = Math.max(deficit, p.reorderLevel) * 2;
+      const urgency: ReorderSuggestion['urgency'] =
+        p.stockQty === 0 ? 'critical' :
+        p.stockQty <= p.reorderLevel * 0.5 ? 'low' : 'normal';
+
+      return {
+        materialId: p.id,
+        materialName: p.name,
+        currentQty: p.stockQty,
+        reorderLevel: p.reorderLevel,
+        suggestedQty,
+        supplier: p.supplier ?? 'Тодорхойгүй',
+        estimatedCost: suggestedQty * Number(p.pricePerSheet),
+        urgency,
+      };
+    }).sort((a, b) => {
+      const order = { critical: 0, low: 1, normal: 2 };
+      return order[a.urgency] - order[b.urgency];
+    });
+  }
+
+  // ── Bulk stock-in (нийлүүлэгчийн захиалга ирсэн) ───────
+  async bulkStockIn(items: Array<{
+    materialId: string;
+    qty: number;
+    unitCost?: number;
+  }>, supplier: string, invoiceNo: string, createdById: string): Promise<InventoryTransaction[]> {
+    const results: InventoryTransaction[] = [];
+    for (const item of items) {
+      const tx = await this.stockIn({
+        materialId: item.materialId,
+        qty: item.qty,
+        unitCost: item.unitCost,
+        supplier,
+        invoiceNo,
+        createdById,
+      });
+      results.push(tx);
+    }
+    this.logger.log(`Bulk stock-in: ${items.length} items from ${supplier} (invoice: ${invoiceNo})`);
+    return results;
+  }
+
+  // ── Usage report (материалын зарцуулалтын тайлан) ────────
+  async getUsageReport(days = 30): Promise<Array<{
+    materialId: string;
+    materialName: string;
+    totalOut: number;
+    totalIn: number;
+    avgDailyUsage: number;
+    daysUntilEmpty: number | null;
+  }>> {
+    const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+    const papers = await this.paperRepo.find({ where: { isActive: true } });
+
+    const report = [];
+    for (const paper of papers) {
+      const [outTxs, inTxs] = await Promise.all([
+        this.txRepo.find({ where: { materialId: paper.id, type: TransactionType.OUT, createdAt: Between(since, new Date()) } }),
+        this.txRepo.find({ where: { materialId: paper.id, type: TransactionType.IN, createdAt: Between(since, new Date()) } }),
+      ]);
+
+      const totalOut = outTxs.reduce((s, t) => s + Number(t.qty), 0);
+      const totalIn = inTxs.reduce((s, t) => s + Number(t.qty), 0);
+      const avgDailyUsage = totalOut / days;
+      const daysUntilEmpty = avgDailyUsage > 0 ? Math.round(paper.stockQty / avgDailyUsage) : null;
+
+      report.push({
+        materialId: paper.id,
+        materialName: paper.name,
+        totalOut,
+        totalIn,
+        avgDailyUsage: Math.round(avgDailyUsage * 10) / 10,
+        daysUntilEmpty,
+      });
+    }
+
+    return report.sort((a, b) => (a.daysUntilEmpty ?? 999) - (b.daysUntilEmpty ?? 999));
   }
 }

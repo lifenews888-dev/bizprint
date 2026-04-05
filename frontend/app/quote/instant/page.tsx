@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { apiFetch } from '@/lib/api';
 
 const PRODUCT_TYPES = [
   { value: 'vizit_kart',  label: 'Визитийн хуудас' },
@@ -59,14 +60,11 @@ export default function InstantQuotePage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
-
   useEffect(() => {
-    fetch(`${API}/materials/finishing`)
-      .then(r => r.json())
+    apiFetch<any>('/materials/finishing', { auth: false })
       .then(data => setFinishingOptions(Array.isArray(data) ? data : []))
       .catch(() => {});
-  }, [API]);
+  }, []);
 
   const currentSizes = productType ? SIZES[productType] ?? [] : [];
   const selectedSize = currentSizes[sizeIdx];
@@ -80,20 +78,11 @@ export default function InstantQuotePage() {
     const h = selectedSize.h || customH;
 
     try {
-      const res = await fetch(`${API}/quote/instant`, {
+      const data = await apiFetch<any>('/quote/instant', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          productType,
-          widthMm: w,
-          heightMm: h,
-          quantity,
-          colorMode,
-          finishing,
-        }),
+        auth: false,
+        body: { productType, widthMm: w, heightMm: h, quantity, colorMode, finishing },
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message ?? 'Алдаа гарлаа');
       setResult(data);
     } catch (e: any) {
       setError(e.message);

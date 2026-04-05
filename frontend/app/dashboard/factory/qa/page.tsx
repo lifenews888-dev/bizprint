@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { apiFetch } from '@/lib/api';
 
 type QaTab = 'checkpoints' | 'passports' | 'ncl';
 
@@ -43,29 +44,25 @@ export default function FactoryQaPage() {
   const [resolveModal, setResolveModal] = useState<{ open: boolean; ncl: NonConformance | null; resolution: string }>({ open: false, ncl: null, resolution: '' });
   const [saving, setSaving] = useState(false);
 
-  const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
-  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : '';
-  const h: Record<string, string> = { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` };
-
   const load = useCallback(async () => {
     setLoading(true);
-    const sum = await fetch(`${API}/qa/summary`, { headers: h }).then(r => r.json()).catch(() => ({ totalChecks: 0, passedRate: 0, openNcls: 0, criticalNcls: 0 }));
+    const sum = await apiFetch<any>('/qa/summary').catch(() => ({ totalChecks: 0, passedRate: 0, openNcls: 0, criticalNcls: 0 }));
     setSummary(sum);
     setLoading(false);
-  }, [API]);
+  }, []);
 
   const loadNcls = useCallback(async () => {
-    const res = await fetch(`${API}/qa/ncl/all`, { headers: h }).catch(() => null);
-    if (res) { const data = await res.json(); setNcls(Array.isArray(data) ? data : []); }
-  }, [API]);
+    const data = await apiFetch<any>('/qa/ncl/all').catch(() => []);
+    setNcls(Array.isArray(data) ? data : []);
+  }, []);
 
   useEffect(() => { load(); }, [load]);
   useEffect(() => { if (tab === 'ncl') loadNcls(); }, [tab, loadNcls]);
 
   const saveCheckpoint = async () => {
     setSaving(true);
-    await fetch(`${API}/qa/checkpoints`, {
-      method: 'POST', headers: h,
+    await apiFetch('/qa/checkpoints', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ ...cpForm, issues: cpForm.issues ? cpForm.issues.split('\n').filter(Boolean) : [], checkedById: 'current' }),
     });
     setSaving(false); setCpModal(false);
@@ -75,8 +72,8 @@ export default function FactoryQaPage() {
 
   const saveNcl = async () => {
     setSaving(true);
-    await fetch(`${API}/qa/ncl`, {
-      method: 'POST', headers: h,
+    await apiFetch('/qa/ncl', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ ...nclForm, reportedById: 'current' }),
     });
     setSaving(false); setNclModal(false);
@@ -87,8 +84,8 @@ export default function FactoryQaPage() {
   const resolveNcl = async () => {
     if (!resolveModal.ncl) return;
     setSaving(true);
-    await fetch(`${API}/qa/ncl/${resolveModal.ncl.id}/resolve`, {
-      method: 'PATCH', headers: h,
+    await apiFetch(`/qa/ncl/${resolveModal.ncl.id}/resolve`, {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ resolution: resolveModal.resolution, resolvedById: 'current' }),
     });
     setSaving(false);

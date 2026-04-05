@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { apiFetch } from '@/lib/api';
 
 interface PaperStock {
   id: string;
@@ -34,19 +35,14 @@ export default function WarehousePage() {
   const [submitting, setSubmitting] = useState(false);
   const [activeTab, setActiveTab] = useState<'all' | 'low'>('all');
 
-  const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
-  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : '';
-  const headers = { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` };
-
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [papersRes, summaryRes, lowRes] = await Promise.all([
-        fetch(`${API}/materials/paper`, { headers }),
-        fetch(`${API}/warehouse/summary`, { headers }),
-        fetch(`${API}/warehouse/low-stock`, { headers }),
+      const [p, s, l] = await Promise.all([
+        apiFetch<any>('/materials/paper').catch(() => []),
+        apiFetch<any>('/warehouse/summary').catch(() => ({})),
+        apiFetch<any>('/warehouse/low-stock').catch(() => []),
       ]);
-      const [p, s, l] = await Promise.all([papersRes.json(), summaryRes.json(), lowRes.json()]);
       setPapers(Array.isArray(p) ? p : []);
       setSummary(s);
       setLowStock(Array.isArray(l) ? l : []);
@@ -55,7 +51,7 @@ export default function WarehousePage() {
     } finally {
       setLoading(false);
     }
-  }, [API]);
+  }, []);
 
   useEffect(() => { load(); }, [load]);
 
@@ -69,15 +65,15 @@ export default function WarehousePage() {
     if (!modal.item || !txQty) return;
     setSubmitting(true);
     try {
-      const endpoint = modal.type === 'in' ? `${API}/warehouse/stock-in`
-        : modal.type === 'out' ? `${API}/warehouse/stock-out`
-        : `${API}/warehouse/adjust`;
+      const endpoint = modal.type === 'in' ? '/warehouse/stock-in'
+        : modal.type === 'out' ? '/warehouse/stock-out'
+        : '/warehouse/adjust';
 
       const body = modal.type === 'adjust'
         ? { materialId: modal.item.id, actualQty: +txQty, reason: txReason, createdById: 'current' }
         : { materialId: modal.item.id, qty: +txQty, reason: txReason, createdById: 'current' };
 
-      await fetch(endpoint, { method: 'POST', headers, body: JSON.stringify(body) });
+      await apiFetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
       setModal({ type: null, item: null });
       load();
     } finally {
