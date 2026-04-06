@@ -183,14 +183,16 @@ import { GeoRoutingModule } from './geo-routing/geo-routing.module'
     GalleryModule,
     AgentModule,
     MaterialsModule,
+    GeoRoutingModule,
     QaModule,
     WarehouseModule,
     B2BModule,
     ProofingModule,
     PrepressModule,
-    GeoRoutingModule,
   ],
   controllers: [], // PricingCatalogController removed — duplicate
   providers: [],   // PricingCatalogService removed — duplicate
 })
 export class AppModule {}
+
+
