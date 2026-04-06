@@ -83,6 +83,7 @@ import { WarehouseModule } from './warehouse/warehouse.module'
 import { B2BModule } from './b2b/b2b.module'
 import { ProofingModule } from './proofing/proofing.module'
 import { PrepressModule } from './ai/prepress/prepress.module'
+import { GeoRoutingModule } from './geo-routing/geo-routing.module'
 
 @Module({
   imports: [
@@ -187,6 +188,7 @@ import { PrepressModule } from './ai/prepress/prepress.module'
     B2BModule,
     ProofingModule,
     PrepressModule,
+    GeoRoutingModule,
   ],
   controllers: [], // PricingCatalogController removed — duplicate
   providers: [],   // PricingCatalogService removed — duplicate

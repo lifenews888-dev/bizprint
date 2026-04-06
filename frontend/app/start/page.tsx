@@ -88,14 +88,28 @@ export default function StartPage() {
       <div className="absolute top-20 right-0 w-[500px] h-[500px] rounded-full pointer-events-none"
         style={{ background: 'radial-gradient(circle, rgba(139,92,246,0.03), transparent)' }} />
 
-      <div className="max-w-5xl mx-auto px-4 md:px-6 pt-12 md:pt-20 pb-16 relative z-10">
+      {/* Minimal header — logo only */}
+      <div className="max-w-5xl mx-auto px-4 md:px-6 pt-6 pb-2 relative z-10 flex items-center justify-between">
+        <Link href="/" className="no-underline flex items-center gap-2">
+          <svg width="32" height="32" viewBox="0 0 48 48" fill="none">
+            <defs><linearGradient id="s-og" x1="0" y1="0" x2="48" y2="24" gradientUnits="userSpaceOnUse"><stop stopColor="#FF6B00"/><stop offset="1" stopColor="#F59E0B"/></linearGradient><linearGradient id="s-pp" x1="0" y1="24" x2="48" y2="48" gradientUnits="userSpaceOnUse"><stop stopColor="#8B5CF6"/><stop offset="1" stopColor="#6D28D9"/></linearGradient></defs>
+            <path d="M4 14C4 8.477 8.477 4 14 4h6c5.523 0 10 4.477 10 10v4c0 2.21-1.79 4-4 4H14c-5.523 0-10-4.477-10-10z" fill="url(#s-og)"/>
+            <path d="M30 8a10 10 0 0114 0 10 10 0 010 14c-2 2-6 2-8 0l-6-6a10 10 0 010-8z" fill="url(#s-og)" opacity="0.8"/>
+            <path d="M4 30c0-2.21 1.79-4 4-4h10c5.523 0 10 4.477 10 10v4c0 2.21-1.79 4-4 4H14c-5.523 0-10-4.477-10-10v-4z" fill="url(#s-pp)"/>
+            <path d="M30 30c0-2.21 1.79-4 4-4h4c2.21 0 4 1.79 4 4v4c0 5.523-4.477 10-10 10h-2c-2.21 0-4-1.79-4-4v-6c0-2.21 1.79-4 4-4z" fill="url(#s-pp)" opacity="0.8"/>
+          </svg>
+          <span className="text-xl font-extrabold tracking-tight" style={{ color: 'var(--text)' }}>
+            <span style={{ color: '#FF6B00' }}>Biz</span>Print
+          </span>
+        </Link>
+        <Link href="/" className="no-underline text-xs font-medium px-4 py-2 rounded-lg transition-colors hover:bg-[var(--surface2)]" style={{ color: 'var(--text3)', border: '1px solid var(--border)' }}>
+          Нүүр хуудас
+        </Link>
+      </div>
+
+      <div className="max-w-5xl mx-auto px-4 md:px-6 pt-8 md:pt-14 pb-16 relative z-10">
         {/* Header */}
         <div className="text-center mb-10 md:mb-14">
-          <div className="inline-flex items-center gap-2 text-[10px] font-bold tracking-[0.2em] uppercase px-4 py-1.5 rounded-full mb-5"
-            style={{ background: 'rgba(255,107,0,0.06)', color: '#FF6B00', border: '1px solid rgba(255,107,0,0.1)' }}>
-            <span className="w-1.5 h-1.5 rounded-full bg-[#FF6B00]" />
-            BizPrint
-          </div>
           <h1 className="text-3xl md:text-5xl font-bold tracking-tight mb-4" style={{ color: 'var(--text)' }}>
             Юу хэвлүүлэх вэ?
           </h1>

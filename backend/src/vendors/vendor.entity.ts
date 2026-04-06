@@ -156,6 +156,25 @@ export class Vendor {
   @OneToMany(() => VendorCapability, (vc) => vc.vendor)
   vendor_capabilities: VendorCapability[];
 
+  // ── Geo Location ──────────────────────────────────────
+  @Column({ type: 'decimal', precision: 10, scale: 7, nullable: true })
+  latitude: number;
+
+  @Column({ type: 'decimal', precision: 10, scale: 7, nullable: true })
+  longitude: number;
+
+  @Column({ nullable: true })
+  district: string;
+
+  @Column({ type: 'int', default: 5 })
+  delivery_radius_km: number;
+
+  @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
+  base_delivery_cost: number;
+
+  @Column({ type: 'decimal', precision: 10, scale: 2, default: 500 })
+  cost_per_km: number;
+
   @CreateDateColumn()
   created_at: Date;
 

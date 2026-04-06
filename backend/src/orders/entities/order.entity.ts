@@ -151,6 +151,25 @@ export class Order {
   @Column({ default: false })
   is_delayed: boolean;
 
+  // ── Delivery Geo ───────────────────────────────────────
+  @Column({ type: 'decimal', precision: 10, scale: 7, nullable: true })
+  delivery_lat: number;
+
+  @Column({ type: 'decimal', precision: 10, scale: 7, nullable: true })
+  delivery_lng: number;
+
+  @Column({ nullable: true })
+  delivery_district: string;
+
+  @Column({ nullable: true })
+  assigned_vendor_id: string;
+
+  @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
+  delivery_cost: number;
+
+  @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true })
+  vendor_distance_km: number;
+
   @OneToMany(() => OrderItem, (item) => item.order)
   items: OrderItem[];
 
