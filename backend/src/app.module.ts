@@ -98,7 +98,7 @@ import { GeoRoutingModule } from './geo-routing/geo-routing.module'
             type: 'postgres',
             url: process.env.DATABASE_URL,
             autoLoadEntities: true,
-            synchronize: process.env.NODE_ENV !== 'production',
+            synchronize: true,
             ssl: process.env.DATABASE_SSL === 'true' ? { rejectUnauthorized: false } : false,
             logging: false,
           }
