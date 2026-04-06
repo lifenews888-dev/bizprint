@@ -59,7 +59,7 @@ export async function apiFetch<T = unknown>(
       ? JSON.stringify(body)
       : (body as BodyInit | null | undefined)
 
-  const res = await fetch(`${API_URL}${path}`, {
+  const res = await fetch(`${API_URL}/api${path}`, {
     ...rest,
     headers,
     body: fetchBody,
@@ -101,3 +101,5 @@ export async function apiUpload<T = unknown>(
     body: formData,
   })
 }
+
+
