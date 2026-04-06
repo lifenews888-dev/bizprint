@@ -51,6 +51,7 @@ async function bootstrap() {
   });
 
   // Static files
+  app.setGlobalPrefix('api');
   app.useStaticAssets(join(process.cwd(), 'uploads'), { prefix: '/uploads/' });
 
   const port = process.env.PORT || 4000;
@@ -80,3 +81,4 @@ async function bootstrap() {
   console.log(`BizPrint API running on http://0.0.0.0:${port}`);
 }
 bootstrap();
+
