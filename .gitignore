@@ -69,3 +69,5 @@ ios/
 
 # Coverage
 coverage/
+
+.vercel
