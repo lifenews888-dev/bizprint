@@ -24,8 +24,12 @@ export class PricingCatalogService implements OnModuleInit {
   ) {}
 
   async onModuleInit() {
-    const count = await this.materialRepo.count();
-    if (count === 0) await this.seedAll();
+    try {
+      const count = await this.materialRepo.count();
+      if (count === 0) await this.seedAll();
+    } catch {
+      console.warn('PricingCatalog: tables not ready yet, skipping seed');
+    }
   }
 
   /* ═══════════════════════════════════════

@@ -14,7 +14,11 @@ export class PricingConfigService implements OnModuleInit {
   ) {}
 
   async onModuleInit() {
-    await this.seedDefaults();
+    try {
+      await this.seedDefaults();
+    } catch {
+      console.warn('PricingConfig: tables not ready yet, skipping seed');
+    }
   }
 
   async getAll(): Promise<PricingConfig[]> {
