@@ -83,8 +83,8 @@ import { WarehouseModule } from './warehouse/warehouse.module'
 import { B2BModule } from './b2b/b2b.module'
 import { ProofingModule } from './proofing/proofing.module'
 import { PrepressModule } from './ai/prepress/prepress.module'
+import { PrintInquiryModule } from './print-inquiry/print-inquiry.module';
 import { GeoRoutingModule } from './geo-routing/geo-routing.module'
-import { PrintInquiryModule } from './print-inquiry/print-inquiry.module'
 
 @Module({
   imports: [
@@ -185,17 +185,18 @@ import { PrintInquiryModule } from './print-inquiry/print-inquiry.module'
     AgentModule,
     MaterialsModule,
     GeoRoutingModule,
+    PrintInquiryModule,
     QaModule,
     WarehouseModule,
     B2BModule,
     ProofingModule,
     PrepressModule,
-    PrintInquiryModule,
   ],
   controllers: [], // PricingCatalogController removed — duplicate
   providers: [],   // PricingCatalogService removed — duplicate
 })
 export class AppModule {}
+
 
 
 
