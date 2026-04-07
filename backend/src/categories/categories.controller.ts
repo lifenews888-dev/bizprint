@@ -36,6 +36,12 @@ export class CategoriesController {
     );
   }
 
+  // ── Seed: organize flat categories into groups ──
+  @Post('seed-groups')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('admin', 'superadmin')
+  seedGroups() { return this.svc.seedGroups(); }
+
   // ── CRUD ──
   @Post()
   @UseGuards(JwtAuthGuard)

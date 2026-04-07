@@ -38,13 +38,32 @@ export default function MegaNav() {
   const pathname = usePathname()
   const { settings, megaMenu } = useSiteSettings()
 
-  // Get categories from the MEGA nav item (populated from V2 API in context)
+  // Get categories from the MEGA nav item (for mega dropdown)
   const megaItem = megaMenu.find((m: any) => m.nav_type === 'MEGA')
-  const categoryLinks = (megaItem?.columns || []).map((col: any) => ({
-    label: col.title,
-    url: col.items?.[0]?.url || `/shop?cat=${(col.title || '').toLowerCase().replace(/\s+/g, '-')}`,
-    icon: col.icon || '📦',
-  }))
+
+  // Fetch real categories from DB for АНГИЛАЛ flyout
+  const [navCategories, setNavCategories] = useState<any[]>([])
+  useEffect(() => {
+    const api = typeof window !== 'undefined' ? (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000') : ''
+    fetch(`${api}/categories/navigation`).then(r => r.ok ? r.json() : []).then(data => {
+      if (Array.isArray(data) && data.length > 0) setNavCategories(data)
+    }).catch(() => {})
+  }, [])
+
+  // For АНГИЛАЛ: use DB categories if available, fallback to mega menu columns
+  const catGroups = navCategories.length > 0
+    ? navCategories.filter((c: any) => c.children?.length > 0).map((c: any) => ({
+        title: c.name_mn || c.name,
+        icon: c.icon || '📦',
+        color: c.color || '#FF6B00',
+        slug: c.slug,
+        items: c.children.map((ch: any) => ({
+          label: ch.name_mn || ch.name,
+          url: `/shop?category=${ch.slug}`,
+          desc: '',
+        })),
+      }))
+    : (megaItem?.columns || [])
 
   // Quick links from CMS settings (admin-managed)
   const headerQuickLinks = (() => {
@@ -193,7 +212,7 @@ export default function MegaNav() {
             <form onSubmit={e => { e.preventDefault(); handleSearchSubmit() }} className="flex items-stretch h-[44px] border-2 border-[#EBEBEB] rounded-lg overflow-hidden focus-within:border-[#FF6B00] transition-colors">
               <select value={searchCat} onChange={e => { setSearchCat(e.target.value); if (searchQuery.length >= 2) doSearch(searchQuery, e.target.value) }} className="bg-[#F8F8F8] text-[13px] font-medium text-[#555] px-3 border-r border-[#EBEBEB] outline-none cursor-pointer" style={{ appearance: 'auto', minWidth: 130 }}>
                 <option value="">Бүх ангилал</option>
-                {categoryLinks.map((c: any, i: number) => (
+                {catGroups.map((c: any, i: number) => (
                   <option key={i} value={c.label}>{c.label}</option>
                 ))}
               </select>
@@ -315,7 +334,7 @@ export default function MegaNav() {
               <ChevronDown />
             </button>
             {catMenuOpen && (() => {
-              const cols = megaItem?.columns || []
+              const cols = catGroups
               const activeCol = cols[activeCatIdx]
               return (
                 <div className="absolute top-full left-0 bg-white border border-[#EBEBEB] rounded-b-xl shadow-xl z-[300] flex" style={{ minWidth: 520 }}>

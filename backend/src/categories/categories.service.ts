@@ -66,6 +66,45 @@ export class CategoriesService {
     return { success: true };
   }
 
+  // ─── Seed: create parent groups and assign children ───
+  async seedGroups() {
+    const GROUPS: { name: string; name_mn: string; slug: string; icon: string; color: string; childSlugs: string[] }[] = [
+      { name: 'Offset Print', name_mn: 'Офсет хэвлэл', slug: 'offset', icon: '🖨️', color: '#378ADD',
+        childSlugs: ['business-card', 'flyer', 'book', 'office', 'events'] },
+      { name: 'Digital Print', name_mn: 'Дижитал хэвлэл', slug: 'digital', icon: '🏷️', color: '#22c55e',
+        childSlugs: ['sticker', 'packaging'] },
+      { name: 'Wide Format', name_mn: 'Өргөн формат', slug: 'wide-format', icon: '🪧', color: '#eab308',
+        childSlugs: ['urgun_hevlel', 'banner', 'signage'] },
+      { name: 'Promo & Apparel', name_mn: 'Промо & Хувцас', slug: 'promo', icon: '👕', color: '#a855f7',
+        childSlugs: ['merchandise', 'apparel'] },
+    ];
+
+    const all = await this.repo.find();
+    const created: any[] = [];
+
+    for (let i = 0; i < GROUPS.length; i++) {
+      const g = GROUPS[i];
+      // Check if parent already exists
+      let parent = all.find(c => c.slug === g.slug);
+      if (!parent) {
+        parent = await this.repo.save(this.repo.create({
+          name: g.name, name_mn: g.name_mn, slug: g.slug,
+          icon: g.icon, color: g.color, sort_order: i,
+          is_active: true, show_in_menu: true,
+        }));
+      }
+      // Assign children
+      for (const childSlug of g.childSlugs) {
+        const child = all.find(c => c.slug === childSlug || c.slug?.startsWith(childSlug));
+        if (child && !child.parent_id) {
+          await this.repo.update(child.id, { parent_id: parent.id, show_in_menu: true });
+        }
+      }
+      created.push({ parent: parent.name_mn || parent.name, children: g.childSlugs });
+    }
+    return { message: 'Groups seeded', groups: created };
+  }
+
   // ─── Parameters ───
   async getParameters(categoryId?: string) {
     const where: any = { is_active: true };
