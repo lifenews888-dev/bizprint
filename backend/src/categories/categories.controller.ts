@@ -37,7 +37,7 @@ export class CategoriesController {
   }
 
   // ── Seed: organize flat categories into groups (temporary, no auth) ──
-  @Post('seed-groups')
+  @Get('seed-groups')
   seedGroups() { return this.svc.seedGroups(); }
 
   // ── CRUD ──
