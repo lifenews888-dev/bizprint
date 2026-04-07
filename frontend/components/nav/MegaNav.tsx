@@ -62,8 +62,8 @@ export default function MegaNav() {
     { label: 'Marketplace', url: '/marketplace', icon: '🎨', color: '#EC4899' },
   ]
 
-  const quickLinks: { label: string; url: string; icon: string; color: string }[] =
-    headerQuickLinks?.length > 0 ? headerQuickLinks : DEFAULT_QUICK_LINKS
+  // Always use DEFAULT_QUICK_LINKS — DB may have stale items
+  const quickLinks: { label: string; url: string; icon: string; color: string }[] = DEFAULT_QUICK_LINKS
   const [openId, setOpenId] = useState<string | null>(null)
   const [mobileOpen, setMobileOpen] = useState(false)
   const [mobileAccordion, setMobileAccordion] = useState<string | null>(null)

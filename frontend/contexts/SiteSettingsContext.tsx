@@ -156,7 +156,7 @@ export function SiteSettingsProvider({ children }: { children: ReactNode }) {
       // V2 mega menu → convert to unified megaMenu format
       if (v2 && v2.columns?.length > 0) {
         setMegaMenuV2(v2)
-        // Build a unified "Products" mega nav item from V2 data
+        // Build a unified "Бүтээгдэхүүн" mega nav item from V2 data
         const v2MegaItem = {
           id: 'v2-products',
           nav_label: 'Бүтээгдэхүүн',
@@ -186,11 +186,21 @@ export function SiteSettingsProvider({ children }: { children: ReactNode }) {
             bg_color: v2.promos[0].bg_color || '#0f172a',
           } : null,
         }
-        // Build remaining nav items (Дэлгүүр, Үйлчилгээ, etc.) from old API or defaults
-        const otherItems = (Array.isArray(m) ? m : DEFAULT_MEGA_MENU)
+        // Use DEFAULT_MEGA_MENU for non-MEGA items (cleaned up nav)
+        const otherItems = DEFAULT_MEGA_MENU
           .filter((item: any) => item.nav_type !== 'MEGA')
           .map((item: any, idx: number) => ({ ...item, sort_order: idx + 1 }))
         setMegaMenu([v2MegaItem, ...otherItems])
+      }
+      // No V2 but legacy CMS items exist — always use DEFAULT for clean nav
+      else if (Array.isArray(m) && m.length > 0) {
+        // Keep MEGA item from DB if it has columns, otherwise use default
+        const dbMega = m.find((item: any) => item.nav_type === 'MEGA' && item.columns?.length > 0)
+        const megaItem = dbMega || DEFAULT_MEGA_MENU.find((item: any) => item.nav_type === 'MEGA')
+        const otherItems = DEFAULT_MEGA_MENU
+          .filter((item: any) => item.nav_type !== 'MEGA')
+          .map((item: any, idx: number) => ({ ...item, sort_order: idx + 1 }))
+        setMegaMenu(megaItem ? [megaItem, ...otherItems] : otherItems)
       }
       if (s && typeof s === 'object') {
         const filtered: Record<string, any> = {}
