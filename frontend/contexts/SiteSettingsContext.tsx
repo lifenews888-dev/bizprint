@@ -100,36 +100,23 @@ const DEFAULT_SETTINGS: Record<string, any> = {
 
 const DEFAULT_MEGA_MENU = [
   {
-    id: '1', nav_label: 'Products', nav_url: '/shop', nav_type: 'MEGA', is_active: true, sort_order: 1,
+    id: '1', nav_label: 'Бүтээгдэхүүн', nav_url: '/shop', nav_type: 'MEGA', is_active: true, sort_order: 1,
     columns: [
       { title: 'ОФСЕТ ХЭВЛЭЛ', icon: '🖨️', color: '#378ADD', items: [{label:'Визит карт',url:'/shop?cat=business-card',desc:'90×50мм, 250-400gsm'},{label:'Флаер',url:'/shop?cat=flyer',desc:'A4, A5, A6'},{label:'Брошур',url:'/shop?cat=brochure',desc:'Гурвалсан нугалалт'},{label:'Каталог',url:'/shop?cat=catalog',desc:'8-100+ хуудас'},{label:'Ном',url:'/shop?cat=book',desc:'Хавтас, дотор хуудас'}]},
       { title: 'ДИЖИТАЛ ХЭВЛЭЛ', icon: '🏷️', color: '#22c55e', items: [{label:'Стикер',url:'/shop?cat=sticker',desc:'Өнгөт наалт'},{label:'Наалт/Label',url:'/shop?cat=label',desc:'Бүтээгдэхүүний шошго'},{label:'DTF хэвлэл',url:'/shop?cat=dtf',desc:'Даавуун хэвлэл'}]},
       { title: 'ӨРГӨН ФОРМАТ', icon: '🪧', color: '#eab308', items: [{label:'Баннер',url:'/shop?cat=banner',desc:'Гадна/дотор баннер'},{label:'Роллап',url:'/shop?cat=rollup',desc:'Зөөврийн стенд'},{label:'Хаяг/Үсэг',url:'/shop?cat=signage',desc:'3D, LED, нерж'}]},
       { title: 'ПРОМО', icon: '👕', color: '#a855f7', items: [{label:'Цамц хэвлэл',url:'/shop?cat=tshirt',desc:'DTF, Screen print'},{label:'Бусад промо',url:'/shop?cat=promo',desc:'Аяга, дэвтэр, бал'}]},
     ],
-    featured: { badge: 'ШИНЭ', title: 'AI Үнийн Тооцоолуур', description: 'Секундэд үнэ тооцоолоорой', cta_text: 'Тооцоолох →', cta_url: '/quote', bg_color: '#1a1a1a' },
-  },
-  { id: '2', nav_label: 'Дэлгүүр', nav_url: '/shop', nav_type: 'LINK', is_active: true, sort_order: 2, columns: null, featured: null },
-  {
-    id: '3', nav_label: 'Үйлчилгээ', nav_url: '#', nav_type: 'DROPDOWN', is_active: true, sort_order: 3,
-    columns: [{ items: [{label:'Үнийн санал',url:'/quote'},{label:'Онлайн дизайн',url:'/designer'},{label:'Хүргэлт',url:'/delivery'},{label:'Партнер хөтөлбөр',url:'/partner'}]}],
-    featured: null,
+    featured: { badge: 'ШИНЭ', title: 'AI Үнийн Тооцоолуур', description: 'Секундэд үнэ тооцоолоорой', cta_text: 'Тооцоолох →', cta_url: '/smart-quote', bg_color: '#1a1a1a' },
   },
   {
-    id: '4', nav_label: 'Загвар сан', nav_url: '/templates', nav_type: 'DROPDOWN', is_active: true, sort_order: 4,
-    columns: [{ items: [
-      { label: 'Нэрийн хуудас загвар', url: '/templates?category=business_card', desc: '90×50мм бэлэн загвар' },
-      { label: 'Флаер & Постер загвар', url: '/templates?category=flyer', desc: 'A4, A5, A6 хэмжээт' },
-      { label: 'Баннер загвар', url: '/templates?category=banner', desc: 'Гадна & дотор баннер' },
-      { label: 'Стикер загвар', url: '/templates?category=sticker', desc: 'Өнгөт наалт загвар' },
-      { label: 'Сошиал медиа загвар', url: '/templates?category=social', desc: 'FB, IG постер & story' },
-      { label: '→ Бүх загвар харах', url: '/templates', desc: '' },
-    ]}],
+    id: '2', nav_label: 'Үйлчилгээ', nav_url: '#', nav_type: 'DROPDOWN', is_active: true, sort_order: 2,
+    columns: [{ items: [{label:'Үнийн санал авах',url:'/quote'},{label:'Онлайн дизайн',url:'/designer'},{label:'Хүргэлт',url:'/delivery'},{label:'Партнер хөтөлбөр',url:'/partner'}]}],
     featured: null,
   },
-  { id: '5', nav_label: 'Партнер', nav_url: '/partner', nav_type: 'LINK', is_active: true, sort_order: 5, columns: null, featured: null },
-  { id: '6', nav_label: 'Quote', nav_url: '/quote', nav_type: 'LINK', is_active: true, sort_order: 6, columns: null, featured: null },
-  { id: '7', nav_label: 'Үйлдвэрүүд', nav_url: '/factory', nav_type: 'LINK', is_active: true, sort_order: 7, columns: null, featured: null },
+  { id: '3', nav_label: 'Загвар сан', nav_url: '/templates', nav_type: 'LINK', is_active: true, sort_order: 3, columns: null, featured: null },
+  { id: '4', nav_label: 'Үйлдвэрүүд', nav_url: '/factory', nav_type: 'LINK', is_active: true, sort_order: 4, columns: null, featured: null },
+  { id: '5', nav_label: 'Захиалга өгөх', nav_url: '/orders/new', nav_type: 'LINK', is_active: true, sort_order: 5, columns: null, featured: null },
 ]
 
 interface MegaMenuV2Data {

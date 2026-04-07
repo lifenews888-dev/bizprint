@@ -57,12 +57,9 @@ export default function MegaNav() {
   })()
 
   const DEFAULT_QUICK_LINKS = [
-    { label: 'Дэлгүүр', url: '/shop', icon: '🛒', color: '#FF6B00' },
-    { label: 'Хэвлэл', url: '/quote', icon: '🖨️', color: '#8B5CF6' },
-    { label: 'AI Quote', url: '/smart-quote', icon: '🤖', color: '#3B82F6' },
-    { label: 'Marketplace', url: '/marketplace', icon: '🎨', color: '#EC4899' },
-    { label: 'Үнэ', url: '/pricing', icon: '💎', color: '#F59E0B' },
+    { label: 'AI Үнэ', url: '/smart-quote', icon: '🤖', color: '#8B5CF6' },
     { label: 'Галерей', url: '/gallery', icon: '🖼️', color: '#10B981' },
+    { label: 'Marketplace', url: '/marketplace', icon: '🎨', color: '#EC4899' },
   ]
 
   const quickLinks: { label: string; url: string; icon: string; color: string }[] =
@@ -72,6 +69,7 @@ export default function MegaNav() {
   const [mobileAccordion, setMobileAccordion] = useState<string | null>(null)
   const [searchOpen, setSearchOpen] = useState(false)
   const [catMenuOpen, setCatMenuOpen] = useState(false)
+  const [activeCatIdx, setActiveCatIdx] = useState(0)
   const [searchQuery, setSearchQuery] = useState('')
   const [searchCat, setSearchCat] = useState('')
   const [searchResults, setSearchResults] = useState<any[] | null>(null)
@@ -303,32 +301,67 @@ export default function MegaNav() {
       <nav className="bg-white border-b border-[#EBEBEB] sticky top-0 z-[200]">
         <div className="max-w-[1280px] mx-auto px-6 h-[50px] flex items-center">
 
-          {/* ── Desktop: SHOP BY CATEGORIES button ── */}
-          <div className="relative hidden md:block mr-6">
+          {/* ── Desktop: АНГИЛАЛ — 2 panel (categories | subcategories) ── */}
+          <div
+            className="relative hidden md:block mr-6"
+            onMouseEnter={() => { setCatMenuOpen(true); setActiveCatIdx(0) }}
+            onMouseLeave={() => setCatMenuOpen(false)}
+          >
             <button
-              onClick={() => setCatMenuOpen(!catMenuOpen)}
-              onBlur={() => setTimeout(() => setCatMenuOpen(false), 200)}
               className="flex items-center gap-2.5 h-[50px] text-[13px] font-bold text-[#111] uppercase tracking-wide bg-transparent border-none cursor-pointer hover:text-[#FF6B00] transition-colors"
             >
               <MenuIcon />
               <span>Ангилал</span>
               <ChevronDown />
             </button>
-            {catMenuOpen && (
-              <div className="absolute top-full left-0 bg-white border border-[#EBEBEB] rounded-b-xl shadow-xl z-[300] py-2 min-w-[240px]">
-                {categoryLinks.map((c: any, i: number) => (
-                  <a key={i} href={c.url} className="flex items-center gap-3 px-5 py-2.5 text-[14px] text-[#333] no-underline hover:bg-[#F8F8F8] hover:text-[#FF6B00] transition-colors">
-                    <span className="text-lg">{c.icon}</span>
-                    {c.label}
-                  </a>
-                ))}
-                <div className="border-t border-[#F0F0F0] mt-1 pt-1">
-                  <a href="/templates" className="flex items-center gap-3 px-5 py-2.5 text-[14px] text-[#333] no-underline hover:bg-[#F8F8F8] hover:text-[#FF6B00] transition-colors">
-                    <span className="text-lg">🎨</span>Загвар сан
-                  </a>
+            {catMenuOpen && (() => {
+              const cols = megaItem?.columns || []
+              const activeCol = cols[activeCatIdx]
+              return (
+                <div className="absolute top-full left-0 bg-white border border-[#EBEBEB] rounded-b-xl shadow-xl z-[300] flex" style={{ minWidth: 520 }}>
+                  {/* Left: Categories */}
+                  <div className="w-[220px] border-r border-[#F0F0F0] py-2">
+                    {cols.map((col: any, ci: number) => (
+                      <div
+                        key={ci}
+                        onMouseEnter={() => setActiveCatIdx(ci)}
+                        className={`flex items-center gap-3 px-5 py-3 cursor-pointer transition-colors ${activeCatIdx === ci ? 'bg-[#FFF5EF]' : 'hover:bg-[#F8F8F8]'}`}
+                      >
+                        <span className="text-lg">{col.icon}</span>
+                        <span className={`text-[13px] font-semibold ${activeCatIdx === ci ? 'text-[#FF6B00]' : 'text-[#333]'}`}>{col.title}</span>
+                        <ChevronRight />
+                      </div>
+                    ))}
+                    <div className="border-t border-[#F0F0F0] mt-1 pt-1">
+                      <a href="/shop" className="flex items-center gap-3 px-5 py-3 text-[13px] font-medium text-[#FF6B00] no-underline hover:bg-[#FFF5EF] transition-colors">
+                        Бүгдийг харах →
+                      </a>
+                    </div>
+                  </div>
+                  {/* Right: Subcategories */}
+                  <div className="flex-1 py-3 px-5">
+                    {activeCol && (
+                      <>
+                        <div className="flex items-center gap-2 mb-3 pb-2" style={{ borderBottom: `2px solid ${(activeCol.color || '#FF6B00')}30` }}>
+                          <span className="text-base">{activeCol.icon}</span>
+                          <span className="text-[12px] font-bold uppercase tracking-widest" style={{ color: activeCol.color || '#FF6B00' }}>{activeCol.title}</span>
+                        </div>
+                        <div className="grid grid-cols-1 gap-0.5">
+                          {Array.isArray(activeCol.items) && activeCol.items.map((item: any, ii: number) => (
+                            <a key={ii} href={item.url || '#'} className="flex items-center gap-3 py-2.5 px-3 rounded-lg no-underline hover:bg-[#F8F8F8] transition-colors group">
+                              <div>
+                                <div className="text-[13px] font-medium text-[#333] group-hover:text-[#FF6B00]">{item.label}</div>
+                                {item.desc && <div className="text-[11px] text-[#999] mt-0.5">{item.desc}</div>}
+                              </div>
+                            </a>
+                          ))}
+                        </div>
+                      </>
+                    )}
+                  </div>
                 </div>
-              </div>
-            )}
+              )
+            })()}
           </div>
 
           {/* ── Divider ── */}
