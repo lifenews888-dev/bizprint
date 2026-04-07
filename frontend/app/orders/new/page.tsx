@@ -1,7 +1,15 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+
+export default function NewOrderPageWrapper() {
+  return (
+    <Suspense fallback={<div className="flex justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500" /></div>}>
+      <NewOrderPage />
+    </Suspense>
+  );
+}
 
 const SIZES = [
   { label: 'A6 (105×148мм)', w: 105, h: 148 },
@@ -49,7 +57,7 @@ const CONTACTS = [
   { v: 'phone', l: 'Утас',         i: '📞', d: 'Утсаар залгана' },
 ];
 
-export default function NewOrderPage() {
+function NewOrderPage() {
   const router = useRouter();
   const params = useSearchParams();
   const fileRef = useRef<HTMLInputElement>(null);

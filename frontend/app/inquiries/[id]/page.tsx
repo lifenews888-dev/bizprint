@@ -59,12 +59,12 @@ export default function InquiryDetailPage() {
   const [files, setFiles] = useState<File[]>([]);
   const bottomRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
-  const pollRef = useRef<NodeJS.Timeout>();
+  const pollRef = useRef<NodeJS.Timeout>(null);
 
   const token = typeof window !== 'undefined'
     ? (localStorage.getItem('access_token') || localStorage.getItem('token') || '')
     : '';
-  const headers = token ? { Authorization: `Bearer ${token}` } : {};
+  const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
 
   const loadInquiry = async () => {
     const r = await fetch(`${API}/api/inquiries/${id}`, { headers });
@@ -80,7 +80,7 @@ export default function InquiryDetailPage() {
     loadInquiry();
     loadMessages();
     pollRef.current = setInterval(loadMessages, 5000);
-    return () => clearInterval(pollRef.current);
+    return () => { if (pollRef.current) clearInterval(pollRef.current) };
   }, [id]);
 
   useEffect(() => {

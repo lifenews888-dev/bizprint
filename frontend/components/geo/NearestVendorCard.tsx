@@ -152,11 +152,11 @@ export default function NearestVendorCard({ productType, quantity, onVendorSelec
         ))}
       </div>
 
-      {result?.estimatedSavings > 0 && (
+      {(result?.estimatedSavings ?? 0) > 0 && (
         <div className="flex items-center gap-2 px-3 py-2 rounded-xl" style={{ background: 'rgba(5,150,105,0.06)', border: '1px solid rgba(5,150,105,0.15)' }}>
           <span style={{ color: '#059669' }}>✓</span>
           <p className="text-xs" style={{ color: '#059669' }}>
-            Ойр үйлдвэр сонгосноор хүргэлтэд <span className="font-medium">{result.estimatedSavings.toLocaleString()}₮</span> хэмнэнэ
+            Ойр үйлдвэр сонгосноор хүргэлтэд <span className="font-medium">{result!.estimatedSavings!.toLocaleString()}₮</span> хэмнэнэ
           </p>
         </div>
       )}
