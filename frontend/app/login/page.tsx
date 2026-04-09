@@ -37,7 +37,7 @@ export default function LoginPage() {
         else if (role === 'courier') router.push('/courier')
         else router.push('/dashboard')
       } else { setError('Имэйл эсвэл нууц үг буруу байна') }
-    } catch { setError('Серверт холбогдож чадсангүй') }
+    } catch (err: any) { setError(err?.message || 'Серверт холбогдож чадсангүй') }
     setLoading(false)
   }
 
