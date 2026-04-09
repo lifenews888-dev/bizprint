@@ -1,8 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { apiFetch } from '@/lib/api';
+import { apiFetch, getToken } from '@/lib/api';
 
 interface DashboardStats {
   production: {
@@ -73,10 +74,13 @@ const NAV_ITEMS = [
 ];
 
 export default function FactoryDashboardPage() {
+  const router = useRouter();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    const token = getToken();
+    if (!token) { router.push('/login'); return; }
     Promise.all([
       apiFetch<any>('/production/summary').catch(() => ({
         queued: 0, printing: 0, finishing: 0, completedToday: 0, rushJobs: 0, avgCompletionHours: 0,

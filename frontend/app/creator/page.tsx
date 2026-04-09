@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
-import { apiFetch } from '@/lib/api'
+import { useRouter } from 'next/navigation'
+import { apiFetch, getToken } from '@/lib/api'
 
 const STAT_CARDS = [
   { key: 'active_jobs', label: 'Идэвхтэй ажил', icon: '🎯', color: '#FF6B00' },
@@ -12,6 +13,7 @@ const STAT_CARDS = [
 ]
 
 export default function CreatorDashboard() {
+  const router = useRouter()
   const [earnings, setEarnings] = useState<any>(null)
   const [projects, setProjects] = useState<any[]>([])
   const [jobs, setJobs] = useState<any[]>([])
@@ -21,6 +23,8 @@ export default function CreatorDashboard() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    const token = getToken()
+    if (!token) { router.push('/login'); return }
     // Read capabilities from localStorage user
     try {
       const u = JSON.parse(localStorage.getItem('user') || '{}')
