@@ -2,8 +2,14 @@
 import { useState, useEffect } from 'react'
 import { useParams } from 'next/navigation'
 import { notFound } from 'next/navigation'
+import DOMPurify from 'dompurify'
 
 const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'
+
+function sanitizeHtml(html: string): string {
+  if (typeof window === 'undefined') return html
+  return DOMPurify.sanitize(html, { ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'a', 'ul', 'ol', 'li', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'img', 'blockquote', 'span', 'div', 'table', 'tr', 'td', 'th', 'thead', 'tbody'], ALLOWED_ATTR: ['href', 'src', 'alt', 'class', 'style', 'target'] })
+}
 
 interface PageData {
   id: string; title: string; slug: string; content: string
@@ -36,7 +42,7 @@ export default function DynamicPage() {
   return (
     <div style={{ maxWidth: 800, margin: '0 auto', padding: '40px 20px' }}>
       <h1 style={{ fontSize: 32, fontWeight: 800, marginBottom: 16 }}>{page.title}</h1>
-      {page.content && <div dangerouslySetInnerHTML={{ __html: page.content }} style={{ fontSize: 16, lineHeight: 1.8, color: '#374151' }} />}
+      {page.content && <div dangerouslySetInnerHTML={{ __html: sanitizeHtml(page.content) }} style={{ fontSize: 16, lineHeight: 1.8, color: '#374151' }} />}
     </div>
   )
 }
@@ -45,7 +51,7 @@ function ContactTemplate({ page }: { page: PageData }) {
   return (
     <div style={{ maxWidth: 700, margin: '0 auto', padding: '40px 20px' }}>
       <h1 style={{ fontSize: 28, fontWeight: 800, marginBottom: 8 }}>{page.title}</h1>
-      {page.content && <div dangerouslySetInnerHTML={{ __html: page.content }} style={{ marginBottom: 24, color: '#555', lineHeight: 1.7 }} />}
+      {page.content && <div dangerouslySetInnerHTML={{ __html: sanitizeHtml(page.content) }} style={{ marginBottom: 24, color: '#555', lineHeight: 1.7 }} />}
       <div style={{ background: '#f8f9fa', borderRadius: 12, padding: 24, border: '1px solid #e5e7eb' }}>
         <div style={{ display: 'grid', gap: 12 }}>
           <input placeholder="Нэр" style={inputStyle} />
@@ -86,7 +92,7 @@ function LandingTemplate({ page }: { page: PageData }) {
         {page.metadata?.subtitle && <p style={{ fontSize: 18, opacity: 0.9 }}>{page.metadata.subtitle}</p>}
       </div>
       <div style={{ maxWidth: 800, margin: '0 auto', padding: '40px 20px' }}>
-        {page.content && <div dangerouslySetInnerHTML={{ __html: page.content }} style={{ fontSize: 16, lineHeight: 1.8, color: '#374151' }} />}
+        {page.content && <div dangerouslySetInnerHTML={{ __html: sanitizeHtml(page.content) }} style={{ fontSize: 16, lineHeight: 1.8, color: '#374151' }} />}
       </div>
     </div>
   )

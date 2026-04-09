@@ -17,7 +17,7 @@ import { MailModule } from '../mail/mail.module';
     PassportModule,
     MailModule,
     JwtModule.register({
-      secret: 'bizprint_super_secret_key_2026',
+      secret: process.env.JWT_SECRET || 'bizprint_super_secret_key_2026',
       signOptions: { expiresIn: '15m' },
     }),
   ],

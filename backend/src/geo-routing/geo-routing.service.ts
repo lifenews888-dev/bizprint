@@ -82,7 +82,7 @@ export class GeoRoutingService {
   ): Promise<GeoRoutingResult> {
     const { productType, maxDistanceKm = 50, strategy = 'best_score', limit = 5 } = options;
 
-    const vendors = await this.vendorRepo.find({ where: { status: 'active' } });
+    const vendors = await this.vendorRepo.find({ where: { status: 'active' as any } });
 
     const vendorsWithDistance: VendorWithDistance[] = vendors
       .filter(v => (v as any).latitude && (v as any).longitude)
@@ -191,3 +191,4 @@ export class GeoRoutingService {
     return { lat: 47.9138, lng: 106.9057 };
   }
 }
+

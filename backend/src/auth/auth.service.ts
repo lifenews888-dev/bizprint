@@ -194,7 +194,7 @@ export class AuthService {
       is_creator: user.is_creator || false,
     };
 
-    const access_token = this.jwtService.sign(payload, { expiresIn: '7d' });
+    const access_token = this.jwtService.sign(payload, { expiresIn: '15m' });
 
     // Generate refresh token
     const refreshTokenStr = randomBytes(64).toString('hex');

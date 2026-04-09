@@ -8,19 +8,27 @@ import { join } from 'path';
 import { mkdirSync } from 'fs';
 import { ResponseInterceptor } from './common/interceptors/response.interceptor';
 import { ErrorLoggerFilter } from './common/filters/error-logger.filter';
+import { ValidationPipe } from '@nestjs/common';
 import { systemLogger } from './common/logger';
+import helmet from 'helmet';
 
 async function bootstrap() {
   try { mkdirSync(join(process.cwd(), 'logs'), { recursive: true }); } catch {}
 
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  app.use(helmet());
   app.useGlobalInterceptors(new ResponseInterceptor());
   app.useGlobalFilters(new ErrorLoggerFilter());
+  app.useGlobalPipes(new ValidationPipe({
+    whitelist: true,
+    forbidNonWhitelisted: true,
+    transform: true,
+  }));
 
   // CORS
   const allowedOrigins = process.env.CORS_ORIGINS
     ? process.env.CORS_ORIGINS.split(',').map(s => s.trim())
-    : true;
+    : ['http://localhost:3000', 'http://localhost:3001'];
 
   app.enableCors({
     origin: allowedOrigins,

@@ -99,8 +99,8 @@ import { GeoRoutingModule } from './geo-routing/geo-routing.module'
             type: 'postgres',
             url: process.env.DATABASE_URL,
             autoLoadEntities: true,
-            synchronize: true,
-            ssl: process.env.DATABASE_SSL === 'true' ? { rejectUnauthorized: false } : false,
+            synchronize: process.env.NODE_ENV !== 'production',
+            ssl: process.env.DATABASE_SSL === 'true' ? { rejectUnauthorized: true } : false,
             logging: false,
           }
         : {
@@ -111,7 +111,7 @@ import { GeoRoutingModule } from './geo-routing/geo-routing.module'
             password: process.env.DB_PASSWORD || process.env.DB_PASS || 'postgres',
             database: process.env.DB_DATABASE || process.env.DB_NAME || 'bizprint',
             autoLoadEntities: true,
-            synchronize: true,
+            synchronize: process.env.NODE_ENV !== 'production',
             dropSchema: false,
             logging: false,
           },

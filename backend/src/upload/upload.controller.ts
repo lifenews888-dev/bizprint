@@ -15,7 +15,7 @@ export class UploadController {
   @UseGuards(JwtAuthGuard)
   @UseInterceptors(FileInterceptor('file', {
     storage: memoryStorage(),
-    limits: { fileSize: 50 * 1024 * 1024 }, // 50 MB max
+    limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB max
   }))
   uploadFile(@UploadedFile() file: Express.Multer.File) {
     return this.uploadService.processFile(file);
