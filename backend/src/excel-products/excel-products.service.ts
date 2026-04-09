@@ -358,8 +358,26 @@ export class ExcelProductsService {
       }
     }
 
-    this.logger.log(`Cleanup: ${deletedDemo} demo deleted, ${imagesFixed} images fixed, ${mastersCleaned} masters updated`);
-    return { deletedDemo, imagesFixed, mastersCleaned };
+    // 4. Clear invalid thumbnail URLs (google search, vistaprint pages — not actual images)
+    const allProducts = await this.productRepo.find();
+    let urlsCleaned = 0;
+    for (const p of allProducts) {
+      const url = p.thumbnail_url || '';
+      const isInvalid = !url || url.includes('google.com/search') || url.includes('vistaprint.com') || (!url.endsWith('.jpg') && !url.endsWith('.png') && !url.endsWith('.webp') && !url.includes('cloudinary') && !url.includes('unsplash') && !url.includes('.jpeg'));
+      if (isInvalid && url) {
+        p.thumbnail_url = null;
+        p.images = null;
+        urlsCleaned++;
+      }
+    }
+    if (urlsCleaned > 0) {
+      for (let i = 0; i < allProducts.length; i += 50) {
+        await this.productRepo.save(allProducts.slice(i, i + 50));
+      }
+    }
+
+    this.logger.log(`Cleanup: ${deletedDemo} demo deleted, ${imagesFixed} images fixed, ${mastersCleaned} masters updated, ${urlsCleaned} invalid URLs cleared`);
+    return { deletedDemo, imagesFixed, mastersCleaned, urlsCleaned };
   }
 
   async exportToExcel(filters: { productType?: string; topMenu?: string; status?: string }): Promise<Buffer> {
