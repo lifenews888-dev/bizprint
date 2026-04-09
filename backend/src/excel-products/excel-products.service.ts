@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, In } from 'typeorm';
 import { Product } from '../products/product.entity';
 import * as ExcelJS from 'exceljs';
 
@@ -29,16 +29,20 @@ export class ExcelProductsService {
     const wb = new ExcelJS.Workbook();
     await wb.xlsx.load(buffer as any);
 
-    let imported = 0;
-    let skipped = 0;
     const errors: { row: number; sheet: string; message: string }[] = [];
     const preview: any[] = [];
+    const toSave: Product[] = [];
 
-    this.logger.log(`Workbook loaded. Sheets: ${wb.worksheets.map(s => s.name).join(', ')}`);
+    // Get all existing slugs in one query
+    const existingSlugs = new Set(
+      (await this.productRepo.find({ select: ['slug'] })).map(p => p.slug),
+    );
+    let skipped = 0;
+
+    this.logger.log(`Workbook loaded. Sheets: ${wb.worksheets.map(s => s.name).join(', ')}. Existing slugs: ${existingSlugs.size}`);
 
     // Sheet 1: "Вэб — Vistaprint"
     const ws1 = wb.getWorksheet('Вэб — Vistaprint');
-    this.logger.log(`Sheet1 found: ${!!ws1}, rows: ${ws1?.rowCount || 0}`);
     if (ws1) {
       for (let r = 2; r <= ws1.rowCount; r++) {
         try {
@@ -46,16 +50,14 @@ export class ExcelProductsService {
           const name = this.cellStr(row, 2);
           const slug = this.cellStr(row, 3);
           if (!name || !slug) continue;
-
-          const exists = await this.productRepo.findOne({ where: { slug } });
-          if (exists) { skipped++; continue; }
+          if (existingSlugs.has(slug)) { skipped++; continue; }
+          existingSlugs.add(slug);
 
           const topMenuRaw = this.cellStr(row, 16);
           const topMenu = TOP_MENU_MAP[topMenuRaw?.toUpperCase()] || 'offset';
-          const statusRaw = this.cellStr(row, 15);
-          const isActive = statusRaw === 'Бэлэн';
+          const isActive = this.cellStr(row, 15) === 'Бэлэн';
 
-          const product = this.productRepo.create({
+          toSave.push(this.productRepo.create({
             product_type: 'shop',
             name: name.replace(/Vistaprint/gi, 'BizPrint'),
             name_mn: name.replace(/Vistaprint/gi, 'BizPrint'),
@@ -79,12 +81,10 @@ export class ExcelProductsService {
               shop_slug: this.cellStr(row, 17) || '',
               shop_category: this.cellStr(row, 18) || '',
             },
-          });
+          }));
 
-          await this.productRepo.save(product);
-          imported++;
           if (preview.length < 10) {
-            preview.push({ name: product.name, category: product.category, product_type: product.product_type, price: product.base_price, status: isActive ? 'active' : 'draft' });
+            preview.push({ name: name.replace(/Vistaprint/gi, 'BizPrint'), category: this.cellStr(row, 4), product_type: 'shop', price: this.cellNum(row, 11) || 0, status: isActive ? 'active' : 'draft' });
           }
         } catch (e: any) {
           errors.push({ row: r, sheet: 'Вэб — Vistaprint', message: e.message?.substring(0, 100) });
@@ -101,24 +101,19 @@ export class ExcelProductsService {
           const name = this.cellStr(row, 2);
           const slug = this.cellStr(row, 3);
           if (!name || !slug) continue;
-
-          const exists = await this.productRepo.findOne({ where: { slug } });
-          if (exists) { skipped++; continue; }
+          if (existingSlugs.has(slug)) { skipped++; continue; }
+          existingSlugs.add(slug);
 
           const categoryRaw = this.cellStr(row, 4) || '';
           const topMenuRaw = this.cellStr(row, 17) || '';
           const topMenu = TOP_MENU_MAP[topMenuRaw?.toUpperCase()] || 'digital';
-
-          const isSignage = categoryRaw.toLowerCase().includes('sign') ||
-            topMenuRaw.toUpperCase().includes('ӨРГӨН');
+          const isSignage = categoryRaw.toLowerCase().includes('sign') || topMenuRaw.toUpperCase().includes('ӨРГӨН');
           const productType = isSignage ? 'signage' : 'print';
-          const statusRaw = this.cellStr(row, 16);
-          const isActive = statusRaw === 'Бэлэн';
-
+          const isActive = this.cellStr(row, 16) === 'Бэлэн';
           const priceExclVat = this.cellNum(row, 12) || 0;
           const priceInclVat = this.cellNum(row, 13) || priceExclVat;
 
-          const product = this.productRepo.create({
+          toSave.push(this.productRepo.create({
             product_type: productType,
             name: name.replace(/Vistaprint/gi, 'BizPrint'),
             name_mn: name.replace(/Vistaprint/gi, 'BizPrint'),
@@ -144,15 +139,29 @@ export class ExcelProductsService {
               shop_slug: this.cellStr(row, 18) || '',
               shop_category: this.cellStr(row, 19) || '',
             },
-          });
+          }));
 
-          await this.productRepo.save(product);
-          imported++;
           if (preview.length < 10) {
-            preview.push({ name: product.name, category: product.category, product_type: product.product_type, price: product.base_price, status: isActive ? 'active' : 'draft' });
+            preview.push({ name: name.replace(/Vistaprint/gi, 'BizPrint'), category: categoryRaw, product_type: productType, price: priceInclVat, status: isActive ? 'active' : 'draft' });
           }
         } catch (e: any) {
           errors.push({ row: r, sheet: 'Вэб — Хэвлэл', message: e.message?.substring(0, 100) });
+        }
+      }
+    }
+
+    // Batch save in chunks of 50
+    let imported = 0;
+    for (let i = 0; i < toSave.length; i += 50) {
+      const chunk = toSave.slice(i, i + 50);
+      try {
+        await this.productRepo.save(chunk);
+        imported += chunk.length;
+      } catch (e: any) {
+        // Fallback: save one by one
+        for (const p of chunk) {
+          try { await this.productRepo.save(p); imported++; }
+          catch (e2: any) { errors.push({ row: 0, sheet: 'batch', message: `${p.slug}: ${e2.message?.substring(0, 80)}` }); }
         }
       }
     }
@@ -168,12 +177,10 @@ export class ExcelProductsService {
     if (filters.status === 'draft') qb.andWhere('p.is_active = false');
     if (filters.topMenu) qb.andWhere("p.compare_specs->>'top_menu' = :tm", { tm: filters.topMenu });
     qb.orderBy('p.created_at', 'DESC');
-
     const products = await qb.getMany();
 
     const wb = new ExcelJS.Workbook();
     const ws = wb.addWorksheet('Бүтээгдэхүүн');
-
     ws.columns = [
       { header: 'ID', key: 'id', width: 10 },
       { header: 'Нэр', key: 'name', width: 30 },
@@ -186,11 +193,8 @@ export class ExcelProductsService {
       { header: 'Статус', key: 'status', width: 10 },
       { header: 'Зураг', key: 'thumbnail_url', width: 30 },
     ];
-
-    // Style header
-    ws.getRow(1).font = { bold: true };
-    ws.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF6B00' } };
     ws.getRow(1).font = { bold: true, color: { argb: 'FFFFFF' } };
+    ws.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF6B00' } };
 
     for (const p of products) {
       ws.addRow({
@@ -206,15 +210,12 @@ export class ExcelProductsService {
         thumbnail_url: p.thumbnail_url || '',
       });
     }
-
     const buf = await wb.xlsx.writeBuffer();
     return Buffer.from(buf);
   }
 
   async generateTemplate(): Promise<Buffer> {
     const wb = new ExcelJS.Workbook();
-
-    // Sheet 1: Shop products
     const ws1 = wb.addWorksheet('Дэлгүүр (Shop)');
     ws1.columns = [
       { header: 'Бүтээгдэхүүний нэр', key: 'name', width: 30 },
@@ -235,9 +236,8 @@ export class ExcelProductsService {
       { header: 'Shop Ангилал', key: 'shop_cat', width: 15 },
     ];
     ws1.getRow(1).font = { bold: true };
-    ws1.addRow({ name: 'Жишээ бүтээгдэхүүн', slug: 'jishee-product', category: 'Нэрийн хуудас', subcategory: 'Стандарт', seo: 'SEO тайлбар', description: 'Тайлбар', features: '<ul><li>Онцлог</li></ul>', image: '', alt: 'Alt text', price: 1000, qty: '50-с дээш', variants: 'Гялгар / Матт', status: 'Бэлэн', top_menu: 'ОФСЕТ ХЭВЛЭЛ', shop_slug: 'business-card', shop_cat: 'Визит карт' });
+    ws1.addRow({ name: 'Жишээ', slug: 'jishee', category: 'Нэрийн хуудас', subcategory: 'Стандарт', seo: 'SEO', description: 'Тайлбар', features: '<ul><li>Онцлог</li></ul>', image: '', alt: 'Alt', price: 1000, qty: '50+', variants: 'Гялгар', status: 'Бэлэн', top_menu: 'ОФСЕТ ХЭВЛЭЛ', shop_slug: 'business-card', shop_cat: 'Визит карт' });
 
-    // Sheet 2: Print products
     const ws2 = wb.addWorksheet('Хэвлэмэл (Print)');
     ws2.columns = [
       { header: 'Бүтээгдэхүүний нэр', key: 'name', width: 30 },
@@ -260,7 +260,7 @@ export class ExcelProductsService {
       { header: 'Shop Ангилал', key: 'shop_cat', width: 15 },
     ];
     ws2.getRow(1).font = { bold: true };
-    ws2.addRow({ name: 'Стенд — 160х60', slug: 'stend-160x60', category: 'Өргөн хэвлэл', subcategory: 'Стенд', seo: 'SEO тайлбар', description: 'Тайлбар', features: '<ul><li>Онцлог</li></ul>', material: 'PVC', image: '', alt: 'Alt text', price_excl: 55000, price_incl: 60500, unit: 'ш', qty: '', status: 'Бэлэн', top_menu: 'ӨРГӨН ФОРМАТ', shop_slug: 'banner', shop_cat: 'Баннер' });
+    ws2.addRow({ name: 'Стенд — 160х60', slug: 'stend-160x60', category: 'Өргөн хэвлэл', subcategory: 'Стенд', seo: 'SEO', description: 'Тайлбар', features: '<ul><li>Онцлог</li></ul>', material: 'PVC', image: '', alt: 'Alt', price_excl: 55000, price_incl: 60500, unit: 'ш', qty: '', status: 'Бэлэн', top_menu: 'ӨРГӨН ФОРМАТ', shop_slug: 'banner', shop_cat: 'Баннер' });
 
     const buf = await wb.xlsx.writeBuffer();
     return Buffer.from(buf);
