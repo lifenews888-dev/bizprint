@@ -44,6 +44,63 @@ export class ExcelProductsService {
 
     this.logger.log(`Workbook loaded. Sheets: ${wb.worksheets.map(s => s.name).join(', ')}. Existing slugs: ${existingSlugs.size}`);
 
+    // Try Unified Import sheet first
+    const wsUnified = wb.getWorksheet('Unified Import');
+    if (wsUnified) {
+      this.logger.log(`Unified Import sheet found: ${wsUnified.rowCount} rows`);
+      for (let r = 2; r <= wsUnified.rowCount; r++) {
+        try {
+          const row = wsUnified.getRow(r);
+          const name = this.cellStr(row, 5);
+          const slug = this.cellStr(row, 6);
+          const productType = this.cellStr(row, 4);
+          if (!name || !slug || !productType || slug === '───') continue;
+          if (existingSlugs.has(slug)) { skipped++; continue; }
+          existingSlugs.add(slug);
+
+          const isActive = this.cellStr(row, 25) === 'active';
+          const isSignage = productType === 'signage';
+
+          toSave.push(this.productRepo.create({
+            product_type: productType,
+            name, name_mn: name, slug,
+            category: this.cellStr(row, 10) || '',
+            subcategory: this.cellStr(row, 11) || null,
+            description: this.cellStr(row, 13) || null,
+            base_price: this.cellNum(row, 18) || this.cellNum(row, 20) || 0,
+            thumbnail_url: this.cellStr(row, 16) || null,
+            is_active: isActive,
+            pricing_mode: isSignage ? 'formula' : 'fixed',
+            requires_file_upload: false,
+            requires_dimensions: isSignage,
+            compare_specs: {
+              seo_description: this.cellStr(row, 12) || '',
+              features_html: this.cellStr(row, 14) || '',
+              material: this.cellStr(row, 15) || '',
+              image_alt: this.cellStr(row, 17) || '',
+              price_excl_vat: String(this.cellNum(row, 19) || ''),
+              price_usd: String(this.cellNum(row, 21) || ''),
+              unit: this.cellStr(row, 22) || '',
+              qty_condition: this.cellStr(row, 23) || '',
+              variants: this.cellStr(row, 24) || '',
+              top_menu: this.cellStr(row, 7) || '',
+              shop_slug: this.cellStr(row, 8) || '',
+              shop_category: this.cellStr(row, 9) || '',
+              source: this.cellStr(row, 3) || '',
+              global_id: this.cellStr(row, 2) || '',
+            },
+          }));
+
+          if (preview.length < 10) {
+            preview.push({ name, category: this.cellStr(row, 10), product_type: productType, price: this.cellNum(row, 18) || this.cellNum(row, 20) || 0, status: isActive ? 'active' : 'draft' });
+          }
+        } catch (e: any) {
+          errors.push({ row: r, sheet: 'Unified Import', message: e.message?.substring(0, 100) });
+        }
+      }
+      // Skip legacy sheets if unified found
+    } else {
+
     // Sheet 1: "Вэб — Vistaprint"
     const ws1 = wb.getWorksheet('Вэб — Vistaprint');
     if (ws1) {
@@ -152,6 +209,8 @@ export class ExcelProductsService {
         }
       }
     }
+
+    } // end else (legacy sheets)
 
     // Batch save in chunks of 50 — save to BOTH products and product_masters
     let imported = 0;
