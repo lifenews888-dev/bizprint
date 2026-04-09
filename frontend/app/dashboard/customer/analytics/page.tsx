@@ -20,7 +20,7 @@ export default function AnalyticsDashboard() {
     setLoading(true)
     const token = localStorage.getItem('access_token') || localStorage.getItem('token')
     if (!token) { setLoading(false); return }
-    fetch(`http://localhost:4000/analytics/my?days=${days}`, { headers: { Authorization: `Bearer ${token}` } })
+    fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/analytics/my?days=${days}`, { headers: { Authorization: `Bearer ${token}` } })
       .then(r => r.ok ? r.json() : null)
       .then(d => setStats(d))
       .catch(() => {})

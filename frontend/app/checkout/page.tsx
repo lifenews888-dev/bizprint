@@ -300,7 +300,7 @@ function CheckoutInner() {
             <div style={{ background: '#F0FDF4', border: '1px solid #86EFAC', borderRadius: 14, padding: 20, marginBottom: 20, textAlign: 'center' }}>
               <p style={{ fontWeight: 700, fontSize: 15, margin: '0 0 12px', color: '#166534' }}>📱 QR кодоор төлөх</p>
               {paymentData.qrImage ? (
-                <img src={`data:image/png;base64,${paymentData.qrImage}`} alt="QR" style={{ width: 200, height: 200, margin: '0 auto 12px', display: 'block', borderRadius: 8 }} />
+                <img src={`data:image/png;base64,${paymentData.qrImage}`} alt="QR" style={{ width: '100%', maxWidth: 200, height: 'auto', margin: '0 auto 12px', display: 'block', borderRadius: 8 }} />
               ) : (
                 <p style={{ fontSize: 13, color: '#166534' }}>QR код үүсгэгдэж байна...</p>
               )}

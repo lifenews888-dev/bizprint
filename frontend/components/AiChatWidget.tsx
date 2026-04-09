@@ -182,7 +182,7 @@ export default function AiChatWidget() {
   // ─── Floating button + promo bubble ─────────────────────────
   if (!open) {
     return (
-      <div className="fixed bottom-6 left-6 z-[9999] flex flex-col items-start gap-2">
+      <div className="ai-chat-btn fixed bottom-6 left-6 z-[9999] flex flex-col items-start gap-2">
         {/* Promo bubble */}
         {promoVisible && (
           <div className="relative bg-white dark:bg-[var(--surface)] border border-[var(--border)] rounded-xl px-4 py-2.5 shadow-lg max-w-[260px] animate-in slide-in-from-bottom-2 fade-in duration-300">
@@ -211,7 +211,7 @@ export default function AiChatWidget() {
 
   // ─── Chat panel ─────────────────────────────────────────────
   return (
-    <div className="fixed bottom-6 left-6 w-[380px] max-w-[calc(100vw-24px)] rounded-2xl border border-[var(--border)] bg-[var(--surface)] shadow-2xl z-[9999] flex flex-col overflow-hidden"
+    <div className="ai-chat-panel fixed bottom-6 left-6 w-[380px] max-w-[calc(100vw-24px)] rounded-2xl border border-[var(--border)] bg-[var(--surface)] shadow-2xl z-[9999] flex flex-col overflow-hidden"
       style={{ height: 540, maxHeight: 'calc(100vh - 48px)' }}>
 
       {/* Header */}

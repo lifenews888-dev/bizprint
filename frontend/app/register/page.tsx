@@ -160,7 +160,7 @@ export default function RegisterPage() {
       <div className="flex-1 flex items-center justify-center p-6 md:p-10" style={{ background: '#111' }}>
         <div className="w-full max-w-[420px]">
           {/* Mobile logo */}
-          <div className="show-mobile hidden mb-8 text-center">
+          <div className="show-mobile mb-8 text-center">
             <a href="/" className="text-[22px] font-bold text-[#F1F5F9] no-underline"><span className="text-[#FF6B00]">Biz</span>Print</a>
           </div>
 

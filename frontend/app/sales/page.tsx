@@ -7,7 +7,7 @@ import KpiCard from '@/components/dashboard/KpiCard'
 import { useRoleGuard } from '@/lib/use-role-guard'
 import { SALES_MENU } from '@/config/sidebar-config'
 
-const BASE_URL = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000'
+const BASE_URL = typeof window !== 'undefined' ? window.location.origin : (process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000')
 
 interface ReferralData {
   code: string

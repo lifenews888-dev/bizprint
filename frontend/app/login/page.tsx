@@ -106,7 +106,7 @@ export default function LoginPage() {
         <div style={{ width: '100%', maxWidth: '380px' }}>
 
           {/* Mobile лого */}
-          <div className="show-mobile" style={{ display: 'none', marginBottom: 32, textAlign: 'center' }}>
+          <div className="show-mobile" style={{ marginBottom: 32, textAlign: 'center' }}>
             <a href="/" style={{ fontSize: '22px', fontWeight: 700, color: '#F1F5F9', textDecoration: 'none' }}>
               <span style={{ color: 'var(--orange)' }}>Biz</span>Print
             </a>

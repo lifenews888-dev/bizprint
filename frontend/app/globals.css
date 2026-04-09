@@ -256,12 +256,24 @@ body {
 /* ===== CHAT RESPONSIVE ===== */
 @media (max-width: 768px) {
   .chat-widget {
-    bottom: 70px !important;
+    bottom: 84px !important;
     right: 12px !important;
   }
   .chat-box {
     width: calc(100vw - 24px) !important;
+    max-height: calc(100vh - 160px) !important;
+    bottom: 84px !important;
     right: 0 !important;
+    left: 12px !important;
+  }
+  .ai-chat-btn {
+    bottom: 84px !important;
+    left: 12px !important;
+  }
+  .ai-chat-panel {
+    width: calc(100vw - 24px) !important;
+    max-height: calc(100vh - 160px) !important;
+    bottom: 84px !important;
     left: 12px !important;
   }
 }

@@ -35,16 +35,19 @@ export default function CustomerLayout({ children }: { children: React.ReactNode
   const router = useRouter()
   const path = usePathname()
   const [user, setUser] = useState<any>(null)
+  const [mobileNav, setMobileNav] = useState(false)
 
   useEffect(() => {
+    const token = localStorage.getItem('access_token') || localStorage.getItem('token')
+    if (!token) { router.push('/login'); return }
     const stored = localStorage.getItem('user')
     if (stored) try { setUser(JSON.parse(stored)) } catch {}
-  }, [])
+  }, [router])
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh', background: 'var(--bg)', fontFamily: FONT, color: 'var(--text)' }}>
-      {/* Sidebar */}
-      <div style={{ width: 224, minWidth: 224, height: '100vh', background: 'var(--surface)', borderRight: '1px solid var(--border)', display: 'flex', flexDirection: 'column', position: 'sticky', top: 0, zIndex: 20 }}>
+      {/* Sidebar - hidden on mobile */}
+      <div className="hidden md:flex" style={{ width: 224, minWidth: 224, height: '100vh', background: 'var(--surface)', borderRight: '1px solid var(--border)', flexDirection: 'column', position: 'sticky', top: 0, zIndex: 20 }}>
         {/* Logo */}
         <div onClick={() => router.push('/')} style={{ height: 54, padding: '0 14px', display: 'flex', alignItems: 'center', gap: 8, borderBottom: '1px solid var(--border)', cursor: 'pointer' }}>
           <div style={{ width: 26, height: 26, background: ORANGE, borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
@@ -97,6 +100,57 @@ export default function CustomerLayout({ children }: { children: React.ReactNode
           <button onClick={() => { localStorage.clear(); router.push('/') }} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 9, padding: '8px 10px', borderRadius: 8, border: 'none', background: 'transparent', color: 'var(--text4)', cursor: 'pointer', fontSize: 13 }}>🚪 Гарах</button>
         </div>
       </div>
+
+      {/* Mobile top bar */}
+      <div className="flex md:hidden items-center justify-between px-4 py-3 border-b border-[var(--border)] bg-[var(--surface)] sticky top-0 z-30">
+        <button onClick={() => setMobileNav(!mobileNav)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 20, color: 'var(--text)' }}>
+          {mobileNav ? '✕' : '☰'}
+        </button>
+        <div style={{ fontSize: 15, fontWeight: 600 }}><span style={{ color: ORANGE }}>Biz</span>Print</div>
+        <div style={{ width: 28 }} />
+      </div>
+
+      {/* Mobile nav overlay */}
+      {mobileNav && (
+        <div className="fixed inset-0 z-40 bg-black/50 md:hidden" onClick={() => setMobileNav(false)}>
+          <div className="w-[260px] h-full bg-[var(--surface)] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <div style={{ padding: '16px 14px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 8 }}>
+              <div style={{ width: 32, height: 32, borderRadius: '50%', background: ORANGE, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 600 }}>
+                {user?.full_name?.charAt(0)?.toUpperCase() || 'U'}
+              </div>
+              <div>
+                <div style={{ fontSize: 14, fontWeight: 500 }}>{user?.full_name || 'Хэрэглэгч'}</div>
+                <span style={{ fontSize: 10, color: ORANGE }}>customer</span>
+              </div>
+            </div>
+            <div style={{ padding: 6 }}>
+              {NAV.map(group => (
+                <div key={group.section}>
+                  <div style={{ fontSize: 10, fontWeight: 600, color: 'var(--text4)', letterSpacing: '0.1em', padding: '10px 10px 4px', textTransform: 'uppercase' }}>{group.section}</div>
+                  {group.items.map(item => {
+                    const active = path === item.href || (item.href !== '/dashboard' && path.startsWith(item.href))
+                    return (
+                      <button key={item.href} onClick={() => { router.push(item.href); setMobileNav(false) }} style={{
+                        width: '100%', display: 'flex', alignItems: 'center', gap: 9, padding: '10px 10px',
+                        borderRadius: 8, border: 'none', cursor: 'pointer', fontSize: 14, marginBottom: 1,
+                        background: active ? 'rgba(255,107,0,0.1)' : 'transparent',
+                        color: active ? ORANGE : 'var(--text3)', fontWeight: active ? 500 : 400,
+                      }}>
+                        <span style={{ fontSize: 16, width: 18 }}>{item.icon}</span>
+                        <span>{item.label}</span>
+                      </button>
+                    )
+                  })}
+                </div>
+              ))}
+            </div>
+            <div style={{ borderTop: '1px solid var(--border)', padding: '8px 6px' }}>
+              <button onClick={() => router.push('/')} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 9, padding: '10px', borderRadius: 8, border: 'none', background: 'transparent', color: 'var(--text4)', cursor: 'pointer', fontSize: 14 }}>↗ Сайт</button>
+              <button onClick={() => { localStorage.clear(); router.push('/') }} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 9, padding: '10px', borderRadius: 8, border: 'none', background: 'transparent', color: 'var(--text4)', cursor: 'pointer', fontSize: 14 }}>🚪 Гарах</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Main content */}
       <div style={{ flex: 1, minWidth: 0, overflowY: 'auto' }}>

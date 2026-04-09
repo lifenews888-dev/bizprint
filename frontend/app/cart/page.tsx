@@ -170,7 +170,7 @@ export default function CartPage() {
                 ].map(t => (
                   <div key={t.label} className="flex flex-col items-center gap-1 text-center">
                     <t.icon className="w-4 h-4 text-[var(--text3)]" strokeWidth={1.2} />
-                    <span className="text-[9px] text-[var(--text3)] font-medium">{t.label}</span>
+                    <span className="text-[11px] text-[var(--text3)] font-medium">{t.label}</span>
                   </div>
                 ))}
               </div>

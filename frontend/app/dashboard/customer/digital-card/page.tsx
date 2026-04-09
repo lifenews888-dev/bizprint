@@ -23,7 +23,7 @@ export default function DigitalCardDashboard() {
   const card = data?.card
   const sub = data?.subscription
   const settings = data?.settings
-  const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'https://bizprint.mn'
+  const baseUrl = typeof window !== 'undefined' ? window.location.origin : (process.env.NEXT_PUBLIC_SITE_URL || 'https://bizprint.mn')
   const cardUrl = card ? `${baseUrl}/u/${card.slug}` : null
 
   const statusLabel: Record<string, { text: string; color: string; bg: string }> = {

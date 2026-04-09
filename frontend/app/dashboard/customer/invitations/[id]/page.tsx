@@ -46,7 +46,7 @@ export default function InvitationDetail() {
   if (loading) return <div style={{ padding: 40, textAlign: 'center', fontFamily: FONT, color: '#9CA3AF' }}>Ачааллаж байна...</div>
   if (!inv) return <div style={{ padding: 40, textAlign: 'center', fontFamily: FONT, color: '#EF4444' }}>Урилга олдсонгүй</div>
 
-  const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'https://bizprint.mn'
+  const baseUrl = typeof window !== 'undefined' ? window.location.origin : (process.env.NEXT_PUBLIC_SITE_URL || 'https://bizprint.mn')
   const inviteUrl = `${baseUrl}/invite/${inv.slug}`
 
   return (

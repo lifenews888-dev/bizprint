@@ -4,7 +4,7 @@ import { QRCodeCanvas } from 'qrcode.react'
 import { QrCode, Copy, Download, X, Check, ExternalLink } from 'lucide-react'
 import { toast } from 'sonner'
 
-const SITE_URL = typeof window !== 'undefined' ? window.location.origin : 'https://bizprint.mn'
+const SITE_URL = typeof window !== 'undefined' ? window.location.origin : (process.env.NEXT_PUBLIC_SITE_URL || 'https://bizprint.mn')
 
 interface Props {
   product: { id: string; name_mn?: string; name?: string; slug?: string }
