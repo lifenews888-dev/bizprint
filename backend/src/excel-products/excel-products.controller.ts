@@ -60,6 +60,12 @@ export class ExcelProductsController {
     return this.svc.migrateProductsToMasters();
   }
 
+  @Get('cleanup-demo')
+  @UseGuards(JwtAuthGuard)
+  async cleanupDemo() {
+    return this.svc.cleanupDemoAndFixImages();
+  }
+
   @Get('template')
   async downloadTemplate(@Res() res: Response) {
     const buf = await this.svc.generateTemplate();

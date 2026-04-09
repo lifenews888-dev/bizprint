@@ -301,6 +301,67 @@ export class ExcelProductsService {
     return { migrated, skipped, errors };
   }
 
+  async cleanupDemoAndFixImages(): Promise<{ deletedDemo: number; imagesFixed: number; mastersCleaned: number }> {
+    // 1. Delete demo products (picsum.photos thumbnails)
+    const demoProducts = await this.productRepo
+      .createQueryBuilder('p')
+      .where("p.thumbnail_url LIKE '%picsum.photos%'")
+      .getMany();
+
+    const demoSlugs = demoProducts.map(p => p.slug);
+    let deletedDemo = 0;
+    if (demoProducts.length > 0) {
+      await this.productRepo.remove(demoProducts);
+      deletedDemo = demoProducts.length;
+      // Also delete from product_masters
+      if (demoSlugs.length > 0) {
+        await this.masterRepo
+          .createQueryBuilder()
+          .delete()
+          .where('code IN (:...codes)', { codes: demoSlugs })
+          .execute()
+          .catch(() => {});
+      }
+    }
+
+    // 2. Fix imported products: set images array from thumbnail_url
+    const imported = await this.productRepo
+      .createQueryBuilder('p')
+      .where("p.thumbnail_url IS NOT NULL")
+      .andWhere("p.thumbnail_url != ''")
+      .andWhere("p.thumbnail_url NOT LIKE '%picsum%'")
+      .getMany();
+
+    let imagesFixed = 0;
+    for (const p of imported) {
+      if (p.thumbnail_url && (!p.images || p.images.length === 0)) {
+        p.images = [p.thumbnail_url];
+        imagesFixed++;
+      }
+    }
+    if (imagesFixed > 0) {
+      await this.productRepo.save(imported.filter(p => p.images?.length > 0));
+    }
+
+    // 3. Also update product_masters images
+    let mastersCleaned = 0;
+    const masters = await this.masterRepo.find();
+    for (const m of masters) {
+      if (m.thumbnail_url && (!m.images || m.images.length === 0)) {
+        m.images = [m.thumbnail_url];
+        mastersCleaned++;
+      }
+    }
+    if (mastersCleaned > 0) {
+      for (let i = 0; i < masters.length; i += 50) {
+        await this.masterRepo.save(masters.slice(i, i + 50));
+      }
+    }
+
+    this.logger.log(`Cleanup: ${deletedDemo} demo deleted, ${imagesFixed} images fixed, ${mastersCleaned} masters updated`);
+    return { deletedDemo, imagesFixed, mastersCleaned };
+  }
+
   async exportToExcel(filters: { productType?: string; topMenu?: string; status?: string }): Promise<Buffer> {
     const qb = this.productRepo.createQueryBuilder('p');
     if (filters.productType) qb.andWhere('p.product_type = :pt', { pt: filters.productType });
