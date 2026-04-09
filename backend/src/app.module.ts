@@ -85,6 +85,7 @@ import { ProofingModule } from './proofing/proofing.module'
 import { PrepressModule } from './ai/prepress/prepress.module'
 import { PrintInquiryModule } from './print-inquiry/print-inquiry.module';
 import { GeoRoutingModule } from './geo-routing/geo-routing.module'
+import { ExcelProductsModule } from './excel-products/excel-products.module'
 
 @Module({
   imports: [
@@ -191,6 +192,7 @@ import { GeoRoutingModule } from './geo-routing/geo-routing.module'
     B2BModule,
     ProofingModule,
     PrepressModule,
+    ExcelProductsModule,
   ],
   controllers: [], // PricingCatalogController removed — duplicate
   providers: [],   // PricingCatalogService removed — duplicate

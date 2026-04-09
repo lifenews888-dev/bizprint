@@ -1,5 +1,5 @@
 'use client'
-import { apiFetch, getToken } from '@/lib/api'
+import { apiFetch, getToken, API_URL } from '@/lib/api'
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import ProductMediaUploader from '@/components/ProductMediaUploader'
 import { QrButton } from '@/components/admin/QrModal'
@@ -2145,7 +2145,18 @@ export default function AdminProductsPage() {
 
   return (
     <div className="p-4 md:p-6">
-      <AdminPageHeader title="Бүтээгдэхүүн" description="Бүх бүтээгдэхүүн, дэлгүүр болон загваруудыг удирдах" />
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
+        <AdminPageHeader title="Бүтээгдэхүүн" description="Бүх бүтээгдэхүүн, дэлгүүр болон загваруудыг удирдах" />
+        <div style={{ display: 'flex', gap: 8 }}>
+          <a href={`${API_URL}/api/products/export?productType=${activeTab === 'templates' ? 'design' : activeTab}`}
+            style={{ ...btnSecondary, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+            📥 Excel татах
+          </a>
+          <a href="/admin/import" style={{ ...btnPrimary, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+            📤 Excel оруулах
+          </a>
+        </div>
+      </div>
 
       {/* Type Tabs */}
       <div style={{ display: 'flex', gap: 0, borderBottom: '1px solid var(--border)', marginBottom: 24, overflowX: 'auto' }}>
