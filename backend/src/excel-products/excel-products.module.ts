@@ -1,11 +1,12 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Product } from '../products/product.entity';
+import { ProductMaster } from '../products-master/entities/product-master.entity';
 import { ExcelProductsService } from './excel-products.service';
 import { ExcelProductsController } from './excel-products.controller';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Product])],
+  imports: [TypeOrmModule.forFeature([Product, ProductMaster])],
   controllers: [ExcelProductsController],
   providers: [ExcelProductsService],
   exports: [ExcelProductsService],

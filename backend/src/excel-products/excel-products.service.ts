@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, In } from 'typeorm';
 import { Product } from '../products/product.entity';
+import { ProductMaster } from '../products-master/entities/product-master.entity';
 import * as ExcelJS from 'exceljs';
 
 const TOP_MENU_MAP: Record<string, string> = {
@@ -18,6 +19,8 @@ export class ExcelProductsService {
   constructor(
     @InjectRepository(Product)
     private readonly productRepo: Repository<Product>,
+    @InjectRepository(ProductMaster)
+    private readonly masterRepo: Repository<ProductMaster>,
   ) {}
 
   async importFromExcel(buffer: Buffer | ArrayBuffer): Promise<{
@@ -150,18 +153,42 @@ export class ExcelProductsService {
       }
     }
 
-    // Batch save in chunks of 50
+    // Batch save in chunks of 50 — save to BOTH products and product_masters
     let imported = 0;
+    const mastersToSave: any[] = [];
+
+    for (const p of toSave) {
+      mastersToSave.push(this.masterRepo.create({
+        name_mn: p.name_mn,
+        name_en: p.name,
+        product_type: p.product_type === 'shop' ? 'print' : p.product_type,
+        category: p.category,
+        subcategory: p.subcategory,
+        description: p.description,
+        base_price: p.base_price,
+        thumbnail_url: p.thumbnail_url,
+        is_active: p.is_active,
+        pricing_mode: p.pricing_mode,
+        code: p.slug,
+      }));
+    }
+
     for (let i = 0; i < toSave.length; i += 50) {
       const chunk = toSave.slice(i, i + 50);
+      const masterChunk = mastersToSave.slice(i, i + 50);
       try {
         await this.productRepo.save(chunk);
+        await this.masterRepo.save(masterChunk);
         imported += chunk.length;
       } catch (e: any) {
-        // Fallback: save one by one
-        for (const p of chunk) {
-          try { await this.productRepo.save(p); imported++; }
-          catch (e2: any) { errors.push({ row: 0, sheet: 'batch', message: `${p.slug}: ${e2.message?.substring(0, 80)}` }); }
+        for (let j = 0; j < chunk.length; j++) {
+          try {
+            await this.productRepo.save(chunk[j]);
+            await this.masterRepo.save(masterChunk[j]);
+            imported++;
+          } catch (e2: any) {
+            errors.push({ row: 0, sheet: 'batch', message: `${chunk[j].slug}: ${e2.message?.substring(0, 80)}` });
+          }
         }
       }
     }
