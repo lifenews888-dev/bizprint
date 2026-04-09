@@ -8,7 +8,7 @@ import { Response } from 'express';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ExcelProductsService } from './excel-products.service';
 
-@Controller('products')
+@Controller('excel')
 export class ExcelProductsController {
   constructor(private readonly svc: ExcelProductsService) {}
 

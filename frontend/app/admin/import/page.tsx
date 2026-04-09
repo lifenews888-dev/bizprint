@@ -27,7 +27,7 @@ export default function AdminImportPage() {
     try {
       const fd = new FormData()
       fd.append('file', f)
-      const data = await apiFetch<ImportResult>('/products/import', { method: 'POST', body: fd })
+      const data = await apiFetch<ImportResult>('/excel/import', { method: 'POST', body: fd })
       setResult(data)
     } catch (e: any) {
       setError(e.message || 'Алдаа гарлаа')
@@ -52,7 +52,7 @@ export default function AdminImportPage() {
           <p style={{ fontSize: 13, color: 'var(--text3)', marginTop: 4 }}>Бүтээгдэхүүнийг Excel файлаас оруулах</p>
         </div>
         <a
-          href={`${API_URL}/api/products/template`}
+          href={`${API_URL}/api/excel/template`}
           style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 16px', borderRadius: 8, background: 'var(--surface2)', color: 'var(--text2)', fontSize: 13, textDecoration: 'none', border: '1px solid var(--border)' }}
         >
           <Download className="w-4 h-4" /> Загвар татах

@@ -2148,7 +2148,7 @@ export default function AdminProductsPage() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 12 }}>
         <AdminPageHeader title="Бүтээгдэхүүн" description="Бүх бүтээгдэхүүн, дэлгүүр болон загваруудыг удирдах" />
         <div style={{ display: 'flex', gap: 8 }}>
-          <a href={`${API_URL}/api/products/export?productType=${activeTab === 'templates' ? 'design' : activeTab}`}
+          <a href={`${API_URL}/api/excel/export?productType=${activeTab === 'templates' ? 'design' : activeTab}`}
             style={{ ...btnSecondary, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
             📥 Excel татах
           </a>
