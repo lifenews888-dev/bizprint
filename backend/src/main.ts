@@ -16,7 +16,10 @@ async function bootstrap() {
   try { mkdirSync(join(process.cwd(), 'logs'), { recursive: true }); } catch {}
 
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
-  app.use(helmet());
+  app.use(helmet({
+    contentSecurityPolicy: false,
+    crossOriginEmbedderPolicy: false,
+  }));
   app.useGlobalInterceptors(new ResponseInterceptor());
   app.useGlobalFilters(new ErrorLoggerFilter());
   app.useGlobalPipes(new ValidationPipe({
