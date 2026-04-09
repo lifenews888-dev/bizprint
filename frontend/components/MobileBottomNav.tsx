@@ -26,7 +26,7 @@ const TABS = [
   },
   {
     label: 'Хадгалсан',
-    href: '/dashboard/customer/saved',
+    href: '/dashboard/customer/wishlist',
     icon: (active: boolean) => (
       <svg width="22" height="22" fill={active ? '#FF6B00' : 'none'} stroke={active ? '#FF6B00' : '#999'} strokeWidth="1.8" viewBox="0 0 24 24">
         <path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z"/>
