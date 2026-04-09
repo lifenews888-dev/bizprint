@@ -26,8 +26,16 @@ export class ExcelProductsController {
     },
   }))
   async importExcel(@UploadedFile() file: Express.Multer.File) {
-    if (!file) return { error: 'Файл байхгүй' };
-    return this.svc.importFromExcel(file.buffer);
+    if (!file) return { imported: 0, skipped: 0, errors: [{ row: 0, sheet: '-', message: 'Файл байхгүй' }], preview: [] };
+    console.log(`[Excel Import] File received: ${file.originalname}, size: ${file.size}, mime: ${file.mimetype}`);
+    try {
+      const result = await this.svc.importFromExcel(file.buffer);
+      console.log(`[Excel Import] Done: ${result.imported} imported, ${result.skipped} skipped, ${result.errors.length} errors`);
+      return result;
+    } catch (e: any) {
+      console.error('[Excel Import] Error:', e.message);
+      return { imported: 0, skipped: 0, errors: [{ row: 0, sheet: '-', message: e.message }], preview: [] };
+    }
   }
 
   @Get('export')

@@ -34,8 +34,11 @@ export class ExcelProductsService {
     const errors: { row: number; sheet: string; message: string }[] = [];
     const preview: any[] = [];
 
+    this.logger.log(`Workbook loaded. Sheets: ${wb.worksheets.map(s => s.name).join(', ')}`);
+
     // Sheet 1: "Вэб — Vistaprint"
     const ws1 = wb.getWorksheet('Вэб — Vistaprint');
+    this.logger.log(`Sheet1 found: ${!!ws1}, rows: ${ws1?.rowCount || 0}`);
     if (ws1) {
       for (let r = 2; r <= ws1.rowCount; r++) {
         try {
