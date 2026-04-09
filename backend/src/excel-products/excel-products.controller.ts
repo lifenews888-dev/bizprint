@@ -54,6 +54,12 @@ export class ExcelProductsController {
     res.send(buf);
   }
 
+  @Get('migrate-to-masters')
+  @UseGuards(JwtAuthGuard)
+  async migrateToMasters() {
+    return this.svc.migrateProductsToMasters();
+  }
+
   @Get('template')
   async downloadTemplate(@Res() res: Response) {
     const buf = await this.svc.generateTemplate();

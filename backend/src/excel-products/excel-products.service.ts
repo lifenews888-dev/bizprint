@@ -256,6 +256,51 @@ export class ExcelProductsService {
     return { imported, skipped, errors, preview };
   }
 
+  async migrateProductsToMasters(): Promise<{ migrated: number; skipped: number; errors: string[] }> {
+    const products = await this.productRepo.find();
+    const existingCodes = new Set(
+      (await this.masterRepo.find({ select: ['code'] })).map(m => m.code),
+    );
+    let migrated = 0, skipped = 0;
+    const errors: string[] = [];
+    const batch: any[] = [];
+
+    for (const p of products) {
+      if (existingCodes.has(p.slug)) { skipped++; continue; }
+      existingCodes.add(p.slug);
+      batch.push(this.masterRepo.create({
+        name_mn: p.name_mn || p.name,
+        name_en: p.name,
+        product_type: p.product_type === 'shop' ? 'print' : (p.product_type === 'ready' ? 'print' : p.product_type),
+        category: p.category || '',
+        subcategory: p.subcategory,
+        description: p.description,
+        base_price: p.base_price || 0,
+        thumbnail_url: p.thumbnail_url,
+        images: p.images,
+        is_active: p.is_active,
+        pricing_mode: p.pricing_mode || 'fixed',
+        code: p.slug,
+      }));
+    }
+
+    for (let i = 0; i < batch.length; i += 50) {
+      const chunk = batch.slice(i, i + 50);
+      try {
+        await this.masterRepo.save(chunk);
+        migrated += chunk.length;
+      } catch {
+        for (const m of chunk) {
+          try { await this.masterRepo.save(m); migrated++; }
+          catch (e: any) { errors.push(`${m.code}: ${e.message?.substring(0, 60)}`); }
+        }
+      }
+    }
+
+    this.logger.log(`Migration done: ${migrated} migrated, ${skipped} skipped, ${errors.length} errors`);
+    return { migrated, skipped, errors };
+  }
+
   async exportToExcel(filters: { productType?: string; topMenu?: string; status?: string }): Promise<Buffer> {
     const qb = this.productRepo.createQueryBuilder('p');
     if (filters.productType) qb.andWhere('p.product_type = :pt', { pt: filters.productType });
