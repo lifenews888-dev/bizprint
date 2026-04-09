@@ -28,7 +28,7 @@ const nextConfig: NextConfig = {
               "style-src 'self' 'unsafe-inline'",
               "img-src 'self' data: blob: https://res.cloudinary.com https://*.bizprint.mn",
               "font-src 'self' data:",
-              "connect-src 'self' https://api.bizprint.mn https://*.bizprint.mn wss://*.bizprint.mn http://localhost:4000 ws://localhost:4000",
+              "connect-src 'self' https://api.bizprint.mn https://*.bizprint.mn wss://*.bizprint.mn https://bizprint-production.up.railway.app https://*.up.railway.app http://localhost:4000 ws://localhost:4000",
               "frame-ancestors 'none'",
             ].join('; '),
           },
