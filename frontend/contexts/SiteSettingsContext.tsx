@@ -32,9 +32,9 @@ const DEFAULT_SETTINGS: Record<string, any> = {
   footer_copyright: '© 2026 BizPrint. Бүх эрх хуулиар хамгаалагдсан.',
   footer_location: 'Улаанбаатар, Монгол',
   footer_columns: [
-    { title: 'БҮТЭЭГДЭХҮҮН', links: [{label:'Визит карт',url:'/shop?cat=business-card'},{label:'Флаер & Постер',url:'/shop?cat=flyer'},{label:'Баннер',url:'/shop?cat=banner'},{label:'Ном & Каталог',url:'/shop?cat=book'},{label:'Хайрцаг & Уут',url:'/shop?cat=packaging'}]},
-    { title: 'ҮЙЛЧИЛГЭЭ', links: [{label:'Үнийн санал',url:'/quote'},{label:'Нэрийн хуудас',url:'/business-cards'},{label:'AI Үнэ тооцоолох',url:'/quote?tab=ai'},{label:'Партнер хөтөлбөр',url:'/partner'}]},
-    { title: 'КОМПАНИ', links: [{label:'Бидний тухай',url:'/about'},{label:'Холбоо барих',url:'/contact'},{label:'Үйлчилгээний нөхцөл',url:'/terms'},{label:'Нууцлалын бодлого',url:'/privacy'}]},
+    { title: 'БҮТЭЭГДЭХҮҮН', links: [{label:'Нэрийн хуудас',url:'/shop/category/business-card'},{label:'Флаер',url:'/shop/category/flyer'},{label:'Баннер',url:'/shop/category/banner'},{label:'Стикер',url:'/shop/category/sticker'},{label:'Бүх бүтээгдэхүүн',url:'/shop'}]},
+    { title: 'ҮЙЛЧИЛГЭЭ', links: [{label:'Үнэ тооцоолох',url:'/quote'},{label:'Захиалга өгөх',url:'/orders/new'},{label:'Creator Marketplace',url:'/marketplace'}]},
+    { title: 'КОМПАНИ', links: [{label:'Бидний тухай',url:'/about'},{label:'Холбоо барих',url:'/contact'},{label:'FAQ',url:'/faq'}]},
   ],
   footer_show_social: true,
   footer_show_location: true,
