@@ -1,10 +1,14 @@
 import { Body, Controller, Get, Param, Post, Req, UseGuards } from '@nestjs/common'
 import { PaymentService } from './payment.service'
+import { QPayService } from './qpay.service'
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard'
 
 @Controller('payment')
 export class PaymentController {
-  constructor(private readonly paymentService: PaymentService) {}
+  constructor(
+    private readonly paymentService: PaymentService,
+    private readonly qpayService: QPayService,
+  ) {}
 
   @Post('create')
   async create(@Body() body: { amount: number; orderId: string; method?: 'qr' | 'bank' | 'cash' }) {
@@ -42,5 +46,28 @@ export class PaymentController {
   @Get('invoices/number/:number')
   async getInvoiceByNumber(@Param('number') number: string) {
     return this.paymentService.getInvoiceByNumber(number)
+  }
+
+  // ── QPay endpoints ──
+  @Post('qpay/create')
+  async qpayCreate(@Body() body: { orderId: string; amount: number; description?: string }) {
+    const callbackUrl = `${process.env.BACKEND_URL || 'https://bizprint-production.up.railway.app'}/api/payment/qpay/callback`
+    return this.qpayService.createInvoice({
+      orderId: body.orderId,
+      amount: body.amount,
+      description: body.description || `BizPrint захиалга #${body.orderId}`,
+      callbackUrl,
+    })
+  }
+
+  @Post('qpay/callback')
+  async qpayCallback(@Body() body: any) {
+    console.log('[QPay Callback]', JSON.stringify(body))
+    return { status: 'ok' }
+  }
+
+  @Get('qpay/check/:invoiceId')
+  async qpayCheck(@Param('invoiceId') invoiceId: string) {
+    return this.qpayService.checkPayment(invoiceId)
   }
 }

@@ -3,12 +3,16 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   // output: 'standalone' — Vercel-д шаардлагагүй, 404 үүсгэж болно
   allowedDevOrigins: ['192.168.1.9', '192.168.0.154'],
+  poweredByHeader: false,
+  compress: true,
   images: {
     remotePatterns: [
       { protocol: 'https', hostname: '**.bizprint.mn' },
       { protocol: 'https', hostname: '**.ngrok-free.dev' },
       { protocol: 'https', hostname: 'res.cloudinary.com' },
+      { protocol: 'https', hostname: 'images.unsplash.com' },
     ],
+    formats: ['image/avif', 'image/webp'],
   },
   async headers() {
     return [
@@ -26,7 +30,7 @@ const nextConfig: NextConfig = {
               "default-src 'self'",
               "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
               "style-src 'self' 'unsafe-inline'",
-              "img-src 'self' data: blob: https://res.cloudinary.com https://*.bizprint.mn",
+              "img-src 'self' data: blob: https://res.cloudinary.com https://*.bizprint.mn https://images.unsplash.com",
               "font-src 'self' data:",
               "connect-src 'self' https://api.bizprint.mn https://*.bizprint.mn wss://*.bizprint.mn https://bizprint-production.up.railway.app https://*.up.railway.app http://localhost:4000 ws://localhost:4000",
               "frame-ancestors 'none'",
