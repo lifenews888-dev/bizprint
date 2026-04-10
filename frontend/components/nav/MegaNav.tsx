@@ -140,7 +140,7 @@ export default function MegaNav() {
     if (searchQuery.length < 2) return
     const params = new URLSearchParams({ q: searchQuery })
     if (searchCat) params.set('cat', searchCat)
-    window.location.href = `/shop?${params}`
+    window.location.href = `/search?${params}`
   }
 
   const activeItems = megaMenu

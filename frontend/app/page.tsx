@@ -1,5 +1,5 @@
 'use client'
-import { apiFetch } from '@/lib/api'
+import { apiFetch, API_URL } from '@/lib/api'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import Link from 'next/link'
 import GlobalProductCard from '@/components/ProductCard'
@@ -336,7 +336,21 @@ function SocialProofSection() {
   const [visible, setVisible] = useState(false)
   const [counts, setCounts] = useState(STATS.map(() => 0))
   const [tIdx, setTIdx] = useState(0)
+  const [liveTestimonials, setLiveTestimonials] = useState(TESTIMONIALS)
   const ref = useRef<HTMLDivElement>(null)
+
+  // Fetch real reviews from API
+  useEffect(() => {
+    fetch(`${API_URL}/api/reviews?approved=true`).then(r => r.json())
+      .then((data: any[]) => {
+        if (Array.isArray(data) && data.length >= 2) {
+          setLiveTestimonials(data.slice(0, 4).map(r => ({ text: r.text, name: r.customer_name, role: r.customer_company || '' })))
+        }
+      }).catch(() => {})
+    fetch(`${API_URL}/api/reviews/summary`).then(r => r.json())
+      .then((data: any) => { if (data?.avgRating > 0) STATS[3].value = data.avgRating })
+      .catch(() => {})
+  }, [])
 
   useEffect(() => {
     const el = ref.current
@@ -363,7 +377,7 @@ function SocialProofSection() {
   }, [visible])
 
   useEffect(() => {
-    const timer = setInterval(() => setTIdx(i => (i + 1) % TESTIMONIALS.length), 4000)
+    const timer = setInterval(() => setTIdx(i => (i + 1) % liveTestimonials.length), 4000)
     return () => clearInterval(timer)
   }, [])
 
@@ -388,13 +402,13 @@ function SocialProofSection() {
         <div style={{ maxWidth: 600, margin: '0 auto', textAlign: 'center' }}>
           <div style={{ fontSize: 20, color: '#F59E0B', marginBottom: 12 }}>★★★★★</div>
           <p style={{ fontSize: 18, fontWeight: 600, color: 'var(--text)', lineHeight: 1.6, minHeight: 54, transition: 'opacity 0.3s' }}>
-            &ldquo;{TESTIMONIALS[tIdx].text}&rdquo;
+            &ldquo;{liveTestimonials[tIdx % liveTestimonials.length].text}&rdquo;
           </p>
           <p style={{ fontSize: 13, color: 'var(--text3)', marginTop: 12 }}>
-            <strong style={{ color: 'var(--text2)' }}>{TESTIMONIALS[tIdx].name}</strong> — {TESTIMONIALS[tIdx].role}
+            <strong style={{ color: 'var(--text2)' }}>{liveTestimonials[tIdx % liveTestimonials.length].name}</strong> — {liveTestimonials[tIdx % liveTestimonials.length].role}
           </p>
           <div style={{ display: 'flex', justifyContent: 'center', gap: 6, marginTop: 16 }}>
-            {TESTIMONIALS.map((_, i) => (
+            {liveTestimonials.map((_, i) => (
               <button key={i} onClick={() => setTIdx(i)} style={{ width: i === tIdx ? 20 : 6, height: 6, borderRadius: 3, background: i === tIdx ? '#FF6B00' : 'var(--border)', border: 'none', cursor: 'pointer', transition: 'all 0.3s' }} />
             ))}
           </div>
