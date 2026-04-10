@@ -40,6 +40,13 @@ const nextConfig: NextConfig = {
       },
     ];
   },
+  async redirects() {
+    return [
+      { source: '/smart-quote', destination: '/quote?tab=ai', permanent: true },
+      { source: '/quote/instant', destination: '/quote?tab=quick', permanent: true },
+      { source: '/quote/compare', destination: '/quote', permanent: true },
+    ]
+  },
 };
 
 export default nextConfig;

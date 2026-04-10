@@ -21,7 +21,7 @@ const DEFAULT_SETTINGS: Record<string, any> = {
   header_logo_url: '',
   header_show_search: true,
   header_show_login: true,
-  header_cta_text: 'Start →',
+  header_cta_text: 'Үнэ авах →',
   header_cta_url: '/quote',
   header_announcement: '',
   header_announcement_active: false,
