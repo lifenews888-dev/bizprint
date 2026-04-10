@@ -10,7 +10,7 @@ const DEFAULT_SETTINGS: Record<string, any> = {
   // site
   site_name: 'BizPrint',
   site_logo_url: '',
-  site_phone: '+976 XXXX-XXXX',
+  site_phone: '+976 9911-1111',
   site_email: 'info@bizprint.mn',
   site_address: 'Улаанбаатар, Монгол',
   site_facebook: 'https://facebook.com/bizprint.mn',
@@ -114,8 +114,9 @@ const DEFAULT_MEGA_MENU = [
     columns: [{ items: [{label:'Үнийн санал авах',url:'/quote'},{label:'Нэрийн хуудас захиалах',url:'/business-cards'},{label:'AI Үнэ тооцоолох',url:'/smart-quote'},{label:'Партнер хөтөлбөр',url:'/partner'}]}],
     featured: null,
   },
-  { id: '3', nav_label: 'Загвар сан', nav_url: '/templates', nav_type: 'LINK', is_active: true, sort_order: 3, columns: null, featured: null },
-  { id: '4', nav_label: 'Үйлдвэрүүд', nav_url: '/factory', nav_type: 'LINK', is_active: true, sort_order: 4, columns: null, featured: null },
+  // Hidden: coming soon pages
+  // { id: '3', nav_label: 'Загвар сан', nav_url: '/templates', nav_type: 'LINK', is_active: false, sort_order: 3, columns: null, featured: null },
+  // { id: '4', nav_label: 'Үйлдвэрүүд', nav_url: '/factory', nav_type: 'LINK', is_active: false, sort_order: 4, columns: null, featured: null },
   { id: '5', nav_label: 'Захиалга өгөх', nav_url: '/orders/new', nav_type: 'LINK', is_active: true, sort_order: 5, columns: null, featured: null },
 ]
 

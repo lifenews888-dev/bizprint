@@ -1,0 +1,10 @@
+User-agent: *
+Disallow: /templates
+Disallow: /factory
+Disallow: /gallery
+Disallow: /admin
+Disallow: /dashboard
+Disallow: /mobile
+Allow: /
+
+Sitemap: https://bizprint.mn/sitemap.xml

@@ -1,5 +1,11 @@
 import { Suspense } from 'react'
+import type { Metadata } from 'next'
 import ShopPageInner from './ShopPageInner'
+
+export const metadata: Metadata = {
+  title: 'Дэлгүүр | BizPrint — Хэвлэлийн бүтээгдэхүүн',
+  description: 'Нэрийн хуудас, флаер, баннер, стикер зэрэг хэвлэлийн бүтээгдэхүүнийг онлайнаар захиалаарай.',
+}
 
 export default function ShopPage() {
   return (
