@@ -993,4 +993,49 @@ export class MailService {
 </body>
 </html>`
   }
+
+  async sendInquiryConfirmation(inquiry: any): Promise<void> {
+    if (!inquiry.customer_email) return
+    try {
+      await this.mailerService.sendMail({
+        to: inquiry.customer_email,
+        subject: `BizPrint — Захиалгын хүсэлт #${inquiry.inquiry_number} хүлээн авлаа`,
+        html: `<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto">
+          <div style="background:#FF6B00;padding:20px;text-align:center"><h1 style="color:white;margin:0">BizPrint</h1></div>
+          <div style="padding:30px">
+            <h2>Захиалгын хүсэлт хүлээн авлаа!</h2>
+            <p>Сайн байна уу, <strong>${inquiry.customer_name || 'Харилцагч'}</strong></p>
+            <p>Таны захиалгын хүсэлт амжилттай хүлээн авагдлаа.</p>
+            <div style="background:#f5f5f5;padding:15px;border-radius:8px;margin:20px 0">
+              <p><strong>Захиалгын дугаар:</strong> ${inquiry.inquiry_number}</p>
+              <p><strong>Бүтээгдэхүүн:</strong> ${inquiry.product_name || inquiry.category || '—'}</p>
+              <p><strong>Тираж:</strong> ${inquiry.quantity || '—'}</p>
+            </div>
+            <p>Бид 30 минутын дотор тантай холбогдоно.</p>
+          </div>
+          <div style="background:#f5f5f5;padding:15px;text-align:center;font-size:12px;color:#666">© 2026 BizPrint — bizprint.mn</div>
+        </div>`,
+      })
+    } catch (e: any) { console.error('Inquiry email error:', e.message) }
+  }
+
+  async sendInquiryStatusUpdate(params: { email: string; name: string; inquiryNumber: string; status: string }): Promise<void> {
+    try {
+      await this.mailerService.sendMail({
+        to: params.email,
+        subject: `BizPrint — Захиалга #${params.inquiryNumber} шинэчлэгдлээ`,
+        html: `<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto">
+          <div style="background:#FF6B00;padding:20px;text-align:center"><h1 style="color:white;margin:0">BizPrint</h1></div>
+          <div style="padding:30px">
+            <h2>Захиалгын мэдэгдэл</h2>
+            <p>Сайн байна уу, <strong>${params.name}</strong></p>
+            <div style="background:#f5f5f5;padding:15px;border-radius:8px;margin:20px 0">
+              <p><strong>Захиалгын дугаар:</strong> ${params.inquiryNumber}</p>
+              <p><strong>Шинэ статус:</strong> ${params.status}</p>
+            </div>
+          </div>
+        </div>`,
+      })
+    } catch (e: any) { console.error('Status email error:', e.message) }
+  }
 }
