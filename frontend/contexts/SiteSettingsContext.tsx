@@ -114,9 +114,8 @@ const DEFAULT_MEGA_MENU = [
     columns: [{ items: [{label:'Үнийн санал авах',url:'/quote'},{label:'Нэрийн хуудас захиалах',url:'/business-cards'},{label:'AI Үнэ тооцоолох',url:'/quote?tab=ai'},{label:'Партнер хөтөлбөр',url:'/partner'}]}],
     featured: null,
   },
-  // Hidden: coming soon pages
-  // { id: '3', nav_label: 'Загвар сан', nav_url: '/templates', nav_type: 'LINK', is_active: false, sort_order: 3, columns: null, featured: null },
-  // { id: '4', nav_label: 'Үйлдвэрүүд', nav_url: '/factory', nav_type: 'LINK', is_active: false, sort_order: 4, columns: null, featured: null },
+  { id: '3', nav_label: 'Загвар сан', nav_url: '/templates', nav_type: 'LINK', is_active: true, sort_order: 3, columns: null, featured: null },
+  { id: '4', nav_label: 'Үйлдвэрүүд', nav_url: '/factory', nav_type: 'LINK', is_active: true, sort_order: 4, columns: null, featured: null },
   { id: '5', nav_label: 'Захиалга өгөх', nav_url: '/orders/new', nav_type: 'LINK', is_active: true, sort_order: 5, columns: null, featured: null },
 ]
 

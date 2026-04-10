@@ -1,7 +1,4 @@
 User-agent: *
-Disallow: /templates
-Disallow: /factory
-Disallow: /gallery
 Disallow: /admin
 Disallow: /dashboard
 Disallow: /mobile
