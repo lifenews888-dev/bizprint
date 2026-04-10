@@ -1,7 +1,0 @@
-User-agent: *
-Disallow: /admin
-Disallow: /dashboard
-Disallow: /mobile
-Allow: /
-
-Sitemap: https://bizprint.mn/sitemap.xml
