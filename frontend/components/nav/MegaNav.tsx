@@ -76,7 +76,7 @@ export default function MegaNav() {
   })()
 
   const DEFAULT_QUICK_LINKS = [
-    { label: 'AI Үнэ', url: '/smart-quote', icon: '🤖', color: '#8B5CF6' },
+    { label: 'AI Үнэ', url: '/quote?tab=ai', icon: '🤖', color: '#8B5CF6' },
     { label: 'Галерей', url: '/gallery', icon: '🖼️', color: '#10B981' },
     { label: 'Marketplace', url: '/marketplace', icon: '🎨', color: '#EC4899' },
   ]

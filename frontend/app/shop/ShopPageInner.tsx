@@ -110,7 +110,7 @@ export default function ShopPageInner() {
             {[
               { icon: '🛒', label: 'Бэлэн бараа', href: '#products', color: '#FF6B00' },
               { icon: '⚡', label: 'Түргэн хэвлэл', href: '/quote', color: '#8B5CF6' },
-              { icon: '🤖', label: 'AI үнийн санал', href: '/smart-quote', color: '#3B82F6' },
+              { icon: '🤖', label: 'AI үнийн санал', href: '/quote?tab=ai', color: '#3B82F6' },
               { icon: '🎨', label: 'Дизайн хийлгэх', href: '/marketplace', color: '#EC4899' },
             ].map(b => (
               <a key={b.label} href={b.href} style={{

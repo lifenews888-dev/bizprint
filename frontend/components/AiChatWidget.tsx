@@ -31,7 +31,7 @@ function getPageContext(pathname: string): string {
   if (pathname === '/' || pathname === '') return 'home'
   if (pathname.startsWith('/shop')) return 'shop'
   if (pathname.startsWith('/product')) return 'product'
-  if (pathname.startsWith('/quote') || pathname.startsWith('/smart-quote')) return 'quote'
+  if (pathname.startsWith('/quote') || pathname.startsWith('/quote?tab=ai')) return 'quote'
   if (pathname.startsWith('/cart') || pathname.startsWith('/checkout')) return 'cart'
   if (pathname.startsWith('/dashboard')) return 'dashboard'
   if (pathname.startsWith('/admin')) return 'admin'

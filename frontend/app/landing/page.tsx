@@ -194,7 +194,7 @@ export default function LandingPage() {
             <span style={{ fontFamily: 'monospace', fontSize: '0.7rem', color: T.green }}>API Online</span>
           </div>
           <Link href="/login" style={{ padding: '0.45rem 1rem', background: 'transparent', border: `1px solid ${T.border2}`, borderRadius: 6, fontSize: '0.8rem', color: T.muted, textDecoration: 'none', fontWeight: 600 }}>Нэвтрэх</Link>
-          <Link href="/smart-quote" style={{ padding: '0.45rem 1rem', background: T.accent, borderRadius: 6, fontSize: '0.8rem', color: 'white', textDecoration: 'none', fontWeight: 700, border: 'none' }}>⚡ Quote авах</Link>
+          <Link href="/quote?tab=ai" style={{ padding: '0.45rem 1rem', background: T.accent, borderRadius: 6, fontSize: '0.8rem', color: 'white', textDecoration: 'none', fontWeight: 700, border: 'none' }}>⚡ Quote авах</Link>
         </div>
       </nav>
 
@@ -229,7 +229,7 @@ export default function LandingPage() {
           </div>
 
           <div className="fade-up" style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', animationDelay: '0.4s' }}>
-            <Link href="/smart-quote" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', padding: '0.75rem 1.75rem', background: T.accent, color: 'white', borderRadius: 6, fontSize: '0.95rem', fontWeight: 700, textDecoration: 'none', boxShadow: '0 8px 32px rgba(255,107,0,0.3)' }}>⚡ Үнийн санал авах</Link>
+            <Link href="/quote?tab=ai" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', padding: '0.75rem 1.75rem', background: T.accent, color: 'white', borderRadius: 6, fontSize: '0.95rem', fontWeight: 700, textDecoration: 'none', boxShadow: '0 8px 32px rgba(255,107,0,0.3)' }}>⚡ Үнийн санал авах</Link>
             <Link href="/dashboard/customer" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', padding: '0.75rem 1.75rem', background: 'transparent', border: `1px solid ${T.border2}`, color: T.muted, borderRadius: 6, fontSize: '0.95rem', fontWeight: 600, textDecoration: 'none' }}>📊 Dashboard →</Link>
           </div>
         </div>
@@ -268,7 +268,7 @@ export default function LandingPage() {
             <div style={{ fontSize: '2rem', fontWeight: 800, marginBottom: '0.5rem', color: T.text }}>BizPrint — Хэвлэлийн ухаалаг платформ</div>
             <div style={{ color: T.muted, fontWeight: 300 }}>AI-тай секундын дотор үнэ бодоод, шууд захиалга өгөөрэй.</div>
           </div>
-          <Link href="/smart-quote" style={{ padding: '0.875rem 2rem', background: T.accent, borderRadius: 8, fontSize: '1rem', fontWeight: 700, color: 'white', textDecoration: 'none', flexShrink: 0, boxShadow: '0 8px 32px rgba(255,107,0,0.3)' }}>Одоо эхлэх →</Link>
+          <Link href="/quote?tab=ai" style={{ padding: '0.875rem 2rem', background: T.accent, borderRadius: 8, fontSize: '1rem', fontWeight: 700, color: 'white', textDecoration: 'none', flexShrink: 0, boxShadow: '0 8px 32px rgba(255,107,0,0.3)' }}>Одоо эхлэх →</Link>
         </div>
       </section>
 

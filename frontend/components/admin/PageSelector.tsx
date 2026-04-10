@@ -27,7 +27,7 @@ const SYSTEM_PAGES: SystemPage[] = [
 
   // Үйлчилгээ
   { label: 'Үнийн санал', url: '/quote', icon: Calculator, group: 'Үйлчилгээ' },
-  { label: 'AI Quote', url: '/smart-quote', icon: Sparkles, group: 'Үйлчилгээ' },
+  { label: 'AI Quote', url: '/quote?tab=ai', icon: Sparkles, group: 'Үйлчилгээ' },
   { label: 'Нэрийн хуудас захиалах', url: '/business-cards', icon: CreditCard, group: 'Үйлчилгээ' },
   { label: 'Хүргэлт', url: '/order', icon: Truck, group: 'Үйлчилгээ' },
 

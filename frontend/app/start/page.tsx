@@ -73,7 +73,7 @@ const QUICK_LINKS = [
   { label: 'Флаер & Постер', href: '/shop?cat=flyer', icon: '📄' },
   { label: 'Сав баглаа', href: '/shop?cat=packaging', icon: '📦' },
   { label: 'QR Нэрийн хуудас', href: '/dashboard/customer/digital-card', icon: '📱' },
-  { label: 'Smart Quote', href: '/smart-quote', icon: '🧠' },
+  { label: 'Smart Quote', href: '/quote?tab=ai', icon: '🧠' },
   { label: 'Үнэ харьцуулах', href: '/quote/compare', icon: '📊' },
 ];
 
@@ -207,7 +207,7 @@ export default function StartPage() {
             AI туслагчаас асуугаарай — ямар бүтээгдэхүүн, хэмжээ, тоо хэрэгтэйг зөвлөнө
           </p>
           <div className="flex gap-3 justify-center flex-wrap">
-            <Link href="/smart-quote"
+            <Link href="/quote?tab=ai"
               className="no-underline px-6 py-3 text-white rounded-xl text-sm font-bold hover:opacity-90 transition-opacity"
               style={{ background: '#FF6B00' }}>
               AI-аас зөвлөгөө авах

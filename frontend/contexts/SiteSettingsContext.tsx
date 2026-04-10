@@ -33,7 +33,7 @@ const DEFAULT_SETTINGS: Record<string, any> = {
   footer_location: 'Улаанбаатар, Монгол',
   footer_columns: [
     { title: 'БҮТЭЭГДЭХҮҮН', links: [{label:'Визит карт',url:'/shop?cat=business-card'},{label:'Флаер & Постер',url:'/shop?cat=flyer'},{label:'Баннер',url:'/shop?cat=banner'},{label:'Ном & Каталог',url:'/shop?cat=book'},{label:'Хайрцаг & Уут',url:'/shop?cat=packaging'}]},
-    { title: 'ҮЙЛЧИЛГЭЭ', links: [{label:'Үнийн санал',url:'/quote'},{label:'Нэрийн хуудас',url:'/business-cards'},{label:'AI Үнэ тооцоолох',url:'/smart-quote'},{label:'Партнер хөтөлбөр',url:'/partner'}]},
+    { title: 'ҮЙЛЧИЛГЭЭ', links: [{label:'Үнийн санал',url:'/quote'},{label:'Нэрийн хуудас',url:'/business-cards'},{label:'AI Үнэ тооцоолох',url:'/quote?tab=ai'},{label:'Партнер хөтөлбөр',url:'/partner'}]},
     { title: 'КОМПАНИ', links: [{label:'Бидний тухай',url:'/about'},{label:'Холбоо барих',url:'/contact'},{label:'Үйлчилгээний нөхцөл',url:'/terms'},{label:'Нууцлалын бодлого',url:'/privacy'}]},
   ],
   footer_show_social: true,
@@ -107,11 +107,11 @@ const DEFAULT_MEGA_MENU = [
       { title: 'ӨРГӨН ФОРМАТ', icon: '🪧', color: '#eab308', items: [{label:'Баннер',url:'/shop?cat=banner',desc:'Гадна/дотор баннер'},{label:'Роллап',url:'/shop?cat=rollup',desc:'Зөөврийн стенд'},{label:'Хаяг/Үсэг',url:'/shop?cat=signage',desc:'3D, LED, нерж'}]},
       { title: 'ПРОМО', icon: '👕', color: '#a855f7', items: [{label:'Цамц хэвлэл',url:'/shop?cat=tshirt',desc:'DTF, Screen print'},{label:'Бусад промо',url:'/shop?cat=promo',desc:'Аяга, дэвтэр, бал'}]},
     ],
-    featured: { badge: 'ШИНЭ', title: 'AI Үнийн Тооцоолуур', description: 'Секундэд үнэ тооцоолоорой', cta_text: 'Тооцоолох →', cta_url: '/smart-quote', bg_color: '#1a1a1a' },
+    featured: { badge: 'ШИНЭ', title: 'AI Үнийн Тооцоолуур', description: 'Секундэд үнэ тооцоолоорой', cta_text: 'Тооцоолох →', cta_url: '/quote?tab=ai', bg_color: '#1a1a1a' },
   },
   {
     id: '2', nav_label: 'Үйлчилгээ', nav_url: '#', nav_type: 'DROPDOWN', is_active: true, sort_order: 2,
-    columns: [{ items: [{label:'Үнийн санал авах',url:'/quote'},{label:'Нэрийн хуудас захиалах',url:'/business-cards'},{label:'AI Үнэ тооцоолох',url:'/smart-quote'},{label:'Партнер хөтөлбөр',url:'/partner'}]}],
+    columns: [{ items: [{label:'Үнийн санал авах',url:'/quote'},{label:'Нэрийн хуудас захиалах',url:'/business-cards'},{label:'AI Үнэ тооцоолох',url:'/quote?tab=ai'},{label:'Партнер хөтөлбөр',url:'/partner'}]}],
     featured: null,
   },
   // Hidden: coming soon pages
@@ -183,7 +183,7 @@ export function SiteSettingsProvider({ children }: { children: ReactNode }) {
             title: v2.promos[0].title,
             description: v2.promos[0].description,
             cta_text: v2.promos[0].cta_text || 'Дэлгэрэнгүй',
-            cta_url: v2.promos[0].link || '/smart-quote',
+            cta_url: v2.promos[0].link || '/quote?tab=ai',
             bg_color: v2.promos[0].bg_color || '#0f172a',
           } : null,
         }

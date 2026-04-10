@@ -178,20 +178,20 @@ export default function HomePage() {
         </div>
       </section>
 
+      {/* ═══ SOCIAL PROOF STATS ═══ */}
+      <SocialProofSection />
+
       {/* ═══ SERVICES GRID ═══ */}
       <section className="max-w-[1100px] mx-auto px-5 py-10 md:py-16">
         <div className="text-center mb-8 md:mb-10">
           <h2 className="text-xl md:text-2xl font-bold tracking-tight" style={{ color: 'var(--text)' }}>Үйлчилгээ</h2>
           <p className="text-sm mt-1" style={{ color: 'var(--text3)' }}>Хэрэгтэй зүйлээ сонгоорой</p>
         </div>
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4">
           {[
             { icon: '🖨️', title: 'Хэвлэл захиалах', desc: 'PDF оруулж AI-аар үнэ авах', href: '/quote', color: '#FF6B00' },
             { icon: '🛒', title: 'Дэлгүүр', desc: 'Бэлэн бүтээгдэхүүн сонгох', href: '/shop', color: '#8B5CF6' },
-            { icon: '🤖', title: 'Шууд үнэ мэдэх', desc: '10 секундэд үнэ тооцоолох', href: '/quote/instant', color: '#3B82F6' },
-            { icon: '🎨', title: 'Дизайн захиалах', desc: 'Creator-оор хийлгэх', href: '/marketplace', color: '#EC4899' },
-            { icon: '💳', title: 'Нэрийн хуудас', desc: '3 алхамаар, QR кодтой', href: '/business-cards', color: '#F59E0B' },
-            { icon: '🎭', title: 'Загвар сан', desc: 'Бэлэн загвар ашиглах', href: '/templates', color: '#10B981' },
+            { icon: '💳', title: 'Нэрийн хуудас', desc: 'Онлайнаар захиалах, QR кодтой', href: '/shop?category=business-card', color: '#F59E0B' },
           ].map(s => (
             <Link key={s.title} href={s.href} className="no-underline group">
               <div className="rounded-2xl p-5 md:p-6 h-full transition-all duration-300 hover:-translate-y-1 hover:shadow-xl"
@@ -304,6 +304,102 @@ export default function HomePage() {
           </div>
         </div>
       </section>
+
+      {/* Organization schema */}
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify({
+        '@context': 'https://schema.org',
+        '@type': 'Organization',
+        name: 'BizPrint',
+        url: 'https://bizprint.mn',
+        aggregateRating: { '@type': 'AggregateRating', ratingValue: '4.8', reviewCount: '800' },
+      }) }} />
     </div>
+  )
+}
+
+/* ═══ SOCIAL PROOF + TESTIMONIALS ═══ */
+const STATS = [
+  { value: 1200, suffix: '+', label: 'Биелүүлсэн захиалга' },
+  { value: 15, suffix: '+', label: 'Хамтрагч үйлдвэр' },
+  { value: 800, suffix: '+', label: 'Сэтгэгдсэн хэрэглэгч' },
+  { value: 4.8, suffix: '★', label: 'Дундаж үнэлгээ', decimal: true },
+]
+
+const TESTIMONIALS = [
+  { text: 'Маш хурдан хүргэж өгсөн, чанар гайхалтай!', name: 'Б.Мөнхбаяр', role: 'CEO' },
+  { text: 'Үнэ тооцоолуур маш хялбар, шууд захиалсан', name: 'Д.Энхжаргал', role: 'Marketing Manager' },
+  { text: 'Нэрийн хуудас маш чанартай гарсан', name: 'Г.Баярмаа', role: 'Дизайнер' },
+  { text: 'BizPrint-тэй ажиллах нь маш тохиромжтой', name: 'Т.Батболд', role: 'Бизнес эзэн' },
+]
+
+function SocialProofSection() {
+  const [visible, setVisible] = useState(false)
+  const [counts, setCounts] = useState(STATS.map(() => 0))
+  const [tIdx, setTIdx] = useState(0)
+  const ref = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const obs = new IntersectionObserver(([e]) => { if (e.isIntersecting) { setVisible(true); obs.disconnect() } }, { threshold: 0.3 })
+    obs.observe(el)
+    return () => obs.disconnect()
+  }, [])
+
+  useEffect(() => {
+    if (!visible) return
+    const duration = 1500
+    const steps = 40
+    const interval = duration / steps
+    let step = 0
+    const timer = setInterval(() => {
+      step++
+      const progress = Math.min(step / steps, 1)
+      const eased = 1 - Math.pow(1 - progress, 3)
+      setCounts(STATS.map(s => s.decimal ? +(s.value * eased).toFixed(1) : Math.round(s.value * eased)))
+      if (step >= steps) clearInterval(timer)
+    }, interval)
+    return () => clearInterval(timer)
+  }, [visible])
+
+  useEffect(() => {
+    const timer = setInterval(() => setTIdx(i => (i + 1) % TESTIMONIALS.length), 4000)
+    return () => clearInterval(timer)
+  }, [])
+
+  return (
+    <>
+      {/* Stats */}
+      <section ref={ref} style={{ background: '#0A0A0A', padding: '48px 20px' }}>
+        <div style={{ maxWidth: 900, margin: '0 auto', display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, textAlign: 'center' }}>
+          {STATS.map((s, i) => (
+            <div key={s.label}>
+              <div style={{ fontSize: 32, fontWeight: 800, color: '#FF6B00', lineHeight: 1 }}>
+                {s.decimal ? counts[i].toFixed(1) : counts[i].toLocaleString()}{s.suffix}
+              </div>
+              <div style={{ fontSize: 12, color: '#999', marginTop: 6 }}>{s.label}</div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* Testimonials */}
+      <section style={{ background: 'var(--surface)', padding: '48px 20px', borderTop: '1px solid var(--border)' }}>
+        <div style={{ maxWidth: 600, margin: '0 auto', textAlign: 'center' }}>
+          <div style={{ fontSize: 20, color: '#F59E0B', marginBottom: 12 }}>★★★★★</div>
+          <p style={{ fontSize: 18, fontWeight: 600, color: 'var(--text)', lineHeight: 1.6, minHeight: 54, transition: 'opacity 0.3s' }}>
+            &ldquo;{TESTIMONIALS[tIdx].text}&rdquo;
+          </p>
+          <p style={{ fontSize: 13, color: 'var(--text3)', marginTop: 12 }}>
+            <strong style={{ color: 'var(--text2)' }}>{TESTIMONIALS[tIdx].name}</strong> — {TESTIMONIALS[tIdx].role}
+          </p>
+          <div style={{ display: 'flex', justifyContent: 'center', gap: 6, marginTop: 16 }}>
+            {TESTIMONIALS.map((_, i) => (
+              <button key={i} onClick={() => setTIdx(i)} style={{ width: i === tIdx ? 20 : 6, height: 6, borderRadius: 3, background: i === tIdx ? '#FF6B00' : 'var(--border)', border: 'none', cursor: 'pointer', transition: 'all 0.3s' }} />
+            ))}
+          </div>
+        </div>
+      </section>
+    </>
   )
 }
