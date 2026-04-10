@@ -86,6 +86,7 @@ import { PrepressModule } from './ai/prepress/prepress.module'
 import { PrintInquiryModule } from './print-inquiry/print-inquiry.module';
 import { GeoRoutingModule } from './geo-routing/geo-routing.module'
 import { ExcelProductsModule } from './excel-products/excel-products.module'
+import { ReviewsModule } from './reviews/reviews.module'
 
 @Module({
   imports: [
@@ -193,6 +194,7 @@ import { ExcelProductsModule } from './excel-products/excel-products.module'
     ProofingModule,
     PrepressModule,
     ExcelProductsModule,
+    ReviewsModule,
   ],
   controllers: [], // PricingCatalogController removed — duplicate
   providers: [],   // PricingCatalogService removed — duplicate

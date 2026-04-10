@@ -1,335 +1,203 @@
-'use client';
+'use client'
+import { useState, useMemo } from 'react'
+import Link from 'next/link'
 
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import { apiFetch } from '@/lib/api';
+const PRINT_TYPES = [
+  { id: 'business-card', name: 'Нэрийн хуудас', icon: '💳', sizes: [{ label: '90×54мм (стандарт)', w: 90, h: 54 }, { label: '90×50мм', w: 90, h: 50 }, { label: 'Захиалгат', w: 0, h: 0 }], materials: ['Art card 300gsm', 'Art card 350gsm', 'Металл', 'PVC тунгалаг'], finishing: ['Матт ламинат', 'Глосс ламинат', 'Soft-touch', 'УВ лак', 'Фольг тамга'], minQty: 100 },
+  { id: 'flyer', name: 'Флаер', icon: '📄', sizes: [{ label: 'A6 (105×148мм)', w: 105, h: 148 }, { label: 'A5 (148×210мм)', w: 148, h: 210 }, { label: 'A4 (210×297мм)', w: 210, h: 297 }, { label: 'DL (99×210мм)', w: 99, h: 210 }, { label: 'Захиалгат', w: 0, h: 0 }], materials: ['Glossy 130gsm', 'Glossy 170gsm', 'Matte 170gsm', 'Art card 250gsm'], finishing: ['Матт ламинат', 'Глосс ламинат', 'УВ лак'], minQty: 50 },
+  { id: 'brochure', name: 'Брошур', icon: '📋', sizes: [{ label: 'A5 — 2 нугалаа', w: 148, h: 210 }, { label: 'A4 — 3 нугалаа', w: 210, h: 297 }, { label: 'A4 — 2 нугалаа', w: 210, h: 297 }], materials: ['Glossy 170gsm', 'Matte 170gsm', 'Art card 250gsm'], finishing: ['Матт ламинат', 'Глосс ламинат'], minQty: 100 },
+  { id: 'poster', name: 'Постер', icon: '🖼️', sizes: [{ label: 'A3 (297×420мм)', w: 297, h: 420 }, { label: 'A2 (420×594мм)', w: 420, h: 594 }, { label: 'A1 (594×841мм)', w: 594, h: 841 }, { label: 'Захиалгат', w: 0, h: 0 }], materials: ['Glossy 170gsm', 'Matte 170gsm', 'Art card 250gsm'], finishing: ['Матт ламинат', 'Глосс ламинат', 'УВ лак'], minQty: 10 },
+  { id: 'sticker', name: 'Стикер', icon: '📎', sizes: [{ label: 'Дугуй 50мм', w: 50, h: 50 }, { label: 'Дугуй 100мм', w: 100, h: 100 }, { label: 'Дөрвөлжин A6', w: 105, h: 148 }, { label: 'Захиалгат', w: 0, h: 0 }], materials: ['Vinyl цагаан', 'Vinyl тунгалаг', 'Цаасан'], finishing: ['Ламинат', 'UV coating'], minQty: 100 },
+  { id: 'banner', name: 'Баннер', icon: '🏗️', sizes: [{ label: '1×2м', w: 1000, h: 2000 }, { label: '1×3м', w: 1000, h: 3000 }, { label: '2×3м', w: 2000, h: 3000 }, { label: '3×6м', w: 3000, h: 6000 }, { label: 'Захиалгат', w: 0, h: 0 }], materials: ['Vinyl 440gsm', 'Mesh баннер', 'Backlit хулдаас'], finishing: ['Гантиг гагнуур', 'Оосор нэмэх'], minQty: 1 },
+  { id: 'book', name: 'Ном / Каталог', icon: '📕', sizes: [{ label: 'A5 (148×210мм)', w: 148, h: 210 }, { label: 'A4 (210×297мм)', w: 210, h: 297 }, { label: 'Square 200×200мм', w: 200, h: 200 }], materials: ['Glossy хавтас', 'Matte хавтас', 'Soft-touch хавтас'], finishing: ['Perfect bind', 'Saddle stitch', 'Wire-O', 'Хатуу хавтас'], minQty: 10 },
+]
 
-const PRODUCT_TYPES = [
-  { value: 'vizit_kart',  label: 'Визитийн хуудас' },
-  { value: 'flyar',       label: 'Флаер' },
-  { value: 'broushur',    label: 'Брошур' },
-  { value: 'poster',      label: 'Постер' },
-  { value: 'banner',      label: 'Баннер' },
-  { value: 'sticker',     label: 'Стикер' },
-  { value: 'nom',         label: 'Ном / Каталог' },
-  { value: 'packaging',   label: 'Сав баглаа' },
-];
+const BASE_RATES: Record<string, number> = { 'business-card': 340, 'flyer': 180, 'brochure': 250, 'poster': 210, 'sticker': 280, 'banner': 1200, 'book': 170 }
+const QTY_PRESETS = [50, 100, 250, 500, 1000, 2000, 5000]
 
-const SIZES: Record<string, { label: string; w: number; h: number }[]> = {
-  vizit_kart:  [{ label: '90×54мм', w: 90, h: 54 }],
-  flyar:       [{ label: 'A6 (105×148мм)', w: 105, h: 148 }, { label: 'A5 (148×210мм)', w: 148, h: 210 }],
-  broushur:    [{ label: 'A4 нугалсан', w: 210, h: 297 }, { label: 'A5 нугалсан', w: 148, h: 210 }],
-  poster:      [{ label: 'A3 (297×420мм)', w: 297, h: 420 }, { label: 'A2 (420×594мм)', w: 420, h: 594 }],
-  banner:      [{ label: '1×2м', w: 1000, h: 2000 }, { label: '1×3м', w: 1000, h: 3000 }, { label: 'Захиалгат', w: 0, h: 0 }],
-  sticker:     [{ label: 'A6 (105×148мм)', w: 105, h: 148 }, { label: 'A5 (148×210мм)', w: 148, h: 210 }],
-  nom:         [{ label: 'A5 (148×210мм)', w: 148, h: 210 }, { label: 'A4 (210×297мм)', w: 210, h: 297 }],
-  packaging:   [{ label: 'Захиалгат', w: 0, h: 0 }],
-};
-
-const QTY_OPTIONS = [50, 100, 250, 500, 1000, 2000, 5000];
-const COLOR_MODES = [
-  { value: 'CMYK', label: '4 өнгө (CMYK)' },
-  { value: '1C',   label: '1 өнгө' },
-  { value: 'BW',   label: 'Хар цагаан' },
-];
-
-interface QuoteResult {
-  total: number;
-  unitPrice: number;
-  breakdown: {
-    paper: number;
-    ink: number;
-    finishing: number;
-    platform: number;
-  };
-  leadDays: number;
+function calcPrice(typeId: string, size: { w: number; h: number }, finishing: string[], qty: number, sides: string, pages: number) {
+  if (!size.w || !size.h || qty < 1) return null
+  const areaM2 = (size.w / 1000) * (size.h / 1000)
+  const paperCost = (BASE_RATES[typeId] || 200) * qty * (areaM2 / 0.0623)
+  const inkCost = 7000 * qty / 500
+  const finishingCost = finishing.length * 5000
+  const pagesCost = typeId === 'book' ? pages * qty * 15 : 0
+  const sidesMultiplier = sides === 'double' ? 1.7 : 1
+  const subtotal = (paperCost + inkCost + finishingCost + pagesCost) * sidesMultiplier
+  const overhead = subtotal * 0.12
+  const platform = (subtotal + overhead) * 0.10
+  const total = Math.round(subtotal + overhead + platform)
+  return { total, unitPrice: Math.round(total / qty), breakdown: { paper: Math.round(paperCost), ink: Math.round(inkCost), finishing: Math.round(finishingCost), pages: Math.round(pagesCost) } }
 }
 
 export default function InstantQuote() {
-  const router = useRouter();
-  const [productType, setProductType] = useState('');
-  const [sizeIdx, setSizeIdx] = useState(0);
-  const [customW, setCustomW] = useState(0);
-  const [customH, setCustomH] = useState(0);
-  const [quantity, setQuantity] = useState(500);
-  const [customQty, setCustomQty] = useState(false);
-  const [colorMode, setColorMode] = useState('CMYK');
-  const [finishing, setFinishing] = useState<string[]>([]);
-  const [finishingOptions, setFinishingOptions] = useState<any[]>([]);
-  const [result, setResult] = useState<QuoteResult | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [typeIdx, setTypeIdx] = useState(0)
+  const [sizeIdx, setSizeIdx] = useState(0)
+  const [customW, setCustomW] = useState(0)
+  const [customH, setCustomH] = useState(0)
+  const [matIdx, setMatIdx] = useState(0)
+  const [selectedFinishing, setSelectedFinishing] = useState<string[]>([])
+  const [sides, setSides] = useState('double')
+  const [qty, setQty] = useState(100)
+  const [customQty, setCustomQty] = useState('')
+  const [pages, setPages] = useState(32)
+  const [showBreakdown, setShowBreakdown] = useState(false)
 
-  useEffect(() => {
-    apiFetch<any>('/materials/finishing', { auth: false })
-      .then(data => setFinishingOptions(Array.isArray(data) ? data : []))
-      .catch(() => {});
-  }, []);
+  const pt = PRINT_TYPES[typeIdx]
+  const size = pt.sizes[sizeIdx]
+  const isCustom = size?.w === 0
+  const effectiveSize = isCustom ? { w: customW, h: customH } : size
+  const effectiveQty = customQty ? parseInt(customQty) || qty : qty
 
-  const currentSizes = productType ? SIZES[productType] ?? [] : [];
-  const selectedSize = currentSizes[sizeIdx];
+  const price = useMemo(() => calcPrice(pt.id, effectiveSize, selectedFinishing, effectiveQty, sides, pages), [pt.id, effectiveSize.w, effectiveSize.h, selectedFinishing.length, effectiveQty, sides, pages])
 
-  const calcQuote = async () => {
-    if (!productType || !selectedSize) return;
-    setLoading(true);
-    setError('');
+  const toggleFinishing = (f: string) => setSelectedFinishing(prev => prev.includes(f) ? prev.filter(x => x !== f) : [...prev, f])
 
-    const w = selectedSize.w || customW;
-    const h = selectedSize.h || customH;
-
-    try {
-      const data = await apiFetch<any>('/quote/instant', {
-        method: 'POST',
-        auth: false,
-        body: { productType, widthMm: w, heightMm: h, quantity, colorMode, finishing },
-      });
-      setResult(data);
-    } catch (e: any) {
-      setError(e.message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleOrder = () => {
-    if (!result) return;
-    const w = selectedSize?.w || customW;
-    const h = selectedSize?.h || customH;
-    const params = new URLSearchParams({
-      productType, colorMode, quantity: String(quantity),
-      widthMm: String(w), heightMm: String(h),
-    });
-    router.push(`/quote/compare?${params}`);
-  };
+  const orderParams = new URLSearchParams({ type: pt.id, size: `${effectiveSize.w}x${effectiveSize.h}`, material: pt.materials[matIdx], finishing: selectedFinishing.join(','), qty: String(effectiveQty), sides, ...(pt.id === 'book' ? { pages: String(pages) } : {}) }).toString()
 
   return (
-    <div className="max-w-2xl mx-auto py-8 px-4">
-      <div className="mb-8">
-        <h1 className="text-2xl font-medium" style={{ color: 'var(--text)' }}>
-          Үнэ тооцоолох
-        </h1>
-        <p className="mt-1 text-sm" style={{ color: 'var(--text3)' }}>
-          Тохиргоогоо сонгоод шууд үнэ мэдэгдэнэ
-        </p>
-      </div>
-
-      {/* Product type */}
-      <div className="mb-6">
-        <label className="block text-sm font-medium mb-3" style={{ color: 'var(--text2)' }}>
-          Бүтээгдэхүүний төрөл
-        </label>
-        <div className="grid grid-cols-4 gap-2">
-          {PRODUCT_TYPES.map(p => (
-            <button
-              key={p.value}
-              onClick={() => { setProductType(p.value); setSizeIdx(0); setResult(null); }}
-              className="p-3 rounded-xl text-sm font-medium transition-all text-center"
-              style={{
-                border: `1px solid ${productType === p.value ? '#FF6B00' : 'var(--border)'}`,
-                background: productType === p.value ? 'rgba(255,107,0,0.08)' : 'transparent',
-                color: productType === p.value ? '#FF6B00' : 'var(--text2)',
-              }}
-            >
-              {p.label}
+    <div style={{ maxWidth: 800, margin: '0 auto', padding: '24px 20px' }}>
+      {/* Product type selector */}
+      <div style={{ marginBottom: 28 }}>
+        <label style={labelSt}>Бүтээгдэхүүний төрөл</label>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 1fr))', gap: 8 }}>
+          {PRINT_TYPES.map((t, i) => (
+            <button key={t.id} onClick={() => { setTypeIdx(i); setSizeIdx(0); setMatIdx(0); setSelectedFinishing([]) }}
+              style={{ padding: '12px 8px', borderRadius: 10, border: `2px solid ${i === typeIdx ? '#FF6B00' : 'var(--border)'}`, background: i === typeIdx ? 'rgba(255,107,0,0.08)' : 'var(--surface)', cursor: 'pointer', textAlign: 'center' }}>
+              <div style={{ fontSize: 24, marginBottom: 4 }}>{t.icon}</div>
+              <div style={{ fontSize: 11, fontWeight: i === typeIdx ? 700 : 500, color: i === typeIdx ? '#FF6B00' : 'var(--text2)' }}>{t.name}</div>
             </button>
           ))}
         </div>
       </div>
 
-      {productType && (
-        <>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }} className="stack-mobile">
+        {/* Left column */}
+        <div>
           {/* Size */}
-          <div className="mb-5">
-            <label className="block text-sm font-medium mb-3" style={{ color: 'var(--text2)' }}>
-              Хэмжээ
-            </label>
-            <div className="flex flex-wrap gap-2">
-              {currentSizes.map((s, i) => (
-                <button
-                  key={i}
-                  onClick={() => setSizeIdx(i)}
-                  className="px-4 py-2 rounded-lg text-sm transition-all"
-                  style={{
-                    border: `1px solid ${sizeIdx === i ? '#FF6B00' : 'var(--border)'}`,
-                    background: sizeIdx === i ? 'rgba(255,107,0,0.08)' : 'transparent',
-                    color: sizeIdx === i ? '#FF6B00' : 'var(--text2)',
-                  }}
-                >
-                  {s.label}
-                </button>
+          <div style={{ marginBottom: 20 }}>
+            <label style={labelSt}>Хэмжээ</label>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+              {pt.sizes.map((s, i) => (
+                <button key={s.label} onClick={() => setSizeIdx(i)} style={pillSt(i === sizeIdx)}>{s.label}</button>
               ))}
             </div>
-            {selectedSize?.w === 0 && (
-              <div className="flex gap-3 mt-3">
-                <div>
-                  <label className="text-xs mb-1 block" style={{ color: 'var(--text3)' }}>Өргөн (мм)</label>
-                  <input type="number" value={customW} onChange={e => setCustomW(+e.target.value)}
-                    className="w-24 rounded-lg px-3 py-2 text-sm" style={{ border: '1px solid var(--border)', background: 'var(--surface)' }} />
-                </div>
-                <div>
-                  <label className="text-xs mb-1 block" style={{ color: 'var(--text3)' }}>Өндөр (мм)</label>
-                  <input type="number" value={customH} onChange={e => setCustomH(+e.target.value)}
-                    className="w-24 rounded-lg px-3 py-2 text-sm" style={{ border: '1px solid var(--border)', background: 'var(--surface)' }} />
-                </div>
+            {isCustom && (
+              <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                <input type="number" placeholder="Өргөн мм" value={customW || ''} onChange={e => setCustomW(+e.target.value)} style={inputSt} />
+                <span style={{ color: 'var(--text3)', alignSelf: 'center' }}>×</span>
+                <input type="number" placeholder="Өндөр мм" value={customH || ''} onChange={e => setCustomH(+e.target.value)} style={inputSt} />
               </div>
             )}
           </div>
 
-          {/* Quantity */}
-          <div className="mb-5">
-            <label className="block text-sm font-medium mb-3" style={{ color: 'var(--text2)' }}>
-              Тираж (ширхэг)
-            </label>
-            <div className="flex flex-wrap gap-2 mb-2">
-              {QTY_OPTIONS.map(q => (
-                <button key={q}
-                  onClick={() => { setQuantity(q); setCustomQty(false); }}
-                  className="px-4 py-2 rounded-lg text-sm transition-all"
-                  style={{
-                    border: `1px solid ${quantity === q && !customQty ? '#FF6B00' : 'var(--border)'}`,
-                    background: quantity === q && !customQty ? 'rgba(255,107,0,0.08)' : 'transparent',
-                    color: quantity === q && !customQty ? '#FF6B00' : 'var(--text2)',
-                  }}
-                >
-                  {q.toLocaleString()}
-                </button>
+          {/* Material */}
+          <div style={{ marginBottom: 20 }}>
+            <label style={labelSt}>Материал</label>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+              {pt.materials.map((m, i) => (
+                <button key={m} onClick={() => setMatIdx(i)} style={pillSt(i === matIdx)}>{m}</button>
               ))}
-              <button
-                onClick={() => setCustomQty(true)}
-                className="px-4 py-2 rounded-lg text-sm transition-all"
-                style={{
-                  border: `1px solid ${customQty ? '#FF6B00' : 'var(--border)'}`,
-                  background: customQty ? 'rgba(255,107,0,0.08)' : 'transparent',
-                  color: customQty ? '#FF6B00' : 'var(--text2)',
-                }}
-              >
-                Бусад
-              </button>
             </div>
-            {customQty && (
-              <input
-                type="number" value={quantity}
-                onChange={e => setQuantity(+e.target.value)}
-                placeholder="Тоо оруулах"
-                className="rounded-lg px-3 py-2 text-sm w-40"
-                style={{ border: '1px solid var(--border)', background: 'var(--surface)' }}
-              />
-            )}
           </div>
 
-          {/* Color mode */}
-          <div className="mb-5">
-            <label className="block text-sm font-medium mb-3" style={{ color: 'var(--text2)' }}>
-              Өнгө
-            </label>
-            <div className="flex gap-2">
-              {COLOR_MODES.map(c => (
-                <button key={c.value}
-                  onClick={() => setColorMode(c.value)}
-                  className="px-4 py-2 rounded-lg text-sm transition-all"
-                  style={{
-                    border: `1px solid ${colorMode === c.value ? '#FF6B00' : 'var(--border)'}`,
-                    background: colorMode === c.value ? 'rgba(255,107,0,0.08)' : 'transparent',
-                    color: colorMode === c.value ? '#FF6B00' : 'var(--text2)',
-                  }}
-                >
-                  {c.label}
-                </button>
-              ))}
+          {/* Color + Sides */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 20 }}>
+            <div>
+              <label style={labelSt}>Тал</label>
+              <div style={{ display: 'flex', gap: 6 }}>
+                <button onClick={() => setSides('single')} style={pillSt(sides === 'single')}>Нэг тал</button>
+                <button onClick={() => setSides('double')} style={pillSt(sides === 'double')}>Хоёр тал</button>
+              </div>
             </div>
+            {pt.id === 'book' && (
+              <div>
+                <label style={labelSt}>Хуудасны тоо</label>
+                <input type="number" value={pages} onChange={e => setPages(+e.target.value)} min={4} step={4} style={inputSt} />
+              </div>
+            )}
           </div>
 
           {/* Finishing */}
-          {finishingOptions.length > 0 && (
-            <div className="mb-6">
-              <label className="block text-sm font-medium mb-3" style={{ color: 'var(--text2)' }}>
-                Боловсруулалт (заавал биш)
-              </label>
-              <div className="flex flex-wrap gap-2">
-                {finishingOptions.map((f: any) => (
-                  <button key={f.id}
-                    onClick={() => setFinishing(prev =>
-                      prev.includes(f.id) ? prev.filter(x => x !== f.id) : [...prev, f.id]
-                    )}
-                    className="px-3 py-1.5 rounded-lg text-xs transition-all"
-                    style={{
-                      border: `1px solid ${finishing.includes(f.id) ? '#8B5CF6' : 'var(--border)'}`,
-                      background: finishing.includes(f.id) ? 'rgba(139,92,246,0.08)' : 'transparent',
-                      color: finishing.includes(f.id) ? '#8B5CF6' : 'var(--text3)',
-                    }}
-                  >
-                    {f.name}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Calculate button */}
-          <button
-            onClick={calcQuote}
-            disabled={loading}
-            className="w-full py-3 text-white font-medium rounded-xl transition-colors disabled:opacity-50"
-            style={{ background: '#FF6B00' }}
-          >
-            {loading ? 'Тооцоолж байна...' : 'Үнэ тооцоолох'}
-          </button>
-
-          {error && (
-            <p className="mt-3 text-sm text-red-600 text-center">{error}</p>
-          )}
-        </>
-      )}
-
-      {/* Result */}
-      {result && (
-        <div className="mt-6 rounded-2xl p-5" style={{ border: '1px solid var(--border)' }}>
-          <div className="flex items-end justify-between mb-4">
-            <div>
-              <p className="text-sm" style={{ color: 'var(--text3)' }}>Нийт дүн</p>
-              <p className="text-3xl font-medium mt-0.5" style={{ color: 'var(--text)' }}>
-                {result.total.toLocaleString()}₮
-              </p>
-              <p className="text-sm mt-0.5" style={{ color: 'var(--text3)' }}>
-                Нэгжийн үнэ: {Math.round(result.unitPrice).toLocaleString()}₮
-              </p>
-            </div>
-            <div className="text-right">
-              <p className="text-xs" style={{ color: 'var(--text4)' }}>Хүргэх хугацаа</p>
-              <p className="text-lg font-medium" style={{ color: 'var(--text2)' }}>
-                {result.leadDays} өдөр
-              </p>
+          <div style={{ marginBottom: 20 }}>
+            <label style={labelSt}>Боловсруулалт</label>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+              {pt.finishing.map(f => (
+                <button key={f} onClick={() => toggleFinishing(f)} style={{ ...pillSt(selectedFinishing.includes(f)), fontSize: 12 }}>{selectedFinishing.includes(f) ? '✓ ' : ''}{f}</button>
+              ))}
             </div>
           </div>
 
-          <div className="pt-4 mb-4" style={{ borderTop: '1px solid var(--border)' }}>
-            <p className="text-xs font-medium uppercase tracking-wide mb-3" style={{ color: 'var(--text3)' }}>
-              Задаргаа
-            </p>
-            {[
-              { label: 'Цаас', val: result.breakdown.paper },
-              { label: 'Бүр / түвлэлт', val: result.breakdown.ink },
-              { label: 'Боловсруулалт', val: result.breakdown.finishing },
-              { label: 'Платформ комисс', val: result.breakdown.platform },
-            ].map(row => (
-              <div key={row.label} className="flex justify-between text-sm py-1">
-                <span style={{ color: 'var(--text3)' }}>{row.label}</span>
-                <span style={{ color: 'var(--text2)' }}>
-                  {row.val.toLocaleString()}₮
-                </span>
-              </div>
-            ))}
+          {/* Quantity */}
+          <div style={{ marginBottom: 20 }}>
+            <label style={labelSt}>Тоо ширхэг (хамгийн бага: {pt.minQty})</label>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
+              {QTY_PRESETS.filter(q => q >= pt.minQty).map(q => (
+                <button key={q} onClick={() => { setQty(q); setCustomQty('') }} style={pillSt(qty === q && !customQty)}>{q.toLocaleString()}</button>
+              ))}
+            </div>
+            <input type="number" placeholder="Бусад тоо оруулах" value={customQty} onChange={e => setCustomQty(e.target.value)} min={pt.minQty} style={inputSt} />
           </div>
-
-          <button
-            onClick={handleOrder}
-            className="w-full py-3 font-medium rounded-xl transition-opacity hover:opacity-90"
-            style={{ background: 'var(--text)', color: 'var(--bg)' }}
-          >
-            Энэ үнээр захиалах
-          </button>
         </div>
-      )}
+
+        {/* Right column — Price */}
+        <div>
+          <div style={{ position: 'sticky', top: 80, padding: 24, borderRadius: 16, background: 'var(--surface)', border: '1px solid var(--border)' }}>
+            <div style={{ textAlign: 'center', marginBottom: 20 }}>
+              <div style={{ fontSize: 13, color: 'var(--text3)', marginBottom: 4 }}>Тооцоолсон үнэ</div>
+              {price ? (
+                <>
+                  <div style={{ fontSize: 36, fontWeight: 800, color: '#FF6B00' }}>₮{price.total.toLocaleString()}</div>
+                  <div style={{ fontSize: 13, color: 'var(--text3)', marginTop: 4 }}>Нэгжийн үнэ: ₮{price.unitPrice.toLocaleString()}</div>
+                </>
+              ) : (
+                <div style={{ fontSize: 18, color: 'var(--text3)' }}>Хэмжээ сонгоно уу</div>
+              )}
+            </div>
+
+            {/* Summary */}
+            <div style={{ fontSize: 12, color: 'var(--text2)', lineHeight: 2, borderTop: '1px solid var(--border)', paddingTop: 12, marginBottom: 12 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Төрөл</span><strong>{pt.name}</strong></div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Хэмжээ</span><strong>{isCustom ? `${customW}×${customH}мм` : size?.label}</strong></div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Материал</span><strong>{pt.materials[matIdx]}</strong></div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Тал</span><strong>{sides === 'double' ? 'Хоёр тал' : 'Нэг тал'}</strong></div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Тоо</span><strong>{effectiveQty.toLocaleString()} ш</strong></div>
+              {selectedFinishing.length > 0 && <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Боловсруулалт</span><strong>{selectedFinishing.length} сонголт</strong></div>}
+              {pt.id === 'book' && <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Хуудас</span><strong>{pages}</strong></div>}
+            </div>
+
+            {/* Breakdown */}
+            {price && (
+              <div style={{ marginBottom: 16 }}>
+                <button onClick={() => setShowBreakdown(!showBreakdown)} style={{ width: '100%', padding: '8px 0', background: 'none', border: 'none', cursor: 'pointer', fontSize: 12, color: 'var(--text3)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span>Дэлгэрэнгүй задаргаа</span>
+                  <span style={{ transform: showBreakdown ? 'rotate(180deg)' : '', transition: '0.2s' }}>▾</span>
+                </button>
+                {showBreakdown && (
+                  <div style={{ fontSize: 12, color: 'var(--text3)', lineHeight: 2, paddingTop: 8, borderTop: '1px solid var(--border)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Цаас</span><span>₮{price.breakdown.paper.toLocaleString()}</span></div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Бэх</span><span>₮{price.breakdown.ink.toLocaleString()}</span></div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Боловсруулалт</span><span>₮{price.breakdown.finishing.toLocaleString()}</span></div>
+                    {price.breakdown.pages > 0 && <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Хуудас</span><span>₮{price.breakdown.pages.toLocaleString()}</span></div>}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* CTA */}
+            <Link href={`/orders/new?${orderParams}`} style={{ display: 'block', textAlign: 'center', padding: '14px 0', borderRadius: 10, background: '#FF6B00', color: '#fff', textDecoration: 'none', fontSize: 14, fontWeight: 700, marginBottom: 8 }}>
+              Захиалах →
+            </Link>
+            <Link href={`/quote?tab=detailed`} style={{ display: 'block', textAlign: 'center', padding: '12px 0', borderRadius: 10, background: 'var(--surface2)', color: 'var(--text2)', textDecoration: 'none', fontSize: 13, border: '1px solid var(--border)' }}>
+              Нарийвчилсан тооцоо
+            </Link>
+          </div>
+        </div>
+      </div>
     </div>
-  );
+  )
 }
+
+const labelSt: React.CSSProperties = { display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text2)', marginBottom: 8 }
+const inputSt: React.CSSProperties = { width: '100%', padding: '10px 14px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface2)', fontSize: 13, color: 'var(--text)', outline: 'none', boxSizing: 'border-box' }
+const pillSt = (active: boolean): React.CSSProperties => ({ padding: '7px 14px', borderRadius: 8, border: `1.5px solid ${active ? '#FF6B00' : 'var(--border)'}`, background: active ? 'rgba(255,107,0,0.08)' : 'var(--surface)', color: active ? '#FF6B00' : 'var(--text2)', fontSize: 12, fontWeight: active ? 600 : 400, cursor: 'pointer' })
