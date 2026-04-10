@@ -10,7 +10,7 @@ const DEFAULT_SETTINGS: Record<string, any> = {
   // site
   site_name: 'BizPrint',
   site_logo_url: '',
-  site_phone: '+976 9911-1111',
+  site_phone: '+976 7711-7700',
   site_email: 'info@bizprint.mn',
   site_address: 'Улаанбаатар, Монгол',
   site_facebook: 'https://facebook.com/bizprint.mn',

@@ -301,7 +301,7 @@ export class ExcelProductsService {
     return { migrated, skipped, errors };
   }
 
-  async cleanupDemoAndFixImages(): Promise<{ deletedDemo: number; imagesFixed: number; mastersCleaned: number }> {
+  async cleanupDemoAndFixImages(): Promise<{ deletedDemo: number; imagesFixed: number; mastersCleaned: number; urlsCleaned?: number }> {
     // 1. Delete demo products (picsum.photos thumbnails)
     const demoProducts = await this.productRepo
       .createQueryBuilder('p')

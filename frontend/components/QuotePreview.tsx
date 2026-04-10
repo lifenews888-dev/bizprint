@@ -297,7 +297,7 @@ export default function QuotePreview({
             {/* Brand bar */}
             <div style={{ background: '#FF6B00', padding: '10px 30px', borderRadius: '0 0 12px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', color: '#fff', fontSize: 12 }}>
               <span style={{ fontWeight: 700 }}>BIZPRINT ХЭВЛЭЛИЙН ПЛАТФОРМ</span>
-              <span>📞 +976 9911-1111</span>
+              <span>📞 +976 7711-7700</span>
             </div>
           </div>
         </div>

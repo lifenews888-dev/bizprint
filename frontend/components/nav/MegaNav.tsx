@@ -101,7 +101,7 @@ export default function MegaNav() {
   useEffect(() => setMounted(true), [])
   const headerLogoUrl = settings.header_logo_url || ''
   const siteName = settings.site_name || 'BizPrint'
-  const phone = settings.site_phone || '+976 9911-1111'
+  const phone = settings.site_phone || '+976 7711-7700'
   const showSearch = settings.header_show_search !== false && settings.header_show_search !== 'false'
   const showLogin = settings.header_show_login !== false && settings.header_show_login !== 'false'
   const ctaText = settings.header_cta_text || ''
