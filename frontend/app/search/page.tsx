@@ -4,6 +4,8 @@ import { useSearchParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { API_URL } from '@/lib/api'
 
+const SUGGESTED_SEARCHES = ['Нэрийн хуудас', 'Флаер', 'Баннер', 'Стикер', 'Каталог', 'Роллап', 'Постер', 'Ном']
+
 function SearchResults() {
   const params = useSearchParams()
   const router = useRouter()
@@ -15,7 +17,7 @@ function SearchResults() {
   useEffect(() => {
     if (!q || q.length < 2) return
     setLoading(true)
-    fetch(`${API_URL}/api/products?search=${encodeURIComponent(q)}`)
+    fetch(`${API_URL}/products/search?q=${encodeURIComponent(q)}`)
       .then(r => r.json())
       .then(data => { setResults(Array.isArray(data) ? data : []); setLoading(false) })
       .catch(() => setLoading(false))
@@ -35,6 +37,21 @@ function SearchResults() {
       </form>
 
       {q && <p style={{ fontSize: 13, color: 'var(--text3)', marginBottom: 20 }}>&ldquo;{q}&rdquo; — {loading ? 'Хайж байна...' : `${results.length} үр дүн`}</p>}
+
+      {/* Suggested searches — when no query */}
+      {!q && (
+        <div style={{ marginTop: 8 }}>
+          <p style={{ fontSize: 13, color: 'var(--text3)', marginBottom: 12 }}>Түгээмэл хайлтууд:</p>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+            {SUGGESTED_SEARCHES.map(s => (
+              <button key={s} onClick={() => router.push(`/search?q=${encodeURIComponent(s)}`)}
+                style={{ padding: '8px 16px', border: '1px solid var(--border)', borderRadius: 20, background: 'var(--surface)', fontSize: 13, color: 'var(--text2)', cursor: 'pointer' }}>
+                🔍 {s}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {loading && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 16 }}>
@@ -59,7 +76,9 @@ function SearchResults() {
               </div>
               <div style={{ padding: 12 }}>
                 <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', marginBottom: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name_mn || p.name}</p>
-                <p style={{ fontSize: 14, fontWeight: 700, color: '#FF6B00' }}>₮{Number(p.base_price).toLocaleString()}</p>
+                <p style={{ fontSize: 14, fontWeight: 700, color: '#FF6B00' }}>
+                  {Number(p.base_price) > 0 ? <><span style={{ fontSize: 11, color: 'var(--text3)', fontWeight: 400 }}>-аас </span>₮{Number(p.base_price).toLocaleString()}</> : 'Үнэ авах'}
+                </p>
               </div>
             </Link>
           ))}
@@ -69,8 +88,17 @@ function SearchResults() {
       {!loading && q && results.length === 0 && (
         <div style={{ textAlign: 'center', padding: 60 }}>
           <div style={{ fontSize: 48, marginBottom: 12 }}>🔍</div>
-          <p style={{ color: 'var(--text3)', marginBottom: 16 }}>&ldquo;{q}&rdquo; хайлтад тохирох бүтээгдэхүүн олдсонгүй</p>
-          <Link href="/shop" style={{ color: '#FF6B00', textDecoration: 'none', fontWeight: 600 }}>Бүх бүтээгдэхүүн харах →</Link>
+          <p style={{ color: 'var(--text)', fontWeight: 600, marginBottom: 8 }}>&ldquo;{q}&rdquo; хайлтад тохирох бүтээгдэхүүн олдсонгүй</p>
+          <p style={{ color: 'var(--text3)', fontSize: 13, marginBottom: 20 }}>Өөр үгээр хайж үзнэ үү эсвэл доорх ангилалуудаас сонгоно уу</p>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'center', marginBottom: 24 }}>
+            {SUGGESTED_SEARCHES.map(s => (
+              <button key={s} onClick={() => router.push(`/search?q=${encodeURIComponent(s)}`)}
+                style={{ padding: '8px 16px', background: '#FFF7ED', border: 'none', borderRadius: 20, fontSize: 13, color: '#FF6B00', cursor: 'pointer', fontWeight: 500 }}>
+                {s}
+              </button>
+            ))}
+          </div>
+          <Link href="/shop" style={{ color: 'var(--text3)', textDecoration: 'none', fontSize: 13 }}>Бүх бүтээгдэхүүн харах →</Link>
         </div>
       )}
 

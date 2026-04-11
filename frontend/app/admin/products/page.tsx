@@ -2140,6 +2140,27 @@ const MAIN_TABS = [
   { key: 'templates', label: '🎨 Дизайн загвар', desc: 'Загвар · Дижитал' },
 ]
 
+function NoImageBanner() {
+  const [count, setCount] = useState<number | null>(null)
+  useEffect(() => {
+    apiFetch<any>('/admin/products-master?product_type=print')
+      .then(data => {
+        const items = data?.items || []
+        setCount(items.filter((p: any) => !p.thumbnail_url || p.thumbnail_url === '').length)
+      }).catch(() => {})
+  }, [])
+  if (!count) return null
+  return (
+    <div style={{ marginBottom: 16, padding: '12px 16px', background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.25)', borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+      <div>
+        <p style={{ fontSize: 13, fontWeight: 600, color: '#F59E0B', margin: 0 }}>⚠️ {count} бүтээгдэхүүн зургүй байна</p>
+        <p style={{ fontSize: 11, color: 'var(--text3)', margin: '2px 0 0' }}>Бүтээгдэхүүн дээр дарж зураг нэмнэ үү</p>
+      </div>
+      <a href="/admin/import" style={{ fontSize: 12, color: '#F59E0B', textDecoration: 'none', whiteSpace: 'nowrap' }}>Excel-ээр оруулах →</a>
+    </div>
+  )
+}
+
 export default function AdminProductsPage() {
   const [activeTab, setActiveTab] = useState('shop')
 
@@ -2157,6 +2178,9 @@ export default function AdminProductsPage() {
           </a>
         </div>
       </div>
+
+      {/* Missing image warning */}
+      <NoImageBanner />
 
       {/* Type Tabs */}
       <div style={{ display: 'flex', gap: 0, borderBottom: '1px solid var(--border)', marginBottom: 24, overflowX: 'auto' }}>

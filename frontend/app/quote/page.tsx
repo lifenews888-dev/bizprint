@@ -49,6 +49,23 @@ function QuotePageInner() {
         </div>
       </div>
 
+      {/* Price hints */}
+      <div style={{ maxWidth: 1100, margin: '0 auto', padding: '16px 20px 0' }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
+          <span style={{ fontSize: 11, color: 'var(--text3)', marginRight: 4 }}>Жишээ үнэ:</span>
+          {[
+            { name: 'Нэрийн хуудас 500ш', from: 45000 },
+            { name: 'A5 Флаер 1000ш', from: 120000 },
+            { name: 'Роллап баннер', from: 85000 },
+            { name: 'A4 Постер 100ш', from: 35000 },
+          ].map(h => (
+            <span key={h.name} style={{ fontSize: 11, background: 'var(--surface2)', border: '1px solid var(--border)', padding: '4px 10px', borderRadius: 20, color: 'var(--text3)' }}>
+              {h.name}: <strong style={{ color: '#FF6B00' }}>₮{h.from.toLocaleString()}-аас</strong>
+            </span>
+          ))}
+        </div>
+      </div>
+
       {/* Tab content */}
       <div>
         {tab === 'quick' && <InstantQuote />}

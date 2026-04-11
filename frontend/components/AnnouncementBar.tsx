@@ -15,8 +15,8 @@ export default function AnnouncementBar() {
   return (
     <div style={{
       background: `linear-gradient(90deg, ${color}, ${color}dd)`,
-      color: '#fff', textAlign: 'center', padding: '8px 40px 8px 16px',
-      fontSize: '13px', fontWeight: 500, position: 'relative',
+      color: '#fff', textAlign: 'center', padding: '6px 40px 6px 16px',
+      fontSize: '12px', fontWeight: 500, position: 'relative',
       fontFamily: "'DM Sans','Segoe UI',system-ui,sans-serif",
     }}>
       {text}

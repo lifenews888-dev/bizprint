@@ -13,7 +13,36 @@ import { OptionalJwtAuthGuard } from '../auth/guards/optional-jwt-auth.guard';
 const INSTANT_PAPER_RATES: Record<string, number> = {
   vizit_kart: 340, flyar: 180, broushur: 250, poster: 210,
   banner: 1200, sticker: 280, nom: 170, packaging: 420,
+  'business-card': 340, flyer: 180, brochure: 250,
+  book: 170, signage: 900,
 };
+
+// Material cost multipliers
+const MATERIAL_MULT: Record<string, number> = {
+  'glossy_130': 1.0, 'glossy_170': 1.15, 'matte_170': 1.1,
+  'art_250': 1.3, 'art_300': 1.45, 'art_350': 1.6,
+  'kraft': 0.9, 'vinyl_white': 1.9, 'vinyl_clear': 2.1,
+  'vinyl_440': 1.4, 'canvas': 2.4, 'fabric': 2.0,
+  default: 1.0,
+};
+
+function getMaterialKey(material?: string): string {
+  if (!material) return 'default';
+  const m = material.toLowerCase();
+  if (m.includes('glossy') && m.includes('130')) return 'glossy_130';
+  if (m.includes('glossy') && m.includes('170')) return 'glossy_170';
+  if (m.includes('matte') || m.includes('матт')) return 'matte_170';
+  if (m.includes('art') && m.includes('250')) return 'art_250';
+  if (m.includes('art') && m.includes('300')) return 'art_300';
+  if (m.includes('art') && m.includes('350')) return 'art_350';
+  if (m.includes('kraft')) return 'kraft';
+  if (m.includes('vinyl') && (m.includes('цагаан') || m.includes('white'))) return 'vinyl_white';
+  if (m.includes('vinyl') && (m.includes('тунгалаг') || m.includes('clear'))) return 'vinyl_clear';
+  if (m.includes('vinyl') && m.includes('440')) return 'vinyl_440';
+  if (m.includes('canvas')) return 'canvas';
+  if (m.includes('fabric') || m.includes('даавуу')) return 'fabric';
+  return 'default';
+}
 
 @Controller('quote')
 export class QuoteController {
@@ -29,7 +58,7 @@ export class QuoteController {
   // ─── Instant Quote (10-second price) ───
   @Post('instant')
   async instantQuote(@Body() body: any) {
-    const { productType, widthMm, heightMm, quantity, colorMode, finishing } = body;
+    const { productType, widthMm, heightMm, quantity, colorMode, finishing, material, sides, urgency } = body;
     const qty = Number(quantity) || 100;
     const w = Number(widthMm) || 210;
     const h = Number(heightMm) || 297;
@@ -37,12 +66,16 @@ export class QuoteController {
     const areaM2 = (w / 1000) * (h / 1000);
     const paperRate = INSTANT_PAPER_RATES[productType] ?? 200;
 
+    // Material multiplier
+    const matMult = MATERIAL_MULT[getMaterialKey(material)] || 1.0;
+
     // Цаасны зардал
-    const paperCost = Math.round(paperRate * qty * (areaM2 / 0.0623)); // normalized to A4
+    const paperCost = Math.round(paperRate * qty * (areaM2 / 0.0623) * matMult);
 
     // Бэхний зардал
     const colorChannels = colorMode === 'CMYK' ? 4 : colorMode === '1C' ? 1 : colorMode === 'BW' ? 1 : 2;
-    const inkCostPerUnit = Math.round(areaM2 * 2.5 * colorChannels * 45);
+    const sidesMultiplier = sides === 'double' ? 1.7 : 1;
+    const inkCostPerUnit = Math.round(areaM2 * 2.5 * colorChannels * 45 * sidesMultiplier);
     const inkCost = inkCostPerUnit * qty;
 
     // Боловсруулалт
@@ -56,10 +89,22 @@ export class QuoteController {
     const overhead = Math.round(subtotal * 0.12);
     const productionCost = subtotal + overhead;
     const platform = Math.round(productionCost * 0.10);
-    const total = productionCost + platform;
+
+    // Urgency multiplier
+    const urgencyMult = urgency === 'urgent' ? 1.35 : urgency === 'express' ? 1.20 : 1;
+    const total = Math.round((productionCost + platform) * urgencyMult);
 
     // Хүргэх хугацаа
-    const leadDays = qty <= 100 ? 2 : qty <= 500 ? 3 : qty <= 2000 ? 5 : 7;
+    const leadDays = urgency === 'urgent' ? 1 : urgency === 'express' ? 2 : qty <= 100 ? 2 : qty <= 500 ? 3 : qty <= 2000 ? 5 : 7;
+
+    // Volume discounts
+    const volumeDiscounts = [100, 250, 500, 1000, 2000, 5000]
+      .filter(q => q !== qty)
+      .map(q => {
+        const disc = q >= 1000 ? 0.25 : q >= 500 ? 0.15 : q >= 250 ? 0.10 : q >= 100 ? 0.05 : 0;
+        const scaledTotal = Math.round(total * (q / qty) * (1 - disc));
+        return { qty: q, discount: Math.round(disc * 100), total: scaledTotal, unitPrice: Math.round(scaledTotal / q) };
+      });
 
     return {
       total,
@@ -68,11 +113,14 @@ export class QuoteController {
         paper: paperCost,
         ink: inkCost,
         finishing: finishingCost,
+        overhead,
         platform,
       },
       leadDays,
       quantity: qty,
       productType,
+      material: material || null,
+      volumeDiscounts,
     };
   }
 

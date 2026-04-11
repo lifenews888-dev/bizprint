@@ -37,7 +37,7 @@ export class ProductsService {
   async search(query: string, category?: string) {
     const qb = this.productRepo.createQueryBuilder('p')
       .where('p.is_active = true')
-      .andWhere('(p.name ILIKE :q OR p.description ILIKE :q OR p.category ILIKE :q)', { q: `%${query}%` })
+      .andWhere('(p.name ILIKE :q OR p.name_mn ILIKE :q OR p.description ILIKE :q OR p.category ILIKE :q)', { q: `%${query}%` })
     if (category) qb.andWhere('p.category = :cat', { cat: category })
     return qb.orderBy('p.sort_order', 'ASC').addOrderBy('p.created_at', 'DESC').limit(20).getMany()
   }

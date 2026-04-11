@@ -307,12 +307,14 @@ export default function ProductPage({ params }: { params: Promise<{ _slug: strin
             {/* Price — glass card (live from calculator) */}
             <div className="rounded-xl p-3 border border-[var(--border)] bg-[var(--surface2)]/80 backdrop-blur-sm" style={{ boxShadow: '0 4px 20px rgba(0,0,0,0.03)' }}>
               <div className="flex items-baseline gap-2.5">
+                {!livePrice && !oldPrice && price > 0 && <span className="text-xs text-[var(--text3)] mr-0.5">-аас</span>}
                 <AnimPrice value={livePrice ?? price} />
                 {oldPrice && <><span className="text-xs text-[var(--text3)] line-through">{fmt(oldPrice)}</span><span className="text-[10px] font-bold text-emerald-600 bg-emerald-100 px-2 py-0.5 rounded-full">-{disc}%</span></>}
               </div>
               {oldPrice && !liveBreakdown && <div className="text-[10px] text-emerald-600 font-semibold mt-0.5">Хэмнэлт: {fmt(oldPrice - price)}</div>}
               {liveBreakdown?.volume_discount > 0 && <div className="text-[10px] text-emerald-600 font-semibold mt-0.5">📦 Хөнгөлөлт: -{fmt(liveBreakdown.volume_discount)} ({(liveBreakdown.discount_rate * 100).toFixed(0)}%)</div>}
               {liveBreakdown?.unit_price > 0 && liveBreakdown?.quantity > 1 && <div className="text-[10px] text-[var(--text3)] mt-0.5">Нэгж: {fmt(liveBreakdown.unit_price)} × {liveBreakdown.quantity}ш</div>}
+              {p.min_quantity > 1 && !liveBreakdown && <div className="text-[10px] text-[var(--text3)] mt-0.5">Мин. {p.min_quantity} ширхэг</div>}
             </div>
 
             {/* Smart Price Calculator — book/offset uses BookPriceCalculator, others use PriceCalculator */}
@@ -362,6 +364,12 @@ export default function ProductPage({ params }: { params: Promise<{ _slug: strin
                 <Zap className="w-4 h-4 inline mr-1" strokeWidth={1.5} />ХУДАЛДАН АВАХ
               </motion.button>
             </div>
+
+            {/* Design editor link */}
+            <a href={`/design/editor?type=${p.category || 'business-card'}&productId=${p.id}`}
+              className="block w-full py-2.5 border-2 border-[#FF6B00]/30 text-[#FF6B00] text-center text-[12px] font-bold rounded-lg hover:bg-[#FF6B00]/5 transition-colors no-underline">
+              🎨 ДИЗАЙН ХИЙХ
+            </a>
 
             {/* Хамт авах уу? — Add-on upsell */}
             {addons.length > 0 && (

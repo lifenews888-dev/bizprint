@@ -151,6 +151,12 @@ export default function HomePage() {
                   </span>
                 </Link>
               </div>
+              {/* Quick order shortcut */}
+              <div className="mb-6">
+                <Link href="/quick-order" className="no-underline inline-flex items-center gap-2 text-sm text-white/50 hover:text-[#FF6B00] transition-colors">
+                  <span>📁</span> Файл оруулж шууд захиалах →
+                </Link>
+              </div>
 
               {/* Process: 3 steps */}
               <div className="flex flex-wrap items-center gap-2 md:gap-3">
@@ -187,11 +193,12 @@ export default function HomePage() {
           <h2 className="text-xl md:text-2xl font-bold tracking-tight" style={{ color: 'var(--text)' }}>Үйлчилгээ</h2>
           <p className="text-sm mt-1" style={{ color: 'var(--text3)' }}>Хэрэгтэй зүйлээ сонгоорой</p>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
           {[
             { icon: '🖨️', title: 'Хэвлэл захиалах', desc: 'PDF оруулж AI-аар үнэ авах', href: '/quote', color: '#FF6B00' },
             { icon: '🛒', title: 'Дэлгүүр', desc: 'Бэлэн бүтээгдэхүүн сонгох', href: '/shop', color: '#8B5CF6' },
             { icon: '💳', title: 'Нэрийн хуудас', desc: 'Онлайнаар захиалах, QR кодтой', href: '/shop?category=business-card', color: '#F59E0B' },
+            { icon: '🎨', title: 'Дизайн хийх', desc: 'Live editor-ээр загвар хийх', href: '/design/editor', color: '#10B981' },
           ].map(s => (
             <Link key={s.title} href={s.href} className="no-underline group">
               <div className="rounded-2xl p-5 md:p-6 h-full transition-all duration-300 hover:-translate-y-1 hover:shadow-xl"
@@ -326,10 +333,12 @@ const STATS = [
 ]
 
 const TESTIMONIALS = [
-  { text: 'Маш хурдан хүргэж өгсөн, чанар гайхалтай!', name: 'Б.Мөнхбаяр', role: 'CEO' },
-  { text: 'Үнэ тооцоолуур маш хялбар, шууд захиалсан', name: 'Д.Энхжаргал', role: 'Marketing Manager' },
-  { text: 'Нэрийн хуудас маш чанартай гарсан', name: 'Г.Баярмаа', role: 'Дизайнер' },
-  { text: 'BizPrint-тэй ажиллах нь маш тохиромжтой', name: 'Т.Батболд', role: 'Бизнес эзэн' },
+  { text: 'Нэрийн хуудасны чанар гайхалтай байсан. 3 хоногт хүргэж өгсөн. Дахин захиална!', name: 'Б.Мөнхбаяр', role: 'StartupMN LLC', category: 'Нэрийн хуудас' },
+  { text: 'Үнэ тооцоолуур маш хялбар байлаа. Флаер болон брошур захиалсан, чанар маш сайн.', name: 'Д.Энхжаргал', role: 'Marketing Pro', category: 'Флаер' },
+  { text: 'Арга хэмжээний баннер болон backdrop маш хурдан хийж өгсөн. Үнэ боломжийн.', name: 'Г.Баярмаа', role: 'Event Masters', category: 'Баннер' },
+  { text: 'Сав баглааны дизайн болон хэвлэл маш чанартай. Манай брэндийн дүр төрхийг сайн илэрхийлсэн.', name: 'Т.Батболд', role: 'Nomadic Coffee', category: 'Сав баглаа' },
+  { text: 'Корпорэйт бизнес карт болон letterhead захиалсан. Мэргэжлийн түвшний хэвлэл.', name: 'С.Болдбаатар', role: 'Tech Solutions', category: 'Нэрийн хуудас' },
+  { text: 'Хувцасны шошго болон hang tag захиалсан. Чанар сайн, үнэ боломжийн байсан.', name: 'Н.Оюунцэцэг', role: 'Fashion House MN', category: 'Шошго' },
 ]
 
 function SocialProofSection() {
@@ -344,7 +353,7 @@ function SocialProofSection() {
     fetch(`${API_URL}/api/reviews?approved=true`).then(r => r.json())
       .then((data: any[]) => {
         if (Array.isArray(data) && data.length >= 2) {
-          setLiveTestimonials(data.slice(0, 4).map(r => ({ text: r.text, name: r.customer_name, role: r.customer_company || '' })))
+          setLiveTestimonials(data.slice(0, 6).map(r => ({ text: r.text, name: r.customer_name, role: r.customer_company || '', category: r.product_category || '' })))
         }
       }).catch(() => {})
     fetch(`${API_URL}/api/reviews/summary`).then(r => r.json())
@@ -397,19 +406,32 @@ function SocialProofSection() {
         </div>
       </section>
 
-      {/* Testimonials */}
+      {/* Testimonials — card grid */}
       <section style={{ background: 'var(--surface)', padding: '48px 20px', borderTop: '1px solid var(--border)' }}>
-        <div style={{ maxWidth: 600, margin: '0 auto', textAlign: 'center' }}>
-          <div style={{ fontSize: 20, color: '#F59E0B', marginBottom: 12 }}>★★★★★</div>
-          <p style={{ fontSize: 18, fontWeight: 600, color: 'var(--text)', lineHeight: 1.6, minHeight: 54, transition: 'opacity 0.3s' }}>
-            &ldquo;{liveTestimonials[tIdx % liveTestimonials.length].text}&rdquo;
-          </p>
-          <p style={{ fontSize: 13, color: 'var(--text3)', marginTop: 12 }}>
-            <strong style={{ color: 'var(--text2)' }}>{liveTestimonials[tIdx % liveTestimonials.length].name}</strong> — {liveTestimonials[tIdx % liveTestimonials.length].role}
-          </p>
-          <div style={{ display: 'flex', justifyContent: 'center', gap: 6, marginTop: 16 }}>
-            {liveTestimonials.map((_, i) => (
-              <button key={i} onClick={() => setTIdx(i)} style={{ width: i === tIdx ? 20 : 6, height: 6, borderRadius: 3, background: i === tIdx ? '#FF6B00' : 'var(--border)', border: 'none', cursor: 'pointer', transition: 'all 0.3s' }} />
+        <div style={{ maxWidth: 1000, margin: '0 auto' }}>
+          <div style={{ textAlign: 'center', marginBottom: 24 }}>
+            <h2 style={{ fontSize: 20, fontWeight: 700, color: 'var(--text)', margin: 0 }}>Хэрэглэгчдийн сэтгэгдэл</h2>
+            <p style={{ fontSize: 13, color: 'var(--text3)', marginTop: 4 }}>Бидний үйлчлүүлэгчдийн бодит үнэлгээ</p>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 16 }}>
+            {liveTestimonials.slice(0, 6).map((t, i) => (
+              <div key={i} style={{ padding: 20, borderRadius: 16, border: '1px solid var(--border)', background: 'var(--bg)' }}>
+                <div style={{ fontSize: 14, color: '#F59E0B', marginBottom: 8 }}>★★★★★</div>
+                <p style={{ fontSize: 14, color: 'var(--text)', lineHeight: 1.6, marginBottom: 12 }}>
+                  &ldquo;{t.text}&rdquo;
+                </p>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'rgba(255,107,0,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#FF6B00', fontWeight: 700, fontSize: 14, flexShrink: 0 }}>
+                    {t.name?.charAt(0) || 'Х'}
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>{t.name}</div>
+                    <div style={{ fontSize: 11, color: 'var(--text3)' }}>
+                      {t.role}{(t as any).category ? ` · ${(t as any).category}` : ''}
+                    </div>
+                  </div>
+                </div>
+              </div>
             ))}
           </div>
         </div>

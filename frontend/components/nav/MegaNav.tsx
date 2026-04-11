@@ -268,11 +268,12 @@ export default function MegaNav() {
 
           {/* ── Right: Language, Currency, Account, Wishlist, Cart ── */}
           <div className="flex items-center gap-5 flex-shrink-0">
-            <select className="bg-transparent text-[13px] font-medium text-[#555] outline-none cursor-pointer" style={{ appearance: 'auto' }}>
+            {/* Currency + Language — hidden on md, shown on lg+ to prevent overlap */}
+            <select className="hidden lg:block bg-transparent text-[13px] font-medium text-[#555] outline-none cursor-pointer" style={{ appearance: 'auto' }}>
               <option>🇲🇳 Монгол</option>
               <option>🇬🇧 English</option>
             </select>
-            <select className="bg-transparent text-[13px] font-medium text-[#555] outline-none cursor-pointer" style={{ appearance: 'auto' }}>
+            <select className="hidden lg:block bg-transparent text-[13px] font-medium text-[#555] outline-none cursor-pointer" style={{ appearance: 'auto' }}>
               <option>₮ MNT</option>
               <option>$ USD</option>
             </select>
@@ -554,18 +555,53 @@ export default function MegaNav() {
 
         {/* Mobile search bar */}
         {searchOpen && (
-          <div className="md:hidden border-t border-[#EBEBEB] px-4 py-3 bg-white">
-            <div className="flex items-stretch h-[40px] border border-[#EBEBEB] rounded-lg overflow-hidden focus-within:border-[#FF6B00] transition-colors">
+          <div className="md:hidden border-t border-[#EBEBEB] px-4 py-3 bg-white relative">
+            <form onSubmit={e => { e.preventDefault(); handleSearchSubmit() }} className="flex items-stretch h-[40px] border border-[#EBEBEB] rounded-lg overflow-hidden focus-within:border-[#FF6B00] transition-colors">
               <input
                 type="text"
+                value={searchQuery}
+                onChange={e => { setSearchQuery(e.target.value); doSearch(e.target.value, '') }}
+                onFocus={() => { if (searchQuery.length >= 2) doSearch(searchQuery, '') }}
                 placeholder="Бүтээгдэхүүн хайх..."
                 className="flex-1 bg-white text-[14px] text-[#111] px-4 outline-none placeholder:text-[#BBB]"
                 autoFocus
               />
-              <button className="bg-[#FF6B00] text-white px-4 border-none">
+              <button type="submit" className="bg-[#FF6B00] text-white px-4 border-none cursor-pointer">
                 <SearchIcon />
               </button>
-            </div>
+            </form>
+            {/* Mobile instant results */}
+            {searchResults !== null && searchQuery.length >= 2 && (
+              <div className="absolute top-full left-0 right-0 mx-4 bg-white border border-[#EBEBEB] rounded-xl shadow-xl z-[400] max-h-[320px] overflow-y-auto">
+                {searching && <div className="px-4 py-3 text-sm text-[#999]">Хайж байна...</div>}
+                {!searching && searchResults.length === 0 && (
+                  <div className="px-4 py-4 text-center">
+                    <div className="text-xl mb-1">🔍</div>
+                    <div className="text-sm text-[#999]">Олдсонгүй</div>
+                  </div>
+                )}
+                {!searching && searchResults.length > 0 && (
+                  <>
+                    {searchResults.map((p: any) => (
+                      <a key={p.id} href={`/product/${p.id}`} className="flex items-center gap-3 px-4 py-2.5 hover:bg-[#F8F8F8] no-underline border-b border-[#F3F4F6] last:border-0">
+                        {p.thumbnail_url ? (
+                          <img src={p.thumbnail_url} alt="" className="w-9 h-9 rounded-lg object-cover flex-shrink-0" />
+                        ) : (
+                          <div className="w-9 h-9 rounded-lg bg-[#F3F4F6] flex items-center justify-center text-base flex-shrink-0">📦</div>
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <div className="text-[13px] font-medium text-[#333] truncate">{p.name_mn || p.name}</div>
+                          {Number(p.base_price) > 0 && <div className="text-[11px] text-[#FF6B00] font-semibold">₮{Number(p.base_price).toLocaleString()}-аас</div>}
+                        </div>
+                      </a>
+                    ))}
+                    <a href={`/search?q=${encodeURIComponent(searchQuery)}`} className="block px-4 py-2.5 text-center text-xs font-semibold text-[#FF6B00] bg-[#FFF7ED] no-underline">
+                      Бүгдийг харах →
+                    </a>
+                  </>
+                )}
+              </div>
+            )}
           </div>
         )}
       </nav>
@@ -661,6 +697,18 @@ export default function MegaNav() {
                   </a>
                 ))}
               </div>
+            </div>
+
+            {/* Currency + Language (mobile) */}
+            <div className="flex gap-3 px-4 py-3 border-t border-[#EBEBEB]">
+              <select className="flex-1 bg-[#F8F8F8] text-[13px] font-medium text-[#555] px-3 py-2.5 rounded-lg border border-[#EBEBEB] outline-none cursor-pointer" style={{ appearance: 'auto' }}>
+                <option>🇲🇳 Монгол</option>
+                <option>🇬🇧 English</option>
+              </select>
+              <select className="flex-1 bg-[#F8F8F8] text-[13px] font-medium text-[#555] px-3 py-2.5 rounded-lg border border-[#EBEBEB] outline-none cursor-pointer" style={{ appearance: 'auto' }}>
+                <option>₮ MNT</option>
+                <option>$ USD</option>
+              </select>
             </div>
 
             {/* Phone */}

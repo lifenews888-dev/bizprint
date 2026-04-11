@@ -1,6 +1,7 @@
 'use client'
 import { useState, useMemo } from 'react'
 import Link from 'next/link'
+import PrintPreview from '@/components/PrintPreview'
 
 const PRINT_TYPES = [
   { id: 'business-card', name: 'Нэрийн хуудас', icon: '💳', sizes: [{ label: '90×54мм (стандарт)', w: 90, h: 54 }, { label: '90×50мм', w: 90, h: 50 }, { label: 'Захиалгат', w: 0, h: 0 }], materials: ['Art card 300gsm', 'Art card 350gsm', 'Металл', 'PVC тунгалаг'], finishing: ['Матт ламинат', 'Глосс ламинат', 'Soft-touch', 'УВ лак', 'Фольг тамга'], minQty: 100 },
@@ -128,21 +129,53 @@ export default function InstantQuote() {
             </div>
           </div>
 
-          {/* Quantity */}
+          {/* Quantity with slider */}
           <div style={{ marginBottom: 20 }}>
-            <label style={labelSt}>Тоо ширхэг (хамгийн бага: {pt.minQty})</label>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+              <label style={{ ...labelSt, margin: 0 }}>Тоо ширхэг</label>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                <input type="number" value={customQty || qty} min={pt.minQty} max={10000}
+                  onChange={e => { const v = parseInt(e.target.value) || pt.minQty; setCustomQty(String(v)); setQty(Math.max(pt.minQty, v)) }}
+                  style={{ ...inputSt, width: 80, textAlign: 'center', padding: '6px 8px' }} />
+                <span style={{ fontSize: 11, color: 'var(--text3)' }}>ширхэг</span>
+              </div>
+            </div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
               {QTY_PRESETS.filter(q => q >= pt.minQty).map(q => (
                 <button key={q} onClick={() => { setQty(q); setCustomQty('') }} style={pillSt(qty === q && !customQty)}>{q.toLocaleString()}</button>
               ))}
             </div>
-            <input type="number" placeholder="Бусад тоо оруулах" value={customQty} onChange={e => setCustomQty(e.target.value)} min={pt.minQty} style={inputSt} />
+            {/* Range slider */}
+            <input type="range" min={pt.minQty} max={5000} step={pt.minQty <= 50 ? 50 : 100}
+              value={Math.min(effectiveQty, 5000)}
+              onChange={e => { setQty(parseInt(e.target.value)); setCustomQty('') }}
+              className="qty-slider"
+              style={{ width: '100%', height: 6, borderRadius: 3, outline: 'none', cursor: 'pointer',
+                background: `linear-gradient(to right, #FF6B00 0%, #FF6B00 ${((Math.min(effectiveQty,5000)-pt.minQty)/(5000-pt.minQty))*100}%, var(--border) ${((Math.min(effectiveQty,5000)-pt.minQty)/(5000-pt.minQty))*100}%, var(--border) 100%)` }} />
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4 }}>
+              <span style={{ fontSize: 10, color: 'var(--text3)' }}>{pt.minQty}</span>
+              <span style={{ fontSize: 11, color: '#FF6B00', fontWeight: 600 }}>{effectiveQty.toLocaleString()} ш</span>
+              <span style={{ fontSize: 10, color: 'var(--text3)' }}>5,000+</span>
+            </div>
+            {effectiveQty >= 250 && (
+              <div style={{ marginTop: 6, display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: '#10B981' }}>
+                <span>✓</span>
+                <span>{effectiveQty >= 1000 ? '25%' : effectiveQty >= 500 ? '15%' : '10%'} хямдрал авах боломжтой</span>
+              </div>
+            )}
           </div>
         </div>
 
-        {/* Right column — Price */}
+        {/* Right column — Preview + Price */}
         <div>
-          <div style={{ position: 'sticky', top: 80, padding: 24, borderRadius: 16, background: 'var(--surface)', border: '1px solid var(--border)' }}>
+          <div style={{ position: 'sticky', top: 80 }}>
+            {/* Print Preview */}
+            <div style={{ padding: 20, borderRadius: 16, background: 'var(--surface)', border: '1px solid var(--border)', marginBottom: 12 }}>
+              <PrintPreview productType={pt.id} width={effectiveSize.w} height={effectiveSize.h} sides={sides} material={pt.materials[matIdx]} qty={effectiveQty} />
+            </div>
+
+            {/* Price card */}
+          <div style={{ padding: 24, borderRadius: 16, background: 'var(--surface)', border: '1px solid var(--border)' }}>
             <div style={{ textAlign: 'center', marginBottom: 20 }}>
               <div style={{ fontSize: 13, color: 'var(--text3)', marginBottom: 4 }}>Тооцоолсон үнэ</div>
               {price ? (
@@ -184,6 +217,25 @@ export default function InstantQuote() {
               </div>
             )}
 
+            {/* Volume discounts */}
+            {price && effectiveQty < 1000 && (
+              <div style={{ marginBottom: 12 }}>
+                <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 6 }}>Тирaжийн хямдрал:</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                  {[
+                    { min: 250, disc: 10 },
+                    { min: 500, disc: 15 },
+                    { min: 1000, disc: 25 },
+                  ].filter(t => t.min > effectiveQty).map(tier => (
+                    <div key={tier.min} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, padding: '4px 8px', borderRadius: 6, background: 'var(--surface2)', color: 'var(--text3)' }}>
+                      <span>{tier.min.toLocaleString()}+ ширхэг</span>
+                      <span style={{ fontWeight: 600, color: '#10B981' }}>-{tier.disc}%</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* CTA */}
             <Link href={`/orders/new?${orderParams}`} style={{ display: 'block', textAlign: 'center', padding: '14px 0', borderRadius: 10, background: '#FF6B00', color: '#fff', textDecoration: 'none', fontSize: 14, fontWeight: 700, marginBottom: 8 }}>
               Захиалах →
@@ -192,6 +244,7 @@ export default function InstantQuote() {
               Нарийвчилсан тооцоо
             </Link>
           </div>
+          </div>{/* /sticky */}
         </div>
       </div>
     </div>

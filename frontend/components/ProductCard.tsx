@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
+import ProductImage from './ProductImage'
 
 const fmt = (n: number) => '₮' + n.toLocaleString('mn-MN')
 
@@ -64,10 +65,7 @@ export default function ProductCard({ product, categoryLabel, onAddToCart }: Pro
                 loading="lazy" />
             ))
           ) : (
-            <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-[var(--surface2)] to-[var(--surface3)]">
-              <span className="text-4xl mb-1">{categoryLabel ? '🖨️' : '📦'}</span>
-              <span className="text-[10px] text-[var(--text3)] font-medium">{categoryLabel || p.category || 'Бүтээгдэхүүн'}</span>
-            </div>
+            <ProductImage src={null} alt={p.name_mn || p.name || 'Бүтээгдэхүүн'} category={p.category} className="w-full h-full" />
           )}
 
           {/* Progress bars — top */}
@@ -126,10 +124,25 @@ export default function ProductCard({ product, categoryLabel, onAddToCart }: Pro
             {p.name_mn || p.name || 'Бүтээгдэхүүн'}
           </div>
           {/* Price row */}
-          <div className="flex items-center gap-2">
-            <span className="text-base font-extrabold text-[var(--text)]">{fmt(price)}</span>
-            {oldPrice && <span className="text-xs text-[var(--text3)] line-through">{fmt(oldPrice)}</span>}
+          <div className="flex items-center gap-2 flex-wrap">
+            {oldPrice ? (
+              <>
+                <span className="text-base font-extrabold text-[#FF6B00]">{fmt(price)}</span>
+                <span className="text-xs text-[var(--text3)] line-through">{fmt(oldPrice)}</span>
+                <span className="text-[10px] font-bold bg-red-100 text-red-600 px-1.5 py-0.5 rounded-full">-{discount}%</span>
+              </>
+            ) : price > 0 ? (
+              <>
+                <span className="text-[10px] text-[var(--text3)]">-аас</span>
+                <span className="text-base font-extrabold text-[var(--text)]">{fmt(price)}</span>
+              </>
+            ) : (
+              <span className="text-xs font-semibold text-[#FF6B00]">Үнэ авах</span>
+            )}
           </div>
+          {p.min_quantity > 1 && (
+            <div className="text-[10px] text-[var(--text3)] mt-0.5">Мин. {p.min_quantity} ширхэг</div>
+          )}
           {/* Lead time */}
           {p.lead_time_days && (
             <div className="flex items-center gap-1 mt-1.5 text-[10px] text-[var(--text3)]">

@@ -13,6 +13,9 @@ const nextConfig: NextConfig = {
       { protocol: 'https', hostname: 'images.unsplash.com' },
     ],
     formats: ['image/avif', 'image/webp'],
+    minimumCacheTTL: 86400,
+    deviceSizes: [640, 750, 828, 1080, 1200],
+    imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
   },
   async headers() {
     return [
@@ -45,6 +48,11 @@ const nextConfig: NextConfig = {
       { source: '/smart-quote', destination: '/quote?tab=ai', permanent: true },
       { source: '/quote/instant', destination: '/quote?tab=quick', permanent: true },
       { source: '/quote/compare', destination: '/quote', permanent: true },
+      // Fix 404 broken links
+      { source: '/orders', destination: '/orders/new', permanent: false },
+      // Quick order aliases
+      { source: '/upload', destination: '/quick-order', permanent: true },
+      { source: '/fast-order', destination: '/quick-order', permanent: true },
     ]
   },
 };
