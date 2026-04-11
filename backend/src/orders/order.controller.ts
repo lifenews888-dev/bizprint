@@ -114,6 +114,12 @@ export class OrdersController {
     return this.ordersService.getOrdersByCustomer(req.user.id);
   }
 
+  // ─── Public order tracking (no auth) ───
+  @Get('track/:orderNumber')
+  async trackOrder(@Param('orderNumber') orderNumber: string) {
+    return this.ordersService.getPublicTracking(orderNumber);
+  }
+
   /* ═══════════════════════════════════════
    *  :id routes (AFTER static routes)
    * ═══════════════════════════════════════ */

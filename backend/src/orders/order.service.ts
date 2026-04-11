@@ -628,4 +628,70 @@ export class OrdersService {
     }
     return this.ordersRepo.save(order);
   }
+
+  // ─── Public order tracking (no auth, limited info) ───
+
+  private readonly STATUS_INFO: Record<string, { mn: string; icon: string; desc: string }> = {
+    draft:                  { mn: 'Ноорог',                  icon: '📝', desc: 'Захиалга үүсгэгдсэн' },
+    quotation_sent:         { mn: 'Үнэ илгээсэн',            icon: '💰', desc: 'Үнийн санал илгээгдсэн' },
+    confirmed:              { mn: 'Батлагдсан',               icon: '✅', desc: 'Захиалга батлагдлаа' },
+    pending_file:           { mn: 'Файл хүлээж байна',        icon: '📁', desc: 'Эх файл хүлээгдэж байна' },
+    file_review:            { mn: 'Файл шалгаж байна',        icon: '🔍', desc: 'Дизайн файлыг шалгаж байна' },
+    file_rejected:          { mn: 'Файл буцаагдсан',          icon: '❌', desc: 'Файлд засвар хийх шаардлагатай' },
+    on_hold:                { mn: 'Хүлээлтэд',                icon: '⏸️', desc: 'Түр хүлээлтэд байна' },
+    in_production:          { mn: 'Хэвлэж байна',             icon: '🖨️', desc: 'Хэвлэлийн үйл явц эхэлсэн' },
+    finishing:              { mn: 'Боловсруулалт',             icon: '✂️', desc: 'Эцсийн боловсруулалт хийж байна' },
+    partially_dispatched:   { mn: 'Хэсэгчлэн хүргэгдсэн',    icon: '📦', desc: 'Нэг хэсэг хүргэгдсэн' },
+    dispatched:             { mn: 'Хүргэлтэд гарсан',         icon: '🚚', desc: 'Хүргэлтэд гарсан' },
+    delivered:              { mn: 'Хүргэгдсэн',               icon: '📬', desc: 'Таны хаягт хүргэгдсэн' },
+    completed:              { mn: 'Дууссан',                   icon: '🎉', desc: 'Захиалга амжилттай дууслаа' },
+    cancelled:              { mn: 'Цуцлагдсан',               icon: '🚫', desc: 'Захиалга цуцлагдсан' },
+  };
+
+  async getPublicTracking(orderNumber: string) {
+    // Find by quote_number or by id prefix
+    let order = await this.ordersRepo.findOne({ where: { quote_number: orderNumber } });
+    if (!order) {
+      order = await this.ordersRepo.findOne({ where: { id: orderNumber } });
+    }
+    if (!order) return { found: false };
+
+    const info = this.STATUS_INFO[order.status] || { mn: order.status, icon: '📦', desc: '' };
+
+    // Public timeline stages
+    const stages = ['confirmed', 'pending_file', 'file_review', 'in_production', 'finishing', 'dispatched', 'delivered', 'completed'];
+    const currentIdx = stages.indexOf(order.status);
+
+    // Get audit logs for dates
+    const logs = await this.auditRepo.find({
+      where: { order_id: order.id },
+      order: { created_at: 'ASC' },
+    });
+
+    return {
+      found: true,
+      order_id: order.id,
+      order_number: order.quote_number || order.id.slice(0, 8).toUpperCase(),
+      status: order.status,
+      status_label: info.mn,
+      status_icon: info.icon,
+      product_name: order.product_name,
+      quantity: order.quantity,
+      total_price: order.total_price,
+      created_at: order.created_at,
+      deadline: (order as any).deadline || null,
+      timeline: stages.map((s, i) => {
+        const log = logs.find(l => (l as any).new_value === s || (l as any).to_status === s);
+        return {
+          status: s,
+          label: this.STATUS_INFO[s]?.mn || s,
+          icon: this.STATUS_INFO[s]?.icon || '●',
+          completed: i < currentIdx,
+          active: i === currentIdx,
+          pending: i > currentIdx,
+          date: log?.created_at || null,
+        };
+      }),
+    };
+  }
 }

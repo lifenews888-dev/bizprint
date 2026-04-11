@@ -60,6 +60,7 @@ import { CustomerCareModule } from './customer-care/customer-care.module'
 import { CmsModule } from './cms/cms.module'
 import { MarketingModule } from './marketing/marketing.module'
 import { SmartQuoteModule } from './ai/smart-quote/smart-quote.module'
+import { AiQuoteModule } from './ai/ai-quote.module'
 import { ShippingModule } from './shipping/shipping.module'
 import { ReportsModule } from './reports/reports.module'
 import { CapacityModule } from './capacity/capacity.module'
@@ -81,6 +82,7 @@ import { MaterialsModule } from './materials/materials.module'
 import { QaModule } from './qa/qa.module'
 import { WarehouseModule } from './warehouse/warehouse.module'
 import { B2BModule } from './b2b/b2b.module'
+import { WhitelabelModule } from './whitelabel/whitelabel.module'
 import { ProofingModule } from './proofing/proofing.module'
 import { PrepressModule } from './ai/prepress/prepress.module'
 import { PrintInquiryModule } from './print-inquiry/print-inquiry.module';
@@ -169,6 +171,7 @@ import { CloudinaryModule } from './cloudinary/cloudinary.module'
     CmsModule,
     MarketingModule,
     SmartQuoteModule,
+    AiQuoteModule,
     ShippingModule,
     ReportsModule,
     CapacityModule,
@@ -192,6 +195,7 @@ import { CloudinaryModule } from './cloudinary/cloudinary.module'
     QaModule,
     WarehouseModule,
     B2BModule,
+    WhitelabelModule,
     ProofingModule,
     PrepressModule,
     ExcelProductsModule,

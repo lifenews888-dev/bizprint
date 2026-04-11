@@ -1,6 +1,7 @@
 'use client'
-import { useState, useRef, useCallback, Suspense } from 'react'
+import { useState, useRef, useCallback, useEffect, Suspense } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
+import { API_URL } from '@/lib/api'
 
 interface TextElement {
   id: string
@@ -41,6 +42,24 @@ function EditorContent() {
   const [selected, setSelected] = useState<string | null>(null)
   const [dragging, setDragging] = useState<{ id: string; startX: number; startY: number; elX: number; elY: number } | null>(null)
   const [bg, setBg] = useState('#FFFFFF')
+  const [templateName, setTemplateName] = useState('')
+
+  // Load template from API if templateId is provided
+  const templateId = params.get('templateId')
+  useEffect(() => {
+    if (!templateId) return
+    fetch(`${API_URL}/api/templates/${templateId}`)
+      .then(r => r.json())
+      .then(data => {
+        if (data?.canvas_data) {
+          const cd = data.canvas_data
+          if (cd.elements) setElements(cd.elements.filter((e: any) => e.type === 'text'))
+          if (cd.bg) setBg(cd.bg)
+        }
+        if (data?.title_mn || data?.title) setTemplateName(data.title_mn || data.title)
+      })
+      .catch(() => {})
+  }, [templateId])
 
   const selectedEl = elements.find(e => e.id === selected) as TextElement | undefined
 
@@ -86,9 +105,10 @@ function EditorContent() {
       <div style={{ background: 'var(--surface)', borderBottom: '1px solid var(--border)', padding: '10px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <button onClick={() => router.back()} style={{ background: 'none', border: 'none', color: 'var(--text3)', cursor: 'pointer', fontSize: 13 }}>← Буцах</button>
-          <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>Live Editor — Нэрийн хуудас</span>
+          <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>Live Editor{templateName ? ` — ${templateName}` : ' — Нэрийн хуудас'}</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <a href="/templates" style={{ padding: '6px 14px', border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface)', color: 'var(--text2)', fontSize: 12, textDecoration: 'none' }}>📐 Загварууд</a>
           <button onClick={addText} style={{ padding: '6px 14px', border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface)', color: 'var(--text2)', fontSize: 12, cursor: 'pointer' }}>+ Текст</button>
           <button onClick={() => router.push(`/orders/new?productType=${productType}&hasDesign=true`)}
             style={{ padding: '6px 16px', border: 'none', borderRadius: 8, background: '#FF6B00', color: '#fff', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>

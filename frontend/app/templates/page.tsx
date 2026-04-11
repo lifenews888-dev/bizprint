@@ -1,45 +1,51 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
+import { API_URL } from '@/lib/api'
 
-const CATEGORIES = ['Бүгд', 'Визит карт', 'Флаер', 'Постер', 'Баннер', 'Ном', 'Каталог']
-
-const TEMPLATES = [
-  { id: 1, name: 'Корпорэйт визит карт', category: 'Визит карт', thumbnail: 'https://images.unsplash.com/photo-1611532736597-de2d4265fba3?w=400&h=300&fit=crop', tags: ['минималист', 'корпорэйт'], popular: true },
-  { id: 2, name: 'Креатив визит карт', category: 'Визит карт', thumbnail: 'https://images.unsplash.com/photo-1572044162444-ad60f128bdea?w=400&h=300&fit=crop', tags: ['креатив', 'өнгөлөг'], popular: false },
-  { id: 3, name: 'Минимал визит карт', category: 'Визит карт', thumbnail: 'https://images.unsplash.com/photo-1589041127168-9b1915731dc3?w=400&h=300&fit=crop', tags: ['минимал', 'цэвэр'], popular: true },
-  { id: 4, name: 'Бизнес флаер', category: 'Флаер', thumbnail: 'https://images.unsplash.com/photo-1586281380349-632531db7ed4?w=400&h=300&fit=crop', tags: ['флаер', 'промо'], popular: false },
-  { id: 5, name: 'Хүнсний флаер', category: 'Флаер', thumbnail: 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=400&h=300&fit=crop', tags: ['хүнс', 'ресторан'], popular: true },
-  { id: 6, name: 'Иж бүрэн флаер', category: 'Флаер', thumbnail: 'https://images.unsplash.com/photo-1557804506-669a67965ba0?w=400&h=300&fit=crop', tags: ['бизнес'], popular: false },
-  { id: 7, name: 'Арга хэмжээний постер', category: 'Постер', thumbnail: 'https://images.unsplash.com/photo-1492684223f-36772ef3fa5c?w=400&h=300&fit=crop', tags: ['арга хэмжээ'], popular: true },
-  { id: 8, name: 'Кино постер', category: 'Постер', thumbnail: 'https://images.unsplash.com/photo-1536440136628-849c177e76a1?w=400&h=300&fit=crop', tags: ['кино', 'урлаг'], popular: false },
-  { id: 9, name: 'Хөгжмийн постер', category: 'Постер', thumbnail: 'https://images.unsplash.com/photo-1514320291840-2e0a9bf2a9ae?w=400&h=300&fit=crop', tags: ['хөгжим', 'концерт'], popular: false },
-  { id: 10, name: 'Роллап баннер', category: 'Баннер', thumbnail: 'https://images.unsplash.com/photo-1558618666-fcd25c85f82e?w=400&h=300&fit=crop', tags: ['роллап', 'стенд'], popular: true },
-  { id: 11, name: 'Гадна баннер', category: 'Баннер', thumbnail: 'https://images.unsplash.com/photo-1557804506-669a67965ba0?w=400&h=300&fit=crop', tags: ['гадна', 'реклам'], popular: false },
-  { id: 12, name: 'Дотор баннер', category: 'Баннер', thumbnail: 'https://images.unsplash.com/photo-1542744173-8e7e53415bb0?w=400&h=300&fit=crop', tags: ['дотор', 'арга хэмжээ'], popular: false },
-  { id: 13, name: 'Түүх ном', category: 'Ном', thumbnail: 'https://images.unsplash.com/photo-1544947950-fa07a98d237f?w=400&h=300&fit=crop', tags: ['ном', 'хэвлэл'], popular: false },
-  { id: 14, name: 'Хүүхдийн ном', category: 'Ном', thumbnail: 'https://images.unsplash.com/photo-1512820790803-83ca734da794?w=400&h=300&fit=crop', tags: ['хүүхэд'], popular: true },
-  { id: 15, name: 'Сурах бичиг', category: 'Ном', thumbnail: 'https://images.unsplash.com/photo-1497633762265-9d179a990aa6?w=400&h=300&fit=crop', tags: ['боловсрол'], popular: false },
-  { id: 16, name: 'Компанийн каталог', category: 'Каталог', thumbnail: 'https://images.unsplash.com/photo-1586075010923-2dd4570fb338?w=400&h=300&fit=crop', tags: ['каталог', 'корпорэйт'], popular: true },
-  { id: 17, name: 'Бүтээгдэхүүний каталог', category: 'Каталог', thumbnail: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400&h=300&fit=crop', tags: ['бүтээгдэхүүн'], popular: false },
-  { id: 18, name: 'Үйлчилгээний каталог', category: 'Каталог', thumbnail: 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=400&h=300&fit=crop', tags: ['үйлчилгээ'], popular: false },
+const CATEGORIES = [
+  { id: 'all', label: 'Бүгд', icon: '🗂️' },
+  { id: 'business-card', label: 'Нэрийн хуудас', icon: '💳' },
+  { id: 'flyer', label: 'Флаер', icon: '📄' },
+  { id: 'poster', label: 'Постер', icon: '🖼️' },
+  { id: 'banner', label: 'Баннер', icon: '🏗️' },
+  { id: 'sticker', label: 'Стикер', icon: '📎' },
+  { id: 'brochure', label: 'Брошур', icon: '📋' },
 ]
 
 export default function TemplatesPage() {
-  const [cat, setCat] = useState('Бүгд')
+  const router = useRouter()
+  const [templates, setTemplates] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [category, setCategory] = useState('all')
   const [search, setSearch] = useState('')
 
-  const filtered = TEMPLATES.filter(t => {
-    const matchCat = cat === 'Бүгд' || t.category === cat
-    const matchSearch = !search || t.name.toLowerCase().includes(search.toLowerCase())
-    return matchCat && matchSearch
-  })
+  useEffect(() => {
+    setLoading(true)
+    const url = category === 'all'
+      ? `${API_URL}/api/templates`
+      : `${API_URL}/api/templates?category=${category}`
+    fetch(url)
+      .then(r => r.json())
+      .then(data => { setTemplates(Array.isArray(data) ? data : []); setLoading(false) })
+      .catch(() => setLoading(false))
+  }, [category])
+
+  const filtered = templates.filter(t =>
+    !search || (t.title_mn || t.title || '').toLowerCase().includes(search.toLowerCase())
+  )
+
+  const handleUse = (template: any) => {
+    fetch(`${API_URL}/api/templates/${template.id}/use`, { method: 'PATCH' }).catch(() => {})
+    router.push(`/design/editor?type=${template.category || 'business-card'}&templateId=${template.id}`)
+  }
 
   return (
     <div style={{ maxWidth: 1100, margin: '0 auto', padding: '32px 20px' }}>
       <div style={{ textAlign: 'center', marginBottom: 32 }}>
         <h1 style={{ fontSize: 28, fontWeight: 800, color: 'var(--text)' }}>Загвар <span style={{ color: '#FF6B00' }}>сан</span></h1>
-        <p style={{ fontSize: 14, color: 'var(--text3)', marginTop: 4 }}>Хэвлэлийн загваруудыг үнэгүй ашиглаарай</p>
+        <p style={{ fontSize: 14, color: 'var(--text3)', marginTop: 4 }}>Бэлэн загвараас сонгоод editor-т нээж өөрчилнө үү</p>
       </div>
 
       {/* Search */}
@@ -51,44 +57,81 @@ export default function TemplatesPage() {
       {/* Category tabs */}
       <div style={{ display: 'flex', gap: 8, justifyContent: 'center', marginBottom: 32, flexWrap: 'wrap' }}>
         {CATEGORIES.map(c => (
-          <button key={c} onClick={() => setCat(c)} style={{ padding: '8px 18px', borderRadius: 99, border: '1px solid var(--border)', background: cat === c ? '#FF6B00' : 'var(--surface)', color: cat === c ? '#fff' : 'var(--text2)', fontSize: 13, fontWeight: 500, cursor: 'pointer' }}>
-            {c}
+          <button key={c.id} onClick={() => setCategory(c.id)} style={{ padding: '8px 18px', borderRadius: 99, border: '1px solid var(--border)', background: category === c.id ? '#FF6B00' : 'var(--surface)', color: category === c.id ? '#fff' : 'var(--text2)', fontSize: 13, fontWeight: 500, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5 }}>
+            <span>{c.icon}</span> {c.label}
           </button>
         ))}
       </div>
 
-      {/* Grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 20 }}>
-        {filtered.map(t => (
-          <div key={t.id} style={{ borderRadius: 14, overflow: 'hidden', border: '1px solid var(--border)', background: 'var(--surface)', transition: 'box-shadow 0.2s' }}>
-            <div style={{ position: 'relative', height: 180, overflow: 'hidden' }}>
-              <img src={t.thumbnail} alt={t.name} loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-              {t.popular && (
-                <span style={{ position: 'absolute', top: 8, left: 8, padding: '3px 10px', borderRadius: 99, background: '#FF6B00', color: '#fff', fontSize: 10, fontWeight: 700 }}>Popular</span>
-              )}
-              <span style={{ position: 'absolute', top: 8, right: 8, padding: '3px 10px', borderRadius: 99, background: 'rgba(0,0,0,0.6)', color: '#fff', fontSize: 10, fontWeight: 500 }}>{t.category}</span>
+      {/* Loading */}
+      {loading ? (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 16 }}>
+          {Array.from({ length: 8 }).map((_, i) => (
+            <div key={i}>
+              <div style={{ aspectRatio: '3/4', background: 'var(--surface2)', borderRadius: 14, marginBottom: 10, animation: 'pulse 1.5s infinite' }} />
+              <div style={{ height: 14, background: 'var(--surface2)', borderRadius: 6, marginBottom: 6, width: '70%', animation: 'pulse 1.5s infinite' }} />
+              <div style={{ height: 32, background: 'var(--surface2)', borderRadius: 8, animation: 'pulse 1.5s infinite' }} />
             </div>
-            <div style={{ padding: '14px 16px' }}>
-              <h3 style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)', marginBottom: 8 }}>{t.name}</h3>
-              <div style={{ display: 'flex', gap: 6, marginBottom: 12 }}>
-                {t.tags.map(tag => (
-                  <span key={tag} style={{ padding: '2px 8px', borderRadius: 6, background: 'var(--surface2)', fontSize: 10, color: 'var(--text3)' }}>#{tag}</span>
-                ))}
-              </div>
-              <Link href={`/quote?template=${t.id}`} style={{ display: 'block', textAlign: 'center', padding: '8px 0', borderRadius: 8, background: '#FF6B00', color: '#fff', fontSize: 13, fontWeight: 600, textDecoration: 'none' }}>
-                Ашиглах →
-              </Link>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {filtered.length === 0 && (
+          ))}
+          <style>{`@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}`}</style>
+        </div>
+      ) : filtered.length === 0 ? (
         <div style={{ textAlign: 'center', padding: 60, color: 'var(--text3)' }}>
-          <div style={{ fontSize: 48, marginBottom: 8 }}>🔍</div>
+          <div style={{ fontSize: 48, marginBottom: 8 }}>📐</div>
           <p>Загвар олдсонгүй</p>
         </div>
+      ) : (
+        /* Grid */
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 16 }}>
+          {filtered.map(t => (
+            <div key={t.id} className="template-card" style={{ borderRadius: 14, overflow: 'hidden', border: '1px solid var(--border)', background: 'var(--surface)' }}>
+              <div style={{ position: 'relative', aspectRatio: '3/4', overflow: 'hidden' }}>
+                <img src={t.thumbnail_url || `https://images.unsplash.com/photo-1611532736597-de2d4265fba3?w=400`} alt={t.title_mn || t.title} loading="lazy"
+                  className="template-img" style={{ width: '100%', height: '100%', objectFit: 'cover', transition: 'transform 0.3s' }} />
+                {/* Category badge */}
+                <span style={{ position: 'absolute', top: 8, right: 8, padding: '3px 10px', borderRadius: 99, background: 'rgba(0,0,0,0.6)', color: '#fff', fontSize: 10, fontWeight: 500 }}>{t.category}</span>
+                {Number(t.price) === 0 && (
+                  <span style={{ position: 'absolute', top: 8, left: 8, padding: '3px 10px', borderRadius: 99, background: '#10B981', color: '#fff', fontSize: 10, fontWeight: 700 }}>Үнэгүй</span>
+                )}
+                {/* Hover overlay */}
+                <div className="template-overlay" style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0, transition: 'opacity 0.3s' }}>
+                  <button onClick={() => handleUse(t)}
+                    style={{ padding: '10px 20px', background: '#fff', color: '#111', borderRadius: 10, border: 'none', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+                    🎨 Editor-т нээх
+                  </button>
+                </div>
+              </div>
+              <div style={{ padding: '12px 14px' }}>
+                <h3 style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)', marginBottom: 4 }}>{t.title_mn || t.title}</h3>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                  <span style={{ fontSize: 11, color: 'var(--text3)' }}>{t.use_count || 0} удаа ашигласан</span>
+                  {t.designer_name && <span style={{ fontSize: 10, color: 'var(--text3)' }}>by {t.designer_name}</span>}
+                </div>
+                <div style={{ display: 'flex', gap: 6 }}>
+                  <button onClick={() => handleUse(t)} style={{ flex: 1, padding: '8px 0', borderRadius: 8, background: '#FF6B00', color: '#fff', fontSize: 12, fontWeight: 600, border: 'none', cursor: 'pointer' }}>
+                    Ашиглах
+                  </button>
+                  <Link href={`/quote?template=${t.id}`} style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 12, color: 'var(--text2)', textDecoration: 'none' }}>
+                    Үнэ
+                  </Link>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
       )}
+
+      {/* CTA */}
+      <div style={{ textAlign: 'center', marginTop: 48, padding: '36px 24px', background: 'var(--surface)', borderRadius: 20, border: '1px solid var(--border)' }}>
+        <h2 style={{ fontSize: 20, fontWeight: 700, color: 'var(--text)', marginBottom: 8 }}>Өөрийн загвар хэрэгтэй юу?</h2>
+        <p style={{ fontSize: 13, color: 'var(--text3)', marginBottom: 20 }}>Scratch-аас эхлэн өөрийн дизайн бүтээнэ үү</p>
+        <Link href="/design/editor" style={{ display: 'inline-block', padding: '12px 32px', background: '#FF6B00', color: '#fff', borderRadius: 12, textDecoration: 'none', fontSize: 14, fontWeight: 600 }}>🎨 Шинэ загвар үүсгэх</Link>
+      </div>
+
+      <style>{`
+        .template-card:hover .template-overlay { opacity: 1 !important; }
+        .template-card:hover .template-img { transform: scale(1.05); }
+      `}</style>
     </div>
   )
 }

@@ -21,6 +21,12 @@ export class TemplatesController {
     return this.service.findAll(query)
   }
 
+  @Get('seed')
+  @UseGuards(JwtAuthGuard)
+  seed() {
+    return this.service.seed()
+  }
+
   @Get('pending')
   @UseGuards(JwtAuthGuard)
   findPending() {

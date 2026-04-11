@@ -2,6 +2,7 @@
 import { useState, useRef } from 'react'
 import Link from 'next/link'
 import { API_URL } from '@/lib/api'
+import { fbTrack } from '@/components/FacebookPixel'
 
 const PRINT_TYPES = [
   { id: 'flyer', name: 'Флаер', icon: '📄', price: '89,000₮-аас' },
@@ -38,6 +39,7 @@ export default function QuickOrderPage() {
 
       await fetch(`${API_URL}/api/inquiries`, { method: 'POST', body: fd }).catch(() => {})
       setDone(true)
+      fbTrack('InitiateCheckout', { content_name: PRINT_TYPES.find(t => t.id === selected)?.name })
       setStep(4)
     } finally {
       setSubmitting(false)
