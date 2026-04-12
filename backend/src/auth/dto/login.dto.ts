@@ -1,8 +1,8 @@
-import { IsEmail, IsString, IsOptional } from 'class-validator';
+import { IsString, IsOptional } from 'class-validator';
 
 export class LoginDto {
-  @IsEmail()
-  email: string;
+  @IsString()
+  email: string;  // accepts email or phone number
 
   @IsString()
   password: string;

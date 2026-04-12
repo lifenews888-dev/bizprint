@@ -18,7 +18,7 @@ export default function LoginPage() {
   }
 
   async function login() {
-    if (!email || !password) { setError('Имэйл, нууц үг оруулна уу'); return }
+    if (!email || !password) { setError('Имэйл эсвэл утас, нууц үг оруулна уу'); return }
     setLoading(true); setError('')
     try {
       const data = await apiFetch<any>('/auth/login', {
@@ -126,9 +126,9 @@ export default function LoginPage() {
           )}
 
           <div style={{ marginBottom: '16px' }}>
-            <label style={{ display: 'block', fontSize: '12px', color: '#888', marginBottom: '8px', fontWeight: 500 }}>Имэйл</label>
-            <input type="email" value={email} onChange={e => setEmail(e.target.value)}
-              placeholder="email@example.com" style={inp}
+            <label style={{ display: 'block', fontSize: '12px', color: '#888', marginBottom: '8px', fontWeight: 500 }}>Имэйл эсвэл утас</label>
+            <input type="text" value={email} onChange={e => setEmail(e.target.value)}
+              placeholder="email@example.com эсвэл 99001122" style={inp}
               onFocus={e => (e.target.style.borderColor = 'var(--orange)')}
               onBlur={e => (e.target.style.borderColor = '#2A2A2A')}
               onKeyDown={e => e.key === 'Enter' && login()} />

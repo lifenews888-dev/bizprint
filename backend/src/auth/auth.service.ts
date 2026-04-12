@@ -111,12 +111,16 @@ export class AuthService {
   }
 
   async login(dto: LoginDto) {
+    // Find by email OR phone number
     const user = await this.userRepository.findOne({
-      where: { email: dto.email },
+      where: [
+        { email: dto.email },
+        { phone: dto.email },
+      ],
     });
 
     if (!user) {
-      throw new UnauthorizedException('Имэйл эсвэл нууц үг буруу байна');
+      throw new UnauthorizedException('Имэйл/утас эсвэл нууц үг буруу байна');
     }
 
     const isMatch = await bcrypt.compare(dto.password, user.password_hash);
