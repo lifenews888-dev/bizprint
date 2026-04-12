@@ -93,20 +93,20 @@ export default function ShopPageInner() {
       {toast && <div style={{ position: 'fixed', top: 16, right: 16, background: '#10B981', color: '#fff', padding: '12px 18px', borderRadius: 12, boxShadow: '0 10px 30px rgba(0,0,0,0.15)', zIndex: 2000, fontSize: 13, fontWeight: 600 }}>✓ {toast}</div>}
 
       {/* Hero */}
-      <section style={{ background: 'linear-gradient(135deg, var(--surface), var(--surface2))', padding: '40px 20px', color: 'var(--text)' }}>
+      <section style={{ background: 'linear-gradient(135deg, var(--surface), var(--surface2))', color: 'var(--text)' }} className="shop-hero">
         <div style={{ maxWidth: 1200, margin: '0 auto' }}>
-          <h1 style={{ fontSize: 28, fontWeight: 800, marginBottom: 8, letterSpacing: '-0.02em' }}>
+          <h1 className="shop-title" style={{ fontWeight: 800, marginBottom: 8, letterSpacing: '-0.02em' }}>
             Хэвлэлийн <span style={{ color: '#FF6B00' }}>бүтээгдэхүүн</span>
           </h1>
-          <p style={{ fontSize: 14, color: '#A8A29E', marginBottom: 20 }}>Мэргэжлийн хэвлэл, хурдан хүргэлт, AI үнэ тооцоолол</p>
-          <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
-            <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 10, padding: '12px 16px', background: 'var(--surface2)', borderRadius: 12, border: '1px solid var(--border)' }}>
+          <p style={{ fontSize: 14, color: '#A8A29E', marginBottom: 16 }}>Мэргэжлийн хэвлэл, хурдан хүргэлт, AI үнэ тооцоолол</p>
+          <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+            <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', background: 'var(--surface2)', borderRadius: 12, border: '1px solid var(--border)' }}>
               <svg width="18" height="18" fill="none" stroke="var(--text3)" strokeWidth="1.8" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
               <input type="text" placeholder="Бүтээгдэхүүн хайх..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)}
-                style={{ border: 'none', background: 'transparent', outline: 'none', flex: 1, fontSize: 14, color: 'var(--text)', fontFamily: F }} />
+                style={{ border: 'none', background: 'transparent', outline: 'none', flex: 1, minWidth: 0, fontSize: 14, color: 'var(--text)', fontFamily: F }} />
             </div>
           </div>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <div className="shop-quick-links" style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             {[
               { icon: '🛒', label: 'Бэлэн бараа', href: '#products', color: '#FF6B00' },
               { icon: '⚡', label: 'Түргэн хэвлэл', href: '/quote', color: '#8B5CF6' },
@@ -124,7 +124,7 @@ export default function ShopPageInner() {
       </section>
 
       {/* Category pills */}
-      <section id="products" style={{ maxWidth: 1200, margin: '0 auto', padding: '20px 20px 0' }}>
+      <section id="products" style={{ maxWidth: 1200, margin: '0 auto' }} className="shop-cats">
         <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 4, scrollbarWidth: 'none' as any }}>
           {categories.map(c => {
             const isActive = catFilter === c
@@ -145,14 +145,14 @@ export default function ShopPageInner() {
       </section>
 
       {/* Count */}
-      <div style={{ maxWidth: 1200, margin: '0 auto', padding: '16px 20px 0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div className="shop-products" style={{ maxWidth: 1200, margin: '0 auto', paddingBottom: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <span style={{ fontSize: 13, color: 'var(--text3)' }}>{loading ? 'Ачааллаж байна...' : `${filtered.length} бүтээгдэхүүн`}</span>
       </div>
 
       {/* Products grid */}
-      <div style={{ maxWidth: 1200, margin: '0 auto', padding: '14px 20px 40px' }}>
+      <div style={{ maxWidth: 1200, margin: '0 auto' }} className="shop-products">
         {loading ? (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 16 }} className="shop-grid">
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 16 }} className="shop-grid">
             {[1,2,3,4,5,6,7,8].map(i => <div key={i} style={{ aspectRatio: '3/4', background: 'var(--surface2)', borderRadius: 16 }} className="animate-pulse" />)}
           </div>
         ) : filtered.length === 0 ? (
@@ -162,7 +162,7 @@ export default function ShopPageInner() {
             <a href="/shop" style={{ color: '#FF6B00', fontSize: 13, fontWeight: 600 }}>Бүгдийг харах →</a>
           </div>
         ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 16 }} className="shop-grid">
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 16 }} className="shop-grid">
             {filtered.map(p => {
               const catInfo = { ...FALLBACK_LABELS, ...dbCategories }[p.category || '']
               return <ProductCard key={p.id} product={p} categoryLabel={catInfo?.label} onAddToCart={id => addToCart({ preventDefault: () => {}, stopPropagation: () => {} } as any, id)} />
@@ -171,7 +171,21 @@ export default function ShopPageInner() {
         )}
       </div>
 
-      <style>{`@media (max-width: 768px) { .shop-grid { grid-template-columns: repeat(2, 1fr) !important; } }`}</style>
+      <style>{`
+        .shop-hero { padding: 40px 20px; }
+        .shop-title { font-size: 28px; }
+        .shop-cats { padding: 20px 20px 0; }
+        .shop-products { padding: 14px 20px 40px; }
+        @media (max-width: 768px) {
+          .shop-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 10px !important; }
+          .shop-hero { padding: 24px 14px; }
+          .shop-title { font-size: 22px; }
+          .shop-quick-links { overflow-x: auto; flex-wrap: nowrap !important; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+          .shop-quick-links::-webkit-scrollbar { display: none; }
+          .shop-cats { padding: 14px 14px 0 !important; }
+          .shop-products { padding: 10px 14px 40px !important; }
+        }
+      `}</style>
     </div>
   )
 }

@@ -62,10 +62,18 @@ export default function ProductCard({ product, categoryLabel, onAddToCart }: Pro
               <img key={i} src={img} alt={p.name_mn || p.name}
                 className="absolute inset-0 w-full h-full object-cover transition-opacity duration-500"
                 style={{ opacity: i === activeImg ? 1 : 0 }}
-                loading="lazy" />
+                loading="lazy"
+                onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
             ))
-          ) : (
+          ) : null}
+          {/* Fallback — always rendered behind images, visible when no images or all fail */}
+          {imgs.length === 0 && (
             <ProductImage src={null} alt={p.name_mn || p.name || 'Бүтээгдэхүүн'} category={p.category} className="w-full h-full" />
+          )}
+          {imgs.length > 0 && (
+            <div className="absolute inset-0 -z-10">
+              <ProductImage src={null} alt={p.name_mn || p.name || 'Бүтээгдэхүүн'} category={p.category} className="w-full h-full" />
+            </div>
           )}
 
           {/* Progress bars — top */}
