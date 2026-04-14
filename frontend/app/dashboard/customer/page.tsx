@@ -185,6 +185,28 @@ export default function CustomerProfile() {
 
       {/* Menu items */}
       <div style={{ padding: '0 20px 100px', maxWidth: 480, margin: '0 auto' }}>
+        {/* Upgrade banner for free users */}
+        {(user?.subscription_plan || user?.plan || 'free') === 'free' && (
+          <a href="/pricing" style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            padding: 16, marginBottom: 16, borderRadius: 16,
+            background: 'linear-gradient(135deg, rgba(255,107,0,0.08), rgba(255,107,0,0.02))',
+            border: '1px solid rgba(255,107,0,0.2)', textDecoration: 'none',
+          }}>
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 600, color: '#FF6B00' }}>
+                Pro болж илүү боломж нээ ✨
+              </div>
+              <div style={{ fontSize: 11, color: '#FF6B00', opacity: 0.8, marginTop: 2 }}>
+                Editor, аналитик, loyalty болон бусад
+              </div>
+            </div>
+            <span style={{ padding: '8px 14px', background: '#FF6B00', color: '#fff', borderRadius: 10, fontSize: 12, fontWeight: 600, flexShrink: 0 }}>
+              Upgrade →
+            </span>
+          </a>
+        )}
+
         <div style={{ background: '#fff', borderRadius: 16, border: '1px solid #F0F0F0', overflow: 'hidden' }}>
           {MENU_ITEMS.map((item, i) => (
             <a key={item.href} href={item.href} style={{

@@ -1,246 +1,216 @@
-'use client'
-import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
-import { apiFetch, getToken } from '@/lib/api'
+import { Metadata } from 'next'
+import Link from 'next/link'
 
-const F = "'DM Sans','Segoe UI',system-ui,sans-serif"
-const O = '#FF6B00'
-
-const TYPE_META: Record<string, { icon: string; color: string; label: string }> = {
-  digital_card: { icon: '💳', color: '#2563EB', label: 'Дижитал карт' },
-  loyalty_campaign: { icon: '⭐', color: '#F59E0B', label: 'Loyalty програм' },
-  qr_campaign: { icon: '📱', color: '#10B981', label: 'QR кампанит' },
-  invitation_premium: { icon: '💌', color: '#8B5CF6', label: 'Урилга' },
-  custom: { icon: '📦', color: '#6B7280', label: 'Бусад' },
+export const metadata: Metadata = {
+  title: 'Үнийн мэдээлэл | BizPrint',
+  description: 'BizPrint-ийн үйлчилгээний үнэ, subscription төлөвлөгөө.',
 }
-const MODEL_LABELS: Record<string, string> = { one_time: 'Нэг удаа', subscription: 'Сар/Жил', per_unit: 'Ширхэгээр' }
+
+const PLANS = [
+  {
+    id: 'free',
+    name: 'Үнэгүй',
+    price: 0,
+    desc: 'Туршиж үзэх',
+    features: [
+      'Дэлгүүр үзэх',
+      'Үнэ тооцоолох',
+      'Захиалгын хүсэлт илгээх',
+      'Чатаар холбогдох',
+      '3 захиалга/сар',
+    ],
+    cta: 'Үнэгүй эхлэх',
+    ctaUrl: '/register',
+    highlighted: false,
+  },
+  {
+    id: 'basic',
+    name: 'Basic',
+    price: 29900,
+    desc: 'Жижиг бизнест',
+    features: [
+      'Бүх үнэгүй боломж',
+      'Нэрийн хуудас editor',
+      'Design editor',
+      'Захиалгын түүх',
+      'Урьдчилгаа хэтэвч',
+      'Үнэ харьцуулах',
+      '20 захиалга/сар',
+    ],
+    cta: 'Basic авах',
+    ctaUrl: '/register?plan=basic',
+    highlighted: false,
+  },
+  {
+    id: 'pro',
+    name: 'Pro',
+    price: 79900,
+    desc: 'Өсөж буй бизнест',
+    features: [
+      'Бүх Basic боломж',
+      'AI дизайн зөвлөмж',
+      'Loyalty хөтөлбөр',
+      'Дижитал нэрийн хуудас',
+      'Аналитик тайлан',
+      'Кампани удирдах',
+      'B2B данс',
+      'Хязгааргүй захиалга',
+    ],
+    cta: 'Pro авах',
+    ctaUrl: '/register?plan=pro',
+    highlighted: true,
+  },
+  {
+    id: 'business',
+    name: 'Байгууллага',
+    price: 0,
+    priceLabel: 'Тохиролцооны',
+    desc: 'Том байгууллагад',
+    features: [
+      'Бүх Pro боломж',
+      'White-label платформ',
+      'Custom үнийн тохиргоо',
+      'Тусгай account менежер',
+      'API нэвтрэлт',
+      'SLA баталгаа',
+    ],
+    cta: 'Холбогдох',
+    ctaUrl: '/contact',
+    highlighted: false,
+  },
+]
+
+const COMPARE: Array<[string, boolean, boolean, boolean, boolean]> = [
+  ['Дэлгүүр үзэх', true, true, true, true],
+  ['Үнэ тооцоолох', true, true, true, true],
+  ['Захиалга өгөх', true, true, true, true],
+  ['Нэрийн хуудас editor', false, true, true, true],
+  ['Design editor', false, true, true, true],
+  ['Loyalty хөтөлбөр', false, false, true, true],
+  ['Аналитик тайлан', false, false, true, true],
+  ['B2B данс', false, false, true, true],
+  ['Дижитал нэрийн хуудас', false, false, true, true],
+  ['White-label', false, false, false, true],
+  ['API нэвтрэлт', false, false, false, true],
+]
+
+const FAQ: Array<[string, string]> = [
+  ['Subscription цуцлах боломжтой юу?', 'Тийм, дурын үед цуцлах боломжтой. Дараагийн тооцооллын өдрөөс хойш автоматаар дуусна.'],
+  ['Үнэгүй туршиж үзэх боломж байна уу?', '14 хоногийн Pro trial үнэгүй олгоно. Карт мэдээлэл шаардахгүй.'],
+  ['B2B захиалгад хямдрал байна уу?', 'Тийм. Тогтмол захиалагчдад 5-25% хямдрал олгоно. /b2b хуудсаас дэлгэрэнгүй мэдээлэл авна уу.'],
+]
 
 export default function PricingPage() {
-  const router = useRouter()
-  const [plans, setPlans] = useState<any[]>([])
-  const [products, setProducts] = useState<any[]>([])
-  const [billing, setBilling] = useState<'monthly' | 'yearly'>('yearly')
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    Promise.all([
-      apiFetch<any>('/subscription/plans').catch(() => []),
-      apiFetch<any>('/subscription/product-pricing').catch(() => []),
-    ]).then(([p, pr]) => {
-      setPlans(Array.isArray(p) ? p : [])
-      setProducts(Array.isArray(pr) ? pr : [])
-    }).finally(() => setLoading(false))
-  }, [])
-
-  const handleSubscribe = (planId: string) => {
-    const token = getToken()
-    if (!token) { router.push('/login?redirect=/pricing'); return }
-    router.push(`/checkout?source=subscription&plan_id=${planId}&billing_cycle=${billing}`)
-  }
-
-  const handleBuyProduct = (productId: string) => {
-    const token = getToken()
-    if (!token) { router.push('/login?redirect=/pricing'); return }
-    router.push(`/checkout?source=product&product_pricing_id=${productId}`)
-  }
-
-  if (loading) return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: F }}>
-      <div style={{ width: 40, height: 40, border: '3px solid #F0F0F0', borderTopColor: O, borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
-      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-    </div>
-  )
-
-  const tierIcons: Record<string, string> = { free: '🆓', pro: '🚀', business: '🏢', enterprise: '👑' }
-
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--bg, #F9FAFB)', fontFamily: F }}>
-      {/* Hero */}
-      <div style={{ textAlign: 'center', padding: '60px 20px 40px' }}>
-        <h1 style={{ fontSize: 36, fontWeight: 800, color: 'var(--text, #111)', margin: '0 0 12px' }}>
-          Үнийн багцууд
-        </h1>
-        <p style={{ fontSize: 16, color: 'var(--text2, #6B7280)', maxWidth: 480, margin: '0 auto 32px' }}>
-          Дижитал карт, QR код, Loyalty програм, Урилга — бүх дижитал үйлчилгээг нэг дороос
+    <div style={{ maxWidth: 1100, margin: '0 auto', padding: '48px 20px' }}>
+      <div style={{ textAlign: 'center', marginBottom: 48 }}>
+        <h1 style={{ fontSize: 32, fontWeight: 800, color: 'var(--text)', marginBottom: 12 }}>Үнийн мэдээлэл</h1>
+        <p style={{ fontSize: 15, color: 'var(--text3)', maxWidth: 520, margin: '0 auto' }}>
+          Бизнесдээ тохирсон төлөвлөгөө сонгоно уу
         </p>
+      </div>
 
-        {/* Billing toggle */}
-        <div style={{ display: 'inline-flex', background: 'var(--surface, #fff)', borderRadius: 12, border: '1px solid var(--border, #E5E7EB)', padding: 4 }}>
-          <button onClick={() => setBilling('monthly')} style={{
-            padding: '10px 24px', borderRadius: 10, border: 'none', cursor: 'pointer', fontSize: 14, fontWeight: 600, fontFamily: F,
-            background: billing === 'monthly' ? O : 'transparent', color: billing === 'monthly' ? '#fff' : 'var(--text2, #6B7280)',
-          }}>Сарын</button>
-          <button onClick={() => setBilling('yearly')} style={{
-            padding: '10px 24px', borderRadius: 10, border: 'none', cursor: 'pointer', fontSize: 14, fontWeight: 600, fontFamily: F,
-            background: billing === 'yearly' ? O : 'transparent', color: billing === 'yearly' ? '#fff' : 'var(--text2, #6B7280)',
+      {/* Plans grid */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 16, marginBottom: 48 }}>
+        {PLANS.map(plan => (
+          <div key={plan.id} style={{
+            position: 'relative',
+            border: plan.highlighted ? '2px solid #FF6B00' : '1px solid var(--border)',
+            borderRadius: 20,
+            padding: 24,
+            background: 'var(--surface)',
+            display: 'flex',
+            flexDirection: 'column',
           }}>
-            Жилийн <span style={{ fontSize: 11, opacity: 0.8 }}>(-17%)</span>
-          </button>
-        </div>
-      </div>
-
-      {/* Subscription Plans */}
-      <div style={{ maxWidth: 1100, margin: '0 auto', padding: '0 20px 48px' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.min(plans.length, 3)}, 1fr)`, gap: 20 }}>
-          {plans.map(plan => {
-            const price = billing === 'monthly' ? plan.price_monthly : plan.price_yearly
-            const perMonth = billing === 'yearly' ? Math.round(plan.price_yearly / 12) : plan.price_monthly
-            return (
-              <div key={plan.id} style={{
-                background: 'var(--surface, #fff)', borderRadius: 20, padding: 32,
-                border: plan.is_popular ? `2px solid ${O}` : '1px solid var(--border, #E5E7EB)',
-                position: 'relative', display: 'flex', flexDirection: 'column',
-              }}>
-                {plan.is_popular && (
-                  <div style={{ position: 'absolute', top: -12, left: '50%', transform: 'translateX(-50%)', background: O, color: '#fff', padding: '4px 16px', borderRadius: 20, fontSize: 12, fontWeight: 700 }}>
-                    Түгээмэл
-                  </div>
-                )}
-                <div style={{ fontSize: 32, marginBottom: 8 }}>{tierIcons[plan.tier] || '📦'}</div>
-                <h3 style={{ fontSize: 22, fontWeight: 800, margin: '0 0 4px', color: 'var(--text, #111)' }}>{plan.name}</h3>
-                <p style={{ fontSize: 13, color: 'var(--text2, #6B7280)', margin: '0 0 20px' }}>{plan.description}</p>
-
-                <div style={{ marginBottom: 24 }}>
-                  <span style={{ fontSize: 36, fontWeight: 800, color: 'var(--text, #111)' }}>
-                    {price === 0 ? 'Үнэгүй' : `₮${Number(perMonth).toLocaleString()}`}
-                  </span>
-                  {price > 0 && <span style={{ fontSize: 14, color: 'var(--text2, #6B7280)' }}>/сар</span>}
-                  {billing === 'yearly' && price > 0 && (
-                    <div style={{ fontSize: 12, color: 'var(--text3, #9CA3AF)', marginTop: 4 }}>
-                      Жилийн нийт: ₮{Number(plan.price_yearly).toLocaleString()}
-                    </div>
-                  )}
-                </div>
-
-                {/* Limits */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 20 }}>
-                  {[
-                    { label: 'QR код', val: plan.max_qr_codes },
-                    { label: 'Дижитал карт', val: plan.max_digital_cards },
-                    { label: 'Урилга', val: plan.max_invitations },
-                    { label: 'Бүтээгдэхүүн QR', val: plan.max_product_qrs },
-                    { label: 'Хадгалах зай', val: `${plan.max_storage_mb >= 1024 ? `${plan.max_storage_mb / 1024}GB` : `${plan.max_storage_mb}MB`}` },
-                    { label: 'Loyalty', val: plan.max_loyalty_campaigns ?? '-' },
-                  ].map(item => (
-                    <div key={item.label} style={{ fontSize: 12, color: 'var(--text2, #6B7280)', padding: '6px 0', borderBottom: '1px solid var(--border, #F3F4F6)' }}>
-                      <span style={{ fontWeight: 700, color: 'var(--text, #374151)' }}>{item.val}</span> {item.label}
-                    </div>
-                  ))}
-                </div>
-
-                {/* Features list */}
-                {plan.features_list && (
-                  <div style={{ flex: 1, marginBottom: 20 }}>
-                    {(typeof plan.features_list === 'string' ? JSON.parse(plan.features_list) : plan.features_list).map((f: any, i: number) => (
-                      <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 0', fontSize: 13, color: f.included ? 'var(--text, #374151)' : 'var(--text3, #9CA3AF)' }}>
-                        <span style={{ fontSize: 12 }}>{f.included ? '✅' : '❌'}</span>
-                        <span style={{ textDecoration: f.included ? 'none' : 'line-through' }}>{f.name}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                <button onClick={() => handleSubscribe(plan.id)} style={{
-                  width: '100%', padding: '14px', borderRadius: 12, border: 'none', cursor: 'pointer',
-                  fontSize: 15, fontWeight: 700, fontFamily: F, marginTop: 'auto',
-                  background: plan.is_popular ? O : 'var(--surface2, #F3F4F6)',
-                  color: plan.is_popular ? '#fff' : 'var(--text, #374151)',
-                }}>
-                  {price === 0 ? 'Үнэгүй эхлэх' : 'Сонгох'}
-                </button>
+            {plan.highlighted && (
+              <div style={{ position: 'absolute', top: -12, left: '50%', transform: 'translateX(-50%)' }}>
+                <span style={{ background: '#FF6B00', color: '#fff', fontSize: 11, padding: '4px 14px', borderRadius: 20, fontWeight: 600 }}>Түгээмэл</span>
               </div>
-            )
-          })}
-        </div>
-      </div>
+            )}
 
-      {/* Product Pricing - Digital Services */}
-      {products.length > 0 && (
-        <div style={{ maxWidth: 1100, margin: '0 auto', padding: '0 20px 60px' }}>
-          <div style={{ textAlign: 'center', marginBottom: 32 }}>
-            <h2 style={{ fontSize: 28, fontWeight: 800, color: 'var(--text, #111)', margin: '0 0 8px' }}>
-              Дижитал үйлчилгээнүүд
-            </h2>
-            <p style={{ fontSize: 14, color: 'var(--text2, #6B7280)', margin: 0 }}>
-              Тус тусдаа худалдан авах боломжтой дижитал бүтээгдэхүүнүүд
-            </p>
+            <div style={{ marginBottom: 16 }}>
+              <h2 style={{ fontSize: 18, fontWeight: 700, color: 'var(--text)', marginBottom: 2 }}>{plan.name}</h2>
+              <p style={{ fontSize: 12, color: 'var(--text3)' }}>{plan.desc}</p>
+            </div>
+
+            <div style={{ marginBottom: 20 }}>
+              {plan.priceLabel ? (
+                <p style={{ fontSize: 22, fontWeight: 700, color: 'var(--text)' }}>{plan.priceLabel}</p>
+              ) : plan.price === 0 ? (
+                <p style={{ fontSize: 22, fontWeight: 700, color: 'var(--text)' }}>Үнэгүй</p>
+              ) : (
+                <div>
+                  <span style={{ fontSize: 26, fontWeight: 800, color: 'var(--text)' }}>{plan.price.toLocaleString()}₮</span>
+                  <span style={{ fontSize: 13, color: 'var(--text3)' }}>/сар</span>
+                </div>
+              )}
+            </div>
+
+            <ul style={{ listStyle: 'none', padding: 0, margin: '0 0 20px', flex: 1 }}>
+              {plan.features.map(f => (
+                <li key={f} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, fontSize: 13, color: 'var(--text2)', marginBottom: 8 }}>
+                  <span style={{ color: '#10B981', flexShrink: 0, marginTop: 1 }}>✓</span>
+                  {f}
+                </li>
+              ))}
+            </ul>
+
+            <Link href={plan.ctaUrl} style={{
+              display: 'block',
+              width: '100%',
+              padding: '10px 0',
+              textAlign: 'center',
+              borderRadius: 12,
+              fontSize: 13,
+              fontWeight: 600,
+              textDecoration: 'none',
+              background: plan.highlighted ? '#FF6B00' : 'var(--surface2)',
+              color: plan.highlighted ? '#fff' : 'var(--text2)',
+              border: plan.highlighted ? 'none' : '1px solid var(--border)',
+            }}>
+              {plan.cta}
+            </Link>
           </div>
+        ))}
+      </div>
 
-          {/* Group by product_type */}
-          {Object.entries(TYPE_META).map(([type, meta]) => {
-            const typeProducts = products.filter(p => p.product_type === type)
-            if (typeProducts.length === 0) return null
-            return (
-              <div key={type} style={{ marginBottom: 32 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16 }}>
-                  <span style={{ fontSize: 20 }}>{meta.icon}</span>
-                  <h3 style={{ fontSize: 18, fontWeight: 700, color: meta.color, margin: 0 }}>{meta.label}</h3>
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 16 }}>
-                  {typeProducts.map(product => (
-                    <div key={product.id} style={{
-                      background: 'var(--surface, #fff)', borderRadius: 16, padding: 24,
-                      border: '1px solid var(--border, #E5E7EB)', display: 'flex', flexDirection: 'column',
-                    }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: 12 }}>
-                        <h4 style={{ fontSize: 16, fontWeight: 700, margin: 0, color: 'var(--text, #111)' }}>{product.name}</h4>
-                        <span style={{ fontSize: 10, padding: '3px 8px', borderRadius: 20, fontWeight: 600, background: `${meta.color}15`, color: meta.color }}>
-                          {MODEL_LABELS[product.price_model]}
-                        </span>
-                      </div>
-                      {product.description && (
-                        <p style={{ fontSize: 13, color: 'var(--text2, #6B7280)', margin: '0 0 16px', lineHeight: 1.5 }}>{product.description}</p>
-                      )}
-
-                      <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginBottom: 12, marginTop: 'auto' }}>
-                        {product.price_model === 'per_unit' ? (
-                          <span style={{ fontSize: 24, fontWeight: 800, color: meta.color }}>₮{Number(product.unit_price).toLocaleString()}<span style={{ fontSize: 13, fontWeight: 400, color: 'var(--text2)' }}>/ш</span></span>
-                        ) : (
-                          <span style={{ fontSize: 24, fontWeight: 800, color: meta.color }}>₮{Number(product.price).toLocaleString()}</span>
-                        )}
-                        {product.price_model === 'subscription' && (
-                          <span style={{ fontSize: 12, color: 'var(--text3, #9CA3AF)' }}>/ {product.duration_days} хоног</span>
-                        )}
-                      </div>
-
-                      {(product.free_tier_days > 0 || product.free_tier_units > 0) && (
-                        <div style={{ fontSize: 12, color: '#10B981', fontWeight: 600, marginBottom: 12 }}>
-                          🎁 {product.free_tier_days > 0 ? `${product.free_tier_days} хоног үнэгүй туршилт` : `${product.free_tier_units} ширхэг үнэгүй`}
-                        </div>
-                      )}
-
-                      <button onClick={() => handleBuyProduct(product.id)} style={{
-                        width: '100%', padding: '12px', borderRadius: 10, border: 'none', cursor: 'pointer',
-                        fontSize: 14, fontWeight: 600, fontFamily: F,
-                        background: meta.color, color: '#fff',
-                      }}>
-                        Худалдан авах
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )
-          })}
-        </div>
-      )}
+      {/* Comparison table */}
+      <div style={{ border: '1px solid var(--border)', borderRadius: 20, overflow: 'hidden', marginBottom: 48 }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <thead>
+            <tr style={{ background: 'var(--surface2)' }}>
+              <th style={{ textAlign: 'left', padding: 16, fontSize: 13, fontWeight: 600, color: 'var(--text2)' }}>Боломж</th>
+              {PLANS.map(p => (
+                <th key={p.id} style={{ padding: 16, textAlign: 'center', fontSize: 13, fontWeight: 600, color: 'var(--text2)' }}>{p.name}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {COMPARE.map(([feature, ...vals]) => (
+              <tr key={feature as string} style={{ borderTop: '1px solid var(--border)' }}>
+                <td style={{ padding: 14, fontSize: 13, color: 'var(--text3)' }}>{feature}</td>
+                {(vals as boolean[]).map((v, i) => (
+                  <td key={i} style={{ padding: 14, textAlign: 'center' }}>
+                    {v ? <span style={{ color: '#10B981', fontSize: 15 }}>✓</span> : <span style={{ color: 'var(--text4)' }}>—</span>}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
 
       {/* FAQ */}
-      <div style={{ maxWidth: 700, margin: '0 auto', padding: '0 20px 80px' }}>
-        <h2 style={{ fontSize: 24, fontWeight: 800, textAlign: 'center', margin: '0 0 24px', color: 'var(--text, #111)' }}>Түгээмэл асуултууд</h2>
-        {[
-          { q: 'Үнэгүй багц ямар боломжтой вэ?', a: 'Үнэгүй багцаар 5 QR код, 1 дижитал карт, 1 урилга, 2 бүтээгдэхүүн QR үүсгэх боломжтой. BizPrint брэнд харагдана.' },
-          { q: 'Багцаа хэзээ ч солих боломжтой юу?', a: 'Тийм, дашбоардаас хүссэн үедээ дээшлүүлэх эсвэл цуцлах боломжтой.' },
-          { q: 'Loyalty програм хэрхэн ажилладаг вэ?', a: 'Та QR тамга цуглуулах програм үүсгэж, өөрийн үйлчлүүлэгчдэд урамшуулал олгоно. Тэд утасны QR уншуулж тамга цуглуулна.' },
-          { q: 'Нэмэлт эрх (Add-on) гэж юу вэ?', a: 'Багцын хязгаарт багтахгүй бол нэмэлт QR код, карт, урилга зэргийг тус тусад нь худалдан авах боломжтой.' },
-        ].map((item, i) => (
-          <details key={i} style={{ background: 'var(--surface, #fff)', borderRadius: 12, border: '1px solid var(--border, #E5E7EB)', padding: '16px 20px', marginBottom: 8, cursor: 'pointer' }}>
-            <summary style={{ fontSize: 15, fontWeight: 600, color: 'var(--text, #111)', listStyle: 'none', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              {item.q} <span style={{ fontSize: 18, color: 'var(--text3)' }}>+</span>
-            </summary>
-            <p style={{ fontSize: 14, color: 'var(--text2, #6B7280)', margin: '12px 0 0', lineHeight: 1.6 }}>{item.a}</p>
-          </details>
-        ))}
+      <div style={{ maxWidth: 640, margin: '0 auto' }}>
+        <h2 style={{ fontSize: 20, fontWeight: 700, color: 'var(--text)', marginBottom: 24, textAlign: 'center' }}>Түгээмэл асуулт</h2>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {FAQ.map(([q, a]) => (
+            <div key={q} style={{ border: '1px solid var(--border)', borderRadius: 16, padding: 20, background: 'var(--surface)' }}>
+              <p style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)', marginBottom: 6 }}>{q}</p>
+              <p style={{ fontSize: 13, color: 'var(--text3)' }}>{a}</p>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   )
