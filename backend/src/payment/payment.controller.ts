@@ -1,13 +1,21 @@
-import { Body, Controller, Get, Param, Post, Req, UseGuards } from '@nestjs/common'
+import { Body, Controller, Get, Param, Post, Req, UseGuards, Logger } from '@nestjs/common'
+import { InjectRepository } from '@nestjs/typeorm'
+import { Repository } from 'typeorm'
 import { PaymentService } from './payment.service'
 import { QPayService } from './qpay.service'
+import { BonumService } from './bonum.service'
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard'
+import { Order } from '../orders/entities/order.entity'
 
 @Controller('payment')
 export class PaymentController {
+  private readonly logger = new Logger(PaymentController.name)
+
   constructor(
     private readonly paymentService: PaymentService,
     private readonly qpayService: QPayService,
+    private readonly bonum: BonumService,
+    @InjectRepository(Order) private readonly orderRepo: Repository<Order>,
   ) {}
 
   @Post('create')
@@ -69,5 +77,79 @@ export class PaymentController {
   @Get('qpay/check/:invoiceId')
   async qpayCheck(@Param('invoiceId') invoiceId: string) {
     return this.qpayService.checkPayment(invoiceId)
+  }
+
+  // ═══════════════════════════════════════════
+  //  BONUM PAYMENT GATEWAY
+  // ═══════════════════════════════════════════
+
+  @Post('bonum/create')
+  async bonumCreate(@Body() body: { orderId: string; amount: number; description?: string; providers?: string[] }) {
+    if (!body.orderId || !body.amount) {
+      return { error: 'orderId болон amount шаардлагатай' }
+    }
+    try {
+      const invoice = await this.bonum.createInvoice({
+        orderId: body.orderId,
+        amount: body.amount,
+        description: body.description,
+        providers: body.providers,
+      })
+      await this.orderRepo.update(body.orderId, {
+        payment_status: 'pending',
+        payment_method: 'bonum',
+        invoice_no: invoice.invoiceId,
+      }).catch(() => {})
+      return invoice
+    } catch (e: any) {
+      this.logger.error(`Bonum create error: ${e.message}`)
+      return { error: e.message || 'Төлбөрийн систем алдаа гарлаа' }
+    }
+  }
+
+  @Post('bonum/webhook')
+  async bonumWebhook(@Body() body: any) {
+    this.logger.log(`Bonum webhook: ${JSON.stringify(body)}`)
+    const invoiceId = body?.body?.invoiceId || body?.invoiceId
+    const status = body?.body?.status || body?.status
+    if (invoiceId && (status === 'SUCCESS' || status === 'PAID')) {
+      const order = await this.orderRepo.findOne({ where: { invoice_no: invoiceId } })
+      if (order) {
+        await this.orderRepo.update(order.id, {
+          payment_status: 'paid',
+        })
+        this.logger.log(`Order ${order.id} paid via Bonum`)
+      }
+    }
+    return { ok: true }
+  }
+
+  @Get('bonum/status/:invoiceId')
+  async bonumStatus(@Param('invoiceId') invoiceId: string) {
+    const order = await this.orderRepo.findOne({ where: { invoice_no: invoiceId } })
+    return {
+      invoiceId,
+      paid: order?.payment_status === 'paid',
+      status: order?.payment_status || 'unknown',
+      orderId: order?.id,
+    }
+  }
+
+  @Get('bonum/providers')
+  async bonumProviders() {
+    return this.bonum.getProviders()
+  }
+
+  @Get('bonum/test-token')
+  async bonumTestToken() {
+    if (process.env.NODE_ENV === 'production') {
+      return { error: 'Not available in production' }
+    }
+    try {
+      const token = await this.bonum.getToken()
+      return { ok: true, token: token.slice(0, 20) + '...' }
+    } catch (e: any) {
+      return { error: e.message }
+    }
   }
 }
