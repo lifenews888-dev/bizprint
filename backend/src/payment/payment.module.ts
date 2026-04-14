@@ -6,6 +6,7 @@ import { QPayService } from './qpay.service'
 import { BonumService } from './bonum.service'
 import { Payment } from './entities/payment.entity'
 import { Invoice } from './entities/invoice.entity'
+import { PaymentLog } from './payment-log.entity'
 import { Order } from '../orders/entities/order.entity'
 import { MailModule } from '../mail/mail.module'
 import { ProductionJobsModule } from '../production-jobs/production-jobs.module'
@@ -13,7 +14,7 @@ import { NotificationModule } from '../notifications/notification.module'
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Payment, Invoice, Order]),
+    TypeOrmModule.forFeature([Payment, Invoice, Order, PaymentLog]),
     MailModule,
     ProductionJobsModule,
     NotificationModule,

@@ -15,6 +15,18 @@ import helmet from 'helmet';
 async function bootstrap() {
   try { mkdirSync(join(process.cwd(), 'logs'), { recursive: true }); } catch {}
 
+  // Bonum payment gateway safety checks
+  const bonumEnv = process.env.BONUM_API_BASE || '';
+  if (bonumEnv.includes('testapi') && process.env.NODE_ENV === 'production') {
+    console.warn('⚠️  WARNING: Using Bonum TEST environment in production!');
+  }
+  if (!process.env.BONUM_APP_SECRET) {
+    console.warn('⚠️  WARNING: BONUM_APP_SECRET not set — Bonum payments will fail!');
+  }
+  if (!process.env.BONUM_CHECKSUM_KEY) {
+    console.warn('⚠️  WARNING: BONUM_CHECKSUM_KEY not set — webhook signatures will not be verified!');
+  }
+
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
   app.use(helmet({
     contentSecurityPolicy: false,
