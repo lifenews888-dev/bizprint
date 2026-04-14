@@ -2,6 +2,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { API_URL } from '@/lib/api'
+import { fbPixel } from '@/components/FacebookPixel'
 
 const BENEFITS = [
   { icon: '💰', title: 'Тусгай үнэ', desc: 'Байнгын харилцагчдад 5-25% хямдрал' },
@@ -37,6 +38,7 @@ export default function B2BPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(form),
       })
+      fbPixel.lead({ contentName: 'B2B Application' })
       setStep('success')
     } finally {
       setSubmitting(false)

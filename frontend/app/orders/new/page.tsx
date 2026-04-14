@@ -2,6 +2,7 @@
 
 import { useState, useRef, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { fbPixel } from '@/components/FacebookPixel';
 
 export default function NewOrderPageWrapper() {
   return (
@@ -136,7 +137,14 @@ function NewOrderPage() {
         body: fd,
       });
       const data = await res.json();
-      if (data.id) setResult({ id: data.id, number: data.inquiry_number });
+      if (data.id) {
+        setResult({ id: data.id, number: data.inquiry_number });
+        fbPixel.purchase({
+          orderId: data.id,
+          value: Number(spec.quantity) || 0,
+          productName: spec.productName || spec.category,
+        });
+      }
     } catch (e) {
       console.error(e);
     } finally {

@@ -7,6 +7,7 @@ import { toast } from 'sonner'
 import { Heart, Share2, GitCompareArrows, ShoppingCart, Zap, Link2, ExternalLink } from 'lucide-react'
 import PriceCalculator from '@/components/PriceCalculator'
 import BookPriceCalculator from '@/components/BookPriceCalculator'
+import { fbPixel } from '@/components/FacebookPixel'
 
 const fmt = (n: number) => '₮' + n.toLocaleString('mn-MN')
 
@@ -168,6 +169,13 @@ export default function ProductPage({ params }: { params: Promise<{ _slug: strin
       .then(p => {
         if (p?.id) {
           setProduct(p)
+          // Track FB Pixel ViewContent
+          fbPixel.viewContent({
+            productId: p.id,
+            name: p.name_mn || p.name || 'Product',
+            price: Number(p.sale_price ?? p.base_price ?? 0),
+            category: p.category,
+          })
           // Load addons for this product
           apiFetch<any>(`/products/${p.id}/addons`, { auth: false })
             .then(a => { if (Array.isArray(a)) setAddons(a) })
@@ -186,10 +194,16 @@ export default function ProductPage({ params }: { params: Promise<{ _slug: strin
   const handleAddToCart = () => {
     if (!product) return
     setAdding(true)
+    const unitPrice = liveBreakdown?.unit_price || Number(product.sale_price ?? product.base_price ?? 0)
+    fbPixel.addToCart({
+      productId: product.id,
+      name: product.name_mn || product.name,
+      price: unitPrice * qty,
+    })
     storeAddToCart({
       id: product.id,
       name: product.name_mn || product.name,
-      price: liveBreakdown?.unit_price || Number(product.sale_price ?? product.base_price ?? 0),
+      price: unitPrice,
       image: product.thumbnail_url,
     }, qty)
     // Add selected addons to cart

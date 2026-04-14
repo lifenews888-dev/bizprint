@@ -3,6 +3,7 @@ import { useState, useEffect, Suspense } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { API_URL } from '@/lib/api'
+import { fbPixel } from '@/components/FacebookPixel'
 
 const SUGGESTED_SEARCHES = ['Нэрийн хуудас', 'Флаер', 'Баннер', 'Стикер', 'Каталог', 'Роллап', 'Постер', 'Ном']
 
@@ -16,6 +17,7 @@ function SearchResults() {
 
   useEffect(() => {
     if (!q || q.length < 2) return
+    fbPixel.search(q)
     setLoading(true)
     fetch(`${API_URL}/products/search?q=${encodeURIComponent(q)}`)
       .then(r => r.json())

@@ -2,7 +2,7 @@
 import { useState, useRef } from 'react'
 import Link from 'next/link'
 import { API_URL } from '@/lib/api'
-import { fbTrack } from '@/components/FacebookPixel'
+import { fbPixel } from '@/components/FacebookPixel'
 
 const PRINT_TYPES = [
   { id: 'flyer', name: 'Флаер', icon: '📄', price: '89,000₮-аас' },
@@ -39,7 +39,7 @@ export default function QuickOrderPage() {
 
       await fetch(`${API_URL}/api/inquiries`, { method: 'POST', body: fd }).catch(() => {})
       setDone(true)
-      fbTrack('InitiateCheckout', { content_name: PRINT_TYPES.find(t => t.id === selected)?.name })
+      fbPixel.lead({ contentName: `Quick Order — ${PRINT_TYPES.find(t => t.id === selected)?.name || selected}` })
       setStep(4)
     } finally {
       setSubmitting(false)
@@ -121,7 +121,7 @@ export default function QuickOrderPage() {
 
               <div style={{ display: 'flex', gap: 10 }}>
                 <button onClick={() => setStep(1)} style={{ flex: 1, padding: '12px 0', borderRadius: 12, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text2)', fontSize: 13, cursor: 'pointer' }}>← Буцах</button>
-                <button onClick={() => setStep(3)} style={{ flex: 1, padding: '12px 0', borderRadius: 12, border: 'none', background: '#FF6B00', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+                <button onClick={() => { fbPixel.initiateCheckout({ value: 0, productName: PRINT_TYPES.find(t => t.id === selected)?.name }); setStep(3) }} style={{ flex: 1, padding: '12px 0', borderRadius: 12, border: 'none', background: '#FF6B00', color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
                   {file ? 'Дараах →' : 'Файлгүй үргэлжлэх →'}
                 </button>
               </div>

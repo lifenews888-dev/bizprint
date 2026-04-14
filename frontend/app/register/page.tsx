@@ -2,6 +2,7 @@
 import { apiFetch } from '@/lib/api'
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { fbPixel } from '@/components/FacebookPixel'
 import { Building2, Palette, Truck, User, ChevronRight, ChevronLeft, Loader2, ShieldCheck, CheckCircle } from 'lucide-react'
 
 const ROLES = [
@@ -115,6 +116,7 @@ export default function RegisterPage() {
         localStorage.setItem('token', data.access_token)
         if (data.refresh_token) localStorage.setItem('refresh_token', data.refresh_token)
         localStorage.setItem('user', JSON.stringify(data.user))
+        fbPixel.completeRegistration()
         setStep(totalSteps + 1) // success step
         setTimeout(() => {
           if (role === 'customer') router.push('/dashboard/customer')
