@@ -1,37 +1,57 @@
 'use client'
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import Link from 'next/link'
 import PrintPreview from '@/components/PrintPreview'
+import { API_URL } from '@/lib/api'
 
-const PRINT_TYPES = [
-  { id: 'business-card', name: 'Нэрийн хуудас', icon: '💳', sizes: [{ label: '90×54мм (стандарт)', w: 90, h: 54 }, { label: '90×50мм', w: 90, h: 50 }, { label: 'Захиалгат', w: 0, h: 0 }], materials: ['Art card 300gsm', 'Art card 350gsm', 'Металл', 'PVC тунгалаг'], finishing: ['Матт ламинат', 'Глосс ламинат', 'Soft-touch', 'УВ лак', 'Фольг тамга'], minQty: 100 },
-  { id: 'flyer', name: 'Флаер', icon: '📄', sizes: [{ label: 'A6 (105×148мм)', w: 105, h: 148 }, { label: 'A5 (148×210мм)', w: 148, h: 210 }, { label: 'A4 (210×297мм)', w: 210, h: 297 }, { label: 'DL (99×210мм)', w: 99, h: 210 }, { label: 'Захиалгат', w: 0, h: 0 }], materials: ['Glossy 130gsm', 'Glossy 170gsm', 'Matte 170gsm', 'Art card 250gsm'], finishing: ['Матт ламинат', 'Глосс ламинат', 'УВ лак'], minQty: 50 },
-  { id: 'brochure', name: 'Брошур', icon: '📋', sizes: [{ label: 'A5 — 2 нугалаа', w: 148, h: 210 }, { label: 'A4 — 3 нугалаа', w: 210, h: 297 }, { label: 'A4 — 2 нугалаа', w: 210, h: 297 }], materials: ['Glossy 170gsm', 'Matte 170gsm', 'Art card 250gsm'], finishing: ['Матт ламинат', 'Глосс ламинат'], minQty: 100 },
-  { id: 'poster', name: 'Постер', icon: '🖼️', sizes: [{ label: 'A3 (297×420мм)', w: 297, h: 420 }, { label: 'A2 (420×594мм)', w: 420, h: 594 }, { label: 'A1 (594×841мм)', w: 594, h: 841 }, { label: 'Захиалгат', w: 0, h: 0 }], materials: ['Glossy 170gsm', 'Matte 170gsm', 'Art card 250gsm'], finishing: ['Матт ламинат', 'Глосс ламинат', 'УВ лак'], minQty: 10 },
-  { id: 'sticker', name: 'Стикер', icon: '📎', sizes: [{ label: 'Дугуй 50мм', w: 50, h: 50 }, { label: 'Дугуй 100мм', w: 100, h: 100 }, { label: 'Дөрвөлжин A6', w: 105, h: 148 }, { label: 'Захиалгат', w: 0, h: 0 }], materials: ['Vinyl цагаан', 'Vinyl тунгалаг', 'Цаасан'], finishing: ['Ламинат', 'UV coating'], minQty: 100 },
-  { id: 'banner', name: 'Баннер', icon: '🏗️', sizes: [{ label: '1×2м', w: 1000, h: 2000 }, { label: '1×3м', w: 1000, h: 3000 }, { label: '2×3м', w: 2000, h: 3000 }, { label: '3×6м', w: 3000, h: 6000 }, { label: 'Захиалгат', w: 0, h: 0 }], materials: ['Vinyl 440gsm', 'Mesh баннер', 'Backlit хулдаас'], finishing: ['Гантиг гагнуур', 'Оосор нэмэх'], minQty: 1 },
-  { id: 'book', name: 'Ном / Каталог', icon: '📕', sizes: [{ label: 'A5 (148×210мм)', w: 148, h: 210 }, { label: 'A4 (210×297мм)', w: 210, h: 297 }, { label: 'Square 200×200мм', w: 200, h: 200 }], materials: ['Glossy хавтас', 'Matte хавтас', 'Soft-touch хавтас'], finishing: ['Perfect bind', 'Saddle stitch', 'Wire-O', 'Хатуу хавтас'], minQty: 10 },
+interface PrintType {
+  id: string
+  name: string
+  icon: string
+  sizes: Array<{ label: string; w: number; h: number }>
+  materials: string[]
+  finishing: string[]
+  minQty: number
+  // Admin-configurable pricing factors (fallback defaults)
+  baseRate: number
+  doubleSideMultiplier: number
+  overheadRate: number
+  platformRate: number
+  inkCostPer500: number
+  finishingCostEach: number
+  volumeDiscounts?: Array<{ min_qty: number; discount_percent: number }>
+}
+
+// ─── Fallback static config (used if API fails) ─────────────
+const FALLBACK_TYPES: PrintType[] = [
+  { id: 'business-card', name: 'Нэрийн хуудас', icon: '💳', sizes: [{ label: '90×54мм (стандарт)', w: 90, h: 54 }, { label: '90×50мм', w: 90, h: 50 }, { label: 'Захиалгат', w: 0, h: 0 }], materials: ['Art card 300gsm', 'Art card 350gsm', 'Металл', 'PVC тунгалаг'], finishing: ['Матт ламинат', 'Глосс ламинат', 'Soft-touch', 'УВ лак', 'Фольг тамга'], minQty: 100, baseRate: 340, doubleSideMultiplier: 1.7, overheadRate: 0.12, platformRate: 0.10, inkCostPer500: 7000, finishingCostEach: 5000 },
+  { id: 'flyer', name: 'Флаер', icon: '📄', sizes: [{ label: 'A6 (105×148мм)', w: 105, h: 148 }, { label: 'A5 (148×210мм)', w: 148, h: 210 }, { label: 'A4 (210×297мм)', w: 210, h: 297 }, { label: 'DL (99×210мм)', w: 99, h: 210 }, { label: 'Захиалгат', w: 0, h: 0 }], materials: ['Glossy 130gsm', 'Glossy 170gsm', 'Matte 170gsm', 'Art card 250gsm'], finishing: ['Матт ламинат', 'Глосс ламинат', 'УВ лак'], minQty: 50, baseRate: 180, doubleSideMultiplier: 1.7, overheadRate: 0.12, platformRate: 0.10, inkCostPer500: 7000, finishingCostEach: 5000 },
+  { id: 'brochure', name: 'Брошур', icon: '📋', sizes: [{ label: 'A5 — 2 нугалаа', w: 148, h: 210 }, { label: 'A4 — 3 нугалаа', w: 210, h: 297 }, { label: 'A4 — 2 нугалаа', w: 210, h: 297 }], materials: ['Glossy 170gsm', 'Matte 170gsm', 'Art card 250gsm'], finishing: ['Матт ламинат', 'Глосс ламинат'], minQty: 100, baseRate: 250, doubleSideMultiplier: 1.7, overheadRate: 0.12, platformRate: 0.10, inkCostPer500: 7000, finishingCostEach: 5000 },
+  { id: 'poster', name: 'Постер', icon: '🖼️', sizes: [{ label: 'A3 (297×420мм)', w: 297, h: 420 }, { label: 'A2 (420×594мм)', w: 420, h: 594 }, { label: 'A1 (594×841мм)', w: 594, h: 841 }, { label: 'Захиалгат', w: 0, h: 0 }], materials: ['Glossy 170gsm', 'Matte 170gsm', 'Art card 250gsm'], finishing: ['Матт ламинат', 'Глосс ламинат', 'УВ лак'], minQty: 10, baseRate: 210, doubleSideMultiplier: 1.7, overheadRate: 0.12, platformRate: 0.10, inkCostPer500: 7000, finishingCostEach: 5000 },
+  { id: 'sticker', name: 'Стикер', icon: '📎', sizes: [{ label: 'Дугуй 50мм', w: 50, h: 50 }, { label: 'Дугуй 100мм', w: 100, h: 100 }, { label: 'Дөрвөлжин A6', w: 105, h: 148 }, { label: 'Захиалгат', w: 0, h: 0 }], materials: ['Vinyl цагаан', 'Vinyl тунгалаг', 'Цаасан'], finishing: ['Ламинат', 'UV coating'], minQty: 100, baseRate: 280, doubleSideMultiplier: 1.7, overheadRate: 0.12, platformRate: 0.10, inkCostPer500: 7000, finishingCostEach: 5000 },
+  { id: 'banner', name: 'Баннер', icon: '🏗️', sizes: [{ label: '1×2м', w: 1000, h: 2000 }, { label: '1×3м', w: 1000, h: 3000 }, { label: '2×3м', w: 2000, h: 3000 }, { label: '3×6м', w: 3000, h: 6000 }, { label: 'Захиалгат', w: 0, h: 0 }], materials: ['Vinyl 440gsm', 'Mesh баннер', 'Backlit хулдаас'], finishing: ['Гантиг гагнуур', 'Оосор нэмэх'], minQty: 1, baseRate: 1200, doubleSideMultiplier: 1.7, overheadRate: 0.12, platformRate: 0.10, inkCostPer500: 7000, finishingCostEach: 5000 },
+  { id: 'book', name: 'Ном / Каталог', icon: '📕', sizes: [{ label: 'A5 (148×210мм)', w: 148, h: 210 }, { label: 'A4 (210×297мм)', w: 210, h: 297 }, { label: 'Square 200×200мм', w: 200, h: 200 }], materials: ['Glossy хавтас', 'Matte хавтас', 'Soft-touch хавтас'], finishing: ['Perfect bind', 'Saddle stitch', 'Wire-O', 'Хатуу хавтас'], minQty: 10, baseRate: 170, doubleSideMultiplier: 1.7, overheadRate: 0.12, platformRate: 0.10, inkCostPer500: 7000, finishingCostEach: 5000 },
 ]
 
-const BASE_RATES: Record<string, number> = { 'business-card': 340, 'flyer': 180, 'brochure': 250, 'poster': 210, 'sticker': 280, 'banner': 1200, 'book': 170 }
 const QTY_PRESETS = [50, 100, 250, 500, 1000, 2000, 5000]
 
-function calcPrice(typeId: string, size: { w: number; h: number }, finishing: string[], qty: number, sides: string, pages: number) {
+function calcPrice(pt: PrintType, size: { w: number; h: number }, finishing: string[], qty: number, sides: string, pages: number) {
   if (!size.w || !size.h || qty < 1) return null
   const areaM2 = (size.w / 1000) * (size.h / 1000)
-  const paperCost = (BASE_RATES[typeId] || 200) * qty * (areaM2 / 0.0623)
-  const inkCost = 7000 * qty / 500
-  const finishingCost = finishing.length * 5000
-  const pagesCost = typeId === 'book' ? pages * qty * 15 : 0
-  const sidesMultiplier = sides === 'double' ? 1.7 : 1
+  const paperCost = pt.baseRate * qty * (areaM2 / 0.0623)
+  const inkCost = pt.inkCostPer500 * qty / 500
+  const finishingCost = finishing.length * pt.finishingCostEach
+  const pagesCost = pt.id === 'book' ? pages * qty * 15 : 0
+  const sidesMultiplier = sides === 'double' ? pt.doubleSideMultiplier : 1
   const subtotal = (paperCost + inkCost + finishingCost + pagesCost) * sidesMultiplier
-  const overhead = subtotal * 0.12
-  const platform = (subtotal + overhead) * 0.10
+  const overhead = subtotal * pt.overheadRate
+  const platform = (subtotal + overhead) * pt.platformRate
   const total = Math.round(subtotal + overhead + platform)
   return { total, unitPrice: Math.round(total / qty), breakdown: { paper: Math.round(paperCost), ink: Math.round(inkCost), finishing: Math.round(finishingCost), pages: Math.round(pagesCost) } }
 }
 
 export default function InstantQuote() {
+  const [types, setTypes] = useState<PrintType[]>(FALLBACK_TYPES)
   const [typeIdx, setTypeIdx] = useState(0)
   const [sizeIdx, setSizeIdx] = useState(0)
   const [customW, setCustomW] = useState(0)
@@ -44,13 +64,40 @@ export default function InstantQuote() {
   const [pages, setPages] = useState(32)
   const [showBreakdown, setShowBreakdown] = useState(false)
 
-  const pt = PRINT_TYPES[typeIdx]
-  const size = pt.sizes[sizeIdx]
+  // Fetch admin-managed configs from API; keep fallback on error
+  useEffect(() => {
+    fetch(`${API_URL}/api/cms/quote-config`)
+      .then(r => r.json())
+      .then((data: any[]) => {
+        if (!Array.isArray(data) || data.length === 0) return
+        const mapped: PrintType[] = data.map(c => ({
+          id: c.product_type,
+          name: c.name_mn,
+          icon: c.icon || '📦',
+          sizes: c.sizes || [],
+          materials: c.materials || [],
+          finishing: c.finishing_options || [],
+          minQty: c.min_qty || 1,
+          baseRate: Number(c.base_rate) || 200,
+          doubleSideMultiplier: Number(c.double_side_multiplier) || 1.7,
+          overheadRate: Number(c.overhead_rate) || 0.12,
+          platformRate: Number(c.platform_rate) || 0.10,
+          inkCostPer500: Number(c.ink_cost_per_500) || 7000,
+          finishingCostEach: Number(c.finishing_cost_each) || 5000,
+          volumeDiscounts: c.volume_discounts || [],
+        }))
+        setTypes(mapped)
+      })
+      .catch(() => {})
+  }, [])
+
+  const pt = types[typeIdx] || types[0]
+  const size = pt.sizes[sizeIdx] || { label: '', w: 0, h: 0 }
   const isCustom = size?.w === 0
   const effectiveSize = isCustom ? { w: customW, h: customH } : size
   const effectiveQty = customQty ? parseInt(customQty) || qty : qty
 
-  const price = useMemo(() => calcPrice(pt.id, effectiveSize, selectedFinishing, effectiveQty, sides, pages), [pt.id, effectiveSize.w, effectiveSize.h, selectedFinishing.length, effectiveQty, sides, pages])
+  const price = useMemo(() => calcPrice(pt, effectiveSize, selectedFinishing, effectiveQty, sides, pages), [pt, effectiveSize.w, effectiveSize.h, selectedFinishing.length, effectiveQty, sides, pages])
 
   const toggleFinishing = (f: string) => setSelectedFinishing(prev => prev.includes(f) ? prev.filter(x => x !== f) : [...prev, f])
 
@@ -62,7 +109,7 @@ export default function InstantQuote() {
       <div style={{ marginBottom: 28 }}>
         <label style={labelSt}>Бүтээгдэхүүний төрөл</label>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 1fr))', gap: 8 }}>
-          {PRINT_TYPES.map((t, i) => (
+          {types.map((t, i) => (
             <button key={t.id} onClick={() => { setTypeIdx(i); setSizeIdx(0); setMatIdx(0); setSelectedFinishing([]) }}
               style={{ padding: '12px 8px', borderRadius: 10, border: `2px solid ${i === typeIdx ? '#FF6B00' : 'var(--border)'}`, background: i === typeIdx ? 'rgba(255,107,0,0.08)' : 'var(--surface)', cursor: 'pointer', textAlign: 'center' }}>
               <div style={{ fontSize: 24, marginBottom: 4 }}>{t.icon}</div>
