@@ -2,12 +2,15 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import { CommissionLog, CommissionStatus } from './commission.entity';
+import { Vendor } from '../vendors/vendor.entity';
 
 @Injectable()
 export class CommissionService {
   constructor(
     @InjectRepository(CommissionLog)
     private repo: Repository<CommissionLog>,
+    @InjectRepository(Vendor)
+    private vendorRepo: Repository<Vendor>,
   ) {}
 
   async create(data: {
@@ -18,7 +21,20 @@ export class CommissionService {
     grossAmount: number;
     commissionRate?: number;
   }): Promise<CommissionLog> {
-    const rate = data.commissionRate ?? 15;
+    let rate = data.commissionRate ?? 15;
+    let vendorName = data.vendorName;
+
+    // Vendor-specific rate lookup (vendorId is the linked user_id from JWT)
+    if (data.vendorId && data.commissionRate == null) {
+      try {
+        const vendor = await this.vendorRepo.findOne({ where: { user_id: data.vendorId } });
+        if (vendor) {
+          if (vendor.commission_rate != null) rate = Number(vendor.commission_rate);
+          if (!vendorName) vendorName = vendor.company_name;
+        }
+      } catch {}
+    }
+
     const commission = Math.round((data.grossAmount * rate) / 100);
     const net = data.grossAmount - commission;
 
@@ -27,7 +43,7 @@ export class CommissionService {
         order_id: data.orderId,
         inquiry_id: data.inquiryId,
         vendor_id: data.vendorId,
-        vendor_name: data.vendorName,
+        vendor_name: vendorName,
         gross_amount: data.grossAmount,
         commission_rate: rate,
         commission_amount: commission,

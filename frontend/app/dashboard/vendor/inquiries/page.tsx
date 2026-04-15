@@ -29,6 +29,25 @@ export default function VendorInquiriesDashboard() {
 
   useEffect(() => { if (user.id) load() }, [user.id])
 
+  // Auto-refresh every 30s when tab is visible
+  useEffect(() => {
+    if (!user.id) return
+    const interval = setInterval(() => {
+      if (document.visibilityState === 'visible') load()
+    }, 30000)
+    return () => clearInterval(interval)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user.id])
+
+  // Refresh on window focus
+  useEffect(() => {
+    if (!user.id) return
+    const onFocus = () => load()
+    window.addEventListener('focus', onFocus)
+    return () => window.removeEventListener('focus', onFocus)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user.id])
+
   const accept = async (id: string) => {
     await apiFetch(`/inquiries/${id}/vendor-accept`, { method: 'POST' }).catch(() => {})
     load()
@@ -66,9 +85,16 @@ export default function VendorInquiriesDashboard() {
               {user.company_name || user.full_name || user.email || 'Vendor'}
             </p>
           </div>
-          <a href="/dashboard/vendor" style={{ fontSize: 12, color: 'var(--text3)', textDecoration: 'none' }}>
-            ← Үйлдвэрлэлийн самбар
-          </a>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <button onClick={load} disabled={loading}
+              title="Шинэчлэх"
+              style={{ padding: '8px 12px', border: '1px solid var(--border)', background: 'var(--surface)', borderRadius: 10, fontSize: 13, color: 'var(--text2)', cursor: 'pointer', opacity: loading ? 0.5 : 1 }}>
+              {loading ? '⟳' : '↻'} Шинэчлэх
+            </button>
+            <a href="/dashboard/vendor" style={{ fontSize: 12, color: 'var(--text3)', textDecoration: 'none' }}>
+              ← Үйлдвэрлэлийн самбар
+            </a>
+          </div>
         </div>
 
         {/* Summary cards */}

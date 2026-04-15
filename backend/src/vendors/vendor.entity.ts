@@ -62,6 +62,9 @@ export class Vendor {
   @Column()
   company_name: string;
 
+  @Column({ nullable: true })
+  user_id: string;  // Linked user account id (for JWT → vendor lookup)
+
   @Column()
   contact_email: string;
 
