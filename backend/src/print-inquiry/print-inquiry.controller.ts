@@ -180,6 +180,17 @@ export class PrintInquiryController {
     return this.svc.sendQuote(id, price, notes);
   }
 
+  // ─── Admin assigns inquiry to a specific vendor ───
+  @Post(':id/assign-vendor')
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  assignVendor(
+    @Param('id') id: string,
+    @Body('vendorId') vendorId: string,
+    @Body('note') note?: string,
+  ) {
+    return this.svc.assignVendor(id, vendorId, note);
+  }
+
   // ─── Vendor accept/reject workflow ───
   @Post(':id/vendor-accept')
   @UseGuards(JwtAuthGuard)

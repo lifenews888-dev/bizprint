@@ -23,6 +23,12 @@ export class VendorsController {
     return this.vendorsService.findAll();
   }
 
+  // Public: lookup by slug for vendor store page
+  @Get('slug/:slug')
+  findBySlug(@Param('slug') slug: string) {
+    return this.vendorsService.findBySlug(slug);
+  }
+
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.vendorsService.findOne(id);

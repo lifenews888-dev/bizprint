@@ -1038,4 +1038,117 @@ export class MailService {
       })
     } catch (e: any) { console.error('Status email error:', e.message) }
   }
+
+  // ═══════════════════════════════════════════
+  //  PHASE 4: Vendor lifecycle notifications
+  // ═══════════════════════════════════════════
+
+  async sendVendorNewInquiry(
+    vendor: { email: string; name: string },
+    inquiry: {
+      id: string;
+      productName: string;
+      quantity: number;
+      estimatedPrice: number;
+      customerName: string;
+    },
+  ) {
+    if (!vendor.email) return;
+    try {
+      await this.mailerService.sendMail({
+        to: vendor.email,
+        subject: `🖨️ Шинэ захиалга ирлээ — ${inquiry.productName}`,
+        html: this.wrap('Шинэ захиалга', '#FF6B00', `
+          <p style="margin:0 0 16px;font-size:14px;color:#374151">
+            Сайн байна уу, <strong>${vendor.name}</strong>!
+          </p>
+          <p style="margin:0 0 20px;font-size:14px;color:#6b7280">
+            Танд шинэ захиалгын хүсэлт ирлээ:
+          </p>
+          <table style="width:100%;border-collapse:collapse;margin-bottom:20px">
+            <tr><td style="padding:10px;color:#6b7280;font-size:13px">Бүтээгдэхүүн</td><td style="padding:10px;font-weight:600;text-align:right">${inquiry.productName}</td></tr>
+            <tr style="background:#f9fafb"><td style="padding:10px;color:#6b7280;font-size:13px">Тираж</td><td style="padding:10px;font-weight:600;text-align:right">${this.fmt(inquiry.quantity)} ш</td></tr>
+            <tr><td style="padding:10px;color:#6b7280;font-size:13px">Үнэ</td><td style="padding:10px;font-weight:700;color:#FF6B00;text-align:right">${this.fmt(inquiry.estimatedPrice)}₮</td></tr>
+            <tr style="background:#f9fafb"><td style="padding:10px;color:#6b7280;font-size:13px">Захиалагч</td><td style="padding:10px;text-align:right">${inquiry.customerName}</td></tr>
+          </table>
+          <a href="https://bizprint.mn/dashboard/vendor/inquiries"
+            style="display:block;text-align:center;background:#FF6B00;color:#fff;padding:14px;border-radius:8px;text-decoration:none;font-weight:700">
+            Захиалга харах →
+          </a>
+          <p style="margin:16px 0 0;text-align:center;color:#9ca3af;font-size:11px">
+            30 минутын дотор хариу өгнө үү
+          </p>
+        `),
+      });
+    } catch (e: any) {
+      console.error('Vendor new-inquiry email failed:', e.message);
+    }
+  }
+
+  async sendVendorPayoutApproved(
+    vendor: { email: string; name: string },
+    payout: { batchId: string; netAmount: number; count: number },
+  ) {
+    if (!vendor.email) return;
+    try {
+      await this.mailerService.sendMail({
+        to: vendor.email,
+        subject: `💰 Тооцоо батлагдлаа — ${this.fmt(payout.netAmount)}₮`,
+        html: this.wrap('Тооцоо батлагдлаа', '#10B981', `
+          <p style="margin:0 0 16px;font-size:14px;color:#374151">
+            Сайн байна уу, <strong>${vendor.name}</strong>!
+          </p>
+          <p style="margin:0 0 20px;font-size:14px;color:#6b7280">
+            Таны тооцоо батлагдаж, олгогдохоор бэлэн болсон байна.
+          </p>
+          <div style="background:#f0fdf4;border-radius:8px;padding:20px;text-align:center;margin-bottom:20px">
+            <p style="margin:0;color:#6b7280;font-size:12px">Нийт олгох дүн</p>
+            <p style="font-size:36px;font-weight:800;color:#10B981;margin:8px 0">${this.fmt(payout.netAmount)}₮</p>
+            <p style="margin:0;color:#9ca3af;font-size:11px">${payout.count} захиалга · Batch: ${payout.batchId}</p>
+          </div>
+          <p style="margin:0 0 16px;color:#6b7280;font-size:13px">
+            7 хоногийн дотор таны данс руу шилжүүлэгдэнэ.
+          </p>
+          <a href="https://bizprint.mn/dashboard/vendor/earnings"
+            style="display:block;text-align:center;background:#10B981;color:#fff;padding:14px;border-radius:8px;text-decoration:none;font-weight:700">
+            Орлого харах →
+          </a>
+        `),
+      });
+    } catch (e: any) {
+      console.error('Vendor payout email failed:', e.message);
+    }
+  }
+
+  async sendAdminNewInquiry(inquiry: {
+    id: string;
+    productName: string;
+    quantity: number;
+    estimatedPrice: number;
+    customerName: string;
+    customerPhone: string;
+  }) {
+    const adminEmail = process.env.ADMIN_EMAIL || 'admin@bizprint.mn';
+    try {
+      await this.mailerService.sendMail({
+        to: adminEmail,
+        subject: `📦 Шинэ захиалга — ${inquiry.productName} (${inquiry.quantity}ш)`,
+        html: this.wrap('Шинэ захиалга', '#FF6B00', `
+          <p style="margin:0 0 16px;font-size:14px;color:#374151">Шинэ захиалга ирлээ:</p>
+          <table style="width:100%;border-collapse:collapse;margin-bottom:20px">
+            <tr><td style="padding:10px;color:#6b7280;font-size:13px">Бүтээгдэхүүн</td><td style="padding:10px;font-weight:600;text-align:right">${inquiry.productName}</td></tr>
+            <tr style="background:#f9fafb"><td style="padding:10px;color:#6b7280;font-size:13px">Тираж</td><td style="padding:10px;font-weight:600;text-align:right">${this.fmt(inquiry.quantity)} ш</td></tr>
+            <tr><td style="padding:10px;color:#6b7280;font-size:13px">Үнэ</td><td style="padding:10px;font-weight:700;color:#FF6B00;text-align:right">${this.fmt(inquiry.estimatedPrice)}₮</td></tr>
+            <tr style="background:#f9fafb"><td style="padding:10px;color:#6b7280;font-size:13px">Захиалагч</td><td style="padding:10px;text-align:right">${inquiry.customerName} — ${inquiry.customerPhone}</td></tr>
+          </table>
+          <a href="https://bizprint.mn/admin/inquiries"
+            style="display:block;text-align:center;background:#FF6B00;color:#fff;padding:12px;border-radius:8px;text-decoration:none;font-weight:700">
+            Admin → /admin/inquiries
+          </a>
+        `),
+      });
+    } catch (e: any) {
+      console.error('Admin new-inquiry email failed:', e.message);
+    }
+  }
 }

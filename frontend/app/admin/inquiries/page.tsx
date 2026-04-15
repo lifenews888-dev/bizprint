@@ -15,7 +15,10 @@ interface Inquiry {
   customer_email: string;
   preferred_contact: string;
   quoted_price?: number;
+  estimated_price?: number;
   assigned_to?: string;
+  vendor_id?: string;
+  vendor_accepted?: boolean;
   files: any[];
   created_at: string;
 }
@@ -62,6 +65,9 @@ export default function AdminInquiriesPage() {
   const [quotePrice, setQuotePrice] = useState('');
   const [quoteNote, setQuoteNote] = useState('');
   const [loading, setLoading] = useState(true);
+  const [vendors, setVendors] = useState<any[]>([]);
+  const [assignVendorId, setAssignVendorId] = useState('');
+  const [assigning, setAssigning] = useState(false);
 
   const token = typeof window !== 'undefined'
     ? (localStorage.getItem('access_token') || '') : '';
@@ -82,6 +88,31 @@ export default function AdminInquiriesPage() {
   };
 
   useEffect(() => { load(); }, [statusFilter]);
+
+  // Load vendors once for the assignment dropdown
+  useEffect(() => {
+    fetch(`${API}/api/vendors`, { headers })
+      .then(r => r.ok ? r.json() : [])
+      .then(data => setVendors(Array.isArray(data) ? data : data?.data || []))
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const assignVendor = async (inquiryId: string) => {
+    if (!assignVendorId) return;
+    setAssigning(true);
+    try {
+      await fetch(`${API}/api/inquiries/${inquiryId}/assign-vendor`, {
+        method: 'POST', headers,
+        body: JSON.stringify({ vendorId: assignVendorId }),
+      });
+      setAssignVendorId('');
+      await load();
+      setSelected(null);
+    } finally {
+      setAssigning(false);
+    }
+  };
 
   const updateStatus = async (id: string, status: string) => {
     await fetch(`${API}/api/inquiries/${id}/status`, {
@@ -207,6 +238,32 @@ export default function AdminInquiriesPage() {
                       className="px-4 py-2 bg-purple-500 text-white rounded-lg text-xs font-medium">
                       Үнэ илгээх
                     </button>
+                  </div>
+
+                  {/* Vendor assignment */}
+                  <div>
+                    <p className="text-xs text-gray-500 mb-2">Vendor хуваарилах:</p>
+                    <div className="flex gap-2">
+                      <select value={assignVendorId} onChange={e => setAssignVendorId(e.target.value)}
+                        className="flex-1 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm bg-transparent">
+                        <option value="">— Vendor сонгох —</option>
+                        {vendors.map(v => (
+                          <option key={v.id} value={v.id}>
+                            {v.company_name}{v.district ? ` (${v.district})` : ''}
+                          </option>
+                        ))}
+                      </select>
+                      <button onClick={() => assignVendor(inq.id)}
+                        disabled={!assignVendorId || assigning}
+                        className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg text-xs font-medium disabled:opacity-50">
+                        {assigning ? '...' : 'Хуваарилах'}
+                      </button>
+                    </div>
+                    {inq.vendor_id && (
+                      <p className="text-xs text-green-600 mt-1">
+                        ✓ Хуваарилагдсан: {vendors.find(v => v.id === inq.vendor_id)?.company_name || inq.vendor_id.slice(0, 8)}
+                      </p>
+                    )}
                   </div>
 
                   <div className="flex gap-2">

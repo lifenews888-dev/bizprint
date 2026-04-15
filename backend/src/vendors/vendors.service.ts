@@ -41,6 +41,17 @@ export class VendorsService {
     return { ...vendor, metrics, product_count: products.length };
   }
 
+  async findBySlug(slug: string) {
+    const vendor = await this.repo.findOne({
+      where: { slug },
+      relations: ['vendor_capabilities'],
+    });
+    if (!vendor) return null;
+    const metrics = await this.metricsRepo.findOne({ where: { vendor_id: vendor.id } });
+    const products = await this.pvRepo.find({ where: { vendor_id: vendor.id } });
+    return { ...vendor, metrics, product_count: products.length };
+  }
+
   async update(id: string, data: any) {
     await this.repo.update(id, data);
     return this.findOne(id);

@@ -1,4 +1,4 @@
-import { Injectable, Optional } from '@nestjs/common';
+import { Injectable, NotFoundException, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import { EventEmitter2 } from '@nestjs/event-emitter';
@@ -6,6 +6,7 @@ import { PrintInquiry, InquiryStatus } from './entities/print-inquiry.entity';
 import { ChatMessage } from './entities/chat-message.entity';
 import { CommissionService } from '../commission/commission.service';
 import { Vendor } from '../vendors/vendor.entity';
+import { MailService } from '../mail/mail.service';
 
 @Injectable()
 export class PrintInquiryService {
@@ -15,6 +16,7 @@ export class PrintInquiryService {
     @InjectRepository(Vendor) private vendorRepo: Repository<Vendor>,
     private eventEmitter: EventEmitter2,
     @Optional() private commissionService?: CommissionService,
+    @Optional() private mailService?: MailService,
   ) {}
 
   private genNumber(): string {
@@ -29,7 +31,68 @@ export class PrintInquiryService {
     );
     this.eventEmitter.emit('inquiry.created', saved);
     await this.sysMsg(saved.id, `Захиалгын хүсэлт #${saved.inquiry_number} хүлээн авлаа. Бид удахгүй холбогдоно.`);
+
+    // Notify admin of new inquiry (background, never fails)
+    this.mailService?.sendAdminNewInquiry({
+      id: saved.id,
+      productName: saved.product_name || saved.category || 'Захиалга',
+      quantity: saved.quantity || 0,
+      estimatedPrice: Number((saved as any).estimated_price) || 0,
+      customerName: saved.customer_name || '',
+      customerPhone: saved.customer_phone || '',
+    }).catch(() => {});
+
+    // If vendor already assigned at creation, notify them too
+    if (saved.vendor_id) {
+      const vendor = await this.vendorRepo.findOne({ where: { id: saved.vendor_id } }).catch(() => null);
+      if (vendor?.contact_email) {
+        this.mailService?.sendVendorNewInquiry(
+          { email: vendor.contact_email, name: vendor.company_name },
+          {
+            id: saved.id,
+            productName: saved.product_name || '',
+            quantity: saved.quantity || 0,
+            estimatedPrice: Number((saved as any).estimated_price) || 0,
+            customerName: saved.customer_name || '',
+          },
+        ).catch(() => {});
+      }
+    }
+
     return saved;
+  }
+
+  // ─── Admin: assign an inquiry to a specific vendor ───
+  async assignVendor(inquiryId: string, vendorId: string, note?: string) {
+    const vendor = await this.vendorRepo.findOne({ where: { id: vendorId } });
+    if (!vendor) throw new NotFoundException('Vendor олдсонгүй');
+
+    await this.repo.update(inquiryId, {
+      vendor_id: vendorId,
+      status: InquiryStatus.CONFIRMED,
+    });
+
+    await this.sysMsg(
+      inquiryId,
+      `Захиалга "${vendor.company_name}" үйлдвэрт хуваарилагдлаа${note ? ': ' + note : ''}`,
+    );
+
+    // Notify vendor
+    if (vendor.contact_email) {
+      const inquiry = await this.repo.findOne({ where: { id: inquiryId } });
+      this.mailService?.sendVendorNewInquiry(
+        { email: vendor.contact_email, name: vendor.company_name },
+        {
+          id: inquiryId,
+          productName: inquiry?.product_name || '',
+          quantity: inquiry?.quantity || 0,
+          estimatedPrice: Number((inquiry as any)?.estimated_price) || 0,
+          customerName: inquiry?.customer_name || '',
+        },
+      ).catch(() => {});
+    }
+
+    return this.repo.findOne({ where: { id: inquiryId } });
   }
 
   findAll(f: { status?: string; category?: string } = {}): Promise<PrintInquiry[]> {

@@ -65,6 +65,9 @@ export class Vendor {
   @Column({ nullable: true })
   user_id: string;  // Linked user account id (for JWT → vendor lookup)
 
+  @Column({ nullable: true, unique: true })
+  slug: string;  // Public URL slug: bizprint.mn/vendor/<slug>
+
   @Column()
   contact_email: string;
 

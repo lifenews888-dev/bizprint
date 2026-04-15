@@ -1,8 +1,9 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import { CommissionLog, CommissionStatus } from './commission.entity';
 import { Vendor } from '../vendors/vendor.entity';
+import { MailService } from '../mail/mail.service';
 
 @Injectable()
 export class CommissionService {
@@ -11,6 +12,7 @@ export class CommissionService {
     private repo: Repository<CommissionLog>,
     @InjectRepository(Vendor)
     private vendorRepo: Repository<Vendor>,
+    @Optional() private mailService?: MailService,
   ) {}
 
   async create(data: {
@@ -90,6 +92,23 @@ export class CommissionService {
       status: CommissionStatus.APPROVED,
       payout_batch_id: batchId,
     });
+
+    // Notify vendors (fire-and-forget)
+    try {
+      const logs = await this.repo.find({ where: { payout_batch_id: batchId } });
+      const vendorIds = Array.from(new Set(logs.map(l => l.vendor_id).filter(Boolean)));
+      for (const vendorId of vendorIds) {
+        const vendor = await this.vendorRepo.findOne({ where: { user_id: vendorId } }).catch(() => null);
+        if (!vendor?.contact_email || !this.mailService) continue;
+        const vendorLogs = logs.filter(l => l.vendor_id === vendorId);
+        const netAmount = vendorLogs.reduce((sum, l) => sum + Number(l.net_amount), 0);
+        this.mailService.sendVendorPayoutApproved(
+          { email: vendor.contact_email, name: vendor.company_name },
+          { batchId, netAmount, count: vendorLogs.length },
+        ).catch(() => {});
+      }
+    } catch {}
+
     return { batchId, count: ids.length };
   }
 
