@@ -1,4 +1,5 @@
-import { Injectable, NotFoundException, Optional } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, Optional } from '@nestjs/common';
+import { isUUID } from 'class-validator';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import { EventEmitter2 } from '@nestjs/event-emitter';
@@ -163,6 +164,7 @@ export class PrintInquiryService {
   }
 
   async checkSLATimeout(inquiryId: string, originalVendorId: string) {
+    if (!isUUID(inquiryId)) throw new BadRequestException('Буруу ID формат');
     try {
       const inquiry = await this.repo.findOne({ where: { id: inquiryId } });
       if (!inquiry || inquiry.vendor_accepted) return;
@@ -260,8 +262,9 @@ export class PrintInquiryService {
 
   // ─── Multi-vendor broadcast (race flow) ───
   async broadcastToVendors(inquiryId: string, vendorIds: string[]) {
+    if (!isUUID(inquiryId)) throw new BadRequestException('Буруу ID формат');
     const inquiry = await this.repo.findOne({ where: { id: inquiryId } });
-    if (!inquiry) throw new NotFoundException('Inquiry олдсонгүй');
+    if (!inquiry) throw new NotFoundException('Захиалга олдсонгүй');
     if (!Array.isArray(vendorIds) || vendorIds.length === 0) {
       return { error: 'vendorIds хоосон байна' };
     }

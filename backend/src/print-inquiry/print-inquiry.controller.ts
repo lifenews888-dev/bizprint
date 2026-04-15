@@ -1,6 +1,6 @@
 import {
   Controller, Get, Post, Patch, Body, Param, Query,
-  UseGuards, Request, UseInterceptors, UploadedFiles, BadRequestException,
+  UseGuards, Request, UseInterceptors, UploadedFiles, BadRequestException, NotFoundException,
 } from '@nestjs/common';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
@@ -207,7 +207,8 @@ export class PrintInquiryController {
   @UseGuards(JwtAuthGuard, AdminGuard)
   async forceReassign(@Param('id') id: string) {
     const inquiry = await this.svc.findOne(id);
-    await this.svc.checkSLATimeout(id, inquiry?.vendor_id || '');
+    if (!inquiry) throw new NotFoundException('Захиалга олдсонгүй');
+    await this.svc.checkSLATimeout(id, inquiry.vendor_id || '');
     return { ok: true };
   }
 
