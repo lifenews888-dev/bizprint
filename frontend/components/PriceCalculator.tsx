@@ -22,6 +22,7 @@ export default function PriceCalculator({ product, onPriceChange }: Props) {
   const [heightStr, setHeightStr] = useState('1')
   const [qtyStr, setQtyStr] = useState(String(p.min_quantity || 1))
   const [options, setOptions] = useState<Record<string, boolean>>({})
+  const [sides, setSides] = useState<'single' | 'double'>('single')
   const [result, setResult] = useState<any>(null)
   const [calculating, setCalculating] = useState(false)
 
@@ -46,8 +47,9 @@ export default function PriceCalculator({ product, onPriceChange }: Props) {
     // Fixed price — no API needed
     if (!isArea && !isTier) {
       const price = Number(p.sale_price || p.base_price || 0)
-      const total = price * qty
-      const r = { total, unit_price: price, formula_used: 'fixed', notes: ['Тогтмол үнэ'], volume_discount: 0, quantity: qty, is_estimate: false }
+      const sidesMultiplier = sides === 'double' ? 1.7 : 1
+      const total = Math.round(price * qty * sidesMultiplier)
+      const r = { total, unit_price: Math.round(total / qty), formula_used: 'fixed', notes: sides === 'double' ? ['Хоёр талын хэвлэл (+70%)'] : ['Нэг талын хэвлэл'], volume_discount: 0, quantity: qty, is_estimate: false }
       setResult(r)
       onPriceChange?.(total, r)
       return
@@ -64,16 +66,20 @@ export default function PriceCalculator({ product, onPriceChange }: Props) {
     try {
       const res = await apiFetch<any>(`/products/${p.id}/calculate`, {
         method: 'POST', auth: false,
-        body: { quantity: qty, width_mm: width, height_mm: height, options } as any,
+        body: { quantity: qty, width_mm: width, height_mm: height, options, sides } as any,
       })
-      setResult(res)
-      onPriceChange?.(res.total, res)
+      const sidesMultiplier = sides === 'double' ? 1.7 : 1
+      const adjusted = sides === 'double'
+        ? { ...res, total: Math.round(res.total * sidesMultiplier), unit_price: Math.round((res.unit_price || 0) * sidesMultiplier), notes: [...(res.notes || []), 'Хоёр талын хэвлэл (+70%)'] }
+        : res
+      setResult(adjusted)
+      onPriceChange?.(adjusted.total, adjusted)
     } catch {
       setResult(null)
     } finally {
       setCalculating(false)
     }
-  }, [qty, width, height, options, p.id, isArea, isTier, needsDimensions, widthM, heightM])
+  }, [qty, width, height, options, sides, p.id, isArea, isTier, needsDimensions, widthM, heightM])
 
   // Debounce 300ms
   useEffect(() => {
@@ -93,6 +99,32 @@ export default function PriceCalculator({ product, onPriceChange }: Props) {
             <Calculator className="w-3.5 h-3.5 text-[#FF6B00]" strokeWidth={1.5} />
           </div>
           <span className="text-sm font-bold text-[var(--text)]">М² тооцоолуур</span>
+        </div>
+
+        {/* Sides selector */}
+        <div className="mb-3">
+          <div className="text-[10px] text-[var(--text3)] mb-1.5 font-semibold uppercase tracking-wide">Хэвлэх тал</div>
+          <div className="grid grid-cols-2 gap-1.5">
+            {[
+              { v: 'single', l: 'Нэг тал', d: 'Зөвхөн урд', icon: '▢' },
+              { v: 'double', l: 'Хоёр тал', d: 'Урд + ард', icon: '▣' },
+            ].map(s => (
+              <button
+                key={s.v}
+                onClick={() => setSides(s.v as 'single' | 'double')}
+                className={`flex items-center gap-2 p-2.5 rounded-lg border text-left transition-all ${
+                  sides === s.v
+                    ? 'border-[#FF6B00] bg-[#FF6B00]/8 text-[var(--text)]'
+                    : 'border-[var(--border)] bg-[var(--surface)] text-[var(--text2)]'
+                }`}>
+                <span className="text-lg leading-none">{s.icon}</span>
+                <div>
+                  <div className="text-xs font-semibold leading-tight">{s.l}</div>
+                  <div className="text-[9px] text-[var(--text3)]">{s.d}{s.v === 'double' ? ' · +70%' : ''}</div>
+                </div>
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Dimensions */}
@@ -181,6 +213,9 @@ export default function PriceCalculator({ product, onPriceChange }: Props) {
                   className="text-2xl font-extrabold text-[#FF6B00]">{fmt(result.total)}</motion.span>
               </div>
               {result.unit_price > 0 && qty > 1 && <div className="text-[10px] text-[var(--text3)] text-right">Нэгж: {fmt(result.unit_price)} × {qty}ш</div>}
+              {sides === 'double' && (
+                <div className="text-[9px] text-amber-500 mt-0.5">▣ Хоёр талын хэвлэл тооцоологдсон</div>
+              )}
               {result.notes?.map((n: string, i: number) => <div key={i} className="text-[9px] text-[var(--text3)] mt-0.5">• {n}</div>)}
             </motion.div>
           ) : widthM > 0 && heightM > 0 ? (
@@ -197,12 +232,41 @@ export default function PriceCalculator({ product, onPriceChange }: Props) {
 
   // ═══ FIXED / TIER — Тоо ширхэг ═══
   const price = Number(p.sale_price || p.base_price || 0)
+  const sidesMult = sides === 'double' ? 1.7 : 1
+  const displayTotal = result?.total ?? Math.round(price * qty * sidesMult)
   return (
     <div className="rounded-xl border border-[var(--border)] bg-[var(--surface2)]/50 p-4">
       <div className="flex items-center gap-2 mb-3">
         <Calculator className="w-4 h-4 text-[#FF6B00]" strokeWidth={1.5} />
         <span className="text-sm font-bold text-[var(--text)]">Үнэ тооцоолол</span>
       </div>
+
+      {/* Sides selector */}
+      <div className="mb-3">
+        <div className="text-[10px] text-[var(--text3)] mb-1.5 font-semibold uppercase tracking-wide">Хэвлэх тал</div>
+        <div className="grid grid-cols-2 gap-1.5">
+          {[
+            { v: 'single', l: 'Нэг тал', d: 'Зөвхөн урд', icon: '▢' },
+            { v: 'double', l: 'Хоёр тал', d: 'Урд + ард', icon: '▣' },
+          ].map(s => (
+            <button
+              key={s.v}
+              onClick={() => setSides(s.v as 'single' | 'double')}
+              className={`flex items-center gap-2 p-2.5 rounded-lg border text-left transition-all ${
+                sides === s.v
+                  ? 'border-[#FF6B00] bg-[#FF6B00]/8 text-[var(--text)]'
+                  : 'border-[var(--border)] bg-[var(--surface)] text-[var(--text2)]'
+              }`}>
+              <span className="text-lg leading-none">{s.icon}</span>
+              <div>
+                <div className="text-xs font-semibold leading-tight">{s.l}</div>
+                <div className="text-[9px] text-[var(--text3)]">{s.d}{s.v === 'double' ? ' · +70%' : ''}</div>
+              </div>
+            </button>
+          ))}
+        </div>
+      </div>
+
       <div className="flex items-center gap-3">
         <span className="text-xs text-[var(--text3)]">Тоо:</span>
         <div className="flex items-center border border-[var(--border)] rounded-lg overflow-hidden">
@@ -212,9 +276,12 @@ export default function PriceCalculator({ product, onPriceChange }: Props) {
           <button onClick={() => setQtyStr(String(qty + 1))} className="w-9 h-9 bg-[var(--surface2)] border-none cursor-pointer text-sm text-[var(--text2)]">+</button>
         </div>
         <span className="text-xs text-[var(--text3)]">=</span>
-        <motion.span key={qty} initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }}
-          className="text-lg font-extrabold text-[#FF6B00]">{fmt(price * qty)}</motion.span>
+        <motion.span key={displayTotal} initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }}
+          className="text-lg font-extrabold text-[#FF6B00]">{fmt(displayTotal)}</motion.span>
       </div>
+      {sides === 'double' && (
+        <div className="text-[9px] text-amber-500 mt-1">▣ Хоёр талын хэвлэл тооцоологдсон</div>
+      )}
       {result?.volume_discount > 0 && <div className="text-[10px] text-emerald-600 mt-1">📦 Хөнгөлөлт: -{fmt(result.volume_discount)}</div>}
     </div>
   )

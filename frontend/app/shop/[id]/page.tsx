@@ -55,6 +55,7 @@ export default function ProductConfiguratorPage() {
 
   // Tab
   const [tab, setTab] = useState<'config' | 'upload'>('config')
+  const [creators, setCreators] = useState<any[]>([])
 
   const show = (m: string) => { setToast(m); setTimeout(() => setToast(''), 2500) }
 
@@ -65,10 +66,12 @@ export default function ProductConfiguratorPage() {
     Promise.all([
       apiFetch<any>(`/products/${id}`, { auth: false }).catch(() => null),
       apiFetch<any>(`/product-attributes?product_id=${id}`, { auth: false }).catch(() => []),
-    ]).then(([p, attrs]) => {
+      apiFetch<any>('/creators?is_active=true&featured=true&limit=6', { auth: false }).catch(() => []),
+    ]).then(([p, attrs, creatorList]) => {
       setProduct(p)
       const attrList = Array.isArray(attrs) ? attrs : []
       setAttributes(attrList)
+      setCreators(Array.isArray(creatorList) ? creatorList : (creatorList?.data || []))
       const defaults: Record<string, any> = {}
       attrList.forEach((a: any) => {
         const opts = Array.isArray(a.options) ? a.options : (a.options?.values ?? [])
@@ -467,6 +470,93 @@ export default function ProductConfiguratorPage() {
               </div>
             ))}
           </div>
+        </div>
+      </div>
+
+      {/* Creators section */}
+      <div style={{ marginTop: 48, paddingTop: 32, borderTop: '1px solid var(--border)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+          <div>
+            <h2 style={{ fontSize: 18, fontWeight: 700, color: 'var(--text)', margin: 0 }}>
+              🎨 Дизайн хийлгэх үү?
+            </h2>
+            <p style={{ fontSize: 13, color: 'var(--text3)', marginTop: 4 }}>
+              Мэргэшсэн дизайнерууд таны захиалгад зориулж эх бэлтгэл хийнэ
+            </p>
+          </div>
+          <a href="/creators" style={{ fontSize: 12, color: '#FF6B00', textDecoration: 'none', fontWeight: 600 }}>
+            Бүгдийг харах →
+          </a>
+        </div>
+
+        {creators.length > 0 ? (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 12 }}>
+            {creators.map((creator: any) => (
+              <a key={creator.id} href={`/creators/${creator.id}`}
+                style={{ textDecoration: 'none', display: 'block', border: '1px solid var(--border)', borderRadius: 12, padding: 14, background: 'var(--surface)', transition: 'border-color 0.15s' }}
+                onMouseOver={e => (e.currentTarget.style.borderColor = '#FF6B00')}
+                onMouseOut={e => (e.currentTarget.style.borderColor = 'var(--border)')}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+                  <div style={{ width: 36, height: 36, borderRadius: '50%', overflow: 'hidden', background: 'var(--surface2)', flexShrink: 0 }}>
+                    {creator.avatar_url
+                      ? <img src={creator.avatar_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }}>🎨</div>
+                    }
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {creator.display_name || creator.full_name}
+                    </div>
+                    {creator.rating > 0 && (
+                      <div style={{ fontSize: 10, color: '#F59E0B' }}>
+                        {'★'.repeat(Math.round(creator.rating))} {Number(creator.rating).toFixed(1)}
+                      </div>
+                    )}
+                  </div>
+                </div>
+                {creator.specialties?.length > 0 && (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                    {creator.specialties.slice(0, 2).map((s: string) => (
+                      <span key={s} style={{ fontSize: 9, padding: '2px 6px', borderRadius: 99, background: 'rgba(255,107,0,0.1)', color: '#FF6B00' }}>
+                        {s}
+                      </span>
+                    ))}
+                  </div>
+                )}
+                {creator.starting_price > 0 && (
+                  <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 6 }}>
+                    Эхлэх үнэ: <strong style={{ color: '#FF6B00' }}>₮{Number(creator.starting_price).toLocaleString()}</strong>
+                  </div>
+                )}
+              </a>
+            ))}
+          </div>
+        ) : (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12 }}>
+            {[
+              { icon: '🎨', title: 'Лого дизайн', desc: 'Брэндийн таних тэмдэг', price: '₮50,000-аас' },
+              { icon: '📐', title: 'Хэвлэлийн макет', desc: 'Print-ready эх бэлтгэл', price: '₮30,000-аас' },
+              { icon: '✍️', title: 'Бичвэр & Контент', desc: 'Маркетингийн текст', price: '₮20,000-аас' },
+            ].map(s => (
+              <a key={s.title} href="/creators"
+                style={{ textDecoration: 'none', border: '1px solid var(--border)', borderRadius: 12, padding: 14, background: 'var(--surface)', display: 'block' }}>
+                <div style={{ fontSize: 24, marginBottom: 8 }}>{s.icon}</div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', marginBottom: 4 }}>{s.title}</div>
+                <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 6 }}>{s.desc}</div>
+                <div style={{ fontSize: 11, color: '#FF6B00', fontWeight: 600 }}>{s.price}</div>
+              </a>
+            ))}
+          </div>
+        )}
+
+        <div style={{ marginTop: 16, textAlign: 'center' }}>
+          <a href={`/orders/new?productId=${id}&needsDesign=true`}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '12px 24px', background: 'linear-gradient(135deg, #FF6B00, #E55D00)', color: '#fff', borderRadius: 12, textDecoration: 'none', fontSize: 14, fontWeight: 600 }}>
+            🎨 Дизайн захиалах
+          </a>
+          <p style={{ fontSize: 11, color: 'var(--text3)', marginTop: 8 }}>
+            Захиалга өгөхдөө &quot;Дизайн шийлгүүл&quot; сонголтыг идэвхжүүлнэ
+          </p>
         </div>
       </div>
 
