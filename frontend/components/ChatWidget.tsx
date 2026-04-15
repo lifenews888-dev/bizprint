@@ -100,6 +100,10 @@ export default function ChatWidget() {
       s.emit('join', { userId: u.id, userName: u.full_name || u.name || u.email, role: u.role })
     })
     s.on('disconnect', () => setConnected(false))
+    s.on('connect_error', (err) => {
+      setConnected(false)
+      console.warn('[ChatWidget] Socket connect_error:', err?.message)
+    })
 
     // Room list
     s.on('room_list', (data: any[]) => { if (Array.isArray(data)) setRooms(data) })
@@ -306,8 +310,8 @@ export default function ChatWidget() {
                   {view === 'chat' && activeRoom ? otherName(rooms.find(r => r.room_id === activeRoom)) : 'BizPrint'}
                 </div>
                 <div className="text-[10px] text-white/70 flex items-center gap-1">
-                  <span className={`w-1.5 h-1.5 rounded-full ${connected ? 'bg-green-300' : 'bg-red-300'}`} />
-                  {connected ? 'Онлайн' : 'Холболтгүй'}
+                  <span className={`w-1.5 h-1.5 rounded-full ${connected ? 'bg-green-300' : userRef.current?.id ? 'bg-red-300' : 'bg-white/40'}`} />
+                  {connected ? 'Онлайн' : userRef.current?.id ? 'Холбогдож байна…' : 'Нэвтрээгүй'}
                 </div>
               </div>
             </div>
@@ -317,10 +321,23 @@ export default function ChatWidget() {
           {view === 'list' && (
             <div className="flex-1 overflow-y-auto max-h-[420px]">
               {rooms.length === 0 ? (
-                <div className="py-12 text-center text-[#999] text-sm">
-                  <div className="text-3xl mb-2">💬</div>
-                  Чат байхгүй
-                </div>
+                !userRef.current?.id ? (
+                  <div className="py-10 px-6 text-center text-[#666] text-sm">
+                    <div className="text-3xl mb-3">🔒</div>
+                    <p className="mb-4 font-medium text-[#333]">Чатаар ярилцахын тулд нэвтрэнэ үү</p>
+                    <a href="/login" className="inline-block px-6 py-2.5 bg-[#FF6B00] text-white rounded-xl text-xs font-semibold no-underline hover:bg-[#E55D00] transition-colors">
+                      Нэвтрэх →
+                    </a>
+                    <p className="text-[11px] text-[#999] mt-3">
+                      Эсвэл <a href="/contact" className="text-[#FF6B00] no-underline">холбогдох хэсгээс</a> мессеж бичнэ үү
+                    </p>
+                  </div>
+                ) : (
+                  <div className="py-12 text-center text-[#999] text-sm">
+                    <div className="text-3xl mb-2">💬</div>
+                    Чат байхгүй
+                  </div>
+                )
               ) : rooms.map(room => {
                 let lastMsg = room.last_message || ''
                 if (lastMsg.startsWith('[IMAGE]')) lastMsg = '📷 Зураг'
