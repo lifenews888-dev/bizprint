@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import Link from 'next/link'
 import GlobalProductCard from '@/components/ProductCard'
 import InstantQuoteWidget from '@/components/InstantQuoteWidget'
+import { useSiteSettings } from '@/contexts/SiteSettingsContext'
 
 /* ── Carousel helper ── */
 function ProductCarousel({ items }: { items: any[] }) {
@@ -25,6 +26,7 @@ function ProductCarousel({ items }: { items: any[] }) {
    HOMEPAGE — Bold, clean, eseller.mn inspired
    ═══════════════════════════════════════════ */
 export default function HomePage() {
+  const { settings } = useSiteSettings()
   const [categories, setCategories] = useState<any[]>([])
   const [activeCategory, setActiveCategory] = useState<string | null>(null)
   const [productsByCategory, setProductsByCategory] = useState<Record<string, any[]>>({})
@@ -127,27 +129,28 @@ export default function HomePage() {
               </span>
             </div>
 
-            {/* Headline */}
+            {/* Headline — admin-editable via CMS site_settings */}
             <div className="max-w-2xl">
               <h1 className="text-3xl md:text-6xl lg:text-7xl font-black text-white leading-[1.1] tracking-tight mb-4">
-                Хэвлэлээ захиалахад{' '}
-                <span className="text-[#FF6B00]">бэлэн үү.</span>
+                {settings.hero_title || (
+                  <>Хэвлэлээ захиалахад <span className="text-[#FF6B00]">бэлэн үү.</span></>
+                )}
               </h1>
               <p className="text-sm md:text-lg text-white/60 leading-relaxed mb-8 max-w-lg">
-                Файлаа оруулаад AI секундэд үнэ тооцоолно. Монголын хамгийн хурдан хэвлэлийн платформ.
+                {settings.hero_subtitle || 'Файлаа оруулаад AI секундэд үнэ тооцоолно. Монголын хамгийн хурдан хэвлэлийн платформ.'}
               </p>
 
               {/* CTA buttons */}
               <div className="flex flex-wrap gap-3 mb-10">
-                <Link href="/quote" className="no-underline group">
+                <Link href={settings.hero_cta_primary_url || '/quote'} className="no-underline group">
                   <span className="inline-flex items-center gap-2 px-7 py-3.5 bg-[#FF6B00] hover:bg-[#E55D00] text-white rounded-xl text-sm md:text-base font-bold transition-all hover:shadow-lg hover:shadow-[#FF6B00]/25">
-                    Үнэ авах
+                    {settings.hero_cta_primary_text || 'Үнэ авах'}
                     <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24" className="group-hover:translate-x-0.5 transition-transform"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
                   </span>
                 </Link>
-                <Link href="/shop" className="no-underline">
+                <Link href={settings.hero_cta_secondary_url || '/shop'} className="no-underline">
                   <span className="inline-flex items-center px-7 py-3.5 bg-white/10 hover:bg-white/15 backdrop-blur-sm border border-white/15 text-white rounded-xl text-sm md:text-base font-medium transition-all">
-                    Дэлгүүр үзэх
+                    {settings.hero_cta_secondary_text || 'Дэлгүүр үзэх'}
                   </span>
                 </Link>
               </div>

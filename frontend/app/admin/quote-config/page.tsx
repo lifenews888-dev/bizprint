@@ -15,7 +15,9 @@ interface QuoteConfig {
   finishing_cost_each: number
   sizes: Array<{ label: string; w: number; h: number }>
   materials: string[]
+  materials_mn?: string[]
   finishing_options: string[]
+  finishing_options_mn?: string[]
   min_qty: number
   is_active: boolean
   sort_order: number
@@ -150,24 +152,41 @@ export default function AdminQuoteConfigPage() {
                   ))}
                 </div>
 
-                {/* Materials */}
+                {/* Materials — internal key + Mongolian label side by side */}
                 <div style={{ marginBottom: 20 }}>
                   <label style={{ fontSize: 11, color: 'var(--text3)', display: 'block', marginBottom: 4 }}>
-                    Материалууд (мөр бүр нэг материал)
+                    Материал (зүүн: дотоод нэр, баруун: монгол орчуулга — мөр бүр нэг)
                   </label>
-                  <textarea rows={5} value={selected.materials?.join('\n') || ''}
-                    onChange={e => upd('materials', e.target.value.split('\n').filter(Boolean))}
-                    style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface2)', fontSize: 12, color: 'var(--text)', outline: 'none', resize: 'vertical', fontFamily: 'monospace', boxSizing: 'border-box' }} />
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                    <textarea rows={5} value={selected.materials?.join('\n') || ''}
+                      onChange={e => upd('materials', e.target.value.split('\n').filter(Boolean))}
+                      placeholder="Glossy 170gsm"
+                      style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface2)', fontSize: 12, color: 'var(--text)', outline: 'none', resize: 'vertical', fontFamily: 'monospace', boxSizing: 'border-box' }} />
+                    <textarea rows={5} value={selected.materials_mn?.join('\n') || ''}
+                      onChange={e => upd('materials_mn', e.target.value.split('\n').filter(Boolean))}
+                      placeholder="Гялгар 170гр"
+                      style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface2)', fontSize: 12, color: 'var(--text)', outline: 'none', resize: 'vertical', fontFamily: 'monospace', boxSizing: 'border-box' }} />
+                  </div>
+                  <p style={{ fontSize: 10, color: 'var(--text3)', marginTop: 4 }}>
+                    Зүүн талын мөр бүр баруун талын мөртэй тохирох ёстой
+                  </p>
                 </div>
 
-                {/* Finishing options */}
+                {/* Finishing options — same paired layout */}
                 <div style={{ marginBottom: 20 }}>
                   <label style={{ fontSize: 11, color: 'var(--text3)', display: 'block', marginBottom: 4 }}>
-                    Finishing сонголтууд (мөр бүр)
+                    Finishing сонголтууд (зүүн: дотоод нэр, баруун: монгол орчуулга)
                   </label>
-                  <textarea rows={4} value={selected.finishing_options?.join('\n') || ''}
-                    onChange={e => upd('finishing_options', e.target.value.split('\n').filter(Boolean))}
-                    style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface2)', fontSize: 12, color: 'var(--text)', outline: 'none', resize: 'vertical', fontFamily: 'monospace', boxSizing: 'border-box' }} />
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                    <textarea rows={4} value={selected.finishing_options?.join('\n') || ''}
+                      onChange={e => upd('finishing_options', e.target.value.split('\n').filter(Boolean))}
+                      placeholder="Soft-touch"
+                      style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface2)', fontSize: 12, color: 'var(--text)', outline: 'none', resize: 'vertical', fontFamily: 'monospace', boxSizing: 'border-box' }} />
+                    <textarea rows={4} value={selected.finishing_options_mn?.join('\n') || ''}
+                      onChange={e => upd('finishing_options_mn', e.target.value.split('\n').filter(Boolean))}
+                      placeholder="Зөөлөн мэдрэмж (Soft-touch)"
+                      style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface2)', fontSize: 12, color: 'var(--text)', outline: 'none', resize: 'vertical', fontFamily: 'monospace', boxSizing: 'border-box' }} />
+                  </div>
                 </div>
 
                 {/* Volume discounts */}

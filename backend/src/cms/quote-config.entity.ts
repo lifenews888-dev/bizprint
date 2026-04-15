@@ -38,8 +38,14 @@ export class QuoteConfig {
   @Column({ type: 'jsonb' })
   materials: string[];
 
+  @Column({ type: 'jsonb', nullable: true })
+  materials_mn: string[];
+
   @Column({ type: 'jsonb' })
   finishing_options: string[];
+
+  @Column({ type: 'jsonb', nullable: true })
+  finishing_options_mn: string[];
 
   @Column({ default: 100 })
   min_qty: number;

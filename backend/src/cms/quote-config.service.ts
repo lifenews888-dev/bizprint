@@ -13,7 +13,9 @@ const SEED_CONFIGS = [
       { label: 'Захиалгат', w: 0, h: 0 },
     ],
     materials: ['Art card 300gsm', 'Art card 350gsm', 'Металл', 'PVC тунгалаг'],
+    materials_mn: ['Арт карт 300гр', 'Арт карт 350гр', 'Металл', 'PVC (тунгалаг)'],
     finishing_options: ['Матт ламинат', 'Глосс ламинат', 'Soft-touch', 'УВ лак', 'Фольг тамга'],
+    finishing_options_mn: ['Матт ламинат', 'Гэрэлт ламинат', 'Зөөлөн мэдрэмж (Soft-touch)', 'УВ лак', 'Фольг тамга'],
     volume_discounts: [
       { min_qty: 250, discount_percent: 10 },
       { min_qty: 500, discount_percent: 15 },
@@ -31,7 +33,9 @@ const SEED_CONFIGS = [
       { label: 'Захиалгат', w: 0, h: 0 },
     ],
     materials: ['Glossy 130gsm', 'Glossy 170gsm', 'Matte 170gsm', 'Art card 250gsm'],
+    materials_mn: ['Гялгар 130гр', 'Гялгар 170гр', 'Матт 170гр', 'Арт карт 250гр'],
     finishing_options: ['Матт ламинат', 'Глосс ламинат', 'УВ лак'],
+    finishing_options_mn: ['Матт ламинат', 'Гэрэлт ламинат', 'УВ лак'],
     volume_discounts: [
       { min_qty: 250, discount_percent: 10 },
       { min_qty: 500, discount_percent: 15 },
@@ -47,7 +51,9 @@ const SEED_CONFIGS = [
       { label: 'A4 — 2 нугалаа', w: 210, h: 297 },
     ],
     materials: ['Glossy 170gsm', 'Matte 170gsm', 'Art card 250gsm'],
+    materials_mn: ['Гялгар 170гр', 'Матт 170гр', 'Арт карт 250гр'],
     finishing_options: ['Матт ламинат', 'Глосс ламинат'],
+    finishing_options_mn: ['Матт ламинат', 'Гэрэлт ламинат'],
     volume_discounts: [
       { min_qty: 250, discount_percent: 10 },
       { min_qty: 500, discount_percent: 15 },
@@ -63,7 +69,9 @@ const SEED_CONFIGS = [
       { label: 'Захиалгат', w: 0, h: 0 },
     ],
     materials: ['Glossy 170gsm', 'Matte 170gsm', 'Art card 250gsm'],
+    materials_mn: ['Гялгар 170гр', 'Матт 170гр', 'Арт карт 250гр'],
     finishing_options: ['Матт ламинат', 'Глосс ламинат', 'УВ лак'],
+    finishing_options_mn: ['Матт ламинат', 'Гэрэлт ламинат', 'УВ лак'],
     volume_discounts: [
       { min_qty: 100, discount_percent: 10 },
       { min_qty: 500, discount_percent: 20 },
@@ -79,7 +87,9 @@ const SEED_CONFIGS = [
       { label: 'Захиалгат', w: 0, h: 0 },
     ],
     materials: ['Vinyl цагаан', 'Vinyl тунгалаг', 'Цаасан'],
+    materials_mn: ['Виниль (цагаан)', 'Виниль (тунгалаг)', 'Цаасан'],
     finishing_options: ['Ламинат', 'UV coating'],
+    finishing_options_mn: ['Ламинат', 'УВ лак'],
     volume_discounts: [
       { min_qty: 500, discount_percent: 10 },
       { min_qty: 1000, discount_percent: 20 },
@@ -96,7 +106,9 @@ const SEED_CONFIGS = [
       { label: 'Захиалгат', w: 0, h: 0 },
     ],
     materials: ['Vinyl 440gsm', 'Mesh баннер', 'Backlit хулдаас'],
+    materials_mn: ['Виниль баннер 440гр', 'Мэш баннер', 'Гэрэлт хулдаас'],
     finishing_options: ['Дантиг гагнуур', 'Оосор нэмэх'],
+    finishing_options_mn: ['Гантиг гагнуур', 'Оосор нэмэх'],
     volume_discounts: [],
   },
   {
@@ -108,7 +120,9 @@ const SEED_CONFIGS = [
       { label: 'Square 200×200мм', w: 200, h: 200 },
     ],
     materials: ['Glossy хавтас', 'Matte хавтас', 'Soft-touch хавтас'],
+    materials_mn: ['Гялгар хавтас', 'Матт хавтас', 'Зөөлөн хавтас'],
     finishing_options: ['Perfect bind', 'Saddle stitch', 'Wire-O', 'Хатуу хавтас'],
+    finishing_options_mn: ['Нуруугаар наах (Perfect bind)', 'Дунд зүүсэн (Saddle stitch)', 'Утсан нуруу (Wire-O)', 'Хатуу хавтас'],
     volume_discounts: [
       { min_qty: 100, discount_percent: 10 },
       { min_qty: 500, discount_percent: 20 },

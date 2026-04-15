@@ -80,8 +80,15 @@ const PAPER_LABELS: Record<string, string> = {
   'Синтетик (стенд суурьтай)': 'Синтетик (стенд)',
 }
 
-const getPaperLabel = (p: string) => PAPER_LABELS[p] || p
-const getFinishingLabel = (f: string) => FINISHING_LABELS[f] || f
+// Lookup Mongolian label first from active config's parallel array (admin-managed),
+// then fall back to the static map, then to the raw key.
+const lookupLabel = (key: string, keys: string[] | undefined, labels: string[] | undefined, staticMap: Record<string, string>): string => {
+  if (Array.isArray(keys) && Array.isArray(labels)) {
+    const idx = keys.indexOf(key)
+    if (idx !== -1 && labels[idx]) return labels[idx]
+  }
+  return staticMap[key] || key
+}
 
 export default function NewOrderPageWrapper() {
   return (
@@ -157,6 +164,12 @@ function NewOrderPage() {
   const sizes = activeConfig?.sizes || []
   const papers = activeConfig?.materials || []
   const finishings = activeConfig?.finishing_options || []
+
+  // Admin-managed translations override hardcoded fallback maps
+  const getPaperLabel = (p: string) =>
+    lookupLabel(p, activeConfig?.materials, activeConfig?.materials_mn, PAPER_LABELS)
+  const getFinishingLabel = (f: string) =>
+    lookupLabel(f, activeConfig?.finishing_options, activeConfig?.finishing_options_mn, FINISHING_LABELS)
 
   const selSize = sizes.find((s: any) => s.label === spec.sizeLabel)
   const isCustom = selSize?.w === 0

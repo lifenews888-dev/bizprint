@@ -1,10 +1,18 @@
 'use client'
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import Link from 'next/link'
 import { API_URL } from '@/lib/api'
 import { fbPixel } from '@/components/FacebookPixel'
 
-const PRINT_TYPES = [
+interface PrintType {
+  id: string
+  name: string
+  icon: string
+  price: string
+}
+
+// Static fallback used while API loads or if it errors out
+const FALLBACK_TYPES: PrintType[] = [
   { id: 'flyer', name: 'Флаер', icon: '📄', price: '89,000₮-аас' },
   { id: 'business-card', name: 'Нэрийн хуудас', icon: '💳', price: '45,000₮-аас' },
   { id: 'banner', name: 'Баннер', icon: '🏗️', price: '35,000₮-аас' },
@@ -18,6 +26,35 @@ type Step = 1 | 2 | 3 | 4
 export default function QuickOrderPage() {
   const fileRef = useRef<HTMLInputElement>(null)
   const [step, setStep] = useState<Step>(1)
+  const [PRINT_TYPES, setPrintTypes] = useState<PrintType[]>(FALLBACK_TYPES)
+
+  // Pull product types from admin-managed quote config; fall back gracefully on error
+  useEffect(() => {
+    fetch(`${API_URL}/api/cms/quote-config`)
+      .then(r => r.json())
+      .then((data: any[]) => {
+        if (!Array.isArray(data) || data.length === 0) return
+        const mapped: PrintType[] = data.map(c => {
+          // Compute "from" price from base_rate × min_qty when no sample exists
+          const base = Number(c.base_rate) || 0
+          const minQty = Number(c.min_qty) || 100
+          // Rough estimate: 200ш A5-equivalent baseline
+          const sampleQty = Math.max(minQty, 200)
+          const estPrice = base > 0 ? Math.round(base * sampleQty * 0.5) : 0
+          const priceLabel = estPrice > 0
+            ? `${estPrice.toLocaleString()}₮-аас`
+            : 'Үнэ авах'
+          return {
+            id: c.product_type,
+            name: c.name_mn,
+            icon: c.icon || '📦',
+            price: priceLabel,
+          }
+        })
+        setPrintTypes(mapped)
+      })
+      .catch(() => {})
+  }, [])
   const [selected, setSelected] = useState('')
   const [file, setFile] = useState<File | null>(null)
   const [phone, setPhone] = useState('')
