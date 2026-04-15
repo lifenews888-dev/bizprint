@@ -47,7 +47,7 @@ export default function AdminGalleryPage() {
       const fd = new FormData()
       list.forEach(f => fd.append('files', f))
       const token = getToken() || ''
-      const res = await fetch(`${API_URL}/upload/images`, {
+      const res = await fetch(`${API_URL}/api/upload/images`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
         body: fd,
