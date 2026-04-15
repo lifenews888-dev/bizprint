@@ -44,12 +44,14 @@ export default function PriceCalculator({ product, onPriceChange }: Props) {
 
   // Calculate
   const calculate = useCallback(async () => {
+    const sidesMultiplier = sides === 'double' ? 1.7 : 1
+    const sidesNote = sides === 'double' ? 'Хоёр талын хэвлэл (+70%)' : 'Нэг талын хэвлэл'
+    const basePrice = Number(p.sale_price || p.base_price || 0)
+
     // Fixed price — no API needed
     if (!isArea && !isTier) {
-      const price = Number(p.sale_price || p.base_price || 0)
-      const sidesMultiplier = sides === 'double' ? 1.7 : 1
-      const total = Math.round(price * qty * sidesMultiplier)
-      const r = { total, unit_price: Math.round(total / qty), formula_used: 'fixed', notes: sides === 'double' ? ['Хоёр талын хэвлэл (+70%)'] : ['Нэг талын хэвлэл'], volume_discount: 0, quantity: qty, is_estimate: false }
+      const total = Math.round(basePrice * qty * sidesMultiplier)
+      const r = { total, unit_price: Math.round(total / qty), formula_used: 'fixed', notes: [sidesNote], volume_discount: 0, quantity: qty, is_estimate: false }
       setResult(r)
       onPriceChange?.(total, r)
       return
@@ -68,14 +70,26 @@ export default function PriceCalculator({ product, onPriceChange }: Props) {
         method: 'POST', auth: false,
         body: { quantity: qty, width_mm: width, height_mm: height, options, sides } as any,
       })
-      const sidesMultiplier = sides === 'double' ? 1.7 : 1
-      const adjusted = sides === 'double'
-        ? { ...res, total: Math.round(res.total * sidesMultiplier), unit_price: Math.round((res.unit_price || 0) * sidesMultiplier), notes: [...(res.notes || []), 'Хоёр талын хэвлэл (+70%)'] }
-        : res
+      const apiTotal = Number(res?.total) || 0
+      const apiUnit = Number(res?.unit_price) || 0
+      const adjusted = {
+        ...res,
+        total: Math.round(apiTotal * sidesMultiplier),
+        unit_price: Math.round(apiUnit * sidesMultiplier),
+        notes: [...(res?.notes || []), sidesNote],
+      }
       setResult(adjusted)
       onPriceChange?.(adjusted.total, adjusted)
     } catch {
-      setResult(null)
+      // Fallback: client-side calc using base_price and area/qty
+      const pricePerM2 = Number(formula.price_per_m2 || basePrice)
+      const effectiveArea = Math.max(areaM2, Number(formula.min_area_m2) || 0)
+      const fallbackTotal = isArea
+        ? Math.round(pricePerM2 * effectiveArea * qty * sidesMultiplier)
+        : Math.round(basePrice * qty * sidesMultiplier)
+      const r = { total: fallbackTotal, unit_price: Math.round(fallbackTotal / qty), formula_used: 'fallback', notes: [sidesNote, '⚠ Серверийн алдаа — суурь үнээр тооцоолсон'], volume_discount: 0, quantity: qty, is_estimate: true }
+      setResult(r)
+      onPriceChange?.(fallbackTotal, r)
     } finally {
       setCalculating(false)
     }
