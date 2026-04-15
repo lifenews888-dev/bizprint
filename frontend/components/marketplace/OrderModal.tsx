@@ -311,21 +311,98 @@ export default function OrderModal({
           {/* Step 4: Deadline */}
           {step === 4 && (
             <div>
-              <p className="text-sm font-medium mb-3" style={{ color: 'var(--text)' }}>
+              <p className="text-sm font-medium mb-1" style={{ color: 'var(--text)' }}>
                 Дуусгах хугацаа сонгоно уу
               </p>
-              <input
-                type="date"
-                value={deadline}
-                onChange={e => setDeadline(e.target.value)}
-                min={new Date().toISOString().split('T')[0]}
-                className="w-full px-4 py-3 rounded-xl text-sm"
-                style={{
-                  background: 'var(--surface)',
-                  border: '1px solid var(--border)',
-                  color: 'var(--text)',
-                }}
-              />
+              <p className="text-xs mb-4" style={{ color: 'var(--text3)' }}>
+                Энэ creator ердийн захиалгыг <strong style={{ color: 'var(--text)' }}>{creator.deliveryDays} өдөрт</strong> гүйцэтгэдэг
+              </p>
+
+              {/* Preset options */}
+              <div className="space-y-2 mb-4">
+                {[
+                  { days: 1, label: 'Яаралтай', desc: 'Маргаашаар', surcharge: '+50%', color: '#EF4444' },
+                  { days: 3, label: 'Хурдан', desc: '3 өдрийн дотор', surcharge: '+20%', color: '#F59E0B' },
+                  { days: 7, label: 'Энгийн', desc: '1 долоо хоногт', surcharge: '', color: '#10B981' },
+                  { days: 14, label: 'Уян', desc: '2 долоо хоногт', surcharge: '-10%', color: '#378ADD' },
+                ].map(opt => {
+                  const d = new Date()
+                  d.setDate(d.getDate() + opt.days)
+                  const dateStr = d.toISOString().split('T')[0]
+                  const selected = deadline === dateStr
+                  const isBelowCreatorMin = opt.days < creator.deliveryDays
+                  return (
+                    <button
+                      key={opt.days}
+                      onClick={() => setDeadline(dateStr)}
+                      className="w-full flex items-center justify-between px-4 py-3 rounded-xl text-left transition-colors"
+                      style={{
+                        background: selected ? 'var(--orange-10)' : 'var(--surface)',
+                        border: `1.5px solid ${selected ? 'var(--primary)' : 'var(--border)'}`,
+                      }}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div
+                          className="w-9 h-9 rounded-lg flex items-center justify-center text-sm font-bold flex-shrink-0"
+                          style={{ background: opt.color + '15', color: opt.color }}
+                        >
+                          {opt.days}
+                        </div>
+                        <div>
+                          <div className="text-sm font-semibold flex items-center gap-2" style={{ color: selected ? 'var(--primary)' : 'var(--text)' }}>
+                            {opt.label}
+                            {isBelowCreatorMin && (
+                              <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: '#FEF3C7', color: '#92400E' }}>
+                                ⚠ Creator-ийн хугацаанаас доогуур
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-xs" style={{ color: 'var(--text3)' }}>
+                            {opt.desc} · {d.toLocaleDateString('mn-MN', { month: 'short', day: 'numeric', weekday: 'short' })}
+                          </div>
+                        </div>
+                      </div>
+                      {opt.surcharge && (
+                        <span
+                          className="text-xs font-semibold flex-shrink-0"
+                          style={{ color: opt.surcharge.startsWith('-') ? '#10B981' : '#EF4444' }}
+                        >
+                          {opt.surcharge}
+                        </span>
+                      )}
+                    </button>
+                  )
+                })}
+              </div>
+
+              {/* Custom date fallback */}
+              <div className="pt-3" style={{ borderTop: '1px solid var(--border)' }}>
+                <label className="text-xs block mb-2" style={{ color: 'var(--text3)' }}>
+                  Эсвэл тодорхой огноо сонгох:
+                </label>
+                <input
+                  type="date"
+                  value={deadline}
+                  onChange={e => setDeadline(e.target.value)}
+                  min={new Date(Date.now() + 86400000).toISOString().split('T')[0]}
+                  max={new Date(Date.now() + 90 * 86400000).toISOString().split('T')[0]}
+                  className="w-full px-4 py-2.5 rounded-xl text-sm"
+                  style={{
+                    background: 'var(--surface)',
+                    border: '1px solid var(--border)',
+                    color: 'var(--text)',
+                  }}
+                />
+                {deadline && (
+                  <p className="text-xs mt-2" style={{ color: 'var(--text3)' }}>
+                    Сонгосон: <strong style={{ color: 'var(--text)' }}>
+                      {new Date(deadline).toLocaleDateString('mn-MN', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' })}
+                    </strong>
+                    {' · '}
+                    {Math.max(1, Math.ceil((new Date(deadline).getTime() - Date.now()) / 86400000))} өдөрт
+                  </p>
+                )}
+              </div>
             </div>
           )}
 
