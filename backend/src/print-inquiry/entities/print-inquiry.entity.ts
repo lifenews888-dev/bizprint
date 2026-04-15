@@ -68,7 +68,14 @@ export class PrintInquiry {
 
   @Column({ nullable: true }) assigned_to: string;
   @Column({ nullable: true }) quoted_price: number;
+  @Column({ type: 'decimal', precision: 14, scale: 2, nullable: true }) estimated_price: number;
   @Column({ type: 'text', nullable: true }) admin_notes: string;
+
+  // Vendor workflow
+  @Column({ nullable: true }) vendor_id: string;
+  @Column({ nullable: true }) vendor_user_id: string;
+  @Column({ default: false }) vendor_accepted: boolean;
+  @Column({ nullable: true }) vendor_accepted_at: Date;
 
   // — Delivery —
   @Column({ nullable: true }) delivery_address: string;

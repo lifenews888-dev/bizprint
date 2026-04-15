@@ -171,4 +171,17 @@ export class PrintInquiryController {
   ) {
     return this.svc.sendQuote(id, price, notes);
   }
+
+  // ─── Vendor accept/reject workflow ───
+  @Post(':id/vendor-accept')
+  @UseGuards(JwtAuthGuard)
+  vendorAccept(@Param('id') id: string, @Request() req: any) {
+    return this.svc.vendorAccept(id, req.user.id);
+  }
+
+  @Post(':id/vendor-reject')
+  @UseGuards(JwtAuthGuard)
+  vendorReject(@Param('id') id: string, @Request() req: any) {
+    return this.svc.vendorReject(id, req.user.id);
+  }
 }

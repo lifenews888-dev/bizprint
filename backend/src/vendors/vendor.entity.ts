@@ -120,6 +120,12 @@ export class Vendor {
   @Column({ type: 'decimal', precision: 5, scale: 2, default: 15 })
   commission_rate: number;  // BizPrint-ийн шимтгэл (%)
 
+  @Column({ type: 'jsonb', nullable: true })
+  floor_prices: Record<string, number>;  // product_type → нь хүлээн авах хамгийн бага үнэ
+
+  @Column({ default: true })
+  accepts_orders: boolean;  // vendor шинэ захиалга хүлээн авч буй эсэх
+
   @Column({ type: 'enum', enum: PaymentTerms, default: PaymentTerms.DAYS_14 })
   payment_terms: PaymentTerms;
 

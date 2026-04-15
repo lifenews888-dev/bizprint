@@ -1,9 +1,10 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PrintInquiry, InquiryStatus } from './entities/print-inquiry.entity';
 import { ChatMessage } from './entities/chat-message.entity';
+import { CommissionService } from '../commission/commission.service';
 
 @Injectable()
 export class PrintInquiryService {
@@ -11,6 +12,7 @@ export class PrintInquiryService {
     @InjectRepository(PrintInquiry) private repo: Repository<PrintInquiry>,
     @InjectRepository(ChatMessage) private chatRepo: Repository<ChatMessage>,
     private eventEmitter: EventEmitter2,
+    @Optional() private commissionService?: CommissionService,
   ) {}
 
   private genNumber(): string {
@@ -117,5 +119,44 @@ export class PrintInquiryService {
       this.chatRepo.count({ where: { is_read: false, sender_role: 'customer' } }),
     ]);
     return { total, new_count: newC, reviewing, quoted, unread_messages: unread };
+  }
+
+  // ─── Vendor workflow ───
+  async vendorAccept(id: string, vendorUserId: string) {
+    const inquiry = await this.repo.findOne({ where: { id } });
+    if (!inquiry) return null;
+
+    await this.repo.update(id, {
+      vendor_accepted: true,
+      vendor_user_id: vendorUserId,
+      vendor_accepted_at: new Date(),
+      status: InquiryStatus.IN_WORK,
+    });
+
+    // Auto-create commission log if estimated_price exists
+    const gross = Number(inquiry.estimated_price || inquiry.quoted_price || 0);
+    if (gross > 0 && this.commissionService) {
+      try {
+        await this.commissionService.create({
+          inquiryId: id,
+          vendorId: vendorUserId,
+          vendorName: inquiry.customer_company || undefined,
+          grossAmount: gross,
+        });
+      } catch {}
+    }
+
+    await this.sysMsg(id, 'Vendor захиалгыг хүлээн авсан. Үйлдвэрлэлд орлоо.');
+    return this.repo.findOne({ where: { id } });
+  }
+
+  async vendorReject(id: string, _vendorUserId: string) {
+    await this.repo.update(id, {
+      vendor_accepted: false,
+      vendor_user_id: undefined as any,
+      status: InquiryStatus.REVIEWING,
+    });
+    await this.sysMsg(id, 'Vendor захиалгыг татгалзсан. Бид өөр vendor-той холбогдоно.');
+    return this.repo.findOne({ where: { id } });
   }
 }

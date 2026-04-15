@@ -9,6 +9,7 @@ import { SyncModule } from './sync/sync.module'
 
 import { AuthModule } from './auth/auth.module'
 import { VendorsModule } from './vendors/vendors.module'
+import { CommissionModule } from './commission/commission.module'
 import { CategoriesModule } from './categories/categories.module'
 import { WalletModule } from './wallet/wallet.module'
 import { ReferralModule } from './referral/referral.module'
@@ -124,6 +125,7 @@ import { CloudinaryModule } from './cloudinary/cloudinary.module'
     ThrottlerModule.forRoot([{ ttl: 60000, limit: 100 }]),
     AuthModule,
     VendorsModule,
+    CommissionModule,
     CategoriesModule,
     WalletModule,
     ReferralModule,
