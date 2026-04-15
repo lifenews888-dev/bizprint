@@ -179,7 +179,19 @@ export default function QuickOrderPage() {
             <div style={{ textAlign: 'center', padding: '20px 0' }}>
               <div style={{ fontSize: 48, marginBottom: 12 }}>✅</div>
               <h2 style={{ fontSize: 18, fontWeight: 700, color: 'var(--text)', marginBottom: 8 }}>Захиалга амжилттай илгээгдлээ!</h2>
-              <p style={{ fontSize: 13, color: 'var(--text3)', marginBottom: 24 }}>Бид 30 минутын дотор тантай холбогдоно</p>
+              <p style={{ fontSize: 13, color: 'var(--text3)', marginBottom: 20 }}>Бид 30 минутын дотор тантай холбогдоно</p>
+
+              {/* Messenger deeplink */}
+              {process.env.NEXT_PUBLIC_FB_PAGE_ID && (
+                <div style={{ padding: 14, background: 'rgba(0,132,255,0.06)', border: '1px solid rgba(0,132,255,0.2)', borderRadius: 12, marginBottom: 16 }}>
+                  <p style={{ fontSize: 11, color: '#0084FF', marginBottom: 8 }}>Захиалгын мэдэгдэл хурдан авахыг хүсвэл:</p>
+                  <a href={`https://m.me/${process.env.NEXT_PUBLIC_FB_PAGE_ID}`} target="_blank" rel="noopener noreferrer"
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '8px 16px', background: '#0084FF', color: '#fff', borderRadius: 10, fontSize: 12, fontWeight: 600, textDecoration: 'none' }}>
+                    💬 Messenger-т холбогдох
+                  </a>
+                </div>
+              )}
+
               <div style={{ display: 'flex', gap: 10 }}>
                 <Link href="/quote" style={{ flex: 1, textAlign: 'center', padding: '12px 0', borderRadius: 12, border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text2)', textDecoration: 'none', fontSize: 13 }}>Үнэ тооцоолох</Link>
                 <Link href="/" style={{ flex: 1, textAlign: 'center', padding: '12px 0', borderRadius: 12, border: 'none', background: '#FF6B00', color: '#fff', textDecoration: 'none', fontSize: 13, fontWeight: 600 }}>Нүүр хуудас</Link>

@@ -6,6 +6,7 @@ import LayoutShell from '@/components/LayoutShell'
 import ErrorBoundary from '@/components/ErrorBoundary'
 import { Toaster } from '@/components/ui/sonner'
 import FacebookPixel from '@/components/FacebookPixel'
+import FacebookMessengerChat from '@/components/FacebookMessengerChat'
 import { UTMTracker } from '@/components/UTMTracker'
 
 const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'
@@ -54,6 +55,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <LayoutShell>{children}</LayoutShell>
             <Toaster richColors position="bottom-right" />
             <FacebookPixel />
+            <FacebookMessengerChat />
             <UTMTracker />
           </SiteSettingsProvider>
         </RealtimeProvider>
