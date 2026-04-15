@@ -73,7 +73,10 @@ export default function OrderModal({
 
   if (!open) return null
 
-  const services = creator.tags.length > 0 ? creator.tags : ['Контент бүтээх']
+  // Combine creator's tags with universal design/prepress services
+  const UNIVERSAL_SERVICES = ['Эх бэлтгэл (дизайн файл)', 'Logo дизайн']
+  const baseServices = creator.tags.length > 0 ? creator.tags : ['Контент бүтээх']
+  const services = Array.from(new Set([...baseServices, ...UNIVERSAL_SERVICES]))
 
   const canNext = () => {
     if (step === 0) return !!service
