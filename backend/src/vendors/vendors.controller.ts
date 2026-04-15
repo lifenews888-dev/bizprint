@@ -1,8 +1,11 @@
-import { Controller, Post, Body, Get, Param, Patch, Query, UseGuards } from '@nestjs/common';
+import { Controller, Post, Body, Get, Param, Patch, Query, UseGuards, Request, UseInterceptors, UploadedFile } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { memoryStorage } from 'multer';
 import { VendorsService } from './vendors.service';
 import { AssignmentEngineService } from './services/assignment-engine.service';
 import { VendorTierService } from './services/vendor-tier.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { CloudinaryService } from '../cloudinary/cloudinary.service';
 
 @Controller('vendors')
 export class VendorsController {
@@ -10,7 +13,35 @@ export class VendorsController {
     private readonly vendorsService: VendorsService,
     private readonly assignmentEngine: AssignmentEngineService,
     private readonly vendorTier: VendorTierService,
+    private readonly cloudinary: CloudinaryService,
   ) {}
+
+  // ─── Vendor self-service (current user's vendor profile) ───
+  @Get('my')
+  @UseGuards(JwtAuthGuard)
+  getMyVendor(@Request() req: any) {
+    return this.vendorsService.findByUserId(req.user.id);
+  }
+
+  @Patch('my')
+  @UseGuards(JwtAuthGuard)
+  @UseInterceptors(FileInterceptor('logo', { storage: memoryStorage(), limits: { fileSize: 2 * 1024 * 1024 } }))
+  async updateMyVendor(
+    @Request() req: any,
+    @Body() body: any,
+    @UploadedFile() logo?: Express.Multer.File,
+  ) {
+    let logoUrl: string | undefined;
+    if (logo?.buffer) {
+      try {
+        const uploaded = await this.cloudinary.uploadImage(logo.buffer, 'bizprint/vendor-logos');
+        logoUrl = uploaded.url;
+      } catch (e) {
+        // Silently fall through — profile update still succeeds without logo
+      }
+    }
+    return this.vendorsService.updateByUserId(req.user.id, body, logoUrl);
+  }
 
   @Post()
   @UseGuards(JwtAuthGuard)

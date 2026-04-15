@@ -10,6 +10,7 @@ import { VendorsService } from './vendors.service';
 import { VendorsController } from './vendors.controller';
 import { AssignmentEngineService } from './services/assignment-engine.service';
 import { VendorTierService } from './services/vendor-tier.service';
+import { CloudinaryModule } from '../cloudinary/cloudinary.module';
 
 @Module({
   imports: [
@@ -21,6 +22,7 @@ import { VendorTierService } from './services/vendor-tier.service';
       VendorMetrics,
       OrderVendorGroup,
     ]),
+    CloudinaryModule,
   ],
   controllers: [VendorsController],
   providers: [VendorsService, AssignmentEngineService, VendorTierService],

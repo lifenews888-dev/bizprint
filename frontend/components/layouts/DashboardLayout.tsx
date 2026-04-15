@@ -4,6 +4,7 @@ import { useRouter, usePathname } from 'next/navigation'
 import ThemeToggle from '@/components/ThemeToggle'
 import VerificationBanner from '@/components/VerificationBanner'
 import { API_URL } from '@/lib/api'
+import { useNotifications } from '@/hooks/useNotifications'
 
 interface NavItem { label: string; href: string; icon: string; badge?: string }
 interface NavGroup { section: string; items: NavItem[] }
@@ -24,6 +25,9 @@ export default function DashboardLayout({ children, navGroups, creatorNavGroups,
   const [isCreator, setIsCreator] = useState(false)
   const [creatorMode, setCreatorMode] = useState(false)
   const [badges, setBadges] = useState<Record<string, number>>({})
+  const [notifOpen, setNotifOpen] = useState(false)
+  const authToken = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null
+  const { notifications, unreadCount, markAllRead } = useNotifications(authToken)
   const W = collapsed ? '56px' : '224px'
 
   // Fetch dynamic badge counts for nav items that declare a badge key
@@ -282,6 +286,58 @@ export default function DashboardLayout({ children, navGroups, creatorNavGroups,
               <div style={{ width: '5px', height: '5px', borderRadius: '50%', background: '#1D9E75' }}/>
               <span style={{ fontSize: '12px', color: '#1D9E75', fontWeight: 500 }}>Live</span>
             </div>
+
+            {/* Realtime notification bell */}
+            <div style={{ position: 'relative' }}>
+              <button onClick={() => { setNotifOpen(o => !o); if (!notifOpen) markAllRead() }}
+                style={{ position: 'relative', padding: '6px 8px', background: 'transparent', border: '1px solid var(--border)', borderRadius: 8, cursor: 'pointer', color: 'var(--text2)' }}>
+                <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24">
+                  <path d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                </svg>
+                {unreadCount > 0 && (
+                  <span style={{
+                    position: 'absolute', top: -4, right: -4,
+                    minWidth: 16, height: 16, borderRadius: 8,
+                    background: '#EF4444', color: '#fff',
+                    fontSize: 9, fontWeight: 700,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    padding: '0 4px',
+                  }}>
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </span>
+                )}
+              </button>
+              {notifOpen && (
+                <div style={{
+                  position: 'absolute', right: 0, top: 40, width: 320, maxHeight: 400,
+                  background: 'var(--surface)', border: '1px solid var(--border)',
+                  borderRadius: 12, boxShadow: '0 20px 48px rgba(0,0,0,0.15)',
+                  zIndex: 500, overflow: 'hidden',
+                }}>
+                  <div style={{ padding: 12, borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>Мэдэгдэл</span>
+                    <button onClick={() => setNotifOpen(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text3)', fontSize: 14 }}>✕</button>
+                  </div>
+                  <div style={{ maxHeight: 340, overflowY: 'auto' }}>
+                    {notifications.length === 0 ? (
+                      <div style={{ padding: 32, textAlign: 'center', color: 'var(--text3)', fontSize: 12 }}>
+                        Мэдэгдэл байхгүй
+                      </div>
+                    ) : notifications.map(n => (
+                      <div key={n.id} onClick={() => { if (n.inquiryId) router.push(`/inquiries/${n.inquiryId}`) }}
+                        style={{ padding: 12, borderBottom: '1px solid var(--border)', cursor: n.inquiryId ? 'pointer' : 'default' }}>
+                        <p style={{ fontSize: 13, fontWeight: 500, color: 'var(--text)' }}>{n.title}</p>
+                        <p style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>{n.message}</p>
+                        <p style={{ fontSize: 10, color: 'var(--text4)', marginTop: 4 }}>
+                          {new Date(n.timestamp).toLocaleTimeString('mn-MN')}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
             <ThemeToggle/>
           </div>
         </div>

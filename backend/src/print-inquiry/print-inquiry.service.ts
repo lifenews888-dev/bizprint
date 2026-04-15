@@ -7,6 +7,7 @@ import { ChatMessage } from './entities/chat-message.entity';
 import { CommissionService } from '../commission/commission.service';
 import { Vendor } from '../vendors/vendor.entity';
 import { MailService } from '../mail/mail.service';
+import { NotificationsGateway } from '../notifications/notifications.gateway';
 
 @Injectable()
 export class PrintInquiryService {
@@ -17,6 +18,7 @@ export class PrintInquiryService {
     private eventEmitter: EventEmitter2,
     @Optional() private commissionService?: CommissionService,
     @Optional() private mailService?: MailService,
+    @Optional() private notificationsGateway?: NotificationsGateway,
   ) {}
 
   private genNumber(): string {
@@ -32,7 +34,10 @@ export class PrintInquiryService {
     this.eventEmitter.emit('inquiry.created', saved);
     await this.sysMsg(saved.id, `Захиалгын хүсэлт #${saved.inquiry_number} хүлээн авлаа. Бид удахгүй холбогдоно.`);
 
-    // Notify admin of new inquiry (background, never fails)
+    // Realtime notification to admins
+    try { this.notificationsGateway?.notifyAdminNewInquiry(saved); } catch {}
+
+    // Email admin
     this.mailService?.sendAdminNewInquiry({
       id: saved.id,
       productName: saved.product_name || saved.category || 'Захиалга',
@@ -42,24 +47,62 @@ export class PrintInquiryService {
       customerPhone: saved.customer_phone || '',
     }).catch(() => {});
 
-    // If vendor already assigned at creation, notify them too
-    if (saved.vendor_id) {
-      const vendor = await this.vendorRepo.findOne({ where: { id: saved.vendor_id } }).catch(() => null);
-      if (vendor?.contact_email) {
+    // Auto-assign to best-matching vendor (fire-and-forget, never blocks)
+    this.autoAssignVendor(saved).catch(() => {});
+
+    return saved;
+  }
+
+  // ─── Auto-assign inquiry to best vendor (tier × rating × availability) ───
+  async autoAssignVendor(inquiry: PrintInquiry): Promise<void> {
+    try {
+      // Skip if already assigned
+      if (inquiry.vendor_id) return;
+
+      const productType = (inquiry.category || inquiry.product_name || '').toLowerCase();
+      if (!productType) return;
+
+      // Simple match: any vendor accepting orders
+      const vendors = await this.vendorRepo
+        .createQueryBuilder('v')
+        .where('v.accepts_orders = true')
+        .orderBy('v.rating', 'DESC')
+        .addOrderBy('v.total_orders', 'DESC')
+        .limit(5)
+        .getMany();
+
+      if (vendors.length === 0) return;
+
+      // Pick best (first) — future enhancement: match by capability/floor_prices
+      const vendor = vendors[0];
+
+      await this.repo.update(inquiry.id, {
+        vendor_id: vendor.id,
+        status: InquiryStatus.CONFIRMED,
+      });
+
+      // Realtime + email vendor
+      this.notificationsGateway?.notifyVendorNewInquiry(vendor.user_id || null, inquiry);
+      if (vendor.contact_email) {
         this.mailService?.sendVendorNewInquiry(
           { email: vendor.contact_email, name: vendor.company_name },
           {
-            id: saved.id,
-            productName: saved.product_name || '',
-            quantity: saved.quantity || 0,
-            estimatedPrice: Number((saved as any).estimated_price) || 0,
-            customerName: saved.customer_name || '',
+            id: inquiry.id,
+            productName: inquiry.product_name || '',
+            quantity: inquiry.quantity || 0,
+            estimatedPrice: Number((inquiry as any).estimated_price) || 0,
+            customerName: inquiry.customer_name || '',
           },
         ).catch(() => {});
       }
-    }
 
-    return saved;
+      await this.sysMsg(
+        inquiry.id,
+        `Захиалга автоматаар "${vendor.company_name}" үйлдвэрт хуваарилагдлаа`,
+      );
+    } catch (e: any) {
+      console.error('Auto-assign failed:', e?.message);
+    }
   }
 
   // ─── Admin: assign an inquiry to a specific vendor ───
@@ -77,9 +120,10 @@ export class PrintInquiryService {
       `Захиалга "${vendor.company_name}" үйлдвэрт хуваарилагдлаа${note ? ': ' + note : ''}`,
     );
 
-    // Notify vendor
+    // Notify vendor (email + realtime)
+    const inquiry = await this.repo.findOne({ where: { id: inquiryId } });
+    this.notificationsGateway?.notifyVendorNewInquiry(vendor.user_id || null, inquiry);
     if (vendor.contact_email) {
-      const inquiry = await this.repo.findOne({ where: { id: inquiryId } });
       this.mailService?.sendVendorNewInquiry(
         { email: vendor.contact_email, name: vendor.company_name },
         {
@@ -92,7 +136,7 @@ export class PrintInquiryService {
       ).catch(() => {});
     }
 
-    return this.repo.findOne({ where: { id: inquiryId } });
+    return inquiry;
   }
 
   findAll(f: { status?: string; category?: string } = {}): Promise<PrintInquiry[]> {

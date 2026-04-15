@@ -8,9 +8,10 @@ import { InquiryChatGateway } from './chat.gateway';
 import { CommissionModule } from '../commission/commission.module';
 import { Vendor } from '../vendors/vendor.entity';
 import { MailModule } from '../mail/mail.module';
+import { NotificationModule } from '../notifications/notification.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([PrintInquiry, ChatMessage, Vendor]), CommissionModule, MailModule],
+  imports: [TypeOrmModule.forFeature([PrintInquiry, ChatMessage, Vendor]), CommissionModule, MailModule, NotificationModule],
   controllers: [PrintInquiryController],
   providers: [PrintInquiryService, InquiryChatGateway],
   exports: [PrintInquiryService, InquiryChatGateway],

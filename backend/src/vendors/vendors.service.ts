@@ -52,6 +52,40 @@ export class VendorsService {
     return { ...vendor, metrics, product_count: products.length };
   }
 
+  async findByUserId(userId: string) {
+    const vendor = await this.repo.findOne({
+      where: { user_id: userId },
+      relations: ['vendor_capabilities'],
+    });
+    if (!vendor) return null;
+    const metrics = await this.metricsRepo.findOne({ where: { vendor_id: vendor.id } });
+    return { ...vendor, metrics };
+  }
+
+  async updateByUserId(userId: string, data: Partial<Vendor>, logoUrl?: string): Promise<Vendor | null> {
+    const vendor = await this.repo.findOne({ where: { user_id: userId } });
+    if (!vendor) throw new NotFoundException('Vendor олдсонгүй');
+
+    // Normalize boolean fields coming from FormData (strings)
+    const acceptsOrdersRaw = (data as any).accepts_orders;
+    const acceptsOrders = acceptsOrdersRaw === 'true' || acceptsOrdersRaw === true;
+
+    const updateData: Partial<Vendor> = {
+      company_name: data.company_name || vendor.company_name,
+      slug: (data as any).slug ?? vendor.slug,
+      description: data.description ?? vendor.description,
+      address: data.address ?? vendor.address,
+      district: data.district ?? vendor.district,
+      phone: (data as any).phone ?? (data as any).contact_phone ?? vendor.phone,
+      contact_email: data.contact_email ?? vendor.contact_email,
+      accepts_orders: acceptsOrders,
+    };
+    if (logoUrl) updateData.logo_url = logoUrl;
+
+    await this.repo.update(vendor.id, updateData);
+    return this.repo.findOne({ where: { id: vendor.id } });
+  }
+
   async update(id: string, data: any) {
     await this.repo.update(id, data);
     return this.findOne(id);
