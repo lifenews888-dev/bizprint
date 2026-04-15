@@ -144,8 +144,12 @@ export class PrintInquiryController {
   // — ADMIN —
   @Get()
   @UseGuards(JwtAuthGuard, AdminGuard)
-  findAll(@Query('status') status?: string, @Query('category') category?: string) {
-    return this.svc.findAll({ status, category });
+  findAll(
+    @Query('status') status?: string,
+    @Query('category') category?: string,
+    @Query('sla_overdue') slaOverdue?: string,
+  ) {
+    return this.svc.findAll({ status, category, slaOverdue: slaOverdue === 'true' });
   }
 
   @Get('admin/summary')
@@ -189,6 +193,22 @@ export class PrintInquiryController {
     @Body('note') note?: string,
   ) {
     return this.svc.assignVendor(id, vendorId, note);
+  }
+
+  // ─── Admin multi-vendor broadcast (race flow) ───
+  @Post(':id/broadcast')
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  broadcast(@Param('id') id: string, @Body('vendorIds') vendorIds: string[]) {
+    return this.svc.broadcastToVendors(id, vendorIds);
+  }
+
+  // ─── Admin force SLA re-assign ───
+  @Post(':id/force-reassign')
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  async forceReassign(@Param('id') id: string) {
+    const inquiry = await this.svc.findOne(id);
+    await this.svc.checkSLATimeout(id, inquiry?.vendor_id || '');
+    return { ok: true };
   }
 
   // ─── Vendor accept/reject workflow ───

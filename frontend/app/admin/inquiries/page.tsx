@@ -19,6 +19,8 @@ interface Inquiry {
   assigned_to?: string;
   vendor_id?: string;
   vendor_accepted?: boolean;
+  is_broadcast?: boolean;
+  broadcast_vendor_ids?: string[];
   files: any[];
   created_at: string;
 }
@@ -68,6 +70,8 @@ export default function AdminInquiriesPage() {
   const [vendors, setVendors] = useState<any[]>([]);
   const [assignVendorId, setAssignVendorId] = useState('');
   const [assigning, setAssigning] = useState(false);
+  const [broadcastMode, setBroadcastMode] = useState(false);
+  const [selectedVendors, setSelectedVendors] = useState<string[]>([]);
 
   const token = typeof window !== 'undefined'
     ? (localStorage.getItem('access_token') || '') : '';
@@ -107,6 +111,23 @@ export default function AdminInquiriesPage() {
         body: JSON.stringify({ vendorId: assignVendorId }),
       });
       setAssignVendorId('');
+      await load();
+      setSelected(null);
+    } finally {
+      setAssigning(false);
+    }
+  };
+
+  const broadcast = async (inquiryId: string) => {
+    if (selectedVendors.length === 0) return;
+    setAssigning(true);
+    try {
+      await fetch(`${API}/api/inquiries/${inquiryId}/broadcast`, {
+        method: 'POST', headers,
+        body: JSON.stringify({ vendorIds: selectedVendors }),
+      });
+      setSelectedVendors([]);
+      setBroadcastMode(false);
       await load();
       setSelected(null);
     } finally {
@@ -240,28 +261,64 @@ export default function AdminInquiriesPage() {
                     </button>
                   </div>
 
-                  {/* Vendor assignment */}
+                  {/* Vendor assignment — single or broadcast race */}
                   <div>
-                    <p className="text-xs text-gray-500 mb-2">Vendor хуваарилах:</p>
-                    <div className="flex gap-2">
-                      <select value={assignVendorId} onChange={e => setAssignVendorId(e.target.value)}
-                        className="flex-1 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm bg-transparent">
-                        <option value="">— Vendor сонгох —</option>
-                        {vendors.map(v => (
-                          <option key={v.id} value={v.id}>
-                            {v.company_name}{v.district ? ` (${v.district})` : ''}
-                          </option>
-                        ))}
-                      </select>
-                      <button onClick={() => assignVendor(inq.id)}
-                        disabled={!assignVendorId || assigning}
-                        className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg text-xs font-medium disabled:opacity-50">
-                        {assigning ? '...' : 'Хуваарилах'}
+                    <div className="flex gap-2 mb-2">
+                      <button onClick={() => setBroadcastMode(false)}
+                        className={`flex-1 py-1.5 text-xs rounded-lg border transition-colors ${!broadcastMode ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/10 text-orange-600' : 'border-gray-200 dark:border-gray-700 text-gray-500'}`}>
+                        Нэг vendor
+                      </button>
+                      <button onClick={() => setBroadcastMode(true)}
+                        className={`flex-1 py-1.5 text-xs rounded-lg border transition-colors ${broadcastMode ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/10 text-blue-600' : 'border-gray-200 dark:border-gray-700 text-gray-500'}`}>
+                        📡 Broadcast (race)
                       </button>
                     </div>
-                    {inq.vendor_id && (
+
+                    {!broadcastMode ? (
+                      <div className="flex gap-2">
+                        <select value={assignVendorId} onChange={e => setAssignVendorId(e.target.value)}
+                          className="flex-1 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm bg-transparent">
+                          <option value="">— Vendor сонгох —</option>
+                          {vendors.map(v => (
+                            <option key={v.id} value={v.id}>
+                              {v.company_name}{v.district ? ` (${v.district})` : ''}{v.rating ? ` ⭐${v.rating}` : ''}
+                            </option>
+                          ))}
+                        </select>
+                        <button onClick={() => assignVendor(inq.id)}
+                          disabled={!assignVendorId || assigning}
+                          className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg text-xs font-medium disabled:opacity-50">
+                          {assigning ? '...' : 'Хуваарилах'}
+                        </button>
+                      </div>
+                    ) : (
+                      <div>
+                        <div className="space-y-1 mb-2 max-h-40 overflow-y-auto border border-gray-200 dark:border-gray-700 rounded-lg p-2">
+                          {vendors.map(v => (
+                            <label key={v.id} className="flex items-center gap-2 p-1.5 rounded hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer">
+                              <input type="checkbox"
+                                checked={selectedVendors.includes(v.id)}
+                                onChange={e => setSelectedVendors(p => e.target.checked ? [...p, v.id] : p.filter(x => x !== v.id))} />
+                              <span className="text-xs text-gray-700 dark:text-gray-300 flex-1">{v.company_name}</span>
+                              {v.rating > 0 && <span className="text-xs text-gray-400">⭐{Number(v.rating).toFixed(1)}</span>}
+                            </label>
+                          ))}
+                        </div>
+                        <button onClick={() => broadcast(inq.id)}
+                          disabled={selectedVendors.length === 0 || assigning}
+                          className="w-full py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-medium disabled:opacity-50">
+                          📡 {selectedVendors.length} vendor-т илгээх (эхлэгч нь авна)
+                        </button>
+                      </div>
+                    )}
+                    {inq.vendor_id && !inq.is_broadcast && (
                       <p className="text-xs text-green-600 mt-1">
                         ✓ Хуваарилагдсан: {vendors.find(v => v.id === inq.vendor_id)?.company_name || inq.vendor_id.slice(0, 8)}
+                      </p>
+                    )}
+                    {inq.is_broadcast && !inq.vendor_accepted && (
+                      <p className="text-xs text-blue-600 mt-1">
+                        📡 Broadcast идэвхтэй — {inq.broadcast_vendor_ids?.length || 0} vendor-т илгээгдсэн
                       </p>
                     )}
                   </div>

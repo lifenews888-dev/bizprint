@@ -77,6 +77,16 @@ export class PrintInquiry {
   @Column({ default: false }) vendor_accepted: boolean;
   @Column({ nullable: true }) vendor_accepted_at: Date;
 
+  // SLA + re-assign tracking
+  @Column({ nullable: true }) vendor_assigned_at: Date;
+  @Column({ nullable: true }) vendor_sla_deadline: Date;
+  @Column({ default: 0 }) reassign_count: number;
+  @Column({ nullable: true }) sla_missed_vendor_id: string;
+
+  // Multi-vendor broadcast (race flow)
+  @Column({ default: false }) is_broadcast: boolean;
+  @Column({ type: 'jsonb', nullable: true }) broadcast_vendor_ids: string[];
+
   // — Delivery —
   @Column({ nullable: true }) delivery_address: string;
   @Column({ nullable: true }) delivery_district: string;

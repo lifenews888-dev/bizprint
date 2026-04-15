@@ -840,6 +840,25 @@ export default function AdminVendorsPage() {
                       </select>
                     </div>
                   </div>
+                  {/* Floor prices per product type */}
+                  <div>
+                    <label className="text-xs font-semibold text-[#555] mb-2 block">Доод үнэ (₮) — бүтээгдэхүүний төрлөөр</label>
+                    <div className="text-[10px] text-[#999] mb-2">Vendor-д очих цэвэр орлого энэ дүнгээс багадвал автомат хуваарилалтаас хасагдана. 0 = хязгааргүй.</div>
+                    <div className="grid grid-cols-2 gap-2">
+                      {['business-card', 'flyer', 'banner', 'sticker', 'brochure', 'poster', 'book'].map(pt => (
+                        <div key={pt} className="flex items-center gap-2">
+                          <span className="text-[11px] text-[#666] w-20 flex-shrink-0">{pt}</span>
+                          <input
+                            type="number"
+                            placeholder="0"
+                            value={(f('floor_prices') || {})[pt] ?? ''}
+                            onChange={e => set('floor_prices', { ...(f('floor_prices') || {}), [pt]: e.target.value === '' ? 0 : Number(e.target.value) })}
+                            className="flex-1 px-2 py-1.5 border border-[#E5E7EB] rounded-lg text-xs outline-none focus:border-[#FF6B00]"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                   {/* Vendor→User linking */}
                   <div>
                     <label className="text-xs font-semibold text-[#555] mb-1 block">Холбогдсон хэрэглэгч</label>
