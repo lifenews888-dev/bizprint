@@ -1,9 +1,8 @@
 'use client'
-import { useState, useEffect, useCallback } from 'react'
-import { CldUploadWidget } from 'next-cloudinary'
-import { apiFetch, getToken } from '@/lib/api'
+import { useState, useEffect, useCallback, useRef } from 'react'
+import { apiFetch, getToken, API_URL } from '@/lib/api'
 import { AdminPageHeader } from '@/components/admin/AdminPageHeader'
-import { Trash2, Edit3, GripVertical, Upload, Eye, EyeOff, Plus } from 'lucide-react'
+import { Trash2, Edit3, Upload, Eye, EyeOff, Plus } from 'lucide-react'
 
 interface GalleryImage {
   id: string
@@ -25,6 +24,9 @@ export default function AdminGalleryPage() {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editCaption, setEditCaption] = useState('')
   const [editAlt, setEditAlt] = useState('')
+  const [uploading, setUploading] = useState(false)
+  const [uploadError, setUploadError] = useState('')
+  const fileInputRef = useRef<HTMLInputElement | null>(null)
 
   const load = useCallback(async () => {
     try {
@@ -36,26 +38,58 @@ export default function AdminGalleryPage() {
 
   useEffect(() => { load() }, [load])
 
-  const handleUploadSuccess = async (result: any) => {
-    const info = result.info
-    if (!info?.public_id) return
+  const uploadFiles = async (files: FileList | File[]) => {
+    const list = Array.from(files).filter(f => f.type.startsWith('image/'))
+    if (!list.length) return
+    setUploading(true)
+    setUploadError('')
     try {
-      await apiFetch('/admin/gallery', {
+      const fd = new FormData()
+      list.forEach(f => fd.append('files', f))
+      const token = getToken() || ''
+      const res = await fetch(`${API_URL}/upload/images`, {
         method: 'POST',
-        body: {
-          public_id: info.public_id,
-          url: info.secure_url,
-          width: info.width,
-          height: info.height,
-          format: info.format,
-          caption: '',
-          alt: info.original_filename || '',
-        },
+        headers: { Authorization: `Bearer ${token}` },
+        body: fd,
       })
-      load()
+      if (!res.ok) {
+        const txt = await res.text().catch(() => '')
+        throw new Error(`Upload failed (${res.status}): ${txt || res.statusText}`)
+      }
+      const data = await res.json()
+      const uploaded: any[] = data?.urls || []
+      for (let i = 0; i < uploaded.length; i++) {
+        const u = uploaded[i]
+        const original = list[i]
+        try {
+          await apiFetch('/admin/gallery', {
+            method: 'POST',
+            body: {
+              public_id: u.publicId || '',
+              url: u.url,
+              width: u.width || 0,
+              height: u.height || 0,
+              format: (original?.name?.split('.').pop() || 'jpg').toLowerCase(),
+              caption: '',
+              alt: original?.name?.replace(/\.[^.]+$/, '') || '',
+            },
+          })
+        } catch (e) {
+          console.error('Gallery save error:', e)
+        }
+      }
+      await load()
     } catch (e: any) {
-      console.error('Upload save error:', e)
+      console.error('Upload error:', e)
+      setUploadError(e?.message || 'Зураг оруулахад алдаа гарлаа')
+    } finally {
+      setUploading(false)
     }
+  }
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files?.length) uploadFiles(e.target.files)
+    e.target.value = ''
   }
 
   const handleDelete = async (img: GalleryImage) => {
@@ -92,31 +126,30 @@ export default function AdminGalleryPage() {
     <div className="p-4 md:p-6">
       <AdminPageHeader title="Галерей" description="Cloudinary зургийн галерей удирдлага" />
 
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-2">
         <p className="text-sm text-[var(--text3)]">Нийт {images.length} зураг</p>
-        <CldUploadWidget
-          uploadPreset="ml_default"
-          options={{
-            folder: process.env.NEXT_PUBLIC_CLOUDINARY_FOLDER || 'bizprint-gallery',
-            multiple: true,
-            maxFiles: 20,
-            resourceType: 'image',
-            sources: ['local', 'url', 'camera'],
-            styles: {
-              palette: { window: '#1a1a1a', windowBorder: '#FF6B00', tabIcon: '#FF6B00', link: '#FF6B00', action: '#FF6B00', inactiveTabIcon: '#666', error: '#EF4444', textDark: '#000', textLight: '#fff' },
-            },
-          }}
-          onSuccess={handleUploadSuccess}
-        >
-          {({ open }) => (
-            <button onClick={() => open()}
-              className="flex items-center gap-2 px-5 py-2.5 bg-[#FF6B00] text-white rounded-lg text-sm font-semibold hover:bg-[#e55f00] transition-colors cursor-pointer">
-              <Upload className="w-4 h-4" strokeWidth={1.5} />
-              Зураг оруулах
-            </button>
-          )}
-        </CldUploadWidget>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          multiple
+          className="hidden"
+          onChange={handleFileChange}
+        />
+        <button
+          onClick={() => fileInputRef.current?.click()}
+          disabled={uploading}
+          className="flex items-center gap-2 px-5 py-2.5 bg-[#FF6B00] text-white rounded-lg text-sm font-semibold hover:bg-[#e55f00] transition-colors cursor-pointer disabled:opacity-50">
+          <Upload className="w-4 h-4" strokeWidth={1.5} />
+          {uploading ? 'Оруулж байна...' : 'Зураг оруулах'}
+        </button>
       </div>
+      {uploadError && (
+        <div className="mb-4 px-4 py-2.5 bg-red-500/10 border border-red-500/30 text-red-400 text-xs rounded-lg">
+          {uploadError}
+        </div>
+      )}
+      <div className="mb-6" />
 
       {loading ? (
         <div className="text-center py-20 text-[var(--text3)]">Ачааллаж байна...</div>
@@ -169,19 +202,13 @@ export default function AdminGalleryPage() {
           ))}
 
           {/* Add more card */}
-          <CldUploadWidget
-            uploadPreset="ml_default"
-            options={{ folder: process.env.NEXT_PUBLIC_CLOUDINARY_FOLDER || 'bizprint-gallery', multiple: true, maxFiles: 20, resourceType: 'image', sources: ['local', 'url', 'camera'] }}
-            onSuccess={handleUploadSuccess}
-          >
-            {({ open }) => (
-              <button onClick={() => open()}
-                className="aspect-square rounded-xl border-2 border-dashed border-[var(--border)] flex flex-col items-center justify-center gap-2 text-[var(--text3)] hover:border-[#FF6B00] hover:text-[#FF6B00] transition-colors cursor-pointer">
-                <Plus className="w-8 h-8" strokeWidth={1} />
-                <span className="text-xs font-semibold">Нэмэх</span>
-              </button>
-            )}
-          </CldUploadWidget>
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={uploading}
+            className="aspect-square rounded-xl border-2 border-dashed border-[var(--border)] flex flex-col items-center justify-center gap-2 text-[var(--text3)] hover:border-[#FF6B00] hover:text-[#FF6B00] transition-colors cursor-pointer disabled:opacity-50">
+            <Plus className="w-8 h-8" strokeWidth={1} />
+            <span className="text-xs font-semibold">{uploading ? 'Оруулж байна...' : 'Нэмэх'}</span>
+          </button>
         </div>
       )}
 
