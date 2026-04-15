@@ -17,6 +17,8 @@ export default function PriceCalculator({ product, onPriceChange }: Props) {
   const isArea = p.pricing_mode === 'formula' && formula.type === 'area_based'
   const isTier = p.pricing_mode === 'tier'
   const needsDimensions = p.requires_dimensions || isArea
+  const doubleSideMultiplier = Number(formula.double_side_multiplier ?? p.double_side_multiplier ?? 0)
+  const sidesEnabled = doubleSideMultiplier > 1
 
   const [widthStr, setWidthStr] = useState('1')
   const [heightStr, setHeightStr] = useState('1')
@@ -44,8 +46,10 @@ export default function PriceCalculator({ product, onPriceChange }: Props) {
 
   // Calculate
   const calculate = useCallback(async () => {
-    const sidesMultiplier = sides === 'double' ? 1.7 : 1
-    const sidesNote = sides === 'double' ? 'Хоёр талын хэвлэл (+70%)' : 'Нэг талын хэвлэл'
+    const effectiveSides = sidesEnabled ? sides : 'single'
+    const sidesMultiplier = effectiveSides === 'double' ? doubleSideMultiplier : 1
+    const sidesPctLabel = doubleSideMultiplier === 2 ? '×2 талбай' : `+${Math.round((doubleSideMultiplier - 1) * 100)}%`
+    const sidesNote = effectiveSides === 'double' ? `Хоёр талын хэвлэл (${sidesPctLabel})` : 'Нэг талын хэвлэл'
     const basePrice = Number(p.sale_price || p.base_price || 0)
 
     // Fixed price — no API needed
@@ -93,7 +97,7 @@ export default function PriceCalculator({ product, onPriceChange }: Props) {
     } finally {
       setCalculating(false)
     }
-  }, [qty, width, height, options, sides, p.id, isArea, isTier, needsDimensions, widthM, heightM])
+  }, [qty, width, height, options, sides, sidesEnabled, doubleSideMultiplier, p.id, isArea, isTier, needsDimensions, widthM, heightM])
 
   // Debounce 300ms
   useEffect(() => {
@@ -115,7 +119,7 @@ export default function PriceCalculator({ product, onPriceChange }: Props) {
           <span className="text-sm font-bold text-[var(--text)]">М² тооцоолуур</span>
         </div>
 
-        {/* Sides selector */}
+        {sidesEnabled && (
         <div className="mb-3">
           <div className="text-[10px] text-[var(--text3)] mb-1.5 font-semibold uppercase tracking-wide">Хэвлэх тал</div>
           <div className="grid grid-cols-2 gap-1.5">
@@ -134,12 +138,13 @@ export default function PriceCalculator({ product, onPriceChange }: Props) {
                 <span className="text-lg leading-none">{s.icon}</span>
                 <div>
                   <div className="text-xs font-semibold leading-tight">{s.l}</div>
-                  <div className="text-[9px] text-[var(--text3)]">{s.d}{s.v === 'double' ? ' · +70%' : ''}</div>
+                  <div className="text-[9px] text-[var(--text3)]">{s.d}{s.v === 'double' ? (doubleSideMultiplier === 2 ? ' · ×2 талбай' : ` · +${Math.round((doubleSideMultiplier - 1) * 100)}%`) : ''}</div>
                 </div>
               </button>
             ))}
           </div>
         </div>
+        )}
 
         {/* Dimensions */}
         <div className="grid grid-cols-[1fr_24px_1fr] gap-1.5 items-end mb-2">
@@ -227,7 +232,7 @@ export default function PriceCalculator({ product, onPriceChange }: Props) {
                   className="text-2xl font-extrabold text-[#FF6B00]">{fmt(result.total)}</motion.span>
               </div>
               {result.unit_price > 0 && qty > 1 && <div className="text-[10px] text-[var(--text3)] text-right">Нэгж: {fmt(result.unit_price)} × {qty}ш</div>}
-              {sides === 'double' && (
+              {sidesEnabled && sides === 'double' && (
                 <div className="text-[9px] text-amber-500 mt-0.5">▣ Хоёр талын хэвлэл тооцоологдсон</div>
               )}
               {result.notes?.map((n: string, i: number) => <div key={i} className="text-[9px] text-[var(--text3)] mt-0.5">• {n}</div>)}
@@ -246,7 +251,7 @@ export default function PriceCalculator({ product, onPriceChange }: Props) {
 
   // ═══ FIXED / TIER — Тоо ширхэг ═══
   const price = Number(p.sale_price || p.base_price || 0)
-  const sidesMult = sides === 'double' ? 1.7 : 1
+  const sidesMult = sidesEnabled && sides === 'double' ? doubleSideMultiplier : 1
   const displayTotal = result?.total ?? Math.round(price * qty * sidesMult)
   return (
     <div className="rounded-xl border border-[var(--border)] bg-[var(--surface2)]/50 p-4">
@@ -255,7 +260,7 @@ export default function PriceCalculator({ product, onPriceChange }: Props) {
         <span className="text-sm font-bold text-[var(--text)]">Үнэ тооцоолол</span>
       </div>
 
-      {/* Sides selector */}
+      {sidesEnabled && (
       <div className="mb-3">
         <div className="text-[10px] text-[var(--text3)] mb-1.5 font-semibold uppercase tracking-wide">Хэвлэх тал</div>
         <div className="grid grid-cols-2 gap-1.5">
@@ -274,12 +279,13 @@ export default function PriceCalculator({ product, onPriceChange }: Props) {
               <span className="text-lg leading-none">{s.icon}</span>
               <div>
                 <div className="text-xs font-semibold leading-tight">{s.l}</div>
-                <div className="text-[9px] text-[var(--text3)]">{s.d}{s.v === 'double' ? ' · +70%' : ''}</div>
+                <div className="text-[9px] text-[var(--text3)]">{s.d}{s.v === 'double' ? (doubleSideMultiplier === 2 ? ' · ×2' : ` · +${Math.round((doubleSideMultiplier - 1) * 100)}%`) : ''}</div>
               </div>
             </button>
           ))}
         </div>
       </div>
+      )}
 
       <div className="flex items-center gap-3">
         <span className="text-xs text-[var(--text3)]">Тоо:</span>
@@ -293,7 +299,7 @@ export default function PriceCalculator({ product, onPriceChange }: Props) {
         <motion.span key={displayTotal} initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }}
           className="text-lg font-extrabold text-[#FF6B00]">{fmt(displayTotal)}</motion.span>
       </div>
-      {sides === 'double' && (
+      {sidesEnabled && sides === 'double' && (
         <div className="text-[9px] text-amber-500 mt-1">▣ Хоёр талын хэвлэл тооцоологдсон</div>
       )}
       {result?.volume_discount > 0 && <div className="text-[10px] text-emerald-600 mt-1">📦 Хөнгөлөлт: -{fmt(result.volume_discount)}</div>}

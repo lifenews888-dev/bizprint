@@ -96,6 +96,10 @@ export default function ProductCard({ product, categoryLabel, onAddToCart }: Pro
             {p.is_featured && <span className="bg-violet-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-md">⭐</span>}
             {p.video_url && <span className="bg-blue-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-md">🎬</span>}
             {isOutOfStock && <span className="bg-gray-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-md">Дууссан</span>}
+            {(p.requires_dimensions || p.pricing_mode === 'formula' || p.pricing_mode === 'tier')
+              ? <span className="bg-orange-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-md">🖨️ Тооцоолох</span>
+              : <span className="bg-emerald-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-md">📦 Шууд</span>
+            }
           </div>
 
           {/* Quick actions — reveal on hover */}

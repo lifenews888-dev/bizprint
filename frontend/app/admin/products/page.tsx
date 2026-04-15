@@ -56,6 +56,7 @@ const emptyPrint = {
   images: [] as string[], video_url: '',
   base_price: 0, pricing_type: 'tier' as 'tier' | 'area',
   price_per_m2: 0, min_area_m2: 0.25,
+  double_side_multiplier: 2.0,
   features_html: '', shop_slug: '', shop_category: '', qty_condition: '',
   top_menu: '', seo_description: '', price_excl_vat: 0,
 }
@@ -208,6 +209,7 @@ function PrintProductsTab() {
       thumbnail_url: item.thumbnail_url || '', images: item.images || [], video_url: item.video_url || '',
       base_price: item.base_price || 0, pricing_type: item.unit_type === 'M2' ? 'area' : 'tier',
       price_per_m2: item.price_per_m2 || 0, min_area_m2: item.min_area_m2 || 0.25,
+      double_side_multiplier: item.double_side_multiplier ?? item.price_formula?.double_side_multiplier ?? 2.0,
       features_html: item.features_html || '', shop_slug: item.shop_slug || '',
       shop_category: item.shop_category || '', qty_condition: item.qty_condition || '',
       top_menu: item.top_menu || '', seo_description: item.seo_description || '',
@@ -244,7 +246,9 @@ function PrintProductsTab() {
             pricing_mode: isArea ? 'formula' : 'tier',
             requires_dimensions: isArea,
             order_flow: isArea ? 'site_survey' : 'file_upload',
-            price_formula: isArea ? { type: 'area_based', price_per_m2: form.price_per_m2, min_area_m2: form.min_area_m2 || 0.25, options: {} } : null,
+            price_formula: isArea
+              ? { type: 'area_based', price_per_m2: form.price_per_m2, min_area_m2: form.min_area_m2 || 0.25, options: {}, double_side_multiplier: Number(form.double_side_multiplier) || 2.0 }
+              : { double_side_multiplier: Number(form.double_side_multiplier) || 2.0 },
           }}).catch(() => {}) // Ignore if no matching product
         } catch {}
       } else {
@@ -507,6 +511,18 @@ function PrintProductsTab() {
                           </div>
                         </>
                       )}
+                      <div style={{ gridColumn: 'span 2', marginTop: 4, paddingTop: 10, borderTop: '1px dashed var(--border)' }}>
+                        <label style={labelStyle}>Хоёр талын үнийн коэффициент</label>
+                        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                          <input type="number" step="0.1" min="1" max="3"
+                            value={form.double_side_multiplier}
+                            onChange={e => setForm({ ...form, double_side_multiplier: Number(e.target.value) })}
+                            style={{ ...inp, width: 100 }} placeholder="2.0" />
+                          <div style={{ fontSize: 10, color: 'var(--text3)', lineHeight: 1.4 }}>
+                            <strong>2.0</strong> = талбай 2 дахин (туг далбаа гэх мэт) · <strong>1.7</strong> = +70% (визит карт гэх мэт)
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   </div>
 

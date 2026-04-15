@@ -318,6 +318,10 @@ export default function ProductPage({ params }: { params: Promise<{ _slug: strin
               {p.is_featured && <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-violet-100 text-violet-700">⭐</span>}
               {p.is_flash_deal && <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-violet-100 text-violet-700">⚡ Flash Deal</span>}
               {p.video_url && <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-blue-100 text-blue-700">🎬 Видео</span>}
+              {(p.requires_dimensions || p.pricing_mode === 'formula' || p.pricing_mode === 'tier')
+                ? <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-orange-100 text-orange-700">🖨️ Тооцоолохуйц</span>
+                : <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-700">📦 Шууд бараа</span>
+              }
             </div>
 
             {p.category && <a href={`/shop?category=${p.category}`} className="text-[10px] font-bold text-[#FF6B00] uppercase tracking-widest no-underline">{p.category}</a>}
