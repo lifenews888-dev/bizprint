@@ -1,16 +1,18 @@
 import { Injectable, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { PrintInquiry, InquiryStatus } from './entities/print-inquiry.entity';
 import { ChatMessage } from './entities/chat-message.entity';
 import { CommissionService } from '../commission/commission.service';
+import { Vendor } from '../vendors/vendor.entity';
 
 @Injectable()
 export class PrintInquiryService {
   constructor(
     @InjectRepository(PrintInquiry) private repo: Repository<PrintInquiry>,
     @InjectRepository(ChatMessage) private chatRepo: Repository<ChatMessage>,
+    @InjectRepository(Vendor) private vendorRepo: Repository<Vendor>,
     private eventEmitter: EventEmitter2,
     @Optional() private commissionService?: CommissionService,
   ) {}
@@ -148,6 +150,21 @@ export class PrintInquiryService {
 
     await this.sysMsg(id, 'Vendor захиалгыг хүлээн авсан. Үйлдвэрлэлд орлоо.');
     return this.repo.findOne({ where: { id } });
+  }
+
+  async getVendorPendingCount(userId: string): Promise<number> {
+    // Find vendor linked to this user
+    const vendor = await this.vendorRepo.findOne({ where: { user_id: userId } }).catch(() => null);
+    // Count pending inquiries either assigned to this vendor or unassigned & new
+    const qb = this.repo.createQueryBuilder('i')
+      .where('i.vendor_accepted = false')
+      .andWhere('i.status IN (:...statuses)', {
+        statuses: [InquiryStatus.NEW, InquiryStatus.REVIEWING, InquiryStatus.CONFIRMED],
+      });
+    if (vendor?.id) {
+      qb.andWhere('(i.vendor_id = :vid OR i.vendor_id IS NULL)', { vid: vendor.id });
+    }
+    return qb.getCount();
   }
 
   async vendorReject(id: string, _vendorUserId: string) {

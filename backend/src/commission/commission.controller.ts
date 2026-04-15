@@ -20,6 +20,12 @@ export class CommissionController {
     return this.svc.getSummary(vendorId);
   }
 
+  @Get('batches')
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  getBatches() {
+    return this.svc.getBatches();
+  }
+
   @Post('approve-payout')
   @UseGuards(JwtAuthGuard, AdminGuard)
   approvePayout(@Body('ids') ids: string[]) {

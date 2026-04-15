@@ -90,6 +90,14 @@ export class PrintInquiryController {
     return this.svc.findByCustomer(req.user.id);
   }
 
+  // — VENDOR —
+  @Get('vendor/pending-count')
+  @UseGuards(JwtAuthGuard)
+  async vendorPendingCount(@Request() req: any) {
+    const count = await this.svc.getVendorPendingCount(req.user.id);
+    return { count };
+  }
+
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.svc.findOne(id);

@@ -3,8 +3,9 @@ import { useState, useEffect } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import ThemeToggle from '@/components/ThemeToggle'
 import VerificationBanner from '@/components/VerificationBanner'
+import { API_URL } from '@/lib/api'
 
-interface NavItem { label: string; href: string; icon: string }
+interface NavItem { label: string; href: string; icon: string; badge?: string }
 interface NavGroup { section: string; items: NavItem[] }
 
 interface Props {
@@ -22,7 +23,31 @@ export default function DashboardLayout({ children, navGroups, creatorNavGroups,
   const [collapsed, setCollapsed] = useState(false)
   const [isCreator, setIsCreator] = useState(false)
   const [creatorMode, setCreatorMode] = useState(false)
+  const [badges, setBadges] = useState<Record<string, number>>({})
   const W = collapsed ? '56px' : '224px'
+
+  // Fetch dynamic badge counts for nav items that declare a badge key
+  useEffect(() => {
+    const allItems = [...(navGroups || []), ...(creatorNavGroups || [])].flatMap(g => g.items)
+    const needsPending = allItems.some(i => i.badge === 'vendor_pending')
+    if (!needsPending) return
+    const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : ''
+    if (!token) return
+
+    const fetchCount = () => {
+      fetch(`${API_URL}/api/inquiries/vendor/pending-count`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+        .then(r => r.json())
+        .then(d => setBadges(b => ({ ...b, vendor_pending: Number(d?.count) || 0 })))
+        .catch(() => {})
+    }
+    fetchCount()
+    const interval = setInterval(() => {
+      if (document.visibilityState === 'visible') fetchCount()
+    }, 30000)
+    return () => clearInterval(interval)
+  }, [navGroups, creatorNavGroups])
 
   // Check if user is an approved creator
   useEffect(() => {
@@ -189,8 +214,22 @@ export default function DashboardLayout({ children, navGroups, creatorNavGroups,
                     <svg width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24" style={{ flexShrink: 0 }}>
                       <path d={item.icon}/>
                     </svg>
-                    {!collapsed && <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.label}</span>}
-                    {!collapsed && active && <div style={{ marginLeft: 'auto', width: '5px', height: '5px', borderRadius: '50%', background: '#FF6B00', flexShrink: 0 }}/>}
+                    {!collapsed && <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: 1 }}>{item.label}</span>}
+                    {item.badge && badges[item.badge] > 0 && (
+                      <span style={{
+                        marginLeft: collapsed ? 0 : 'auto',
+                        minWidth: 18, height: 18, borderRadius: 9,
+                        background: '#EF4444', color: '#fff',
+                        fontSize: 10, fontWeight: 700,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        padding: '0 5px', flexShrink: 0,
+                        position: collapsed ? 'absolute' : 'static',
+                        top: collapsed ? 2 : undefined, right: collapsed ? 2 : undefined,
+                      }}>
+                        {badges[item.badge] > 99 ? '99+' : badges[item.badge]}
+                      </span>
+                    )}
+                    {!collapsed && active && !item.badge && <div style={{ marginLeft: 'auto', width: '5px', height: '5px', borderRadius: '50%', background: '#FF6B00', flexShrink: 0 }}/>}
                   </button>
                 )
               })}

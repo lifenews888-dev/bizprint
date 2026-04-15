@@ -100,4 +100,55 @@ export class CommissionService {
     );
     return { ok: true };
   }
+
+  async getBatches() {
+    const rows = await this.repo
+      .createQueryBuilder('c')
+      .select([
+        'c.payout_batch_id as "batchId"',
+        'c.status as status',
+        'COUNT(*) as count',
+        'SUM(c.net_amount) as "totalNet"',
+        'SUM(c.gross_amount) as "totalGross"',
+        'MIN(c.created_at) as "created_at"',
+      ])
+      .where('c.payout_batch_id IS NOT NULL')
+      .groupBy('c.payout_batch_id')
+      .addGroupBy('c.status')
+      .orderBy('MIN(c.created_at)', 'DESC')
+      .getRawMany();
+
+    const batches = await Promise.all(
+      rows.map(async (batch) => {
+        const vendors = await this.repo
+          .createQueryBuilder('c')
+          .select([
+            'c.vendor_id as "vendorId"',
+            'c.vendor_name as "vendorName"',
+            'SUM(c.net_amount) as "netAmount"',
+            'COUNT(*) as count',
+          ])
+          .where('c.payout_batch_id = :batchId', { batchId: batch.batchId })
+          .groupBy('c.vendor_id')
+          .addGroupBy('c.vendor_name')
+          .getRawMany();
+        return {
+          batchId: batch.batchId,
+          status: batch.status,
+          count: Number(batch.count || 0),
+          totalNet: Number(batch.totalNet || 0),
+          totalGross: Number(batch.totalGross || 0),
+          created_at: batch.created_at,
+          vendors: vendors.map((v: any) => ({
+            vendorId: v.vendorId,
+            vendorName: v.vendorName,
+            netAmount: Number(v.netAmount || 0),
+            count: Number(v.count || 0),
+          })),
+        };
+      }),
+    );
+
+    return batches;
+  }
 }

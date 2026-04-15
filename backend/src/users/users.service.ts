@@ -10,8 +10,11 @@ export class UsersService {
     private usersRepository: Repository<User>,
   ) {}
 
-  async findAll(): Promise<User[]> {
-    return this.usersRepository.find();
+  async findAll(filters: { role?: string; limit?: number } = {}): Promise<User[]> {
+    const qb = this.usersRepository.createQueryBuilder('u').orderBy('u.created_at', 'DESC');
+    if (filters.role) qb.andWhere('u.role = :role', { role: filters.role });
+    if (filters.limit && filters.limit > 0) qb.take(Math.min(filters.limit, 500));
+    return qb.getMany();
   }
 
   async findOne(id: string): Promise<User | null> {

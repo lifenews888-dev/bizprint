@@ -357,6 +357,15 @@ export default function AdminVendorsPage() {
   const f = (k: string) => (form as any)[k]
   const set = (k: string, v: any) => setForm(prev => ({ ...prev, [k]: v }))
 
+  // Vendor-role users for linking dropdown
+  const [vendorUsers, setVendorUsers] = useState<any[]>([])
+  useEffect(() => {
+    apiFetch<any>('/users?role=vendor&limit=200').then(d => {
+      const list = Array.isArray(d) ? d : (d?.data || d?.items || [])
+      setVendorUsers(list)
+    }).catch(() => {})
+  }, [])
+
   // Capacity data (embedded, not separate page)
   const [capacityOverview, setCapacityOverview] = useState<any>(null)
   const [capacityProducts, setCapacityProducts] = useState<any[]>([])
@@ -829,6 +838,22 @@ export default function AdminVendorsPage() {
                         <option value="14">14 хоног</option>
                         <option value="30">30 хоног</option>
                       </select>
+                    </div>
+                  </div>
+                  {/* Vendor→User linking */}
+                  <div>
+                    <label className="text-xs font-semibold text-[#555] mb-1 block">Холбогдсон хэрэглэгч</label>
+                    <select value={f('user_id') || ''} onChange={e => set('user_id', e.target.value)}
+                      className="w-full px-3 py-2.5 border border-[#E5E7EB] rounded-lg text-sm outline-none focus:border-[#FF6B00]" style={{ appearance: 'auto' }}>
+                      <option value="">— Холбоогүй —</option>
+                      {vendorUsers.map(u => (
+                        <option key={u.id} value={u.id}>
+                          {u.full_name || u.name || u.email} {u.email ? `(${u.email})` : ''}
+                        </option>
+                      ))}
+                    </select>
+                    <div className="text-[10px] text-[#999] mt-1">
+                      Энэ хэрэглэгч нэвтрэхэд vendor дашборд дээр ирсэн захиалгуудыг харна. Шимтгэлийн хувь нь энэ vendor-ийн тохиргооноос шууд уншина.
                     </div>
                   </div>
                   {/* Preview */}

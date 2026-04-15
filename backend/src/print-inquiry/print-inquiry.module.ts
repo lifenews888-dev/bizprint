@@ -6,9 +6,10 @@ import { PrintInquiryController } from './print-inquiry.controller';
 import { PrintInquiryService } from './print-inquiry.service';
 import { InquiryChatGateway } from './chat.gateway';
 import { CommissionModule } from '../commission/commission.module';
+import { Vendor } from '../vendors/vendor.entity';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([PrintInquiry, ChatMessage]), CommissionModule],
+  imports: [TypeOrmModule.forFeature([PrintInquiry, ChatMessage, Vendor]), CommissionModule],
   controllers: [PrintInquiryController],
   providers: [PrintInquiryService, InquiryChatGateway],
   exports: [PrintInquiryService, InquiryChatGateway],

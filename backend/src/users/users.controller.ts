@@ -1,4 +1,4 @@
-﻿import { Controller, Get, Patch, UseGuards, Request } from '@nestjs/common';
+﻿import { Controller, Get, Query, UseGuards, Request } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
@@ -8,8 +8,8 @@ export class UsersController {
 
   @UseGuards(JwtAuthGuard)
   @Get()
-  findAll() {
-    return this.usersService.findAll();
+  findAll(@Query('role') role?: string, @Query('limit') limit?: string) {
+    return this.usersService.findAll({ role, limit: limit ? parseInt(limit) : undefined });
   }
 
   @UseGuards(JwtAuthGuard)
