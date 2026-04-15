@@ -56,6 +56,75 @@ const emptyPrint = {
   images: [] as string[], video_url: '',
   base_price: 0, pricing_type: 'tier' as 'tier' | 'area',
   price_per_m2: 0, min_area_m2: 0.25,
+  features_html: '', shop_slug: '', shop_category: '', qty_condition: '',
+  top_menu: '', seo_description: '', price_excl_vat: 0,
+}
+
+function FeaturesEditor({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const parseFeatures = (html: string): string[] => {
+    if (!html) return ['']
+    const matches = html.match(/<li>(.*?)<\/li>/g)
+    if (!matches) return [html.replace(/<[^>]+>/g, '').trim() || '']
+    return matches.map(m => m.replace(/<\/?li>/g, '').replace(/<[^>]+>/g, '').trim())
+  }
+  const toHtml = (features: string[]): string => {
+    const items = features.filter(f => f.trim())
+    if (!items.length) return ''
+    return `<ul>${items.map(f => `<li>${f}</li>`).join('')}</ul>`
+  }
+  const [features, setFeatures] = useState<string[]>(() => parseFeatures(value))
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { setFeatures(parseFeatures(value)) }, [])
+
+  const update = (newFeatures: string[]) => {
+    setFeatures(newFeatures)
+    onChange(toHtml(newFeatures))
+  }
+  const addRow = () => update([...features, ''])
+  const removeRow = (i: number) => update(features.filter((_, j) => j !== i))
+  const updateRow = (i: number, v: string) => {
+    const next = [...features]; next[i] = v; update(next)
+  }
+
+  return (
+    <div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 8 }}>
+        {features.map((f, i) => (
+          <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <span style={{ color: 'var(--text3)', fontSize: 16, flexShrink: 0 }}>•</span>
+            <input
+              value={f}
+              onChange={e => updateRow(i, e.target.value)}
+              onKeyDown={e => {
+                if (e.key === 'Enter') { e.preventDefault(); addRow() }
+                if (e.key === 'Backspace' && !f && features.length > 1) { e.preventDefault(); removeRow(i) }
+              }}
+              style={{ ...inp, flex: 1 }}
+              placeholder={`Онцлог ${i + 1}`}
+            />
+            {features.length > 1 && (
+              <button type="button" onClick={() => removeRow(i)}
+                style={{ background: 'none', border: 'none', color: 'var(--text3)', cursor: 'pointer', fontSize: 16, padding: '0 4px', flexShrink: 0 }}>
+                ✕
+              </button>
+            )}
+          </div>
+        ))}
+      </div>
+      <button type="button" onClick={addRow}
+        style={{ fontSize: 12, color: '#FF6B00', background: 'none', border: '1px dashed rgba(255,107,0,0.4)', borderRadius: 6, padding: '4px 12px', cursor: 'pointer' }}>
+        + Онцлог нэмэх
+      </button>
+      {features.filter(f => f.trim()).length > 0 && (
+        <details style={{ marginTop: 8 }}>
+          <summary style={{ fontSize: 11, color: 'var(--text3)', cursor: 'pointer' }}>HTML preview харах</summary>
+          <code style={{ display: 'block', fontSize: 11, color: 'var(--text3)', background: 'var(--surface2)', padding: 8, borderRadius: 6, marginTop: 4, wordBreak: 'break-all' }}>
+            {toHtml(features.filter(f => f.trim()))}
+          </code>
+        </details>
+      )}
+    </div>
+  )
 }
 const emptyMaterial = { material_code: '', material_name_mn: '', unit: '', base_cost: 0, display_name: '', is_default: false }
 const emptySize = { size_code: '', size_label: '', width_mm: 0, height_mm: 0, base_price: 0, is_custom: false }
@@ -138,7 +207,11 @@ function PrintProductsTab() {
       unit_type: item.unit_type || 'PIECE', description: item.description || '',
       thumbnail_url: item.thumbnail_url || '', images: item.images || [], video_url: item.video_url || '',
       base_price: item.base_price || 0, pricing_type: item.unit_type === 'M2' ? 'area' : 'tier',
-      price_per_m2: item.price_per_m2 || 0, min_area_m2: item.min_area_m2 || 0.25 })
+      price_per_m2: item.price_per_m2 || 0, min_area_m2: item.min_area_m2 || 0.25,
+      features_html: item.features_html || '', shop_slug: item.shop_slug || '',
+      shop_category: item.shop_category || '', qty_condition: item.qty_condition || '',
+      top_menu: item.top_menu || '', seo_description: item.seo_description || '',
+      price_excl_vat: item.price_excl_vat || 0 })
     setMaterials(item.materials || []); setSizes(item.sizes || [])
     // Load addons linked to this product
     setSelectedAddonIds(allAddons.filter(a => a.applicable_products?.includes(item.id)).map((a: any) => a.id))
@@ -310,6 +383,16 @@ function PrintProductsTab() {
                 <span style={{ fontSize: 11, color: 'var(--text3)' }}>{item.materials?.length || 0} материал</span>
                 <span style={{ fontSize: 11, color: 'var(--text3)' }}>{item.sizes?.length || 0} хэмжээ</span>
               </div>
+              {item.shop_slug && (
+                <div style={{ fontSize: 11, color: 'var(--text3)', fontFamily: 'monospace' }}>
+                  /shop/{item.shop_slug}
+                </div>
+              )}
+              {item.seo_description && (
+                <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {item.seo_description}
+                </div>
+              )}
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 'auto' }}>
                 <span style={{ fontSize: 11, color: item.is_active !== false ? '#10B981' : '#EF4444', fontWeight: 600 }}>
                   {item.is_active !== false ? '● Идэвхтэй' : '● Идэвхгүй'}
@@ -425,6 +508,58 @@ function PrintProductsTab() {
                         </>
                       )}
                     </div>
+                  </div>
+
+                  {/* ── SEO & Shop fields ── */}
+                  <div style={{ gridColumn: 'span 2', marginTop: 8 }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 10, color: 'var(--text)', padding: '8px 0', borderTop: '1px solid var(--border)' }}>
+                      🛍️ Дэлгүүрийн тохиргоо
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14 }}>
+                      <div>
+                        <label style={labelStyle}>Shop slug (URL)</label>
+                        <input value={form.shop_slug || ''} onChange={e => setForm({ ...form, shop_slug: e.target.value })}
+                          style={inp} placeholder="business-card" />
+                      </div>
+                      <div>
+                        <label style={labelStyle}>Top menu</label>
+                        <input value={form.top_menu || ''} onChange={e => setForm({ ...form, top_menu: e.target.value })}
+                          style={inp} placeholder="wide-format" />
+                      </div>
+                      <div>
+                        <label style={labelStyle}>Shop категори</label>
+                        <input value={form.shop_category || ''} onChange={e => setForm({ ...form, shop_category: e.target.value })}
+                          style={inp} placeholder="Туг далбаа" />
+                      </div>
+                      <div>
+                        <label style={labelStyle}>НӨАТ-гүй үнэ (₮)</label>
+                        <input type="number" value={form.price_excl_vat || ''} onChange={e => setForm({ ...form, price_excl_vat: +e.target.value })}
+                          style={inp} placeholder="58800" />
+                      </div>
+                      <div style={{ gridColumn: 'span 2' }}>
+                        <label style={labelStyle}>SEO тайлбар</label>
+                        <textarea value={form.seo_description || ''} onChange={e => setForm({ ...form, seo_description: e.target.value })}
+                          style={{ ...inp, minHeight: 60, resize: 'vertical' }}
+                          placeholder="Туг далбаа (багц үнэ) — Ханын туг Дунд. Зузаан атлас" />
+                      </div>
+                      <div style={{ gridColumn: 'span 2' }}>
+                        <label style={labelStyle}>Тоо ширхэгийн нөхцөл</label>
+                        <textarea value={form.qty_condition || ''} onChange={e => setForm({ ...form, qty_condition: e.target.value })}
+                          style={{ ...inp, minHeight: 60, resize: 'vertical' }}
+                          placeholder="Тугны материал: Зузаан атлас Хэмжээ: Дундаж Хэвлэлт: 1 талдаа..." />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* ── Features editor ── */}
+                  <div style={{ gridColumn: 'span 2', marginTop: 8 }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 10, color: 'var(--text)', padding: '8px 0', borderTop: '1px solid var(--border)' }}>
+                      ✨ Онцлогууд (features)
+                    </div>
+                    <FeaturesEditor
+                      value={form.features_html || ''}
+                      onChange={v => setForm({ ...form, features_html: v })}
+                    />
                   </div>
 
                   <div style={{ gridColumn: 'span 2' }}>
