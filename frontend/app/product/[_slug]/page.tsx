@@ -243,7 +243,13 @@ export default function ProductPage({ params }: { params: Promise<{ _slug: strin
   const disc = oldPrice ? Math.round((1 - price / oldPrice) * 100) : null
   const sizes: string[] = p.sizes || p.available_sizes || []
   const out = p.is_out_of_stock || (p.stock_quantity != null && p.stock_quantity <= 0)
-  const specs = p.compare_specs || {}
+  const HIDDEN_SPEC_KEYS = new Set(['features_html', 'shop_slug', 'shop_category', 'qty_condition', 'top_menu', 'seo_description', 'price_excl_vat', 'image_alt'])
+  const rawSpecs = p.compare_specs || {}
+  const specs: Record<string, any> = Object.fromEntries(
+    Object.entries(rawSpecs).filter(([k]) => !HIDDEN_SPEC_KEYS.has(k))
+  )
+  const featuresHtml: string = rawSpecs.features_html || p.features_html || ''
+  const qtyCondition: string = rawSpecs.qty_condition || p.qty_condition || ''
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="min-h-screen bg-[var(--bg)] text-[var(--text)]">
@@ -476,7 +482,19 @@ export default function ProductPage({ params }: { params: Promise<{ _slug: strin
               )}
               {tab === 'desc' && (
                 <div className="max-w-[700px]">
-                  {p.description ? <p className="text-sm text-[var(--text2)] leading-relaxed">{p.description}</p> : <p className="text-sm text-[var(--text3)]">Тайлбар оруулаагүй.</p>}
+                  {p.description ? <p className="text-sm text-[var(--text2)] leading-relaxed">{p.description}</p> : !featuresHtml && !qtyCondition && <p className="text-sm text-[var(--text3)]">Тайлбар оруулаагүй.</p>}
+                  {featuresHtml && (
+                    <div className="mt-4">
+                      <div className="text-xs font-bold text-[var(--text)] mb-2">✨ Онцлогууд</div>
+                      <div className="text-sm text-[var(--text2)] leading-relaxed [&_ul]:list-disc [&_ul]:pl-5 [&_li]:mb-1" dangerouslySetInnerHTML={{ __html: featuresHtml }} />
+                    </div>
+                  )}
+                  {qtyCondition && (
+                    <div className="mt-4">
+                      <div className="text-xs font-bold text-[var(--text)] mb-2">📋 Нөхцөл</div>
+                      <p className="text-sm text-[var(--text2)] leading-relaxed whitespace-pre-wrap">{qtyCondition}</p>
+                    </div>
+                  )}
                   {p.video_url && (
                     <div className="mt-4 rounded-xl overflow-hidden aspect-video bg-black">
                       {p.video_url.includes('youtube.com') || p.video_url.includes('youtu.be') ? (
