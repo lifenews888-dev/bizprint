@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect, useCallback } from 'react'
-import { apiFetch } from '@/lib/api'
+import { apiFetch, getToken, API_URL } from '@/lib/api'
 import { AdminPageHeader } from '@/components/admin/AdminPageHeader'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -148,11 +148,19 @@ export default function AdminHeroSlides() {
     const file = e.target.files?.[0]
     if (!file) return
     setUploading(true)
-    const fd = new FormData(); fd.append('file', file)
+    const fd = new FormData(); fd.append('files', file)
     try {
-      const data = await apiFetch<any>('/upload/file', { method: 'POST', body: fd })
-      const url = data.url || data.path || (data.filename ? `/uploads/${data.filename.replace('uploads/', '')}` : '')
-      if (url) { setForm((f: any) => ({ ...f, image_url: url.startsWith('http') ? url : url })); toast.success('Зураг амжилттай') }
+      const token = getToken() || ''
+      const res = await fetch(`${API_URL}/api/upload/images`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        body: fd,
+      })
+      if (!res.ok) throw new Error('Upload failed')
+      const data = await res.json()
+      const url = data?.images?.[0]?.url || data?.urls?.[0] || ''
+      if (url) { setForm((f: any) => ({ ...f, image_url: url })); toast.success('Зураг амжилттай') }
+      else toast.error('Зургийн URL олдсонгүй')
     } catch { toast.error('Upload алдаа') }
     setUploading(false)
   }
