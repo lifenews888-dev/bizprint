@@ -84,7 +84,7 @@ export default function ChatBox({ userId, userName, role }: Props) {
       const fd = new FormData()
       fd.append('file', file)
       const token = localStorage.getItem('access_token') || localStorage.getItem('token') || ''
-      const res = await fetch(`${API}/upload/file`, {
+      const res = await fetch(`${API}/api/upload/file`, {
         method: 'POST',
         headers: { Authorization: 'Bearer ' + token },
         body: fd,

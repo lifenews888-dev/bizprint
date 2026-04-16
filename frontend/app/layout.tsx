@@ -15,7 +15,7 @@ export async function generateMetadata(): Promise<Metadata> {
   try {
     const controller = new AbortController()
     const timeout = setTimeout(() => controller.abort(), 3000)
-    const res = await fetch(`${API}/cms/settings/public`, { next: { revalidate: 60 }, signal: controller.signal })
+    const res = await fetch(`${API}/api/cms/settings/public`, { next: { revalidate: 60 }, signal: controller.signal })
     clearTimeout(timeout)
     if (res.ok) {
       const s = await res.json()

@@ -25,14 +25,14 @@ export default function PublicProductQr() {
   const [lightboxIdx, setLightboxIdx] = useState<number | null>(null)
 
   useEffect(() => {
-    fetch(`${API}/p/${slug}`)
+    fetch(`${API}/api/p/${slug}`)
       .then(r => r.ok ? r.json() : null)
       .then(async p => {
         if (!p) { setLoading(false); return }
         setProduct(p)
         const [revs, stats] = await Promise.all([
-          fetch(`${API}/p/${p.id}/reviews`).then(r => r.json()).catch(() => []),
-          fetch(`${API}/p/${p.id}/reviews/stats`).then(r => r.json()).catch(() => null),
+          fetch(`${API}/api/p/${p.id}/reviews`).then(r => r.json()).catch(() => []),
+          fetch(`${API}/api/p/${p.id}/reviews/stats`).then(r => r.json()).catch(() => null),
         ])
         setReviews(Array.isArray(revs) ? revs : [])
         setReviewStats(stats)
@@ -43,7 +43,7 @@ export default function PublicProductQr() {
 
   const submitReview = async () => {
     if (!reviewForm.reviewer_name || !product) return
-    const rev = await fetch(`${API}/p/${product.id}/reviews`, {
+    const rev = await fetch(`${API}/api/p/${product.id}/reviews`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(reviewForm),
@@ -55,7 +55,7 @@ export default function PublicProductQr() {
 
   const trackReorder = () => {
     if (!product) return
-    fetch(`${API}/p/${product.id}/reorder`, { method: 'POST' })
+    fetch(`${API}/api/p/${product.id}/reorder`, { method: 'POST' })
     // Navigate to checkout with product info pre-filled
     const params = new URLSearchParams({
       product_name: product.product_name || '',

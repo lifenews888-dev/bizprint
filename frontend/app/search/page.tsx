@@ -19,7 +19,7 @@ function SearchResults() {
     if (!q || q.length < 2) return
     fbPixel.search(q)
     setLoading(true)
-    fetch(`${API_URL}/products/search?q=${encodeURIComponent(q)}`)
+    fetch(`${API_URL}/api/products/search?q=${encodeURIComponent(q)}`)
       .then(r => r.json())
       .then(data => { setResults(Array.isArray(data) ? data : []); setLoading(false) })
       .catch(() => setLoading(false))

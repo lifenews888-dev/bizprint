@@ -26,7 +26,7 @@ export default function ProductMediaUploader({ images, videoUrl, onChange, token
     try {
       const fd = new FormData()
       fd.append('file', file)
-      const res = await fetch(`${API}/upload/file`, {
+      const res = await fetch(`${API}/api/upload/file`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
         body: fd,

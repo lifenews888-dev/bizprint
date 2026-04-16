@@ -21,7 +21,7 @@ export default function InvoicesPage() {
   useEffect(() => {
     const token = localStorage.getItem('access_token') || localStorage.getItem('token')
     if (!token) { setLoading(false); return }
-    fetch(`${API}/payment/invoices/my`, { headers: { Authorization: `Bearer ${token}` } })
+    fetch(`${API}/api/payment/invoices/my`, { headers: { Authorization: `Bearer ${token}` } })
       .then(r => r.ok ? r.json() : [])
       .then(d => setInvoices(Array.isArray(d) ? d : []))
       .catch(() => {})

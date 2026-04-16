@@ -37,7 +37,7 @@ export function useRealtimeOrder(orderId: string | null | undefined): UseRealtim
     if (!orderId) return
     try {
       const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null
-      const res = await fetch(`${API}/orders/${orderId}`, {
+      const res = await fetch(`${API}/api/orders/${orderId}`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       })
       if (res.ok) {

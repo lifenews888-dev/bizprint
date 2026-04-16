@@ -22,7 +22,7 @@ export default function DynamicPage() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    fetch(`${API}/pages/${slug}`).then(r => r.ok ? r.json() : null)
+    fetch(`${API}/api/pages/${slug}`).then(r => r.ok ? r.json() : null)
       .then(d => { setPage(d?.data || d); setLoading(false) })
       .catch(() => setLoading(false))
   }, [slug])

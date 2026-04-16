@@ -63,7 +63,7 @@ export function useChat(userId: string, userName: string, role: string) {
   // ── Prefetch rooms from REST API ───────────────────────────────────────────
   useEffect(() => {
     if (!userId) return
-    fetch(`${API}/chat/rooms`, {
+    fetch(`${API}/api/chat/rooms`, {
       headers: { Authorization: `Bearer ${token()}` },
     })
       .then(r => r.json())
@@ -154,7 +154,7 @@ export function useChat(userId: string, userName: string, role: string) {
     setActiveRoom(roomId)
     socketRef.current?.emit('join_room', { room_id: roomId })
 
-    fetch(`${API}/chat/rooms/${roomId}/messages`, {
+    fetch(`${API}/api/chat/rooms/${roomId}/messages`, {
       headers: { Authorization: `Bearer ${token()}` },
     })
       .then(r => r.json())

@@ -29,7 +29,7 @@ export default function PublicDigitalCard() {
     const tok = typeof window !== 'undefined' ? (localStorage.getItem('access_token') || localStorage.getItem('token')) : null
     const headers: Record<string, string> = {}
     if (tok) headers['Authorization'] = `Bearer ${tok}`
-    fetch(`${API}/u/${slug}`, { headers })
+    fetch(`${API}/api/u/${slug}`, { headers })
       .then(r => r.json())
       .then(d => setData(d))
       .catch(() => setData({ error: 'network' }))
@@ -96,7 +96,7 @@ export default function PublicDigitalCard() {
     a.click()
     URL.revokeObjectURL(url)
     // Track save
-    fetch(`${API}/u/${slug}/save-contact`, { method: 'POST' }).catch(() => {})
+    fetch(`${API}/api/u/${slug}/save-contact`, { method: 'POST' }).catch(() => {})
   }
 
   return (

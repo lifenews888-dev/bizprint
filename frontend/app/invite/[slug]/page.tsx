@@ -33,8 +33,8 @@ export default function InvitePage() {
 
   useEffect(() => {
     Promise.all([
-      fetch(`${API}/invite/${slug}`).then(r => r.ok ? r.json() : null),
-      fetch(`${API}/invite/${slug}/stats`).then(r => r.ok ? r.json() : null),
+      fetch(`${API}/api/invite/${slug}`).then(r => r.ok ? r.json() : null),
+      fetch(`${API}/api/invite/${slug}/stats`).then(r => r.ok ? r.json() : null),
     ]).then(([i, s]) => { setInv(i); setStats(s) })
       .finally(() => setLoading(false))
   }, [slug])
@@ -56,7 +56,7 @@ export default function InvitePage() {
     if (!rsvpName.trim() || !rsvpStatus) return
     setRsvpLoading(true)
     try {
-      await fetch(`${API}/invite/${slug}/rsvp`, {
+      await fetch(`${API}/api/invite/${slug}/rsvp`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -69,7 +69,7 @@ export default function InvitePage() {
       })
       setRsvpSent(true)
       // Refresh stats
-      const s = await fetch(`${API}/invite/${slug}/stats`).then(r => r.json()).catch(() => null)
+      const s = await fetch(`${API}/api/invite/${slug}/stats`).then(r => r.json()).catch(() => null)
       if (s) setStats(s)
     } catch {}
     setRsvpLoading(false)

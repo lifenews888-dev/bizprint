@@ -21,7 +21,7 @@ export default function DeliveryTab() {
   }
 
   useEffect(() => {
-    fetch(`${API}/delivery`, {
+    fetch(`${API}/api/delivery`, {
       headers: { Authorization: `Bearer ${getToken()}` }
     })
       .then(r => r.json())
@@ -30,7 +30,7 @@ export default function DeliveryTab() {
   }, [])
 
   async function updateStatus(id: number, status: string) {
-    await fetch(`${API}/delivery/${id}/status`, {
+    await fetch(`${API}/api/delivery/${id}/status`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}` },
       body: JSON.stringify({ status }),

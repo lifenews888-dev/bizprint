@@ -72,7 +72,7 @@ export default function AdminUsersPage() {
   const uploadContract = async (userId: string, field: 'contract_url' | 'contract_attachment_url', file: File) => {
     const fd = new FormData()
     fd.append('file', file)
-    const res = await fetch(`${API_URL}/upload/file`, { method: 'POST', body: fd, headers: { Authorization: `Bearer ${localStorage.getItem('access_token') || localStorage.getItem('token')}` } })
+    const res = await fetch(`${API_URL}/api/upload/file`, { method: 'POST', body: fd, headers: { Authorization: `Bearer ${localStorage.getItem('access_token') || localStorage.getItem('token')}` } })
     const data = await res.json()
     if (data.file_url) {
       await apiFetch(`/admin/users/${userId}`, { method: 'PATCH', body: JSON.stringify({ [field]: data.file_url, ...(field === 'contract_url' ? { contract_signed_at: new Date().toISOString() } : {}) }) })
@@ -377,7 +377,7 @@ export default function AdminUsersPage() {
                         setBcUploading(true)
                         try {
                           const fd = new FormData(); fd.append('file', file)
-                          const res = await fetch(`${API_URL}/upload/file`, { method: 'POST', body: fd, headers: { Authorization: `Bearer ${localStorage.getItem('access_token') || localStorage.getItem('token')}` } })
+                          const res = await fetch(`${API_URL}/api/upload/file`, { method: 'POST', body: fd, headers: { Authorization: `Bearer ${localStorage.getItem('access_token') || localStorage.getItem('token')}` } })
                           const data = await res.json()
                           if (data.file_url) { setBcForm(f => ({ ...f, attachment_url: data.file_url })); setBcFileName(file.name) }
                         } catch {} finally { setBcUploading(false) }

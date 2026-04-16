@@ -69,7 +69,7 @@ export default function BusinessCardsPage() {
     async function load() {
       setLoading(true)
       try {
-        const res = await fetch(`${API}/business-cards`, { cache: 'no-store' })
+        const res = await fetch(`${API}/api/business-cards`, { cache: 'no-store' })
         const data = await res.json()
         const cards = Array.isArray(data) ? data : (data.value || [])
         const all: any[] = []

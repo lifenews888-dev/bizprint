@@ -32,7 +32,7 @@ export function useDesignApproval(designRequestId: string | null | undefined): U
     if (!designRequestId) return
     try {
       const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null
-      const res = await fetch(`${API}/design-requests/${designRequestId}`, {
+      const res = await fetch(`${API}/api/design-requests/${designRequestId}`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       })
       if (res.ok) {

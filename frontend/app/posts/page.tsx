@@ -10,7 +10,7 @@ export default function PostsPage() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    fetch(`${API}/posts`).then(r => r.json()).then(d => setPosts(Array.isArray(d) ? d : d?.data || [])).catch(() => []).finally(() => setLoading(false))
+    fetch(`${API}/api/posts`).then(r => r.json()).then(d => setPosts(Array.isArray(d) ? d : d?.data || [])).catch(() => []).finally(() => setLoading(false))
   }, [])
 
   if (loading) return <div style={{ padding: 40, textAlign: 'center', color: '#888' }}>Ачааллаж байна...</div>

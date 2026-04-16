@@ -15,7 +15,7 @@ export default function StampPage() {
   const [stage, setStage] = useState<'input' | 'result' | 'reward'>('input')
 
   useEffect(() => {
-    fetch(`${API}/loyalty/program/${id}`)
+    fetch(`${API}/api/loyalty/program/${id}`)
       .then(r => r.ok ? r.json() : null)
       .then(setProgram)
       .catch(() => {})
@@ -26,7 +26,7 @@ export default function StampPage() {
     if (phone.length < 8) return
     setSubmitting(true)
     try {
-      const res = await fetch(`${API}/loyalty/scan-phone`, {
+      const res = await fetch(`${API}/api/loyalty/scan-phone`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ campaign_id: id, phone }),

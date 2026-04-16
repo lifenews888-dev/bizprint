@@ -308,7 +308,7 @@ function EditorInner() {
     try {
       const fd = new FormData(); fd.append('file', file)
       const tok = localStorage.getItem('access_token') || localStorage.getItem('token')
-      const res = await fetch(`${API_URL}/upload/file`, { method: 'POST', body: fd, headers: tok ? { Authorization: `Bearer ${tok}` } : {} })
+      const res = await fetch(`${API_URL}/api/upload/file`, { method: 'POST', body: fd, headers: tok ? { Authorization: `Bearer ${tok}` } : {} })
       const data = await res.json()
       const url = data.file_url || data.url || ''
       if (url) {
@@ -440,7 +440,7 @@ function EditorInner() {
       fd.append('file_type', 'print_ready')
 
       const tok = localStorage.getItem('access_token') || localStorage.getItem('token')
-      await fetch(`${API_URL}/upload/file`, { method: 'POST', body: fd, headers: tok ? { Authorization: `Bearer ${tok}` } : {} })
+      await fetch(`${API_URL}/api/upload/file`, { method: 'POST', body: fd, headers: tok ? { Authorization: `Bearer ${tok}` } : {} })
 
       // Захиалгын статус шинэчлэх
       await apiFetch(`/orders/${orderId}`, { method: 'PATCH', body: { status: 'paid', payment_status: 'paid', print_file_ready: true } }).catch(() => {})

@@ -31,7 +31,7 @@ export function reportError(error: ErrorReport) {
     device_info: typeof screen !== 'undefined' ? `${screen.width}x${screen.height}` : undefined,
   }
 
-  fetch(`${API_URL}/errors/report`, {
+  fetch(`${API_URL}/api/errors/report`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),

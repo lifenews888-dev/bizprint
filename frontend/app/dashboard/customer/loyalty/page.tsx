@@ -35,7 +35,7 @@ export default function MyLoyaltyCards() {
       // Refresh cards
       const token = localStorage.getItem('access_token') || localStorage.getItem('token')
       if (token) {
-        const c = await fetch(`${API}/loyalty/my`, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()).catch(() => [])
+        const c = await fetch(`${API}/api/loyalty/my`, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()).catch(() => [])
         setCards(Array.isArray(c) ? c : [])
         setTab('my')
       }
