@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common'
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
 import { Repository } from 'typeorm'
 import { GalleryImage } from './gallery.entity'
@@ -31,6 +31,9 @@ export class GalleryService {
   }
 
   async create(data: Partial<GalleryImage>) {
+    if (!data?.url || typeof data.url !== 'string' || !data.url.trim()) {
+      throw new BadRequestException('Зургийн url заавал байх ёстой')
+    }
     const maxSort = await this.repo.maximum('sort_order') || 0
     const img = this.repo.create({ ...data, sort_order: maxSort + 1 })
     return this.repo.save(img)
