@@ -57,10 +57,15 @@ export default function AdminGalleryPage() {
         throw new Error(`Upload failed (${res.status}): ${txt || res.statusText}`)
       }
       const data = await res.json()
-      const uploaded: any[] = data?.urls || []
+      // New shape: data.images = [{ url, publicId, width, height }]
+      // Fallback to old shape: data.urls = [string]
+      const uploaded: any[] = Array.isArray(data?.images)
+        ? data.images
+        : (data?.urls || []).map((url: string) => ({ url, publicId: '', width: 0, height: 0 }))
       for (let i = 0; i < uploaded.length; i++) {
         const u = uploaded[i]
         const original = list[i]
+        if (!u?.url) continue
         try {
           await apiFetch('/admin/gallery', {
             method: 'POST',

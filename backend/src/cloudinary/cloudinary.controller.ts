@@ -20,7 +20,14 @@ export class CloudinaryController {
   }))
   async upload(@UploadedFiles() files: Express.Multer.File[]) {
     if (!files?.length) return { error: 'Файл олдсонгүй' }
-    const urls = await this.cloudinary.uploadMultiple(files.map(f => f.buffer), 'bizprint-products')
-    return { urls, count: urls.length }
+    const results = await Promise.all(
+      files.map(f => this.cloudinary.uploadImage(f.buffer, 'bizprint-gallery')),
+    )
+    // Backward compat: urls=[string] for existing callers, images=[{url, publicId, width, height}]
+    return {
+      urls: results.map(r => r.url),
+      images: results,
+      count: results.length,
+    }
   }
 }
