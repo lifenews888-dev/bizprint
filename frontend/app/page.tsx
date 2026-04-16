@@ -95,13 +95,20 @@ export default function HomePage() {
                 const ytMatch = v.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/))([^&?#]+)/)
                 const vimeoMatch = v.match(/vimeo\.com\/(\d+)/)
                 const fbMatch = v.includes('facebook.com')
-                const isDirectVideo = /\.(mp4|webm|mov|ogg)(\?|$)/i.test(v) || v.includes('cloudinary.com')
+                const isDirectVideo = /\.(mp4|webm|mov|ogg|avi)(\?|$)/i.test(v) || (v.includes('cloudinary.com') && v.includes('/video/'))
 
-                if (isDirectVideo) return (
-                  <video autoPlay muted loop playsInline className="absolute inset-0 w-full h-full object-cover">
-                    <source src={v} />
-                  </video>
-                )
+                if (isDirectVideo) {
+                  // Cloudinary: auto-convert to mp4, compress to 1080p
+                  const videoSrc = v.includes('cloudinary.com') && v.includes('/upload/')
+                    ? v.replace('/upload/', '/upload/f_mp4,q_auto,w_1920/')
+                    : v
+                  return (
+                    <video autoPlay muted loop playsInline className="absolute inset-0 w-full h-full object-cover">
+                      <source src={videoSrc} type="video/mp4" />
+                      <source src={v} />
+                    </video>
+                  )
+                }
 
                 const embedUrl = ytMatch
                   ? `https://www.youtube-nocookie.com/embed/${ytMatch[1]}?autoplay=1&mute=1&loop=1&controls=0&showinfo=0&rel=0&modestbranding=1&enablejsapi=1&playsinline=1&origin=${typeof window !== 'undefined' ? window.location.origin : ''}&playlist=${ytMatch[1]}`
