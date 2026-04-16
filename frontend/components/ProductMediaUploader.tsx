@@ -24,19 +24,29 @@ export default function ProductMediaUploader({ images, videoUrl, onChange, token
   const uploadFile = async (file: File, slotIndex: number) => {
     setUploading(slotIndex)
     try {
-      const fd = new FormData()
-      fd.append('files', file)
+      // Try Cloudinary first
+      const fd = new FormData(); fd.append('files', file)
       const res = await fetch(`${API}/api/upload/images`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
         body: fd,
       })
-      const data = await res.json()
-      const url = data?.images?.[0]?.url || data?.urls?.[0] || ''
-      if (url) {
-        const newImages = [...safeImages]
-        newImages[slotIndex] = url
-        onChange(newImages.filter(Boolean), videoInput)
+      if (res.ok) {
+        const data = await res.json()
+        const url = data?.images?.[0]?.url || data?.urls?.[0] || ''
+        if (url) { const n = [...safeImages]; n[slotIndex] = url; onChange(n.filter(Boolean), videoInput); return }
+      }
+      // Fallback to local upload
+      const fd2 = new FormData(); fd2.append('file', file)
+      const res2 = await fetch(`${API}/api/upload/file`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        body: fd2,
+      })
+      const data2 = await res2.json()
+      if (data2?.file_url) {
+        const url = data2.file_url.startsWith('http') ? data2.file_url : `${API}${data2.file_url}`
+        const n = [...safeImages]; n[slotIndex] = url; onChange(n.filter(Boolean), videoInput)
       }
     } finally {
       setUploading(null)

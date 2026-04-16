@@ -148,20 +148,36 @@ export default function AdminHeroSlides() {
     const file = e.target.files?.[0]
     if (!file) return
     setUploading(true)
-    const fd = new FormData(); fd.append('files', file)
+    const token = getToken() || ''
     try {
-      const token = getToken() || ''
+      // Try Cloudinary first
+      const fd = new FormData(); fd.append('files', file)
       const res = await fetch(`${API_URL}/api/upload/images`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
         body: fd,
       })
-      if (!res.ok) throw new Error('Upload failed')
-      const data = await res.json()
-      const url = data?.images?.[0]?.url || data?.urls?.[0] || ''
-      if (url) { setForm((f: any) => ({ ...f, image_url: url })); toast.success('Зураг амжилттай') }
-      else toast.error('Зургийн URL олдсонгүй')
-    } catch { toast.error('Upload алдаа') }
+      if (res.ok) {
+        const data = await res.json()
+        const url = data?.images?.[0]?.url || data?.urls?.[0] || ''
+        if (url) { setForm((f: any) => ({ ...f, image_url: url })); toast.success('Зураг амжилттай'); setUploading(false); return }
+      }
+      // Fallback to local upload
+      const fd2 = new FormData(); fd2.append('file', file)
+      const res2 = await fetch(`${API_URL}/api/upload/file`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        body: fd2,
+      })
+      const data2 = await res2.json()
+      if (data2?.file_url) {
+        const fullUrl = data2.file_url.startsWith('http') ? data2.file_url : `${API_URL}${data2.file_url}`
+        setForm((f: any) => ({ ...f, image_url: fullUrl }))
+        toast.success('Зураг амжилттай (local)')
+      } else {
+        toast.error('Upload алдаа: ' + (data2?.error || ''))
+      }
+    } catch (err: any) { toast.error('Upload алдаа: ' + (err?.message || '')) }
     setUploading(false)
   }
 
