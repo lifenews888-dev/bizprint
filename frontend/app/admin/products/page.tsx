@@ -866,6 +866,18 @@ function ShopProductsTab() {
   const [error, setError] = useState('')
   const [categories, setCategories] = useState<any[]>([])
   const [validation, setValidation] = useState<Record<string, boolean>>({})
+  const [selectedIds, setSelectedIds] = useState<string[]>([])
+  const toggleSelect = (id: string) => setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
+  const bulkMove = async (type: string) => {
+    if (!confirm(`${selectedIds.length} бараа-г "${PRODUCT_TYPES.find(t => t.value === type)?.label}" руу шилжүүлэх үү?`)) return
+    await apiFetch('/admin/products-master/bulk-move', { method: 'POST', body: { ids: selectedIds, product_type: type } as any })
+    setSelectedIds([]); load()
+  }
+  const bulkDelete = async () => {
+    if (!confirm(`${selectedIds.length} бараа устгах уу?`)) return
+    await apiFetch('/admin/products-master/bulk-delete', { method: 'POST', body: { ids: selectedIds } as any })
+    setSelectedIds([]); load()
+  }
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -981,7 +993,13 @@ function ShopProductsTab() {
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 10 }}>
         <p style={{ color: 'var(--text2)', fontSize: 13, margin: 0 }}>Тогтмол үнэтэй дэлгүүрийн бүтээгдэхүүн — нийт {total}</p>
-        <button onClick={openCreate} style={btnPrimary}>+ Нэмэх</button>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button onClick={() => setSelectedIds(selectedIds.length === items.length ? [] : items.map(i => i.id))}
+            style={{ ...btnSecondary, fontSize: 11, padding: '6px 12px' }}>
+            {selectedIds.length === items.length && items.length > 0 ? '☐ Болих' : '☑ Бүгд'}
+          </button>
+          <button onClick={openCreate} style={btnPrimary}>+ Нэмэх</button>
+        </div>
       </div>
       {error && !modalOpen && <div style={{ background: 'rgba(239,68,68,0.1)', color: '#EF4444', padding: '10px 14px', borderRadius: 8, marginBottom: 12, fontSize: 13 }}>{error}</div>}
       {loading ? (
@@ -1000,11 +1018,15 @@ function ShopProductsTab() {
             const bp = Number(item.base_price || 0)
             const disc = bp > 0 && sp > 0 && sp < bp ? Math.round((1 - sp / bp) * 100) : 0
             return (
-              <div key={item.id} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden', opacity: item.is_active === false ? 0.55 : 1 }}>
+              <div key={item.id} style={{ background: 'var(--surface)', border: selectedIds.includes(item.id) ? '2px solid #FF6B00' : '1px solid var(--border)', borderRadius: 12, overflow: 'hidden', opacity: item.is_active === false ? 0.55 : 1 }}>
                 {/* Thumbnail */}
                 <div style={{ height: 140, background: 'var(--surface2)', position: 'relative', overflow: 'hidden' }}>
                   {item.thumbnail_url ? <img src={item.thumbnail_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> :
                     <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 36 }}>🏷️</div>}
+                  <div style={{ position: 'absolute', top: 8, right: 8, zIndex: 5 }}>
+                    <input type="checkbox" checked={selectedIds.includes(item.id)} onChange={() => toggleSelect(item.id)}
+                      style={{ accentColor: '#FF6B00', width: 18, height: 18, cursor: 'pointer' }} />
+                  </div>
                   <div style={{ position: 'absolute', top: 8, left: 8, display: 'flex', flexDirection: 'column', gap: 3 }}>
                     {disc > 0 && <span style={{ background: '#EF4444', color: '#fff', fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 6 }}>-{disc}%</span>}
                     {item.badge && <span style={{ background: BADGE_OPTIONS.find(b => b.value === item.badge)?.color || '#888', color: '#fff', fontSize: 9, fontWeight: 700, padding: '2px 6px', borderRadius: 6 }}>{BADGE_OPTIONS.find(b => b.value === item.badge)?.label?.replace(/^.\s/, '') || item.badge}</span>}
@@ -1036,6 +1058,8 @@ function ShopProductsTab() {
           })}
         </div>
       )}
+
+      <BulkActionBar selected={selectedIds} onMove={bulkMove} onDelete={bulkDelete} onClear={() => setSelectedIds([])} />
 
       {/* ═══ PRODUCT MODAL ═══ */}
       {modalOpen && (
@@ -1205,6 +1229,18 @@ function SignageProductsTab() {
   const [editing, setEditing] = useState<any>(null)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [selectedIds, setSelectedIds] = useState<string[]>([])
+  const toggleSelect = (id: string) => setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
+  const bulkMove = async (type: string) => {
+    if (!confirm(`${selectedIds.length} бараа шилжүүлэх үү?`)) return
+    await apiFetch('/admin/products-master/bulk-move', { method: 'POST', body: { ids: selectedIds, product_type: type } as any })
+    setSelectedIds([]); load()
+  }
+  const bulkDelete = async () => {
+    if (!confirm(`${selectedIds.length} бараа устгах уу?`)) return
+    await apiFetch('/admin/products-master/bulk-delete', { method: 'POST', body: { ids: selectedIds } as any })
+    setSelectedIds([]); load()
+  }
   const [form, setForm] = useState({
     name_mn: '', description: '', category: 'signage', thumbnail_url: '', images: [] as string[],
     pricing_mode: 'formula', order_flow: 'site_survey', requires_dimensions: true, requires_quote_approval: true,
@@ -1261,7 +1297,11 @@ function SignageProductsTab() {
   return (
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-        <p style={{ color: 'var(--text2)', fontSize: 13, margin: 0 }}>Гадна/дотор хаяг реклам, самбар — М² тооцоолол, суурилуулалт</p>
+        <p style={{ color: 'var(--text2)', fontSize: 13, margin: 0 }}>Гадна/дотор хаяг реклам, самбар</p>
+        <button onClick={() => setSelectedIds(selectedIds.length === items.length ? [] : items.map(i => i.id))}
+          style={{ ...btnSecondary, fontSize: 11, padding: '6px 12px' }}>
+          {selectedIds.length === items.length && items.length > 0 ? '☐ Болих' : '☑ Бүгд'}
+        </button>
         <button onClick={() => { setEditing(null); setForm({ name_mn: '', description: '', category: 'signage', thumbnail_url: '', images: [], pricing_mode: 'formula', order_flow: 'site_survey', requires_dimensions: true, requires_quote_approval: true, price_formula: { type: 'area_based', price_per_m2: 0, min_area_m2: 0.25, options: {} }, badge: '', is_featured: false, is_new: false, video_url: '' }); setModalOpen(true) }} style={btnPrimary}>+ Шинэ самбар</button>
       </div>
 
@@ -1277,8 +1317,10 @@ function SignageProductsTab() {
           {items.map(item => {
             const pf = item.price_formula || {}
             return (
-              <div key={item.id} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: 16 }}>
+              <div key={item.id} style={{ background: 'var(--surface)', border: selectedIds.includes(item.id) ? '2px solid #FF6B00' : '1px solid var(--border)', borderRadius: 12, padding: 16 }}>
                 <div style={{ display: 'flex', gap: 10 }}>
+                  <input type="checkbox" checked={selectedIds.includes(item.id)} onChange={() => toggleSelect(item.id)}
+                    style={{ accentColor: '#FF6B00', width: 16, height: 16, cursor: 'pointer', flexShrink: 0 }} />
                   {item.thumbnail_url ? <img src={item.thumbnail_url} alt="" style={{ width: 60, height: 60, objectFit: 'cover', borderRadius: 8 }} /> :
                     <div style={{ width: 60, height: 60, borderRadius: 8, background: 'var(--surface2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24 }}>🪧</div>}
                   <div style={{ flex: 1 }}>
@@ -1301,6 +1343,8 @@ function SignageProductsTab() {
           })}
         </div>
       )}
+
+      <BulkActionBar selected={selectedIds} onMove={bulkMove} onDelete={bulkDelete} onClear={() => setSelectedIds([])} />
 
       {/* Modal */}
       {modalOpen && (
@@ -1567,6 +1611,18 @@ function OffsetProductsTab() {
   const [loading, setLoading] = useState(true)
   const [modalOpen, setModalOpen] = useState(false)
   const [editingIdx, setEditingIdx] = useState<number | null>(null)
+  const [selectedIds, setSelectedIds] = useState<string[]>([])
+  const toggleSelect = (id: string) => setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
+  const bulkMove = async (type: string) => {
+    if (!confirm(`${selectedIds.length} бараа шилжүүлэх үү?`)) return
+    await apiFetch('/admin/products-master/bulk-move', { method: 'POST', body: { ids: selectedIds, product_type: type } as any })
+    setSelectedIds([]); loadProducts()
+  }
+  const bulkDelete = async () => {
+    if (!confirm(`${selectedIds.length} бараа устгах уу?`)) return
+    await apiFetch('/admin/products-master/bulk-delete', { method: 'POST', body: { ids: selectedIds } as any })
+    setSelectedIds([]); loadProducts()
+  }
 
   const loadProducts = useCallback(async () => {
     try {
@@ -1657,7 +1713,13 @@ function OffsetProductsTab() {
         <p style={{ color: 'var(--text2)', fontSize: 13, margin: 0 }}>
           Офсет/Дижитал бүтээгдэхүүн — нийт {products.length}
         </p>
-        <button onClick={openNew} style={btnPrimary}>+ Шинэ бүтээгдэхүүн</button>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button onClick={() => setSelectedIds(selectedIds.length === products.length ? [] : products.map(p => p.id))}
+            style={{ ...btnSecondary, fontSize: 11, padding: '6px 12px' }}>
+            {selectedIds.length === products.length && products.length > 0 ? '☐ Болих' : '☑ Бүгд'}
+          </button>
+          <button onClick={openNew} style={btnPrimary}>+ Шинэ бүтээгдэхүүн</button>
+        </div>
       </div>
 
       {products.length === 0 ? (
@@ -1670,10 +1732,14 @@ function OffsetProductsTab() {
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 16 }}>
           {products.map((p, i) => (
-            <div key={p.id} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden', cursor: 'pointer', transition: 'box-shadow 0.2s' }}
+            <div key={p.id} style={{ background: 'var(--surface)', border: selectedIds.includes(p.id) ? '2px solid #FF6B00' : '1px solid var(--border)', borderRadius: 12, overflow: 'hidden', cursor: 'pointer', transition: 'box-shadow 0.2s' }}
               onClick={() => openEdit(i)} onMouseOver={e => (e.currentTarget.style.boxShadow = '0 4px 20px rgba(0,0,0,0.1)')} onMouseOut={e => (e.currentTarget.style.boxShadow = 'none')}>
               {/* Image */}
               <div style={{ height: 160, background: 'var(--surface2)', position: 'relative', overflow: 'hidden' }}>
+                <div style={{ position: 'absolute', top: 8, right: 8, zIndex: 5 }} onClick={e => e.stopPropagation()}>
+                  <input type="checkbox" checked={selectedIds.includes(p.id)} onChange={() => toggleSelect(p.id)}
+                    style={{ accentColor: '#FF6B00', width: 18, height: 18, cursor: 'pointer' }} />
+                </div>
                 {p.images?.[0] ? (
                   <img src={p.images[0]} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                 ) : (
@@ -1719,6 +1785,8 @@ function OffsetProductsTab() {
           ))}
         </div>
       )}
+
+      <BulkActionBar selected={selectedIds} onMove={bulkMove} onDelete={bulkDelete} onClear={() => setSelectedIds([])} />
 
       {modalOpen && (
         <OffsetCalculatorModal
