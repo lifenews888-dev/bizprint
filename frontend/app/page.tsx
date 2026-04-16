@@ -88,13 +88,15 @@ export default function HomePage() {
           heroSlides.map((slide, i) => (
             <div key={slide.id || i} className="absolute inset-0 transition-opacity duration-700" style={{ opacity: i === heroIdx ? 1 : 0, zIndex: i === heroIdx ? 1 : 0 }}>
               {slide.video_url && (slide.video_url.includes('youtube.com') || slide.video_url.includes('youtu.be')) ? (
-                <iframe
-                  src={`https://www.youtube.com/embed/${slide.video_url.match(/(?:youtu\.be\/|v=)([^&?#]+)/)?.[1] || ''}?autoplay=1&mute=1&loop=1&controls=0&showinfo=0&rel=0&playlist=${slide.video_url.match(/(?:youtu\.be\/|v=)([^&?#]+)/)?.[1] || ''}`}
-                  className="absolute inset-0 w-full h-full border-none pointer-events-none"
-                  style={{ transform: 'scale(1.2)' }}
-                  allow="autoplay; encrypted-media"
-                  allowFullScreen
-                />
+                <div className="absolute inset-0 overflow-hidden pointer-events-none">
+                  <iframe
+                    src={`https://www.youtube.com/embed/${slide.video_url.match(/(?:youtu\.be\/|v=)([^&?#]+)/)?.[1] || ''}?autoplay=1&mute=1&loop=1&controls=0&showinfo=0&rel=0&modestbranding=1&playlist=${slide.video_url.match(/(?:youtu\.be\/|v=)([^&?#]+)/)?.[1] || ''}`}
+                    className="absolute border-none"
+                    style={{ top: '50%', left: '50%', width: '177.78vh', height: '56.25vw', minWidth: '100%', minHeight: '100%', transform: 'translate(-50%, -50%)' }}
+                    allow="autoplay; encrypted-media"
+                    allowFullScreen
+                  />
+                </div>
               ) : slide.video_url ? (
                 <video autoPlay muted loop playsInline className="absolute inset-0 w-full h-full object-cover">
                   <source src={slide.video_url} type="video/mp4" />
