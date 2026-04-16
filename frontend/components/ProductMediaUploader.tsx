@@ -25,16 +25,17 @@ export default function ProductMediaUploader({ images, videoUrl, onChange, token
     setUploading(slotIndex)
     try {
       const fd = new FormData()
-      fd.append('file', file)
-      const res = await fetch(`${API}/api/upload/file`, {
+      fd.append('files', file)
+      const res = await fetch(`${API}/api/upload/images`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
         body: fd,
       })
       const data = await res.json()
-      if (data.file_url) {
+      const url = data?.images?.[0]?.url || data?.urls?.[0] || ''
+      if (url) {
         const newImages = [...safeImages]
-        newImages[slotIndex] = API + data.file_url
+        newImages[slotIndex] = url
         onChange(newImages.filter(Boolean), videoInput)
       }
     } finally {
