@@ -149,9 +149,9 @@ export function SiteSettingsProvider({ children }: { children: ReactNode }) {
 
   const fetchSettings = useCallback(() => {
     Promise.all([
-      fetch(`${API}/cms/settings/public`).then(r => r.ok ? r.json() : null).catch(() => null),
-      fetch(`${API}/cms/mega-menu/public`).then(r => r.ok ? r.json() : null).catch(() => null),
-      fetch(`${API}/mega-menu/public`).then(r => r.ok ? r.json() : null).catch(() => null),
+      fetch(`${API}/api/cms/settings/public`).then(r => r.ok ? r.json() : null).catch(() => null),
+      fetch(`${API}/api/cms/mega-menu/public`).then(r => r.ok ? r.json() : null).catch(() => null),
+      fetch(`${API}/api/mega-menu/public`).then(r => r.ok ? r.json() : null).catch(() => null),
     ]).then(([s, m, v2]) => {
       // V2 mega menu → convert to unified megaMenu format
       if (v2 && v2.columns?.length > 0) {
