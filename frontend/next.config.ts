@@ -36,7 +36,7 @@ const nextConfig: NextConfig = {
               "img-src 'self' data: blob: https://res.cloudinary.com https://*.bizprint.mn https://images.unsplash.com https://*.facebook.com https://*.fbcdn.net",
               "font-src 'self' data:",
               "connect-src 'self' https://api.bizprint.mn https://*.bizprint.mn wss://*.bizprint.mn https://bizprint-production.up.railway.app https://*.up.railway.app http://localhost:4000 ws://localhost:4000 https://*.facebook.com https://connect.facebook.net",
-              "frame-src https://*.facebook.com",
+              "frame-src https://*.facebook.com https://www.youtube.com https://www.youtube-nocookie.com https://player.vimeo.com",
               "frame-ancestors 'none'",
             ].join('; '),
           },
