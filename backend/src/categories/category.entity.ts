@@ -42,6 +42,12 @@ export class Category {
   @Column({ default: false })
   show_in_menu: boolean;
 
+  @Column({ default: false })
+  show_in_mega_menu: boolean;
+
+  @Column({ nullable: true })
+  menu_group: string;
+
   @Column({ default: true })
   is_active: boolean;
 

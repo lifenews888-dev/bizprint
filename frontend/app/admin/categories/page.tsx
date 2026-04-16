@@ -51,7 +51,15 @@ const ATTR_TYPES = [
   { value: 'dimensions', label: 'Хэмжээс' },
 ]
 
-const EMPTY_CAT = { name:'', name_mn:'', slug:'', description:'', icon:'📦', color:'#FF6B00', parent_id: null as string|null, sort_order:0, is_active:true }
+const EMPTY_CAT = { name:'', name_mn:'', slug:'', description:'', icon:'📦', color:'#FF6B00', parent_id: null as string|null, sort_order:0, is_active:true, show_in_mega_menu:false, menu_group:'' }
+const MENU_GROUPS = [
+  { value: '', label: '— Сонгоно уу —' },
+  { value: 'offset', label: '🖨️ Офсет хэвлэл' },
+  { value: 'digital', label: '🏷️ Дижитал хэвлэл' },
+  { value: 'wide-format', label: '🪧 Өргөн формат' },
+  { value: 'promo', label: '👕 Промо & Хувцас' },
+  { value: 'signage', label: '🔤 Гадна зар' },
+]
 const EMPTY_ATTR = { product_id:'', name:'', name_mn:'', type:'select', options:[] as string[], unit:'', default_value:'', required:false, sort_order:0 }
 
 const inp: React.CSSProperties = { width:'100%', padding:'9px 12px', background:'var(--surface2)', border:'1px solid var(--border)', borderRadius:8, color:'var(--text)', fontSize:14, outline:'none', boxSizing:'border-box' }
@@ -124,7 +132,7 @@ export default function AdminCategoriesPage() {
   }
   function openCatEdit(c: Category) {
     setCatEdit(c)
-    setCatForm({ name:c.name, name_mn:c.name_mn||'', slug:c.slug||'', description:c.description||'', icon:c.icon||'📦', color:c.color||'#FF6B00', parent_id:c.parent_id, sort_order:c.sort_order||0, is_active:c.is_active })
+    setCatForm({ name:c.name, name_mn:c.name_mn||'', slug:c.slug||'', description:c.description||'', icon:c.icon||'📦', color:c.color||'#FF6B00', parent_id:c.parent_id, sort_order:c.sort_order||0, is_active:c.is_active, show_in_mega_menu:(c as any).show_in_mega_menu||false, menu_group:(c as any).menu_group||'' })
     setCatModal(true)
   }
   async function saveCat() {
@@ -232,6 +240,9 @@ export default function AdminCategoriesPage() {
                       <div style={{fontWeight:600, fontSize:14}}>{cat.name}</div>
                       {cat.name_mn && <div style={{fontSize:11, color:'var(--text2)'}}>{cat.name_mn}</div>}
                     </div>
+                    {(cat as any).show_in_mega_menu && (
+                      <span style={{ background:'rgba(255,107,0,0.15)', color:'#FF6B00', borderRadius:20, padding:'2px 8px', fontSize:10, fontWeight:600 }}>🧭 Меню</span>
+                    )}
                     {(cat.children?.length||0) > 0 && (
                       <span style={{ background:'rgba(255,107,0,0.15)', color:'#FF6B00', borderRadius:20, padding:'2px 8px', fontSize:11, fontWeight:600 }}>
                         {cat.children!.length}
@@ -370,12 +381,32 @@ export default function AdminCategoriesPage() {
                   style={{width:28, height:28, borderRadius:'50%', background:c, border:'none', cursor:'pointer', outline:catForm.color===c?'3px solid '+c:'none', outlineOffset:2}} />
               ))}
             </div>
-            <div style={{display:'flex', alignItems:'center', gap:10, marginBottom:20}}>
+            <div style={{display:'flex', alignItems:'center', gap:10, marginBottom:12}}>
               <button onClick={()=>setCatForm(f=>({...f, is_active:!f.is_active}))}
                 style={{width:44, height:24, borderRadius:12, border:'none', background:catForm.is_active?'#10B981':'var(--border)', cursor:'pointer', position:'relative', transition:'background 0.2s'}}>
                 <span style={{position:'absolute', top:3, left:catForm.is_active?22:2, width:18, height:18, borderRadius:'50%', background:'var(--surface)', transition:'left 0.2s'}} />
               </button>
               <span style={{fontSize:14}}>Идэвхтэй</span>
+            </div>
+            <div style={{borderTop:'1px solid var(--border)', paddingTop:12, marginBottom:12}}>
+              <div style={{fontSize:12, fontWeight:700, color:'var(--text3)', marginBottom:8}}>🧭 МЕГА МЕНЮ ТОХИРГОО</div>
+              <div style={{display:'flex', alignItems:'center', gap:10, marginBottom:10}}>
+                <button onClick={()=>setCatForm(f=>({...f, show_in_mega_menu:!f.show_in_mega_menu}))}
+                  style={{width:44, height:24, borderRadius:12, border:'none', background:catForm.show_in_mega_menu?'#FF6B00':'var(--border)', cursor:'pointer', position:'relative', transition:'background 0.2s'}}>
+                  <span style={{position:'absolute', top:3, left:catForm.show_in_mega_menu?22:2, width:18, height:18, borderRadius:'50%', background:'var(--surface)', transition:'left 0.2s'}} />
+                </button>
+                <span style={{fontSize:13}}>Мега меню-д харуулах</span>
+              </div>
+              {catForm.show_in_mega_menu && (
+                <div>
+                  <span style={{fontSize:12, fontWeight:600, color:'var(--text2)', display:'block', marginBottom:2}}>Меню бүлэг</span>
+                  <select value={catForm.menu_group} onChange={e=>setCatForm(f=>({...f, menu_group:e.target.value}))}
+                    style={{width:'100%', padding:'8px 12px', borderRadius:8, border:'1px solid var(--border)', background:'var(--surface)', color:'var(--text)', fontSize:13, marginTop:4}}>
+                    {MENU_GROUPS.map(g=><option key={g.value} value={g.value}>{g.label}</option>)}
+                  </select>
+                  <div style={{fontSize:10, color:'var(--text4)', marginTop:4}}>Мега меню-д аль баганад байрлахыг тодорхойлно</div>
+                </div>
+              )}
             </div>
             <div style={{display:'flex', gap:10, justifyContent:'flex-end'}}>
               <button onClick={()=>setCatModal(false)} style={{padding:'10px 18px', background:'var(--surface2)', color:'var(--text)', border:'1px solid var(--border)', borderRadius:8, fontWeight:600, fontSize:14, cursor:'pointer'}}>Болих</button>

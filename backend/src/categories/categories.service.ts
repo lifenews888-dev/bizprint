@@ -23,9 +23,14 @@ export class CategoriesService {
     const all = await this.repo.find({ where: { is_active: true }, order: { sort_order: 'ASC' } });
     const roots = all.filter(c => !c.parent_id);
     return roots.map(r => ({
-      id: r.id, name: r.name, name_mn: r.name_mn, slug: r.slug, icon: r.icon,
-      show_in_menu: (r as any).show_in_menu ?? true,
-      children: all.filter(c => c.parent_id === r.id).map(c => ({ id: c.id, name: c.name, name_mn: c.name_mn, slug: c.slug, icon: c.icon })),
+      id: r.id, name: r.name, name_mn: r.name_mn, slug: r.slug, icon: r.icon, color: r.color,
+      show_in_menu: r.show_in_menu ?? true,
+      show_in_mega_menu: (r as any).show_in_mega_menu ?? false,
+      menu_group: (r as any).menu_group || null,
+      children: all.filter(c => c.parent_id === r.id).map(c => ({
+        id: c.id, name: c.name, name_mn: c.name_mn, slug: c.slug, icon: c.icon,
+        show_in_mega_menu: (c as any).show_in_mega_menu ?? false,
+      })),
     }));
   }
 

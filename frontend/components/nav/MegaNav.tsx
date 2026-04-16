@@ -41,23 +41,24 @@ export default function MegaNav() {
   // Get categories from the MEGA nav item (for mega dropdown)
   const megaItem = megaMenu.find((m: any) => m.nav_type === 'MEGA')
 
-  // Fetch real categories from DB for АНГИЛАЛ flyout
+  // Fetch categories marked for mega menu from DB
   const [navCategories, setNavCategories] = useState<any[]>([])
   useEffect(() => {
     const api = typeof window !== 'undefined' ? (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000') : ''
-    fetch(`${api}/categories/navigation`).then(r => r.ok ? r.json() : []).then(data => {
+    fetch(`${api}/api/categories/navigation`).then(r => r.ok ? r.json() : []).then(data => {
       if (Array.isArray(data) && data.length > 0) setNavCategories(data)
     }).catch(() => {})
   }, [])
 
-  // For АНГИЛАЛ: use DB categories if available, fallback to mega menu columns
-  const catGroups = navCategories.length > 0
-    ? navCategories.filter((c: any) => c.children?.length > 0).map((c: any) => ({
+  // Build mega menu: prefer mega menu admin config, enrich with categories marked show_in_mega_menu
+  const megaCategories = navCategories.filter((c: any) => c.show_in_mega_menu && c.children?.length > 0)
+  const catGroups = megaCategories.length > 0
+    ? megaCategories.map((c: any) => ({
         title: c.name_mn || c.name,
         icon: c.icon || '📦',
         color: c.color || '#FF6B00',
         slug: c.slug,
-        items: c.children.map((ch: any) => ({
+        items: c.children.filter((ch: any) => ch.show_in_mega_menu !== false).map((ch: any) => ({
           label: ch.name_mn || ch.name,
           url: `/shop?category=${ch.slug}`,
           desc: '',
