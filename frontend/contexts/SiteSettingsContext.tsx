@@ -154,7 +154,11 @@ export function SiteSettingsProvider({ children }: { children: ReactNode }) {
       fetch(`${API}/api/mega-menu/public`).then(r => r.ok ? r.json() : null).catch(() => null),
     ]).then(([s, m, v2]) => {
       // V2 mega menu → convert to unified megaMenu format
-      if (v2 && v2.columns?.length > 0) {
+      // Only use V2 if it has real content (categories with items), otherwise fall back to legacy
+      const v2HasContent = v2 && v2.columns?.some((c: any) =>
+        (c.categories || []).some((cat: any) => (cat.items || []).length > 0)
+      )
+      if (v2HasContent) {
         setMegaMenuV2(v2)
         // Build a unified "Бүтээгдэхүүн" mega nav item from V2 data
         const v2MegaItem = {
