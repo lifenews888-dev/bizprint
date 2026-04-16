@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { apiFetch, getToken, API_URL } from '@/lib/api'
 import { AdminPageHeader } from '@/components/admin/AdminPageHeader'
 import { Button } from '@/components/ui/button'
@@ -92,6 +92,8 @@ export default function AdminHeroSlides() {
   const [form, setForm] = useState<any>({ ...EMPTY_FORM })
   const [editingId, setEditingId] = useState<string | null>(null)
   const [uploading, setUploading] = useState(false)
+  const imgInputRef = useRef<HTMLInputElement>(null)
+  const vidInputRef = useRef<HTMLInputElement>(null)
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
 
@@ -272,9 +274,9 @@ export default function AdminHeroSlides() {
               <Label className="text-xs">Зураг URL</Label>
               <div className="flex gap-2 mt-1.5">
                 <Input value={form.image_url} onChange={e => setForm({ ...form, image_url: e.target.value })} placeholder="https://..." className="flex-1" />
-                <Button variant="outline" size="sm" className="relative shrink-0" disabled={uploading}>
+                <input ref={imgInputRef} type="file" accept="image/*" onChange={e => { handleMediaUpload(e, 'image_url'); e.target.value = '' }} className="hidden" />
+                <Button variant="outline" size="sm" className="shrink-0" disabled={uploading} onClick={() => imgInputRef.current?.click()}>
                   <Upload className="h-3.5 w-3.5 mr-1" />{uploading ? '...' : 'Upload'}
-                  <input type="file" accept="image/*" onChange={e => handleMediaUpload(e, 'image_url')} className="absolute inset-0 opacity-0 cursor-pointer" />
                 </Button>
               </div>
             </div>
@@ -321,9 +323,9 @@ export default function AdminHeroSlides() {
                 <Label className="text-xs">Video URL (optional)</Label>
                 <div className="flex gap-2 mt-1.5">
                   <Input value={form.video_url} onChange={e => setForm({ ...form, video_url: e.target.value })} className="flex-1 font-mono" placeholder="https://..." />
-                  <Button variant="outline" size="sm" className="relative shrink-0" disabled={uploading}>
+                  <input ref={vidInputRef} type="file" accept="video/*,image/*" onChange={e => { handleMediaUpload(e, 'video_url'); e.target.value = '' }} className="hidden" />
+                  <Button variant="outline" size="sm" className="shrink-0" disabled={uploading} onClick={() => vidInputRef.current?.click()}>
                     <Upload className="h-3.5 w-3.5 mr-1" />{uploading ? '...' : '🎬'}
-                    <input type="file" accept="video/*" onChange={e => handleMediaUpload(e, 'video_url')} className="absolute inset-0 opacity-0 cursor-pointer" />
                   </Button>
                 </div>
               </div>
