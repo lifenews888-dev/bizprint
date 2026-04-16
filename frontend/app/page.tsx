@@ -43,7 +43,10 @@ export default function HomePage() {
 
   useEffect(() => {
     apiFetch<any>('/cms/hero-slides/public', { auth: false }).then(d => {
-      if (Array.isArray(d)) setHeroSlides(d)
+      if (Array.isArray(d)) {
+        setHeroSlides(d)
+        if (typeof window !== 'undefined') console.log('[Hero] Loaded', d.length, 'slides', d.map((s: any) => ({ id: s.id?.slice(0, 8), video: !!s.video_url, img: !!s.image_url })))
+      }
     }).catch(() => {})
   }, [])
 
@@ -93,20 +96,22 @@ export default function HomePage() {
                 const vimeoMatch = v.match(/vimeo\.com\/(\d+)/)
                 const fbMatch = v.includes('facebook.com')
                 const embedUrl = ytMatch
-                  ? `https://www.youtube.com/embed/${ytMatch[1]}?autoplay=1&mute=1&loop=1&controls=0&showinfo=0&rel=0&modestbranding=1&playlist=${ytMatch[1]}`
+                  ? `https://www.youtube.com/embed/${ytMatch[1]}?autoplay=1&mute=1&loop=1&controls=0&showinfo=0&rel=0&modestbranding=1&enablejsapi=1&playsinline=1&playlist=${ytMatch[1]}`
                   : vimeoMatch
                   ? `https://player.vimeo.com/video/${vimeoMatch[1]}?autoplay=1&muted=1&loop=1&background=1`
                   : fbMatch
                   ? `https://www.facebook.com/plugins/video.php?href=${encodeURIComponent(v)}&show_text=false&autoplay=true&mute=true`
                   : null
                 return embedUrl ? (
-                  <div className="absolute inset-0 overflow-hidden pointer-events-none">
+                  <div className="absolute inset-0 overflow-hidden pointer-events-none" style={{ zIndex: 0 }}>
                     <iframe
                       src={embedUrl}
                       className="absolute border-none"
-                      style={{ top: '50%', left: '50%', width: '177.78vh', height: '56.25vw', minWidth: '100%', minHeight: '100%', transform: 'translate(-50%, -50%)' }}
-                      allow="autoplay; encrypted-media"
+                      style={{ top: '50%', left: '50%', width: '177.78vh', height: '56.25vw', minWidth: '100%', minHeight: '100%', transform: 'translate(-50%, -50%)', zIndex: 1 }}
+                      allow="autoplay; encrypted-media; accelerometer; gyroscope"
                       allowFullScreen
+                      loading="eager"
+                      referrerPolicy="no-referrer-when-downgrade"
                     />
                   </div>
                 ) : (
