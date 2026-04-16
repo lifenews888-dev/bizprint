@@ -133,8 +133,12 @@ export default function HomePage() {
           </div>
         )}
 
-        {/* Dark overlay for text readability */}
-        <div className="absolute inset-0 bg-gradient-to-r from-black/80 via-black/50 to-black/20 z-[2]" />
+        {/* Dark overlay for text readability — lighter when video is playing */}
+        <div className="absolute inset-0 z-[2]" style={{
+          background: heroSlides[heroIdx]?.video_url
+            ? 'linear-gradient(to right, rgba(0,0,0,0.5), rgba(0,0,0,0.2), transparent)'
+            : 'linear-gradient(to right, rgba(0,0,0,0.8), rgba(0,0,0,0.5), rgba(0,0,0,0.2))'
+        }} />
 
         {/* Slide indicators */}
         {heroSlides.length > 1 && (
