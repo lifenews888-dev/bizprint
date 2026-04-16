@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react'
 import { API_URL } from '@/lib/api'
 
-const CATEGORIES = ['Бүгд', 'Нэрийн хуудас', 'Флаер', 'Баннер', 'Хаяг', 'Ном', 'Хайрцаг', 'Стикер']
+const FALLBACK_CATEGORIES = ['Бүгд', 'Нэрийн хуудас', 'Флаер', 'Баннер', 'Хаяг', 'Ном', 'Хайрцаг', 'Стикер']
 
 const FALLBACK_GALLERY = [
   { id: 1, title: 'Корпорэйт нэрийн хуудас', category: 'Нэрийн хуудас', image: 'https://images.unsplash.com/photo-1611532736597-de2d4265fba3?w=600', description: '350gsm, soft-touch ламинат', featured: true },
@@ -37,6 +37,18 @@ export default function GalleryPage() {
   const [cat, setCat] = useState('Бүгд')
   const [lightbox, setLightbox] = useState<any>(null)
   const [gallery, setGallery] = useState(FALLBACK_GALLERY)
+  const [categories, setCategories] = useState<string[]>(FALLBACK_CATEGORIES)
+
+  // Fetch categories from system
+  useEffect(() => {
+    fetch(`${API_URL}/api/categories`).then(r => r.json())
+      .then((cats: any[]) => {
+        if (!Array.isArray(cats)) return
+        const roots = cats.filter(c => !c.parent_id && c.is_active)
+        const names = roots.map(c => c.name_mn || c.name).filter(Boolean).sort()
+        if (names.length > 0) setCategories(['Бүгд', ...names])
+      }).catch(() => {})
+  }, [])
 
   // Fetch admin-uploaded images, merge with fallback if few
   useEffect(() => {
@@ -58,7 +70,7 @@ export default function GalleryPage() {
   }, [])
 
   const filtered = gallery.filter(g => cat === 'Бүгд' || g.category === cat)
-  const counts = CATEGORIES.reduce((acc, c) => {
+  const counts = categories.reduce((acc, c) => {
     acc[c] = c === 'Бүгд' ? gallery.length : gallery.filter(g => g.category === c).length
     return acc
   }, {} as Record<string, number>)
@@ -72,7 +84,7 @@ export default function GalleryPage() {
 
       {/* Category filter */}
       <div style={{ display: 'flex', gap: 8, justifyContent: 'center', marginBottom: 32, flexWrap: 'wrap' }}>
-        {CATEGORIES.filter(c => counts[c] > 0).map(c => (
+        {categories.filter(c => counts[c] > 0).map(c => (
           <button key={c} onClick={() => setCat(c)} style={{ padding: '8px 18px', borderRadius: 99, border: '1px solid var(--border)', background: cat === c ? '#FF6B00' : 'var(--surface)', color: cat === c ? '#fff' : 'var(--text2)', fontSize: 13, fontWeight: 500, cursor: 'pointer', transition: 'all 0.2s' }}>
             {c} {c !== 'Бүгд' && <span style={{ opacity: 0.7 }}>({counts[c]})</span>}
           </button>

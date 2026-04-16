@@ -115,7 +115,18 @@ export default function AdminGalleryPage() {
     } catch {}
   }
 
-  const GALLERY_CATS = ['Нэрийн хуудас', 'Флаер', 'Баннер', 'Хаяг', 'Ном', 'Хайрцаг', 'Стикер', 'Бусад']
+  const [galleryCats, setGalleryCats] = useState<string[]>([])
+
+  useEffect(() => {
+    apiFetch<any>('/categories', { auth: false })
+      .then(cats => {
+        if (!Array.isArray(cats)) return
+        const roots = cats.filter((c: any) => !c.parent_id && c.is_active)
+        const names = roots.map((c: any) => c.name_mn || c.name).filter(Boolean).sort()
+        if (names.length > 0) setGalleryCats([...names, 'Бусад'])
+      })
+      .catch(() => setGalleryCats(['Нэрийн хуудас', 'Флаер', 'Баннер', 'Хаяг', 'Ном', 'Хайрцаг', 'Стикер', 'Бусад']))
+  }, [])
 
   const startEdit = (img: GalleryImage & { category?: string; description?: string; is_featured?: boolean }) => {
     setEditingId(img.id)
@@ -248,7 +259,7 @@ export default function AdminGalleryPage() {
                 <select value={editCategory} onChange={e => setEditCategory(e.target.value)}
                   className="w-full px-3 py-2.5 bg-[var(--surface2)] border border-[var(--border)] rounded-lg text-sm text-[var(--text)] outline-none focus:border-[#FF6B00]" style={{ appearance: 'auto' }}>
                   <option value="">— Сонгох —</option>
-                  {GALLERY_CATS.map(c => <option key={c} value={c}>{c}</option>)}
+                  {galleryCats.map(c => <option key={c} value={c}>{c}</option>)}
                 </select>
               </div>
               <div>
