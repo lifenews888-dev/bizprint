@@ -144,11 +144,12 @@ export default function AdminHeroSlides() {
     setDialog(true)
   }
 
-  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleMediaUpload = async (e: React.ChangeEvent<HTMLInputElement>, field: 'image_url' | 'video_url') => {
     const file = e.target.files?.[0]
     if (!file) return
     setUploading(true)
     const token = getToken() || ''
+    const isVideo = file.type.startsWith('video/')
     try {
       // Try Cloudinary first
       const fd = new FormData(); fd.append('files', file)
@@ -160,7 +161,11 @@ export default function AdminHeroSlides() {
       if (res.ok) {
         const data = await res.json()
         const url = data?.images?.[0]?.url || data?.urls?.[0] || ''
-        if (url) { setForm((f: any) => ({ ...f, image_url: url })); toast.success('Зураг амжилттай'); setUploading(false); return }
+        if (url) {
+          setForm((f: any) => ({ ...f, [field]: url }))
+          toast.success(isVideo ? 'Видео амжилттай' : 'Зураг амжилттай')
+          setUploading(false); return
+        }
       }
       // Fallback to local upload
       const fd2 = new FormData(); fd2.append('file', file)
@@ -172,8 +177,8 @@ export default function AdminHeroSlides() {
       const data2 = await res2.json()
       if (data2?.file_url) {
         const fullUrl = data2.file_url.startsWith('http') ? data2.file_url : `${API_URL}${data2.file_url}`
-        setForm((f: any) => ({ ...f, image_url: fullUrl }))
-        toast.success('Зураг амжилттай (local)')
+        setForm((f: any) => ({ ...f, [field]: fullUrl }))
+        toast.success(isVideo ? 'Видео амжилттай (local)' : 'Зураг амжилттай (local)')
       } else {
         toast.error('Upload алдаа: ' + (data2?.error || ''))
       }
@@ -269,7 +274,7 @@ export default function AdminHeroSlides() {
                 <Input value={form.image_url} onChange={e => setForm({ ...form, image_url: e.target.value })} placeholder="https://..." className="flex-1" />
                 <Button variant="outline" size="sm" className="relative shrink-0" disabled={uploading}>
                   <Upload className="h-3.5 w-3.5 mr-1" />{uploading ? '...' : 'Upload'}
-                  <input type="file" accept="image/*" onChange={handleUpload} className="absolute inset-0 opacity-0 cursor-pointer" />
+                  <input type="file" accept="image/*" onChange={e => handleMediaUpload(e, 'image_url')} className="absolute inset-0 opacity-0 cursor-pointer" />
                 </Button>
               </div>
             </div>
@@ -312,7 +317,16 @@ export default function AdminHeroSlides() {
             {/* Overlay + Video */}
             <div className="grid grid-cols-2 gap-3">
               <div><Label className="text-xs">Overlay (бараан давхарга)</Label><Input value={form.overlay} onChange={e => setForm({ ...form, overlay: e.target.value })} className="mt-1.5" placeholder="rgba(0,0,0,0.3)" /></div>
-              <div><Label className="text-xs">Video URL (optional)</Label><Input value={form.video_url} onChange={e => setForm({ ...form, video_url: e.target.value })} className="mt-1.5 font-mono" placeholder="https://..." /></div>
+              <div>
+                <Label className="text-xs">Video URL (optional)</Label>
+                <div className="flex gap-2 mt-1.5">
+                  <Input value={form.video_url} onChange={e => setForm({ ...form, video_url: e.target.value })} className="flex-1 font-mono" placeholder="https://..." />
+                  <Button variant="outline" size="sm" className="relative shrink-0" disabled={uploading}>
+                    <Upload className="h-3.5 w-3.5 mr-1" />{uploading ? '...' : '🎬'}
+                    <input type="file" accept="video/*" onChange={e => handleMediaUpload(e, 'video_url')} className="absolute inset-0 opacity-0 cursor-pointer" />
+                  </Button>
+                </div>
+              </div>
             </div>
 
             {/* Schedule */}
