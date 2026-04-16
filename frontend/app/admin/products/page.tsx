@@ -130,6 +130,39 @@ function FeaturesEditor({ value, onChange }: { value: string; onChange: (v: stri
 const emptyMaterial = { material_code: '', material_name_mn: '', unit: '', base_cost: 0, display_name: '', is_default: false }
 const emptySize = { size_code: '', size_label: '', width_mm: 0, height_mm: 0, base_price: 0, is_custom: false }
 
+const PRODUCT_TYPES = [
+  { value: 'print', label: '🖨️ Хэвлэмэл' },
+  { value: 'offset', label: '📖 Офсет' },
+  { value: 'signage', label: '🪧 Хаяг самбар' },
+]
+
+function BulkActionBar({ selected, onMove, onDelete, onClear }: {
+  selected: string[]; onMove: (type: string) => void; onDelete: () => void; onClear: () => void
+}) {
+  if (selected.length === 0) return null
+  return (
+    <div style={{ position: 'sticky', bottom: 16, zIndex: 50, display: 'flex', alignItems: 'center', gap: 12, padding: '12px 20px', background: 'var(--surface)', border: '2px solid #FF6B00', borderRadius: 16, boxShadow: '0 8px 32px rgba(0,0,0,0.2)', margin: '16px 0' }}>
+      <span style={{ fontSize: 13, fontWeight: 700, color: '#FF6B00' }}>{selected.length} сонгогдсон</span>
+      <div style={{ flex: 1 }} />
+      <span style={{ fontSize: 12, color: 'var(--text3)', marginRight: 4 }}>Шилжүүлэх:</span>
+      {PRODUCT_TYPES.map(t => (
+        <button key={t.value} onClick={() => onMove(t.value)}
+          style={{ padding: '6px 14px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface2)', color: 'var(--text)', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+          {t.label}
+        </button>
+      ))}
+      <button onClick={onDelete}
+        style={{ padding: '6px 14px', borderRadius: 8, border: '1px solid #EF4444', background: 'rgba(239,68,68,0.1)', color: '#EF4444', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+        🗑 Устгах
+      </button>
+      <button onClick={onClear}
+        style={{ padding: '6px 14px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface2)', color: 'var(--text3)', fontSize: 12, cursor: 'pointer' }}>
+        ✕
+      </button>
+    </div>
+  )
+}
+
 function PrintProductsTab() {
   const [items, setItems] = useState<any[]>([])
   const [total, setTotal] = useState(0)
@@ -150,6 +183,18 @@ function PrintProductsTab() {
   const [error, setError] = useState('')
   const [allAddons, setAllAddons] = useState<any[]>([])
   const [selectedAddonIds, setSelectedAddonIds] = useState<string[]>([])
+  const [selectedIds, setSelectedIds] = useState<string[]>([])
+  const toggleSelect = (id: string) => setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
+  const bulkMove = async (type: string) => {
+    if (!confirm(`${selectedIds.length} бараа-г "${PRODUCT_TYPES.find(t => t.value === type)?.label}" руу шилжүүлэх үү?`)) return
+    await apiFetch('/admin/products-master/bulk-move', { method: 'POST', body: { ids: selectedIds, product_type: type } as any })
+    setSelectedIds([]); load()
+  }
+  const bulkDelete = async () => {
+    if (!confirm(`${selectedIds.length} бараа устгах уу?`)) return
+    await apiFetch('/admin/products-master/bulk-delete', { method: 'POST', body: { ids: selectedIds } as any })
+    setSelectedIds([]); load()
+  }
 
   // Load all addons
   useEffect(() => {
@@ -354,6 +399,10 @@ function PrintProductsTab() {
             <option value="">Бүх ангилал</option>
             {PRINT_CATEGORIES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
           </select>
+          <button onClick={() => setSelectedIds(selectedIds.length === items.length ? [] : items.map(i => i.id))}
+            style={{ ...btnSecondary, fontSize: 11, padding: '6px 12px' }}>
+            {selectedIds.length === items.length && items.length > 0 ? '☐ Болих' : '☑ Бүгд'}
+          </button>
           <button onClick={openCreate} style={btnPrimary}>+ Нэмэх</button>
         </div>
       </div>
@@ -372,9 +421,13 @@ function PrintProductsTab() {
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 16 }}>
           {items.map(item => (
-            <div key={item.id} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, padding: 18, display: 'flex', flexDirection: 'column', gap: 10, opacity: item.is_active === false ? 0.6 : 1 }}>
+            <div key={item.id} style={{ background: 'var(--surface)', border: selectedIds.includes(item.id) ? '2px solid #FF6B00' : '1px solid var(--border)', borderRadius: 14, padding: 18, display: 'flex', flexDirection: 'column', gap: 10, opacity: item.is_active === false ? 0.6 : 1 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                <div>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+                  <input type="checkbox" checked={selectedIds.includes(item.id)} onChange={() => toggleSelect(item.id)}
+                    style={{ accentColor: '#FF6B00', width: 16, height: 16, marginTop: 2, cursor: 'pointer' }} />
+                </div>
+                <div style={{ flex: 1 }}>
                   <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--text)', marginBottom: 2 }}>{item.name_mn || '—'}</div>
                   {item.code && <div style={{ fontSize: 11, color: 'var(--text3)', fontFamily: 'monospace' }}>{item.code}</div>}
                 </div>
@@ -411,6 +464,8 @@ function PrintProductsTab() {
           ))}
         </div>
       )}
+
+      <BulkActionBar selected={selectedIds} onMove={bulkMove} onDelete={bulkDelete} onClear={() => setSelectedIds([])} />
 
       {/* Modal */}
       {modalOpen && (

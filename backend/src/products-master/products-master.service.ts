@@ -87,6 +87,20 @@ export class ProductsMasterService {
     return { success: true }
   }
 
+  async bulkMove(ids: string[], productType: string, category?: string) {
+    if (!ids?.length) return { moved: 0 }
+    const update: any = { product_type: productType }
+    if (category) update.category = category
+    await this.masterRepo.update(ids, update)
+    return { moved: ids.length, product_type: productType }
+  }
+
+  async bulkDelete(ids: string[]) {
+    if (!ids?.length) return { deleted: 0 }
+    await this.masterRepo.update(ids, { is_active: false })
+    return { deleted: ids.length }
+  }
+
   async addMaterial(productId: string, data: Partial<ProductMaterial>) {
     const item = this.materialRepo.create({ ...data, product_id: productId })
     return this.materialRepo.save(item)

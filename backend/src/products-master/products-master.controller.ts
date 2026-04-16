@@ -38,6 +38,18 @@ export class ProductsMasterController {
     return this.service.deactivate(id)
   }
 
+  @Post('admin/products-master/bulk-move')
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  bulkMove(@Body() body: { ids: string[]; product_type: string; category?: string }) {
+    return this.service.bulkMove(body.ids, body.product_type, body.category)
+  }
+
+  @Post('admin/products-master/bulk-delete')
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  bulkDelete(@Body() body: { ids: string[] }) {
+    return this.service.bulkDelete(body.ids)
+  }
+
   @Post('admin/products-master/:id/materials')
   @UseGuards(JwtAuthGuard, AdminGuard)
   addMaterial(@Param('id') id: string, @Body() body: any) {
