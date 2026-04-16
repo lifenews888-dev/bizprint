@@ -87,21 +87,34 @@ export default function HomePage() {
         {heroSlides.length > 0 ? (
           heroSlides.map((slide, i) => (
             <div key={slide.id || i} className="absolute inset-0 transition-opacity duration-700" style={{ opacity: i === heroIdx ? 1 : 0, zIndex: i === heroIdx ? 1 : 0 }}>
-              {slide.video_url && (slide.video_url.includes('youtube.com') || slide.video_url.includes('youtu.be')) ? (
-                <div className="absolute inset-0 overflow-hidden pointer-events-none">
-                  <iframe
-                    src={`https://www.youtube.com/embed/${slide.video_url.match(/(?:youtu\.be\/|v=)([^&?#]+)/)?.[1] || ''}?autoplay=1&mute=1&loop=1&controls=0&showinfo=0&rel=0&modestbranding=1&playlist=${slide.video_url.match(/(?:youtu\.be\/|v=)([^&?#]+)/)?.[1] || ''}`}
-                    className="absolute border-none"
-                    style={{ top: '50%', left: '50%', width: '177.78vh', height: '56.25vw', minWidth: '100%', minHeight: '100%', transform: 'translate(-50%, -50%)' }}
-                    allow="autoplay; encrypted-media"
-                    allowFullScreen
-                  />
-                </div>
-              ) : slide.video_url ? (
-                <video autoPlay muted loop playsInline className="absolute inset-0 w-full h-full object-cover">
-                  <source src={slide.video_url} type="video/mp4" />
-                </video>
-              ) : slide.image_url ? (
+              {slide.video_url ? (() => {
+                const v = slide.video_url
+                const ytMatch = v.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/))([^&?#]+)/)
+                const vimeoMatch = v.match(/vimeo\.com\/(\d+)/)
+                const fbMatch = v.includes('facebook.com')
+                const embedUrl = ytMatch
+                  ? `https://www.youtube.com/embed/${ytMatch[1]}?autoplay=1&mute=1&loop=1&controls=0&showinfo=0&rel=0&modestbranding=1&playlist=${ytMatch[1]}`
+                  : vimeoMatch
+                  ? `https://player.vimeo.com/video/${vimeoMatch[1]}?autoplay=1&muted=1&loop=1&background=1`
+                  : fbMatch
+                  ? `https://www.facebook.com/plugins/video.php?href=${encodeURIComponent(v)}&show_text=false&autoplay=true&mute=true`
+                  : null
+                return embedUrl ? (
+                  <div className="absolute inset-0 overflow-hidden pointer-events-none">
+                    <iframe
+                      src={embedUrl}
+                      className="absolute border-none"
+                      style={{ top: '50%', left: '50%', width: '177.78vh', height: '56.25vw', minWidth: '100%', minHeight: '100%', transform: 'translate(-50%, -50%)' }}
+                      allow="autoplay; encrypted-media"
+                      allowFullScreen
+                    />
+                  </div>
+                ) : (
+                  <video autoPlay muted loop playsInline className="absolute inset-0 w-full h-full object-cover">
+                    <source src={v} />
+                  </video>
+                )
+              })() : slide.image_url ? (
                 <img src={slide.image_url} alt={slide.title || ''} className="absolute inset-0 w-full h-full object-cover" />
               ) : (
                 <div className="absolute inset-0 bg-gradient-to-br from-[#0A0A0A] to-[#1a1a2e]" />
