@@ -154,9 +154,9 @@ export function SiteSettingsProvider({ children }: { children: ReactNode }) {
       fetch(`${API}/api/mega-menu/public`).then(r => r.ok ? r.json() : null).catch(() => null),
     ]).then(([s, m, v2]) => {
       // V2 mega menu → convert to unified megaMenu format
-      // Only use V2 if it has real content (categories with items), otherwise fall back to legacy
+      // Use V2 if it has columns with categories OR items
       const v2HasContent = v2 && v2.columns?.some((c: any) =>
-        (c.categories || []).some((cat: any) => (cat.items || []).length > 0)
+        c.title && ((c.categories || []).length > 0 || (c.items || []).length > 0)
       )
       if (v2HasContent) {
         setMegaMenuV2(v2)

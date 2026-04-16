@@ -50,15 +50,20 @@ export default function MegaNav() {
     }).catch(() => {})
   }, [])
 
-  // Build mega menu: prefer mega menu admin config, enrich with categories marked show_in_mega_menu
-  const megaCategories = navCategories.filter((c: any) => c.show_in_mega_menu && c.children?.length > 0)
-  const catGroups = megaCategories.length > 0
-    ? megaCategories.map((c: any) => ({
+  // Build mega menu from categories:
+  // 1. If any category has show_in_mega_menu=true → show only those
+  // 2. Otherwise → show all root categories with children (default behavior)
+  // 3. If no categories at all → fallback to megaItem.columns from admin mega-menu
+  const megaMarked = navCategories.filter((c: any) => c.show_in_mega_menu && c.children?.length > 0)
+  const allWithChildren = navCategories.filter((c: any) => c.children?.length > 0)
+  const catsToShow = megaMarked.length > 0 ? megaMarked : allWithChildren
+  const catGroups = catsToShow.length > 0
+    ? catsToShow.map((c: any) => ({
         title: c.name_mn || c.name,
         icon: c.icon || '📦',
         color: c.color || '#FF6B00',
         slug: c.slug,
-        items: c.children.filter((ch: any) => ch.show_in_mega_menu !== false).map((ch: any) => ({
+        items: c.children.map((ch: any) => ({
           label: ch.name_mn || ch.name,
           url: `/shop?category=${ch.slug}`,
           desc: '',
