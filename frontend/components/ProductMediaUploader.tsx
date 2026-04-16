@@ -21,8 +21,11 @@ export default function ProductMediaUploader({ images, videoUrl, onChange, token
 
   const safeImages = [...(images || []), ...Array(MAX_IMAGES).fill('')].slice(0, MAX_IMAGES)
 
+  const [uploadError, setUploadError] = useState('')
+
   const uploadFile = async (file: File, slotIndex: number) => {
     setUploading(slotIndex)
+    setUploadError('')
     try {
       // Try Cloudinary first
       const fd = new FormData(); fd.append('files', file)
@@ -43,11 +46,20 @@ export default function ProductMediaUploader({ images, videoUrl, onChange, token
         headers: { Authorization: `Bearer ${token}` },
         body: fd2,
       })
+      if (!res2.ok) {
+        const txt = await res2.text().catch(() => '')
+        setUploadError(`Upload алдаа (${res2.status}): ${txt.slice(0, 100)}`)
+        return
+      }
       const data2 = await res2.json()
       if (data2?.file_url) {
         const url = data2.file_url.startsWith('http') ? data2.file_url : `${API}${data2.file_url}`
         const n = [...safeImages]; n[slotIndex] = url; onChange(n.filter(Boolean), videoInput)
+      } else if (data2?.error) {
+        setUploadError(data2.error)
       }
+    } catch (err: any) {
+      setUploadError(err?.message || 'Upload алдаа')
     } finally {
       setUploading(null)
     }
@@ -98,6 +110,11 @@ export default function ProductMediaUploader({ images, videoUrl, onChange, token
 
   return (
     <div style={{ fontFamily: FONT }}>
+      {uploadError && (
+        <div style={{ background: 'rgba(239,68,68,0.1)', color: '#EF4444', padding: '8px 12px', borderRadius: 8, fontSize: 12, marginBottom: 8 }}>
+          ⚠ {uploadError}
+        </div>
+      )}
       {/* Image Grid */}
       <div style={{ marginBottom: 8 }}>
         <div style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 8, display: 'flex', justifyContent: 'space-between' }}>
