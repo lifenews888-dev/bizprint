@@ -24,6 +24,9 @@ export default function AdminGalleryPage() {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editCaption, setEditCaption] = useState('')
   const [editAlt, setEditAlt] = useState('')
+  const [editCategory, setEditCategory] = useState('')
+  const [editDescription, setEditDescription] = useState('')
+  const [editFeatured, setEditFeatured] = useState(false)
   const [uploading, setUploading] = useState(false)
   const [uploadError, setUploadError] = useState('')
   const fileInputRef = useRef<HTMLInputElement | null>(null)
@@ -112,16 +115,21 @@ export default function AdminGalleryPage() {
     } catch {}
   }
 
-  const startEdit = (img: GalleryImage) => {
+  const GALLERY_CATS = ['Нэрийн хуудас', 'Флаер', 'Баннер', 'Хаяг', 'Ном', 'Хайрцаг', 'Стикер', 'Бусад']
+
+  const startEdit = (img: GalleryImage & { category?: string; description?: string; is_featured?: boolean }) => {
     setEditingId(img.id)
     setEditCaption(img.caption || '')
     setEditAlt(img.alt || '')
+    setEditCategory((img as any).category || '')
+    setEditDescription((img as any).description || '')
+    setEditFeatured((img as any).is_featured || false)
   }
 
   const saveEdit = async () => {
     if (!editingId) return
     try {
-      await apiFetch(`/admin/gallery/${editingId}`, { method: 'PATCH', body: { caption: editCaption, alt: editAlt } })
+      await apiFetch(`/admin/gallery/${editingId}`, { method: 'PATCH', body: { caption: editCaption, alt: editAlt, category: editCategory, description: editDescription, is_featured: editFeatured } })
       setImages(prev => prev.map(i => i.id === editingId ? { ...i, caption: editCaption, alt: editAlt } : i))
     } catch {}
     setEditingId(null)
@@ -198,10 +206,16 @@ export default function AdminGalleryPage() {
                   </div>
                 </div>
               </div>
+              {(img as any).is_featured && (
+                <span className="absolute top-2 left-2 z-10 text-[9px] font-bold bg-[#FF6B00] text-white px-2 py-0.5 rounded">⭐ Онцлох</span>
+              )}
               {/* Info */}
               <div className="p-2.5">
                 <div className="text-xs font-semibold text-[var(--text)] truncate">{img.caption || img.alt || 'Тайлбаргүй'}</div>
-                <div className="text-[10px] text-[var(--text3)] mt-0.5">{img.width}×{img.height} · {img.format}</div>
+                <div className="text-[10px] text-[var(--text3)] mt-0.5 flex items-center gap-1.5">
+                  {(img as any).category && <span className="bg-[var(--surface2)] px-1.5 py-0.5 rounded">{(img as any).category}</span>}
+                  <span>{img.width}×{img.height} · {img.format}</span>
+                </div>
               </div>
             </div>
           ))}
@@ -224,10 +238,24 @@ export default function AdminGalleryPage() {
             <h3 className="text-base font-bold text-[var(--text)] mb-4">Зургийн мэдээлэл засах</h3>
             <div className="space-y-3">
               <div>
-                <label className="text-xs font-semibold text-[var(--text2)] mb-1 block">Тайлбар (Caption)</label>
+                <label className="text-xs font-semibold text-[var(--text2)] mb-1 block">Гарчиг (Caption)</label>
                 <input value={editCaption} onChange={e => setEditCaption(e.target.value)}
                   className="w-full px-3 py-2.5 bg-[var(--surface2)] border border-[var(--border)] rounded-lg text-sm text-[var(--text)] outline-none focus:border-[#FF6B00]"
-                  placeholder="Зургийн тайлбар..." />
+                  placeholder="Корпорэйт нэрийн хуудас" />
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-[var(--text2)] mb-1 block">Ангилал</label>
+                <select value={editCategory} onChange={e => setEditCategory(e.target.value)}
+                  className="w-full px-3 py-2.5 bg-[var(--surface2)] border border-[var(--border)] rounded-lg text-sm text-[var(--text)] outline-none focus:border-[#FF6B00]" style={{ appearance: 'auto' }}>
+                  <option value="">— Сонгох —</option>
+                  {GALLERY_CATS.map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="text-xs font-semibold text-[var(--text2)] mb-1 block">Тайлбар</label>
+                <input value={editDescription} onChange={e => setEditDescription(e.target.value)}
+                  className="w-full px-3 py-2.5 bg-[var(--surface2)] border border-[var(--border)] rounded-lg text-sm text-[var(--text)] outline-none focus:border-[#FF6B00]"
+                  placeholder="350gsm, soft-touch ламинат" />
               </div>
               <div>
                 <label className="text-xs font-semibold text-[var(--text2)] mb-1 block">Alt текст (SEO)</label>
@@ -235,6 +263,10 @@ export default function AdminGalleryPage() {
                   className="w-full px-3 py-2.5 bg-[var(--surface2)] border border-[var(--border)] rounded-lg text-sm text-[var(--text)] outline-none focus:border-[#FF6B00]"
                   placeholder="Зургийн тайлбар (SEO)..." />
               </div>
+              <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <input type="checkbox" checked={editFeatured} onChange={e => setEditFeatured(e.target.checked)} className="accent-[#FF6B00] w-4 h-4" />
+                ⭐ Онцлох зураг
+              </label>
             </div>
             <div className="flex justify-end gap-2 mt-5">
               <button onClick={() => setEditingId(null)} className="px-4 py-2 text-sm text-[var(--text2)] bg-[var(--surface2)] border border-[var(--border)] rounded-lg cursor-pointer">Болих</button>

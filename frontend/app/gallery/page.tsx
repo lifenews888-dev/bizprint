@@ -38,19 +38,21 @@ export default function GalleryPage() {
   const [lightbox, setLightbox] = useState<any>(null)
   const [gallery, setGallery] = useState(FALLBACK_GALLERY)
 
-  // Try fetching from API, fallback to static data
+  // Fetch admin-uploaded images, merge with fallback if few
   useEffect(() => {
     fetch(`${API_URL}/api/gallery`).then(r => r.json())
       .then((data: any[]) => {
-        if (Array.isArray(data) && data.length >= 5) {
-          setGallery(data.map((g, i) => ({
-            id: g.id || i,
-            title: g.title || g.name || '',
-            category: g.category || '',
-            image: g.image_url || g.image || '',
-            description: g.description || '',
-            featured: g.is_featured || false,
-          })))
+        if (!Array.isArray(data) || data.length === 0) return
+        const mapped = data.map((g, i) => ({
+          id: g.id || i,
+          title: g.caption || g.alt || g.title || g.name || '',
+          category: g.category || '',
+          image: g.url || g.image_url || g.image || '',
+          description: g.description || '',
+          featured: g.is_featured || false,
+        })).filter(g => g.image)
+        if (mapped.length > 0) {
+          setGallery(mapped.length >= 8 ? mapped : [...mapped, ...FALLBACK_GALLERY.slice(0, 8 - mapped.length)])
         }
       }).catch(() => {})
   }, [])

@@ -26,6 +26,15 @@ export class GalleryImage {
   @Column({ nullable: true })
   format: string  // jpg, png, webp
 
+  @Column({ nullable: true })
+  category: string
+
+  @Column({ type: 'text', nullable: true })
+  description: string
+
+  @Column({ default: false })
+  is_featured: boolean
+
   @Column({ type: 'int', default: 0 })
   sort_order: number
 
