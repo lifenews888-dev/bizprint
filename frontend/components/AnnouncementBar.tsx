@@ -8,6 +8,10 @@ export default function AnnouncementBar() {
   const [visible, setVisible] = useState(false)
 
   useEffect(() => {
+    const DISMISS_KEY = 'announcement_dismissed_until'
+    const dismissedUntil = localStorage.getItem(DISMISS_KEY)
+    if (dismissedUntil && Date.now() < Number(dismissedUntil)) return
+
     fetch(`${API}/settings/public`)
       .then(r => r.json())
       .then(data => {
@@ -20,6 +24,11 @@ export default function AnnouncementBar() {
       .catch(() => {})
   }, [])
 
+  const dismiss = () => {
+    localStorage.setItem('announcement_dismissed_until', String(Date.now() + 24 * 60 * 60 * 1000))
+    setVisible(false)
+  }
+
   if (!visible) return null
 
   return (
@@ -30,7 +39,7 @@ export default function AnnouncementBar() {
       fontFamily: "'DM Sans','Segoe UI',system-ui,sans-serif",
     }}>
       {text}
-      <button onClick={() => setVisible(false)} style={{
+      <button onClick={dismiss} style={{
         position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)',
         background: 'none', border: 'none', color: 'rgba(255,255,255,0.7)',
         cursor: 'pointer', fontSize: '18px', lineHeight: 1,

@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react'
 import { usePathname } from 'next/navigation'
 
+
 const API = 'http://localhost:4000'
 const F = "'DM Sans','Segoe UI',system-ui,sans-serif"
 
@@ -25,6 +26,7 @@ export default function MegaNav() {
     button: 'Get Started',
     url: '/quote',
   })
+  const [cartCount, setCartCount] = useState(0)
 
   useEffect(() => {
     fetch(API + '/menus')
@@ -50,6 +52,20 @@ export default function MegaNav() {
           button: m['mega_cta_button'] || 'Get Started',
           url: m['mega_cta_url'] || '/quote',
         })
+      })
+      .catch(() => {})
+  }, [])
+
+  useEffect(() => {
+    const token = localStorage.getItem('token')
+    if (!token) return
+    fetch(`${API}/auth/me`, { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.json())
+      .then(u => {
+        if (!u?.id) return
+        return fetch(`${API}/cart/${u.id}`, { headers: { Authorization: `Bearer ${token}` } })
+          .then(r => r.json())
+          .then(cart => { if (cart?.items) setCartCount(cart.items.length) })
       })
       .catch(() => {})
   }, [])
@@ -147,12 +163,28 @@ export default function MegaNav() {
                 <circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>
               </svg>
             </div>
+            <a href="/cart" style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center', width: 36, height: 36, borderRadius: 8, border: '1px solid #EBEBEB', textDecoration: 'none', color: '#333', flexShrink: 0 }}>
+              <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24">
+                <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/>
+                <line x1="3" y1="6" x2="21" y2="6"/>
+                <path d="M16 10a4 4 0 01-8 0"/>
+              </svg>
+              {cartCount > 0 && <span style={{ position: 'absolute', top: -6, right: -6, background: '#FF6B35', color: '#fff', fontSize: 10, fontWeight: 700, width: 16, height: 16, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{cartCount}</span>}
+            </a>
             <a href="/login" style={{ fontSize: 14, fontWeight: 500, color: '#333', textDecoration: 'none', padding: '8px 16px', borderRadius: 8, border: '1px solid #EBEBEB' }}>Login</a>
             <a href="/quote" style={{ fontSize: 14, fontWeight: 700, color: '#fff', textDecoration: 'none', padding: '9px 20px', borderRadius: 10, background: '#FF6B35' }}>Start →</a>
           </div>
 
           {/* Mobile right side */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <a href="/cart" className="nav-mobile" style={{ position: 'relative', display: 'none', alignItems: 'center', justifyContent: 'center', width: 36, height: 36, borderRadius: 8, border: '1px solid #EBEBEB', textDecoration: 'none', color: '#333', flexShrink: 0 }}>
+              <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24">
+                <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/>
+                <line x1="3" y1="6" x2="21" y2="6"/>
+                <path d="M16 10a4 4 0 01-8 0"/>
+              </svg>
+              {cartCount > 0 && <span style={{ position: 'absolute', top: -6, right: -6, background: '#FF6B35', color: '#fff', fontSize: 10, fontWeight: 700, width: 16, height: 16, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{cartCount}</span>}
+            </a>
             <a href="/quote" className="nav-mobile" style={{ display: 'none', fontSize: 13, fontWeight: 700, color: '#fff', textDecoration: 'none', padding: '7px 14px', borderRadius: 8, background: '#FF6B35' }}>
               Start
             </a>

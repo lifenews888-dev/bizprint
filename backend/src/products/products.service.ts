@@ -15,18 +15,35 @@ export class ProductsService {
     return this.productRepo.save(product);
   }
 
-  async findAll(categoryId?: string) {
+  async findAll(opts?: { categoryId?: string; limit?: number; page?: number }) {
+    const { categoryId, limit, page } = opts ?? {};
+    const take = limit && limit > 0 ? limit : undefined;
+    const skip = take && page && page > 1 ? (page - 1) * take : undefined;
+
     if (!categoryId) {
-      return this.productRepo.find({ where: { is_active: true }, order: { sort_order: 'ASC', created_at: 'DESC' } });
+      return this.productRepo.find({
+        where: { is_active: true },
+        order: { sort_order: 'ASC', created_at: 'DESC' },
+        take,
+        skip,
+      });
     }
+
     const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(categoryId);
     if (isUuid) {
-      return this.productRepo.query(
-        `SELECT p.* FROM products p JOIN categories c ON c.slug = p.category WHERE c.id = $1 AND p.is_active = true ORDER BY p.sort_order ASC`,
-        [categoryId],
-      );
+      const params: any[] = [categoryId];
+      let q = `SELECT p.* FROM products p JOIN categories c ON c.slug = p.category WHERE c.id = $1 AND p.is_active = true ORDER BY p.sort_order ASC`;
+      if (take) { q += ` LIMIT $${params.push(take)}`; }
+      if (skip) { q += ` OFFSET $${params.push(skip)}`; }
+      return this.productRepo.query(q, params);
     }
-    return this.productRepo.find({ where: { is_active: true, category: categoryId }, order: { sort_order: 'ASC', created_at: 'DESC' } });
+
+    return this.productRepo.find({
+      where: { is_active: true, category: categoryId },
+      order: { sort_order: 'ASC', created_at: 'DESC' },
+      take,
+      skip,
+    });
   }
 
   findOne(id: string) {

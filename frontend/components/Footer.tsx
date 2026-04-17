@@ -9,11 +9,11 @@ export default function Footer() {
     {
       title: 'Бүтээгдэхүүн',
       links: [
-        { label: 'Визит карт', href: '/shop?cat=business-card' },
-        { label: 'Флаер & Постер', href: '/shop?cat=flyer' },
-        { label: 'Баннер', href: '/shop?cat=banner' },
-        { label: 'Ном & Каталог', href: '/shop?cat=book' },
-        { label: 'Хайрцаг & Уут', href: '/shop?cat=packaging' },
+        { label: 'Визит карт', href: '/shop?category=business-card' },
+        { label: 'Флаер & Постер', href: '/shop?category=flyer' },
+        { label: 'Баннер', href: '/shop?category=banner' },
+        { label: 'Ном & Каталог', href: '/shop?category=book' },
+        { label: 'Хайрцаг & Уут', href: '/shop?category=packaging' },
       ],
     },
     {
@@ -48,6 +48,10 @@ export default function Footer() {
             <p style={{ fontSize: '13px', color: 'var(--text2)', lineHeight: 1.7, margin: '0 0 20px' }}>
               Хэвлэлийн салбарын бүх оролцогчдыг нэгтгэсэн нэгдсэн экосистем.
             </p>
+            <div style={{ marginBottom: '16px' }}>
+              <a href="tel:+97677117700" style={{ display: 'block', fontSize: '13px', color: 'var(--text2)', textDecoration: 'none', marginBottom: '6px' }}>📞 +976 7711-7700</a>
+              <a href="mailto:info@bizprint.mn" style={{ display: 'block', fontSize: '13px', color: 'var(--text2)', textDecoration: 'none' }}>✉️ info@bizprint.mn</a>
+            </div>
             <div style={{ display: 'flex', gap: '8px' }}>
               {['📘', '📷', '🐦'].map((icon, i) => (
                 <a key={i} href="#" style={{ width: '34px', height: '34px', borderRadius: '8px', background: 'var(--surface2)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none', fontSize: '14px' }}>
