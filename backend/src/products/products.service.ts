@@ -2,12 +2,15 @@ import { Injectable, ForbiddenException, NotFoundException } from '@nestjs/commo
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Product } from './product.entity';
+import { ProductImage } from './product-image.entity';
 
 @Injectable()
 export class ProductsService {
   constructor(
     @InjectRepository(Product)
     private productRepo: Repository<Product>,
+    @InjectRepository(ProductImage)
+    private imageRepo: Repository<ProductImage>,
   ) {}
 
   create(data: Partial<Product>) {
@@ -15,39 +18,67 @@ export class ProductsService {
     return this.productRepo.save(product);
   }
 
+  private async enrichWithThumbnails(products: Product[]): Promise<any[]> {
+    if (products.length === 0) return products;
+    const ids = products.map(p => p.id);
+    const primaryImages = await this.imageRepo.query(
+      `SELECT DISTINCT ON (product_id) product_id, url
+       FROM product_images
+       WHERE product_id = ANY($1)
+       ORDER BY product_id, is_primary DESC, sort_order ASC`,
+      [ids],
+    );
+    const primaryMap: Record<string, string> = {};
+    for (const img of primaryImages) { primaryMap[img.product_id] = img.url; }
+    return products.map(p => ({
+      ...p,
+      thumbnail_url: p.thumbnail_url || primaryMap[p.id] || null,
+    }));
+  }
+
   async findAll(opts?: { categoryId?: string; limit?: number; page?: number }) {
     const { categoryId, limit, page } = opts ?? {};
     const take = limit && limit > 0 ? limit : undefined;
     const skip = take && page && page > 1 ? (page - 1) * take : undefined;
 
+    let products: Product[];
     if (!categoryId) {
-      return this.productRepo.find({
+      products = await this.productRepo.find({
         where: { is_active: true },
         order: { sort_order: 'ASC', created_at: 'DESC' },
         take,
         skip,
       });
+    } else {
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(categoryId);
+      if (isUuid) {
+        const params: any[] = [categoryId];
+        let q = `SELECT p.* FROM products p JOIN categories c ON c.slug = p.category WHERE c.id = $1 AND p.is_active = true ORDER BY p.sort_order ASC`;
+        if (take) { q += ` LIMIT $${params.push(take)}`; }
+        if (skip) { q += ` OFFSET $${params.push(skip)}`; }
+        products = await this.productRepo.query(q, params);
+      } else {
+        products = await this.productRepo.find({
+          where: { is_active: true, category: categoryId },
+          order: { sort_order: 'ASC', created_at: 'DESC' },
+          take,
+          skip,
+        });
+      }
     }
-
-    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(categoryId);
-    if (isUuid) {
-      const params: any[] = [categoryId];
-      let q = `SELECT p.* FROM products p JOIN categories c ON c.slug = p.category WHERE c.id = $1 AND p.is_active = true ORDER BY p.sort_order ASC`;
-      if (take) { q += ` LIMIT $${params.push(take)}`; }
-      if (skip) { q += ` OFFSET $${params.push(skip)}`; }
-      return this.productRepo.query(q, params);
-    }
-
-    return this.productRepo.find({
-      where: { is_active: true, category: categoryId },
-      order: { sort_order: 'ASC', created_at: 'DESC' },
-      take,
-      skip,
-    });
+    return this.enrichWithThumbnails(products);
   }
 
-  findOne(id: string) {
-    return this.productRepo.findOne({ where: { id } });
+  async findOne(id: string) {
+    const product = await this.productRepo.findOne({ where: [{ id }, { slug: id } as any] });
+    if (!product) return null;
+    const images = await this.imageRepo.find({
+      where: { product_id: product.id },
+      order: { is_primary: 'DESC', sort_order: 'ASC' },
+    });
+    const imageUrls = images.map(img => img.url).filter(Boolean);
+    const thumbnail = product.thumbnail_url || imageUrls[0] || null;
+    return { ...product, thumbnail_url: thumbnail, images: imageUrls };
   }
 
   async update(id: string, data: Partial<Product>) {
