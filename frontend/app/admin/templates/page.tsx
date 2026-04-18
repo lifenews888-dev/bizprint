@@ -1,83 +1,69 @@
 'use client'
 import { useState, useEffect } from 'react'
-import Link from 'next/link'
-import { apiFetch, getToken } from '@/lib/api'
+
+const API = 'http://localhost:4000'
+const tok = () => localStorage.getItem('access_token') || localStorage.getItem('token') || ''
+const getHeaders = () => ({ 'Content-Type': 'application/json', Authorization: `Bearer ${tok()}` })
 
 export default function AdminTemplatesPage() {
-  const [templates, setTemplates] = useState<any[]>([])
+  const [items, setItems] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [tab, setTab] = useState<'all' | 'pending'>('all')
 
-  useEffect(() => {
-    apiFetch<any>('/templates?status=approved')
-      .then(data => { setTemplates(Array.isArray(data) ? data : []); setLoading(false) })
-      .catch(() => setLoading(false))
-  }, [])
-
-  const seed = async () => {
-    try {
-      const data = await apiFetch<any>('/templates/seed')
-      alert(`${data?.seeded || 0} загвар нэмэгдлээ`)
-      window.location.reload()
-    } catch (e: any) {
-      alert('Алдаа: ' + (e.message || ''))
-    }
+  const load = () => {
+    const url = tab === 'pending' ? `${API}/templates/pending` : `${API}/templates`
+    fetch(url, { headers: getHeaders() }).then(r => r.json()).then(d => setItems(Array.isArray(d) ? d : [])).catch(() => {}).finally(() => setLoading(false))
   }
+  useEffect(load, [tab])
 
-  const toggleActive = async (id: string, current: boolean) => {
-    await apiFetch(`/templates/${id}`, { method: 'PATCH', body: { is_active: !current } })
-    setTemplates(prev => prev.map(t => t.id === id ? { ...t, is_active: !current } : t))
-  }
+  const approve = async (id: string) => { await fetch(`${API}/templates/${id}/approve`, { method: 'PATCH', headers: getHeaders() }); load() }
+  const reject = async (id: string) => { if (!confirm('Татгалзах уу?')) return; await fetch(`${API}/templates/${id}/reject`, { method: 'PATCH', headers: getHeaders() }); load() }
+  const del = async (id: string) => { if (!confirm('Устгах уу?')) return; await fetch(`${API}/templates/${id}`, { method: 'DELETE', headers: getHeaders() }); load() }
+
+  const STATUS_COLOR: Record<string, string> = { approved: '#10B981', pending: '#F59E0B', rejected: '#EF4444' }
 
   return (
-    <div style={{ padding: 24 }}>
+    <div style={{ padding: 24, fontFamily: "'DM Sans','Segoe UI',system-ui,sans-serif" }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
         <div>
-          <h1 style={{ fontSize: 20, fontWeight: 700, color: 'var(--text)', margin: 0 }}>Загвар сан</h1>
-          <p style={{ fontSize: 12, color: 'var(--text3)', marginTop: 4 }}>{templates.length} загвар</p>
-        </div>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <button onClick={seed} style={{ padding: '8px 16px', border: '1px solid #FF6B00', background: 'transparent', color: '#FF6B00', borderRadius: 10, fontSize: 12, cursor: 'pointer' }}>
-            + Seed загварууд
-          </button>
-          <Link href="/design/editor" style={{ padding: '8px 16px', background: '#FF6B00', color: '#fff', borderRadius: 10, fontSize: 12, fontWeight: 600, textDecoration: 'none' }}>
-            + Шинэ загвар
-          </Link>
+          <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>Загварууд</h1>
+          <p style={{ color: 'var(--text2)', fontSize: 13, margin: '4px 0 0' }}>Дизайнеруудын оруулсан загвар templates</p>
         </div>
       </div>
 
-      {loading ? (
-        <div style={{ textAlign: 'center', padding: 60, color: 'var(--text3)' }}>Ачааллаж байна...</div>
-      ) : templates.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: 60 }}>
-          <p style={{ fontSize: 32, marginBottom: 8 }}>📐</p>
-          <p style={{ color: 'var(--text3)', marginBottom: 16 }}>Загвар байхгүй байна</p>
-          <button onClick={seed} style={{ padding: '10px 20px', background: '#FF6B00', color: '#fff', border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
-            Seed загварууд оруулах
+      <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
+        {(['all', 'pending'] as const).map(t => (
+          <button key={t} onClick={() => { setTab(t); setLoading(true) }} style={{ padding: '7px 18px', borderRadius: 8, border: 'none', fontSize: 13, fontWeight: 500, cursor: 'pointer', background: tab === t ? '#FF6B00' : 'var(--surface2)', color: tab === t ? '#fff' : 'var(--text2)' }}>
+            {t === 'all' ? 'Бүгд' : 'Хүлээгдэж буй'}
           </button>
-        </div>
-      ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 14 }}>
-          {templates.map(t => (
-            <div key={t.id} style={{ borderRadius: 12, overflow: 'hidden', border: '1px solid var(--border)', background: 'var(--surface)', opacity: t.is_active === false ? 0.5 : 1 }}>
-              <div style={{ aspectRatio: '3/4', background: 'var(--surface2)', position: 'relative', overflow: 'hidden' }}>
-                <img src={t.thumbnail_url || ''} alt={t.title_mn || t.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} loading="lazy" />
-              </div>
-              <div style={{ padding: 12 }}>
-                <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', marginBottom: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.title_mn || t.title}</p>
-                <p style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 8 }}>{t.category} · {t.use_count || 0} ашигласан</p>
-                <div style={{ display: 'flex', gap: 6 }}>
-                  <Link href={`/design/editor?templateId=${t.id}&type=${t.category}`} style={{ flex: 1, padding: '6px 0', textAlign: 'center', border: '1px solid var(--border)', borderRadius: 8, fontSize: 11, color: 'var(--text2)', textDecoration: 'none' }}>
-                    Засах
-                  </Link>
-                  <button onClick={() => toggleActive(t.id, t.is_active !== false)} style={{ padding: '6px 12px', borderRadius: 8, fontSize: 11, border: 'none', cursor: 'pointer', background: t.is_active !== false ? 'rgba(239,68,68,0.1)' : 'rgba(16,185,129,0.1)', color: t.is_active !== false ? '#EF4444' : '#10B981' }}>
-                    {t.is_active !== false ? 'Нуух' : 'Идэвхжүүлэх'}
-                  </button>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
+        ))}
+      </div>
+
+      <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden' }} className="table-scroll">
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+          <thead><tr style={{ background: 'var(--surface2)' }}>{['Нэр', 'Дизайнер', 'Ангилал', 'Үнэ', 'Төлөв', 'Үйлдэл'].map(h => <th key={h} style={{ padding: '10px 16px', textAlign: 'left', color: 'var(--text2)', fontWeight: 500 }}>{h}</th>)}</tr></thead>
+          <tbody>
+            {loading ? <tr><td colSpan={6} style={{ padding: 32, textAlign: 'center', color: 'var(--text2)' }}>Уншиж байна...</td></tr>
+            : items.length === 0 ? <tr><td colSpan={6} style={{ padding: 32, textAlign: 'center', color: 'var(--text2)' }}>Загвар байхгүй</td></tr>
+            : items.map(t => (
+              <tr key={t.id} style={{ borderTop: '1px solid var(--border)' }}>
+                <td style={{ padding: '10px 16px', fontWeight: 500 }}>{t.name || '—'}</td>
+                <td style={{ padding: '10px 16px', color: 'var(--text2)' }}>{t.designer_name || t.designerId?.slice(0, 8) || '—'}</td>
+                <td style={{ padding: '10px 16px', color: 'var(--text2)' }}>{t.category || '—'}</td>
+                <td style={{ padding: '10px 16px', color: '#FF6B00', fontWeight: 600 }}>₮{Number(t.price || 0).toLocaleString()}</td>
+                <td style={{ padding: '10px 16px' }}><span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 99, background: (STATUS_COLOR[t.status] || '#888') + '15', color: STATUS_COLOR[t.status] || '#888', fontWeight: 600 }}>{t.status || '—'}</span></td>
+                <td style={{ padding: '10px 16px' }}>
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    {t.status === 'pending' && <button onClick={() => approve(t.id)} style={{ padding: '5px 12px', background: 'rgba(16,185,129,0.1)', color: '#10B981', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 12 }}>Зөвшөөрөх</button>}
+                    {t.status === 'pending' && <button onClick={() => reject(t.id)} style={{ padding: '5px 12px', background: 'rgba(239,68,68,0.1)', color: '#EF4444', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 12 }}>Татгалзах</button>}
+                    <button onClick={() => del(t.id)} style={{ padding: '5px 12px', background: 'rgba(239,68,68,0.1)', color: '#EF4444', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 12 }}>Устгах</button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   )
 }

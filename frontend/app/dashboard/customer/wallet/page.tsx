@@ -1,6 +1,5 @@
 'use client'
 
-import { apiFetch, getToken } from '@/lib/api'
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 
@@ -32,6 +31,8 @@ interface UserInfo {
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
+const API = 'http://localhost:4000'
+
 const ROLE_CONFIG: Record<string, { title: string; color: string; icon: string; earnLabel: string }> = {
   sales:    { title: 'Комиссын хэтэвч',    color: '#3B82F6', icon: '💼', earnLabel: 'Нийт комисс' },
   designer: { title: 'Орлогын хэтэвч',     color: '#8B5CF6', icon: '🎨', earnLabel: 'Нийт орлого'  },
@@ -56,6 +57,15 @@ const STATUS_LABEL: Record<string, { label: string; color: string; bg: string }>
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function getToken() {
+  if (typeof window === 'undefined') return ''
+  return localStorage.getItem('access_token') || localStorage.getItem('token') || ''
+}
+
+function authHeaders() {
+  return { 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}` }
+}
 
 function formatDate(str: string) {
   return new Date(str).toLocaleString('mn-MN', {
@@ -93,14 +103,14 @@ export default function WalletPage() {
   async function fetchAll() {
     setLoading(true)
     try {
-      const [meData, balData, txData] = await Promise.all([
-        apiFetch<any>(`/auth/me`).catch(() => null),
-        apiFetch<any>(`/wallet/balance`).catch(() => null),
-        apiFetch<any>(`/wallet/transactions`).catch(() => []),
+      const [meRes, balRes, txRes] = await Promise.all([
+        fetch(`${API}/auth/me`,              { headers: authHeaders() }),
+        fetch(`${API}/wallet/balance`,       { headers: authHeaders() }),
+        fetch(`${API}/wallet/transactions`,  { headers: authHeaders() }),
       ])
-      if (meData)  setUser(meData)
-      if (balData) setBalance(balData)
-      setTransactions(Array.isArray(txData) ? txData : [])
+      if (meRes.ok)  setUser(await meRes.json())
+      if (balRes.ok) setBalance(await balRes.json())
+      if (txRes.ok)  setTransactions(await txRes.json())
     } catch {}
     setLoading(false)
   }
@@ -124,10 +134,12 @@ export default function WalletPage() {
     }
     setWithdrawing(true)
     try {
-      await apiFetch<any>(`/wallet/withdraw`, {
+      const res = await fetch(`${API}/wallet/withdraw`, {
         method: 'POST',
-        body: { amount, note: withdrawNote },
+        headers: authHeaders(),
+        body: JSON.stringify({ amount, note: withdrawNote }),
       })
+      if (!res.ok) throw new Error()
       showToast('Татах хүсэлт илгээгдлээ. Admin батлах хүртэл хүлээнэ үү.')
       setShowWithdraw(false)
       setWithdrawAmount('')

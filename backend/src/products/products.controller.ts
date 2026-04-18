@@ -14,8 +14,17 @@ export class ProductsController {
   ) {}
 
   @Get()
-  findAll(@Query('category_id') categoryId?: string) {
-    return this.productsService.findAll(categoryId);
+  findAll(
+    @Query('category_id') categoryId?: string,
+    @Query('category') category?: string,
+    @Query('limit') limit?: string,
+    @Query('page') page?: string,
+  ) {
+    return this.productsService.findAll({
+      categoryId: categoryId || category,
+      limit: limit ? parseInt(limit, 10) : undefined,
+      page: page ? parseInt(page, 10) : undefined,
+    });
   }
 
   @Get('search')

@@ -1,5 +1,4 @@
-import { Controller, Post, Body, Get, Patch, Param, UseGuards, Request } from '@nestjs/common';
-import { Throttle } from '@nestjs/throttler';
+import { Controller, Post, Body, Get, UseGuards, Request, HttpException, HttpStatus } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
@@ -44,38 +43,13 @@ export class AuthController {
     return this.authService.getMe(req.user.id);
   }
 
-  // Upload KYC documents (URLs from /upload endpoint)
   @UseGuards(JwtAuthGuard)
-  @Patch('me/documents')
-  updateDocuments(@Request() req: any, @Body() body: {
-    id_card_front_url?: string; id_card_back_url?: string;
-    business_license_url?: string; certification_url?: string;
-  }) {
-    return this.authService.updateDocuments(req.user.sub || req.user.id, body);
-  }
-
-  // ─── Forgot / Reset Password (public, no auth) ───
-  @Post('forgot-password')
-  @Throttle({ default: { limit: 5, ttl: 60000 } })
-  forgotPassword(@Body() dto: ForgotPasswordDto) {
-    return this.authService.forgotPassword(dto.email);
-  }
-
-  @Post('reset-password')
-  @Throttle({ default: { limit: 10, ttl: 60000 } })
-  resetPassword(@Body() dto: ResetPasswordDto) {
-    return this.authService.resetPassword(dto.token, dto.password);
-  }
-
-  @Get('validate-reset-token/:token')
-  validateResetToken(@Param('token') token: string) {
-    return this.authService.validateResetToken(token);
-  }
-
-  // Admin: change any user's role
-  @UseGuards(JwtAuthGuard, AdminGuard)
-  @Patch('users/:id/role')
-  changeRole(@Param('id') id: string, @Body('role') role: string) {
-    return this.authService.changeRole(id, role);
+  @Post('request-role')
+  async requestRole(@Request() req, @Body() body: { role: string }) {
+    try {
+      return await this.authService.requestRole(req.user.id, body.role);
+    } catch (e) {
+      throw new HttpException(e.message, HttpStatus.BAD_REQUEST);
+    }
   }
 }

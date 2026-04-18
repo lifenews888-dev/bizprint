@@ -45,67 +45,36 @@ const MastercardIcon = () => <div className="w-12 h-8 bg-white rounded border bo
 export default function Footer() {
   const { settings } = useSiteSettings()
 
-  const siteName    = settings.site_name         || 'BizPrint'
-  const description = settings.footer_description || 'BizPrint — Хэвлэлийн үйлчилгээний платформ'
-  const copyright   = settings.footer_copyright   || '© 2026 BizPrint. Бүх эрх хуулиар хамгаалагдсан.'
-  const location    = settings.footer_location     || 'Улаанбаатар, Монгол'
-  const phone       = settings.site_phone          || '7711-8899'
-  const email       = settings.site_email          || 'info@bizprint.mn'
-
-  const rawColumns = settings.footer_columns
-  const columns: any[] = Array.isArray(rawColumns) && rawColumns.length > 0 ? rawColumns : FALLBACK_COLUMNS
-
-  const showSocial   = settings.footer_show_social !== false && settings.footer_show_social !== 'false'
-  const showLocation = settings.footer_show_location !== false && settings.footer_show_location !== 'false'
-
-  // Build social links from all CMS settings (dynamic — any platform admin adds will show)
-  const socialLinks = [
-    { platform: 'facebook',  url: settings.site_facebook },
-    { platform: 'twitter',   url: settings.site_twitter },
-    { platform: 'instagram', url: settings.site_instagram },
-    { platform: 'linkedin',  url: settings.site_linkedin },
-    { platform: 'tiktok',    url: settings.site_tiktok },
-    { platform: 'youtube',   url: settings.site_youtube },
-    { platform: 'pinterest', url: settings.site_pinterest },
-  ].filter(s => s.url && s.url !== '' && s.url !== '#')
-
-  // Help cards — from CMS or fallback
-  const helpCards = (() => {
-    try {
-      const raw = settings.footer_help_cards
-      const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed
-    } catch {}
-    return [
-      { title: 'Хайж байгаа зүйлээ олсонгүй?', cta: 'Холбоо барих', url: '/contact', icon: 'phone' },
-      { title: 'Тусламж хэрэгтэй юу?', cta: 'Тусламжийн төв', url: '/faq', icon: 'help' },
-      { title: 'Санал хүсэлт илгээх', cta: 'Санал өгөх', url: '/contact', icon: 'feedback' },
-    ]
-  })()
-
-  // Payment methods — from CMS or default
-  const paymentMethods = (() => {
-    try {
-      const raw = settings.footer_payments
-      const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed
-    } catch {}
-    return ['visa', 'mastercard', 'qpay', 'socialpay', 'monpay']
-  })()
-
-  const PAYMENT_MAP: Record<string, () => React.ReactElement> = {
-    visa: VisaIcon,
-    mastercard: MastercardIcon,
-    qpay: () => <PaymentIcon label="QPay" color="#00B140" />,
-    socialpay: () => <PaymentIcon label="Social Pay" color="#3B82F6" />,
-    monpay: () => <PaymentIcon label="MonPay" color="#FF6B00" />,
-  }
-
-  const HELP_ICONS: Record<string, () => React.ReactElement> = {
-    phone: PhoneIcon,
-    help: HelpIcon,
-    feedback: FeedbackIcon,
-  }
+  const sections = [
+    {
+      title: 'Бүтээгдэхүүн',
+      links: [
+        { label: 'Визит карт', href: '/shop?category=business-card' },
+        { label: 'Флаер & Постер', href: '/shop?category=flyer' },
+        { label: 'Баннер', href: '/shop?category=banner' },
+        { label: 'Ном & Каталог', href: '/shop?category=book' },
+        { label: 'Хайрцаг & Уут', href: '/shop?category=packaging' },
+      ],
+    },
+    {
+      title: 'Үйлчилгээ',
+      links: [
+        { label: 'Үнийн санал', href: '/quote' },
+        { label: 'Онлайн дизайн', href: '/designer' },
+        { label: 'Хүргэлт', href: '/delivery' },
+        { label: 'Партнер хөтөлбөр', href: '/partner' },
+      ],
+    },
+    {
+      title: 'Компани',
+      links: [
+        { label: 'Бидний тухай', href: '/about' },
+        { label: 'Холбоо барих', href: '/contact' },
+        { label: 'Үйлчилгээний нөхцөл', href: '/terms' },
+        { label: 'Нууцлалын бодлого', href: '/privacy' },
+      ],
+    },
+  ]
 
   return (
     <footer className="bg-[#1E1033] text-white">
@@ -123,17 +92,19 @@ export default function Footer() {
                 </span>
               )}
             </a>
-            <p className="text-sm text-gray-400 leading-relaxed mb-5">{description}</p>
-
-            <div className="flex flex-col gap-2.5 mb-5">
-              {showLocation && location && (
-                <span className="flex items-center gap-2 text-sm text-gray-400">
-                  <span className="text-[#FF6B00]"><MapPinIcon /></span>{location}
-                </span>
-              )}
-              <a href={`mailto:${email}`} className="flex items-center gap-2 text-sm text-gray-400 no-underline hover:text-white transition-colors">
-                <span className="text-[#FF6B00]"><EmailIcon /></span>{email}
-              </a>
+            <p style={{ fontSize: '13px', color: 'var(--text2)', lineHeight: 1.7, margin: '0 0 20px' }}>
+              Хэвлэлийн салбарын бүх оролцогчдыг нэгтгэсэн нэгдсэн экосистем.
+            </p>
+            <div style={{ marginBottom: '16px' }}>
+              <a href="tel:+97677117700" style={{ display: 'block', fontSize: '13px', color: 'var(--text2)', textDecoration: 'none', marginBottom: '6px' }}>📞 +976 7711-7700</a>
+              <a href="mailto:info@bizprint.mn" style={{ display: 'block', fontSize: '13px', color: 'var(--text2)', textDecoration: 'none' }}>✉️ info@bizprint.mn</a>
+            </div>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              {['📘', '📷', '🐦'].map((icon, i) => (
+                <a key={i} href="#" style={{ width: '34px', height: '34px', borderRadius: '8px', background: 'var(--surface2)', border: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', textDecoration: 'none', fontSize: '14px' }}>
+                  {icon}
+                </a>
+              ))}
             </div>
 
             <a href={`tel:${phone}`} className="flex items-center gap-2 text-lg font-bold text-white no-underline hover:text-[#FF6B00] transition-colors">

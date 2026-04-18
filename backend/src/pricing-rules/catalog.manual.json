@@ -51,7 +51,7 @@
     { "category": "flag", "name": "Дотор туг (зузаан атлас)", "unit": "m2", "price": 60000, "price_vat": 66000 },
     { "category": "flag", "name": "Гадна туг (нимгэн силк)", "unit": "m2", "price": 50000, "price_vat": 55000 },
     { "category": "flag", "name": "Гадна уян туг (мөнгөлөг артай)", "unit": "m2", "price": 60000, "price_vat": 66000 },
-    { "category": "flag_base", "name": "Дотор тавган суурь алтлаг/мөнгөлөг", "unit": "m2", "price": 130000, "price_vat": 143000 },
+    { "category": "flag_base", "name": "Дотор тавган суурь алтлаг/мөнгөлөг", "unit": "pcs", "price": 130000, "price_vat": 143000 },
     { "category": "flag_base", "name": "Г суурь 4-5м", "unit": "pcs", "price": 210000, "price_vat": 231000 },
     { "category": "flag_base", "name": "Уян туг суурь 3.6м", "unit": "pcs", "price": 120000, "price_vat": 132000 },
     { "category": "flag_base", "name": "Уян туг суурь 4.6м", "unit": "pcs", "price": 150000, "price_vat": 165000 },

@@ -288,18 +288,14 @@ export class PaymentService {
         data: { order_id: order.id, payment_id: payment.id },
       })
 
-      // Emit ORDER_PAID for real-time broadcast
-      this.eventBus.emit(BizEvent.ORDER_PAID, {
-        orderId: order.id,
-        userId: (order as any).customer_id || (order as any).user_id,
-        amount: payment.amount,
-        status: 'paid',
-      })
-    }
-
-    // ── Generate Invoice ──
-    if (order) {
-      await this.generateInvoice(order, payment);
+      // notify factory — new production job
+      await this.notificationService.create({
+        user_id: 'factory',
+        type: 'order',
+        title: `Шинэ үйлдвэрлэлийн даалгавар`,
+        message: `${order.product_name || 'Захиалга'} — ${order.quantity}ш${order.customer_name ? ' · ' + order.customer_name : ''}`,
+        data: { order_id: order.id },
+      }).catch(() => {})
     }
 
     return { success: true, invoice_code, status: 'paid' }

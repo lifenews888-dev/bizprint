@@ -1,8 +1,5 @@
 'use client'
-import { apiFetch } from '@/lib/api'
 import { useState, useEffect } from 'react'
-import { AdminPageHeader } from '@/components/admin/AdminPageHeader'
-import { Button } from '@/components/ui/button'
 
 interface Category {
   id: string
@@ -39,6 +36,9 @@ interface Product {
 
 type Tab = 'categories' | 'attributes'
 
+const API = 'http://localhost:4000'
+const getToken = () => localStorage.getItem('access_token') || localStorage.getItem('token') || ''
+const hdrs = () => ({ 'Content-Type': 'application/json', Authorization: 'Bearer ' + getToken() })
 const slugify = (s: string) => s.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
 
 const ICONS = ['📦','🖨️','📋','🎨','📣','📷','🏷️','📰','🗂️','✉️','🎁','🔖','📐','🖼️','📌']
@@ -51,15 +51,7 @@ const ATTR_TYPES = [
   { value: 'dimensions', label: 'Хэмжээс' },
 ]
 
-const EMPTY_CAT = { name:'', name_mn:'', slug:'', description:'', icon:'📦', color:'#FF6B00', parent_id: null as string|null, sort_order:0, is_active:true, show_in_mega_menu:false, menu_group:'' }
-const MENU_GROUPS = [
-  { value: '', label: '— Сонгоно уу —' },
-  { value: 'offset', label: '🖨️ Офсет хэвлэл' },
-  { value: 'digital', label: '🏷️ Дижитал хэвлэл' },
-  { value: 'wide-format', label: '🪧 Өргөн формат' },
-  { value: 'promo', label: '👕 Промо & Хувцас' },
-  { value: 'signage', label: '🔤 Гадна зар' },
-]
+const EMPTY_CAT = { name:'', name_mn:'', slug:'', description:'', icon:'📦', color:'#FF6B00', parent_id: null as string|null, sort_order:0, is_active:true }
 const EMPTY_ATTR = { product_id:'', name:'', name_mn:'', type:'select', options:[] as string[], unit:'', default_value:'', required:false, sort_order:0 }
 
 const inp: React.CSSProperties = { width:'100%', padding:'9px 12px', background:'var(--surface2)', border:'1px solid var(--border)', borderRadius:8, color:'var(--text)', fontSize:14, outline:'none', boxSizing:'border-box' }
@@ -106,22 +98,22 @@ export default function AdminCategoriesPage() {
   async function fetchAll() {
     setLoading(true)
     try {
-      const [cData, tData, pData] = await Promise.all([
-        apiFetch<any>('/categories').catch(() => []),
-        apiFetch<any>('/categories/tree').catch(() => []),
-        apiFetch<any>('/products').catch(() => []),
+      const [cR, tR, pR] = await Promise.all([
+        fetch(API+'/categories', { headers: hdrs() }),
+        fetch(API+'/categories/tree', { headers: hdrs() }),
+        fetch(API+'/products', { headers: hdrs() }),
       ])
-      setCategories(Array.isArray(cData) ? cData : [])
-      setTree(Array.isArray(tData) ? tData : [])
-      setProducts(Array.isArray(pData) ? pData : [])
+      if (cR.ok) setCategories(await cR.json())
+      if (tR.ok) setTree(await tR.json())
+      if (pR.ok) setProducts(await pR.json())
     } catch {}
     setLoading(false)
   }
 
   async function fetchAttrs(pid: string) {
     try {
-      const r = await apiFetch<any>('/products/'+pid+'/attributes')
-      setAttributes(r)
+      const r = await fetch(API+'/products/'+pid+'/attributes', { headers: hdrs() })
+      setAttributes(r.ok ? await r.json() : [])
     } catch { setAttributes([]) }
   }
 
@@ -132,7 +124,7 @@ export default function AdminCategoriesPage() {
   }
   function openCatEdit(c: Category) {
     setCatEdit(c)
-    setCatForm({ name:c.name, name_mn:c.name_mn||'', slug:c.slug||'', description:c.description||'', icon:c.icon||'📦', color:c.color||'#FF6B00', parent_id:c.parent_id, sort_order:c.sort_order||0, is_active:c.is_active, show_in_mega_menu:(c as any).show_in_mega_menu||false, menu_group:(c as any).menu_group||'' })
+    setCatForm({ name:c.name, name_mn:c.name_mn||'', slug:c.slug||'', description:c.description||'', icon:c.icon||'📦', color:c.color||'#FF6B00', parent_id:c.parent_id, sort_order:c.sort_order||0, is_active:c.is_active })
     setCatModal(true)
   }
   async function saveCat() {
@@ -140,19 +132,20 @@ export default function AdminCategoriesPage() {
     setCatSaving(true)
     const body = {...catForm, slug: catForm.slug || slugify(catForm.name)}
     try {
-      const path = catEdit ? `/categories/${catEdit.id}` : '/categories'
-      await apiFetch<any>(path, { method: catEdit?'PATCH':'POST', body: body })
-      showToast(catEdit?'Засагдлаа':'Нэмэгдлээ'); setCatModal(false); fetchAll()
+      const url = catEdit ? API+'/categories/'+catEdit.id : API+'/categories'
+      const r = await fetch(url, { method: catEdit?'PATCH':'POST', headers: hdrs(), body: JSON.stringify(body) })
+      if (r.ok) { showToast(catEdit?'Засагдлаа':'Нэмэгдлээ'); setCatModal(false); fetchAll() }
+      else showToast('Алдаа гарлаа')
     } catch { showToast('Алдаа гарлаа') }
     setCatSaving(false)
   }
   async function deleteCat(id: string) {
     if (!confirm('Устгах уу?')) return
-    await apiFetch<any>('/categories/'+id, { method:'DELETE'})
+    await fetch(API+'/categories/'+id, { method:'DELETE', headers: hdrs() })
     showToast('Устгагдлаа'); fetchAll()
   }
   async function toggleActive(c: Category) {
-    await apiFetch<any>('/categories/'+c.id, { method:'PATCH', body: {is_active: !c.is_active} })
+    await fetch(API+'/categories/'+c.id, { method:'PATCH', headers: hdrs(), body: JSON.stringify({is_active: !c.is_active}) })
     fetchAll()
   }
 
@@ -168,15 +161,16 @@ export default function AdminCategoriesPage() {
     if (!attrForm.name || !attrForm.product_id) return
     setAttrSaving(true)
     try {
-      const path = attrEdit ? `/products/${attrForm.product_id}/attributes/${attrEdit.id}` : `/products/${attrForm.product_id}/attributes`
-      await apiFetch<any>(path, { method: attrEdit?'PATCH':'POST', body: attrForm })
-      showToast(attrEdit?'Засагдлаа':'Нэмэгдлээ'); setAttrModal(false); fetchAttrs(selProduct)
+      const url = attrEdit ? API+'/products/'+attrForm.product_id+'/attributes/'+attrEdit.id : API+'/products/'+attrForm.product_id+'/attributes'
+      const r = await fetch(url, { method: attrEdit?'PATCH':'POST', headers: hdrs(), body: JSON.stringify(attrForm) })
+      if (r.ok) { showToast(attrEdit?'Засагдлаа':'Нэмэгдлээ'); setAttrModal(false); fetchAttrs(selProduct) }
+      else showToast('Алдаа гарлаа')
     } catch { showToast('Алдаа гарлаа') }
     setAttrSaving(false)
   }
   async function deleteAttr(a: ProductAttribute) {
     if (!confirm('Устгах уу?')) return
-    await apiFetch<any>('/products/'+a.product_id+'/attributes/'+a.id, { method:'DELETE'})
+    await fetch(API+'/products/'+a.product_id+'/attributes/'+a.id, { method:'DELETE', headers: hdrs() })
     showToast('Устгагдлаа'); fetchAttrs(selProduct)
   }
   function addOption() {
@@ -185,23 +179,30 @@ export default function AdminCategoriesPage() {
   }
 
   return (
-    <div className="p-4 md:p-6">
+    <div style={{ padding:'28px 32px', fontFamily:"'Segoe UI',system-ui,sans-serif", color:'var(--text)' }}>
 
       {toast && (
-        <div style={{ position:'fixed', top:20, right:20, zIndex:9999, background:'#10B981', color:'#fff', padding:'12px 20px', borderRadius:10, fontSize:14, fontWeight:600, boxShadow:'0 4px 20px rgba(0,0,0,0.4)' }}>
+        <div style={{ position:'fixed', top:20, right:20, zIndex:9999, background:'#1D9E75', color:'#fff', padding:'12px 20px', borderRadius:10, fontSize:14, fontWeight:600, boxShadow:'0 4px 20px rgba(0,0,0,0.4)' }}>
           {toast}
         </div>
       )}
 
-      <AdminPageHeader title="Ангилал" description="Бүтээгдэхүүний ангилал, дэд ангилал, параметр">
+      <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:28 }}>
+        <div>
+          <h1 style={{ fontSize:22, fontWeight:700, margin:0 }}>Ангилал</h1>
+          <p style={{ color:'var(--text2)', fontSize:13, margin:'4px 0 0' }}>Бүтээгдэхүүний ангилал, дэд ангилал, параметр</p>
+        </div>
         {tab === 'categories' && (
-          <Button size="sm" onClick={()=>openCatCreate()}>+ Ангилал нэмэх</Button>
+          <button onClick={()=>openCatCreate()} style={{ padding:'9px 20px', background:'#FF6B00', border:'none', borderRadius:8, color:'#fff', fontWeight:700, fontSize:13, cursor:'pointer' }}>
+            + Ангилал нэмэх
+          </button>
         )}
         {tab === 'attributes' && selProduct && (
-          <Button size="sm" onClick={openAttrCreate}>+ Параметр нэмэх</Button>
+          <button onClick={openAttrCreate} style={{ padding:'9px 20px', background:'#FF6B00', border:'none', borderRadius:8, color:'#fff', fontWeight:700, fontSize:13, cursor:'pointer' }}>
+            + Параметр нэмэх
+          </button>
         )}
-      </AdminPageHeader>
-
+      </div>
 
       <div style={{ display:'flex', gap:4, borderBottom:'1px solid var(--border)', marginBottom:24 }}>
         {([['categories','Ангилалууд'],['attributes','Параметрүүд']] as [Tab,string][]).map(([k,lbl])=>(
@@ -240,9 +241,6 @@ export default function AdminCategoriesPage() {
                       <div style={{fontWeight:600, fontSize:14}}>{cat.name}</div>
                       {cat.name_mn && <div style={{fontSize:11, color:'var(--text2)'}}>{cat.name_mn}</div>}
                     </div>
-                    {(cat as any).show_in_mega_menu && (
-                      <span style={{ background:'rgba(255,107,0,0.15)', color:'#FF6B00', borderRadius:20, padding:'2px 8px', fontSize:10, fontWeight:600 }}>🧭 Меню</span>
-                    )}
                     {(cat.children?.length||0) > 0 && (
                       <span style={{ background:'rgba(255,107,0,0.15)', color:'#FF6B00', borderRadius:20, padding:'2px 8px', fontSize:11, fontWeight:600 }}>
                         {cat.children!.length}
@@ -251,7 +249,7 @@ export default function AdminCategoriesPage() {
                   </div>
                   <span style={{fontFamily:'monospace', fontSize:12, color:'var(--text2)'}}>{cat.slug||'—'}</span>
                   <span style={{fontSize:13, color:'var(--text2)'}}>{cat.children?.length||0} дэд</span>
-                  <button onClick={()=>toggleActive(cat)} style={{ background:cat.is_active?'rgba(16,185,129,0.15)':'var(--surface2)', color:cat.is_active?'#10B981':'var(--text2)', border:'1px solid', borderColor:cat.is_active?'#10B981':'var(--border)', borderRadius:20, padding:'3px 10px', fontSize:11, fontWeight:600, cursor:'pointer', width:'fit-content' }}>
+                  <button onClick={()=>toggleActive(cat)} style={{ background:cat.is_active?'rgba(29,158,117,0.15)':'var(--surface2)', color:cat.is_active?'#1D9E75':'var(--text2)', border:'1px solid', borderColor:cat.is_active?'#1D9E75':'var(--border)', borderRadius:20, padding:'3px 10px', fontSize:11, fontWeight:600, cursor:'pointer', width:'fit-content' }}>
                     {cat.is_active?'Идэвхтэй':'Идэвхгүй'}
                   </button>
                   <div style={{display:'flex', gap:6, justifyContent:'flex-end'}}>
@@ -271,7 +269,7 @@ export default function AdminCategoriesPage() {
                     </div>
                     <span style={{fontFamily:'monospace', fontSize:12, color:'var(--text2)'}}>{child.slug||'—'}</span>
                     <span style={{fontSize:13, color:'var(--text3)'}}>Дэд ангилал</span>
-                    <button onClick={()=>toggleActive(child)} style={{ background:child.is_active?'rgba(16,185,129,0.15)':'var(--surface2)', color:child.is_active?'#10B981':'var(--text2)', border:'1px solid', borderColor:child.is_active?'#10B981':'var(--border)', borderRadius:20, padding:'3px 10px', fontSize:11, fontWeight:600, cursor:'pointer', width:'fit-content' }}>
+                    <button onClick={()=>toggleActive(child)} style={{ background:child.is_active?'rgba(29,158,117,0.15)':'var(--surface2)', color:child.is_active?'#1D9E75':'var(--text2)', border:'1px solid', borderColor:child.is_active?'#1D9E75':'var(--border)', borderRadius:20, padding:'3px 10px', fontSize:11, fontWeight:600, cursor:'pointer', width:'fit-content' }}>
                       {child.is_active?'Идэвхтэй':'Идэвхгүй'}
                     </button>
                     <div style={{display:'flex', gap:6, justifyContent:'flex-end'}}>
@@ -381,32 +379,12 @@ export default function AdminCategoriesPage() {
                   style={{width:28, height:28, borderRadius:'50%', background:c, border:'none', cursor:'pointer', outline:catForm.color===c?'3px solid '+c:'none', outlineOffset:2}} />
               ))}
             </div>
-            <div style={{display:'flex', alignItems:'center', gap:10, marginBottom:12}}>
+            <div style={{display:'flex', alignItems:'center', gap:10, marginBottom:20}}>
               <button onClick={()=>setCatForm(f=>({...f, is_active:!f.is_active}))}
-                style={{width:44, height:24, borderRadius:12, border:'none', background:catForm.is_active?'#10B981':'var(--border)', cursor:'pointer', position:'relative', transition:'background 0.2s'}}>
-                <span style={{position:'absolute', top:3, left:catForm.is_active?22:2, width:18, height:18, borderRadius:'50%', background:'var(--surface)', transition:'left 0.2s'}} />
+                style={{width:44, height:24, borderRadius:12, border:'none', background:catForm.is_active?'#1D9E75':'var(--border)', cursor:'pointer', position:'relative', transition:'background 0.2s'}}>
+                <span style={{position:'absolute', top:3, left:catForm.is_active?22:2, width:18, height:18, borderRadius:'50%', background:'#fff', transition:'left 0.2s'}} />
               </button>
               <span style={{fontSize:14}}>Идэвхтэй</span>
-            </div>
-            <div style={{borderTop:'1px solid var(--border)', paddingTop:12, marginBottom:12}}>
-              <div style={{fontSize:12, fontWeight:700, color:'var(--text3)', marginBottom:8}}>🧭 МЕГА МЕНЮ ТОХИРГОО</div>
-              <div style={{display:'flex', alignItems:'center', gap:10, marginBottom:10}}>
-                <button onClick={()=>setCatForm(f=>({...f, show_in_mega_menu:!f.show_in_mega_menu}))}
-                  style={{width:44, height:24, borderRadius:12, border:'none', background:catForm.show_in_mega_menu?'#FF6B00':'var(--border)', cursor:'pointer', position:'relative', transition:'background 0.2s'}}>
-                  <span style={{position:'absolute', top:3, left:catForm.show_in_mega_menu?22:2, width:18, height:18, borderRadius:'50%', background:'var(--surface)', transition:'left 0.2s'}} />
-                </button>
-                <span style={{fontSize:13}}>Мега меню-д харуулах</span>
-              </div>
-              {catForm.show_in_mega_menu && (
-                <div>
-                  <span style={{fontSize:12, fontWeight:600, color:'var(--text2)', display:'block', marginBottom:2}}>Меню бүлэг</span>
-                  <select value={catForm.menu_group} onChange={e=>setCatForm(f=>({...f, menu_group:e.target.value}))}
-                    style={{width:'100%', padding:'8px 12px', borderRadius:8, border:'1px solid var(--border)', background:'var(--surface)', color:'var(--text)', fontSize:13, marginTop:4}}>
-                    {MENU_GROUPS.map(g=><option key={g.value} value={g.value}>{g.label}</option>)}
-                  </select>
-                  <div style={{fontSize:10, color:'var(--text4)', marginTop:4}}>Мега меню-д аль баганад байрлахыг тодорхойлно</div>
-                </div>
-              )}
             </div>
             <div style={{display:'flex', gap:10, justifyContent:'flex-end'}}>
               <button onClick={()=>setCatModal(false)} style={{padding:'10px 18px', background:'var(--surface2)', color:'var(--text)', border:'1px solid var(--border)', borderRadius:8, fontWeight:600, fontSize:14, cursor:'pointer'}}>Болих</button>
@@ -467,7 +445,7 @@ export default function AdminCategoriesPage() {
             <div style={{display:'flex', alignItems:'center', gap:10, marginBottom:20}}>
               <button onClick={()=>setAttrForm(f=>({...f, required:!f.required}))}
                 style={{width:44, height:24, borderRadius:12, border:'none', background:attrForm.required?'#FF6B00':'var(--border)', cursor:'pointer', position:'relative', transition:'background 0.2s'}}>
-                <span style={{position:'absolute', top:3, left:attrForm.required?22:2, width:18, height:18, borderRadius:'50%', background:'var(--surface)', transition:'left 0.2s'}} />
+                <span style={{position:'absolute', top:3, left:attrForm.required?22:2, width:18, height:18, borderRadius:'50%', background:'#fff', transition:'left 0.2s'}} />
               </button>
               <span style={{fontSize:14}}>Заавал бөглөх</span>
             </div>

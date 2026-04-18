@@ -1,8 +1,6 @@
 'use client'
 
-import { apiFetch } from '@/lib/api'
 import { useEffect, useMemo, useState } from 'react'
-import { AdminPageHeader } from '@/components/admin/AdminPageHeader'
 
 // Types
 interface WithdrawRequest {
@@ -17,6 +15,8 @@ interface WithdrawRequest {
 }
 
 // Constants
+const API = 'http://localhost:4000'
+
 const ROLE_LABEL: Record<string, { label: string; color: string }> = {
   sales:    { label: 'Борлуулагч', color: '#3B82F6' },
   designer: { label: 'Дизайнер',   color: '#8B5CF6' },
@@ -32,6 +32,15 @@ const STATUS_CONFIG = {
 }
 
 // Helpers
+function getToken() {
+  if (typeof window === 'undefined') return ''
+  return localStorage.getItem('access_token') || localStorage.getItem('token') || ''
+}
+
+function authHeaders() {
+  return { 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}` }
+}
+
 function formatDate(str: string) {
   return new Date(str).toLocaleString('mn-MN', {
     year: 'numeric', month: '2-digit', day: '2-digit',
@@ -59,8 +68,8 @@ export default function AdminWalletRequestsPage() {
   async function fetchRequests() {
     setLoading(true)
     try {
-      const res = await apiFetch<any>(`/wallet/withdraw-requests`)
-      const data: WithdrawRequest[] = res
+      const res = await fetch(`${API}/wallet/withdraw-requests`, { headers: authHeaders() })
+      const data: WithdrawRequest[] = res.ok ? await res.json() : []
       setRequests(data)
       setStats({
         pending:              data.filter(r => r.status === 'pending').length,
@@ -82,9 +91,11 @@ export default function AdminWalletRequestsPage() {
   async function approveRequest(req: WithdrawRequest) {
     setProcessing(true)
     try {
-      await apiFetch<any>(`/wallet/withdraw-requests/${req.id}/approve`, {
+      const res = await fetch(`${API}/wallet/withdraw-requests/${req.id}/approve`, {
         method: 'PATCH',
+        headers: authHeaders(),
       })
+      if (!res.ok) throw new Error()
       showToast(`${req.user?.email || 'Хэрэглэгч'}-ийн ${req.amount.toLocaleString()}₮ татах хүсэлт батлагдлаа`)
       setActionModal(null)
       fetchRequests()
@@ -98,10 +109,12 @@ export default function AdminWalletRequestsPage() {
     if (!rejectReason.trim()) return
     setProcessing(true)
     try {
-      await apiFetch<any>(`/wallet/withdraw-requests/${req.id}/reject`, {
+      const res = await fetch(`${API}/wallet/withdraw-requests/${req.id}/reject`, {
         method: 'PATCH',
-        body: { reason: rejectReason },
+        headers: authHeaders(),
+        body: JSON.stringify({ reason: rejectReason }),
       })
+      if (!res.ok) throw new Error()
       showToast(`Татгалзлаа — ${req.user?.email}`)
       setActionModal(null)
       setRejectReason('')
@@ -147,7 +160,7 @@ export default function AdminWalletRequestsPage() {
   }
 
   return (
-    <div className="p-4 md:p-6">
+    <div style={{ padding: '28px 32px', color: 'var(--text)', fontFamily: "'DM Sans', 'Segoe UI', system-ui" }}>
 
       {/* Toast */}
       {toast && (
@@ -161,8 +174,15 @@ export default function AdminWalletRequestsPage() {
         </div>
       )}
 
-      <AdminPageHeader title="Татах хүсэлтүүд" description="Хэтэвчний татах хүсэлтийг хянах, батлах, татгалзах" />
-      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 28 }}>
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 28, gap: 16, flexWrap: 'wrap' }}>
+        <div>
+          <h1 style={{ fontSize: 24, fontWeight: 700, margin: 0 }}>Татах хүсэлтүүд</h1>
+          <p style={{ color: 'var(--text2)', fontSize: 14, margin: '4px 0 0' }}>
+            Хэтэвчний татах хүсэлтийг хянах, батлах, татгалзах
+          </p>
+        </div>
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
           <input
             placeholder="Хэрэглэгч / имэйл / тэмдэглэл..."
             value={search}
@@ -201,6 +221,7 @@ export default function AdminWalletRequestsPage() {
           }}>
             ⭳ CSV Export
           </button>
+        </div>
       </div>
 
       {/* Stat cards */}

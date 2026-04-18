@@ -185,12 +185,16 @@ export class AuthService {
     return result;
   }
 
-  private async generateTokens(
-    user: User,
-    deviceId?: string,
-    deviceName?: string,
-    platform?: string,
-  ) {
+  async requestRole(userId: string, role: string) {
+    const allowed = ['creator', 'vendor', 'designer', 'sales', 'courier'];
+    if (!allowed.includes(role)) {
+      throw new Error('Энэ үүргийн хүсэлт өгөх боломжгүй');
+    }
+    await this.userRepository.update(userId, { role_request: role });
+    return { message: 'Хүсэлт амжилттай илгээгдлээ', role_request: role };
+  }
+
+  private generateToken(user: User) {
     const payload = {
       sub: user.id,
       email: user.email,

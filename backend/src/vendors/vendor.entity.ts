@@ -77,6 +77,15 @@ export class Vendor {
   @Column({ nullable: true })
   address: string;
 
+  @Column({ nullable: true })
+  contact_name: string;
+
+  @Column({ nullable: true })
+  description: string;
+
+  @Column({ default: true })
+  is_active: boolean;
+
   @Column({ default: false })
   verified: boolean;
 
