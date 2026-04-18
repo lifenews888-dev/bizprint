@@ -164,14 +164,52 @@ function mapBinding(raw: string): string {
   return 'none';
 }
 
+// ─── Imposition helpers ───────────────────────────────────────────────────────
+
+/** Reference sheet size for cost normalisation (A4) */
+const REF_W = 210;
+const REF_H = 297;
+const REF_AREA = REF_W * REF_H; // 62,370 mm²
+
+/**
+ * How many items of size w×h fit on one A4 sheet (best of normal/rotated).
+ * Returns at least 1.
+ */
+function calcImposition(w: number, h: number): number {
+  if (w <= 0 || h <= 0) return 1;
+  const normal  = Math.floor(REF_W / w) * Math.floor(REF_H / h);
+  const rotated = Math.floor(REF_W / h) * Math.floor(REF_H / w);
+  return Math.max(normal, rotated, 1);
+}
+
+/**
+ * Number of A4-equivalent paper units consumed per copy.
+ * - A4 1pp single  → 1.0
+ * - A5 1pp single  → 0.5
+ * - A3 1pp single  → 2.0
+ * - 90×55 bizcard  → 0.08 (≈ 1/12.6)
+ */
+function effectiveSheetsPerCopy(
+  w: number,
+  h: number,
+  pages: number,
+  sides: 'single' | 'double',
+): number {
+  const logicalSheets = Math.ceil(pages / (sides === 'double' ? 2 : 1));
+  const areaRatio     = (w * h) / REF_AREA;
+  return logicalSheets * areaRatio;
+}
+
 // ─── Print cost engine ────────────────────────────────────────────────────────
 
 interface PrintParams {
   quantity:   number;
   pages:      number;
   sides:      'single' | 'double';
+  width_mm:   number;   // finished item width  (default 210 = A4)
+  height_mm:  number;   // finished item height (default 297 = A4)
   paper_gsm:  number;
-  colors:     number;  // 1 = B&W / spot, 4 = CMYK
+  colors:     number;   // 1 = B&W / spot color, 4 = CMYK
   finishing:  string;
   binding:    string;
   rush:       boolean;
@@ -201,6 +239,9 @@ interface PrintResult {
 function calcForPress(p: PrintParams, useOffset: boolean): PrintResult {
   const rush_factor = p.rush ? 1.35 : 1.0;
 
+  // ── Imposition: how many items fit on one A4-reference sheet ─────────────
+  const imp = calcImposition(p.width_mm, p.height_mm);
+
   // ── Machine selection ─────────────────────────────────────────────────────
   const machine_rate  = useOffset
     ? OFFSET_MACHINE_RATE
@@ -208,19 +249,23 @@ function calcForPress(p: PrintParams, useOffset: boolean): PrintResult {
   const machine_speed = useOffset ? OFFSET_MACHINE_SPEED : DIGITAL_MACHINE_SPEED;
 
   // ── Plate setup (OFFSET ONLY — digital presses don't use CTP plates) ──────
-  const form_count  = Math.max(1, Math.ceil(p.pages / 4));
+  // With imposition, more pages share a single form → fewer plates needed.
+  // pages_per_form = 4 (A4 base) × imposition
+  const pages_per_form = 4 * imp;
+  const form_count  = Math.max(1, Math.ceil(p.pages / pages_per_form));
   const plate_count = useOffset
     ? p.colors * form_count * (p.sides === 'double' ? 2 : 1)
     : 0;
   const plate_cost = plate_count * PLATE_COST;
 
   // ── Variable production costs (scale with quantity) ───────────────────────
-  const sheets_per_copy = Math.max(1, Math.ceil(p.pages / (p.sides === 'double' ? 2 : 1)));
-  const total_sheets    = Math.ceil(sheets_per_copy * p.quantity * WASTE_FACTOR);
-  const paper_cost      = total_sheets * getPaperPrice(p.paper_gsm);
-  const print_cost      = Math.ceil((total_sheets / machine_speed) * machine_rate);
-  const finish_cost     = (FINISHING_COST_PER_COPY[p.finishing] ?? 0) * p.quantity;
-  const bind_cost       = (BINDING_COST_PER_COPY[p.binding]    ?? 0) * p.quantity;
+  // Use area-based sheet count so A5 costs half of A4, A3 costs double, etc.
+  const eff_per_copy  = effectiveSheetsPerCopy(p.width_mm, p.height_mm, p.pages, p.sides);
+  const total_sheets  = Math.ceil(eff_per_copy * p.quantity * WASTE_FACTOR);
+  const paper_cost    = total_sheets * getPaperPrice(p.paper_gsm);
+  const print_cost    = Math.ceil((total_sheets / machine_speed) * machine_rate);
+  const finish_cost   = (FINISHING_COST_PER_COPY[p.finishing] ?? 0) * p.quantity;
+  const bind_cost     = (BINDING_COST_PER_COPY[p.binding]    ?? 0) * p.quantity;
 
   const variable_raw = Math.round((paper_cost + print_cost + finish_cost + bind_cost) * rush_factor);
   const variable_oh  = Math.round(variable_raw * (1 + OVERHEAD_RATE));
@@ -241,7 +286,9 @@ function calcForPress(p: PrintParams, useOffset: boolean): PrintResult {
     total_cost:   subtotal,
     press:        useOffset ? 'offset' : 'digital',
     breakdown: {
-      sheets_per_copy,
+      item_size_mm:    `${p.width_mm}×${p.height_mm}`,
+      imposition:      imp,
+      eff_sheets_per_copy: Math.round(eff_per_copy * 1000) / 1000,
       total_sheets,
       plate_count,
       plate_cost,
@@ -311,6 +358,11 @@ export class PricingService {
     const finishing     = mapFinishing(finishing_raw);
     const binding       = mapBinding(binding_raw);
 
+    // Item dimensions — default A4 if not specified.
+    // Front-end/admin passes these as width_mm / height_mm in options.
+    const width_mm  = extractNum(opts, ['width_mm', 'width', 'өргөн', 'мм_өргөн'], 210);
+    const height_mm = extractNum(opts, ['height_mm', 'height', 'өндөр', 'урт', 'мм_өндөр'], 297);
+
     // ── Decide pricing strategy ────────────────────────────────────────────
     const useOffsetEngine = product.product_type === 'print';
 
@@ -324,6 +376,8 @@ export class PricingService {
         quantity,
         pages,
         sides,
+        width_mm,
+        height_mm,
         paper_gsm,
         colors,
         finishing,
@@ -366,7 +420,7 @@ export class PricingService {
           delivery_fee,
           total,
           pricing_model: 'print_cost_based',
-          input_params: { pages, sides, paper_gsm, colors, finishing, binding },
+          input_params: { width_mm, height_mm, pages, sides, paper_gsm, colors, finishing, binding },
         },
       };
 
