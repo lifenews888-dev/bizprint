@@ -1,3 +1,4 @@
+'use client'
 import { useState } from 'react'
 import { useChatStore } from '@/stores/chat.store'
 import { getRoleConfig } from '@/lib/services/chat.service'

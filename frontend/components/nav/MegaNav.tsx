@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from 'react'
 import { usePathname } from 'next/navigation'
 import { useSiteSettings } from '@/contexts/SiteSettingsContext'
 import { useStore } from '@/lib/store'
+import { Phone as PhoneIcon, Search as SearchIcon, User as UserIcon, Heart as HeartIcon, ShoppingCart as CartIcon, Menu as MenuIcon, ChevronDown, ChevronRight } from 'lucide-react'
 
 
 const API = 'http://localhost:4000'

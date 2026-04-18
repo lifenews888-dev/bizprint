@@ -1,3 +1,4 @@
+'use client'
 import { useState, useRef, useCallback } from 'react'
 import { useChatStore } from '@/stores/chat.store'
 
