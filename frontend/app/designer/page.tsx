@@ -226,7 +226,7 @@ export default function DesignerDashboard() {
                 <select value={ppForm.color_mode} onChange={e => setPpForm(f => ({ ...f, color_mode: e.target.value }))} style={inp}>
                   <option value="CMYK">CMYK</option>
                   <option value="RGB">RGB</option>
-                  <option value="SPOT">Spot color</option>
+                  <option value="SPOT">Spot өнгө</option>
                 </select>
               </div>
               <div>

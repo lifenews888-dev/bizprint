@@ -158,7 +158,7 @@ export default function SalesDashboard() {
 
           {/* Referral card */}
           <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:12, padding:24 }}>
-            <div style={{ fontWeight:700, fontSize:15, marginBottom:4 }}>Таны Referral линк</div>
+            <div style={{ fontWeight:700, fontSize:15, marginBottom:4 }}>Таны Рефэрал линк</div>
             <div style={{ fontSize:12, color:'var(--text2)', marginBottom:20 }}>Энэ линкээр бүртгүүлсэн хэрэглэгч бүрт комисс авна</div>
 
             {referral ? (
@@ -187,7 +187,7 @@ export default function SalesDashboard() {
                 <div style={{ display:'flex', gap:8, marginBottom:16 }}>
                   {[
                     { label:'📘 Facebook', color:'#1877F2', href:'https://facebook.com/sharer/sharer.php?u='+encodeURIComponent(refLink) },
-                    { label:'✉️ Email', color:'#6366F1', href:'mailto:?body='+encodeURIComponent(refLink) },
+                    { label:'✉️ Имэйл', color:'#6366F1', href:'mailto:?body='+encodeURIComponent(refLink) },
                   ].map(s=>(
                     <a key={s.label} href={s.href} target="_blank" rel="noreferrer"
                       style={{ flex:1, textAlign:'center', padding:'8px', background:s.color+'15', border:'1px solid '+s.color+'44', borderRadius:8, fontSize:12, fontWeight:600, color:s.color, textDecoration:'none' }}>
@@ -210,7 +210,7 @@ export default function SalesDashboard() {
               </>
             ) : (
               <div style={{ padding:24, textAlign:'center', color:'var(--text2)', background:'var(--surface2)', borderRadius:8 }}>
-                Referral мэдээлэл байхгүй байна
+                Рефэрал мэдээлэл байхгүй байна
               </div>
             )}
           </div>
