@@ -116,8 +116,6 @@ export default function MegaNav() {
     button: 'Get Started',
     url: '/quote',
   })
-  const [cartCount, setCartCount] = useState(0)
-
   const { cartCount, wishlist } = useStore()
   const [mounted, setMounted] = useState(false)
   useEffect(() => setMounted(true), [])
