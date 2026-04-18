@@ -143,7 +143,7 @@ export default function DesignerDashboard() {
   }
 
   const filtered = filter === 'all' ? requests : requests.filter(r => r.status === filter)
-  const counts = { all: requests.length, ...Object.fromEntries(Object.keys(ST_MN).map(k => [k, requests.filter(r => r.status === k).length])) }
+  const counts: Record<string, number> = { all: requests.length, ...Object.fromEntries(Object.keys(ST_MN).map(k => [k, requests.filter(r => r.status === k).length])) }
 
   const s: React.CSSProperties = { background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 8, padding: '8px 12px', color: 'var(--text)', fontSize: 13, outline: 'none' }
   const inp: React.CSSProperties = { ...s, width: '100%', padding: '9px 12px', boxSizing: 'border-box' as const }
