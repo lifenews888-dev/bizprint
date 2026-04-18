@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 
 const API = 'http://localhost:4000';
 const F = "'DM Sans','Segoe UI',system-ui,sans-serif";
+const getToken = () => localStorage.getItem('access_token') || localStorage.getItem('token') || '';
 
 interface Vendor {
   id: string;
@@ -114,7 +115,7 @@ export default function CommissionPage() {
       // Save default rate
       await fetch(`${API}/settings`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}` },
         body: JSON.stringify({ key: 'commission_rate', value: defaultRate, label: 'Default Commission Rate %', type: 'number' }),
       });
 
@@ -122,7 +123,7 @@ export default function CommissionPage() {
       for (const [role, rate] of Object.entries(roleRates)) {
         await fetch(`${API}/settings`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}` },
           body: JSON.stringify({
             key: `commission_role_${role}`,
             value: rate,
@@ -137,7 +138,7 @@ export default function CommissionPage() {
         if (rate) {
           await fetch(`${API}/settings`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}` },
             body: JSON.stringify({
               key: `commission_vendor_${vendorId}`,
               value: rate,

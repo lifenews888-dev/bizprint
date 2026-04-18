@@ -124,7 +124,7 @@ export default function DashboardPage() {
       const amount = Math.round(selTotal * 1.1)
       const payRes = await fetch(`${API}/payment/create`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}` },
         body: JSON.stringify({ orderId, amount, method: payMethod }),
       })
       const pay = await payRes.json()
@@ -151,7 +151,7 @@ export default function DashboardPage() {
   const pollStatus = async (invoiceNo: string) => {
     const timer = setInterval(async () => {
       try {
-        const res = await fetch(`${API}/payment/status/${invoiceNo}`, { headers: { Authorization: `Bearer ${token}` } })
+        const res = await fetch(`${API}/payment/status/${invoiceNo}`, { headers: { Authorization: `Bearer ${getToken()}` } })
         const data = await res.json()
         if (data?.status === 1 || data?.status === 'PAID' || data?.status === 'paid') {
           clearInterval(timer)
