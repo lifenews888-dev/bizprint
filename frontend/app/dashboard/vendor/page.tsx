@@ -121,6 +121,7 @@ export default function VendorDashboard() {
     const ud = localStorage.getItem('user')
     if (!ud || !tok()) { router.push('/login'); return }
     const u = JSON.parse(ud) as User
+    if (u.role !== 'vendor' && u.role !== 'admin') { router.push('/login'); return }
     setUser(u)
     loadAll(u)
   }, [])

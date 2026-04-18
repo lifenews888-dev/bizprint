@@ -79,7 +79,9 @@ export default function CourierDashboard() {
   useEffect(() => {
     const ud = localStorage.getItem('user')
     if (!ud || !tok()) { router.push('/login'); return }
-    setUser(JSON.parse(ud))
+    const u = JSON.parse(ud)
+    if (u.role !== 'courier' && u.role !== 'admin') { router.push('/login'); return }
+    setUser(u)
     fetchDeliveries()
     const interval = setInterval(fetchDeliveries, 30_000)
     return () => clearInterval(interval)

@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect, useCallback } from 'react'
+import { useRouter } from 'next/navigation'
 
 const API = 'http://localhost:4000'
 const F = "'DM Sans','Segoe UI',system-ui,sans-serif"
@@ -49,6 +50,7 @@ const STATUS_META: Record<string, { label: string; color: string; bg: string; ne
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function FactoryDashboard() {
+  const router = useRouter()
   const [jobs, setJobs]             = useState<Job[]>([])
   const [loading, setLoading]       = useState(true)
   const [filter, setFilter]         = useState<string>('all')
@@ -57,6 +59,15 @@ export default function FactoryDashboard() {
   const [savingNote, setSavingNote] = useState<number | null>(null)
   const [expanded, setExpanded]     = useState<number | null>(null)
   const [files, setFiles]           = useState<Record<string, any[]>>({})
+
+  // ── Auth + role guard ──
+  useEffect(() => {
+    const ud = localStorage.getItem('user')
+    const tk = localStorage.getItem('access_token') || localStorage.getItem('token')
+    if (!ud || !tk) { router.push('/login'); return }
+    const u = JSON.parse(ud)
+    if (u.role !== 'factory' && u.role !== 'admin') { router.push('/login') }
+  }, [])
 
   const load = useCallback(() => {
     fetch(`${API}/production-jobs`, { headers: H() })

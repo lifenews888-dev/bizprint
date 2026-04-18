@@ -82,6 +82,7 @@ export default function SalesDashboard() {
     const tk = tok()
     if (!ud || !tk) { router.push('/login'); return }
     const u = JSON.parse(ud)
+    if (u.role !== 'sales' && u.role !== 'admin') { router.push('/login'); return }
     setUser(u)
     Promise.all([
       fetch(API + '/referral/my', { headers: hdrs() }).then(r => r.ok ? r.json() : null),
