@@ -7,12 +7,13 @@ const API = 'http://localhost:4000'
 const F = "'DM Sans','Segoe UI',system-ui,sans-serif"
 
 const NAV_LINKS = [
-  { label: 'Products', key: 'products', hasMega: true },
-  { label: 'Shop', href: '/shop' },
-  { label: 'Services', href: '/services' },
-  { label: 'Partner', href: '/partner' },
-  { label: 'Quote', href: '/quote' },
-  { label: 'Factories', href: '/factories' },
+  { label: 'Бүтээгдэхүүн', key: 'products', hasMega: true },
+  { label: 'Дэлгүүр',       href: '/shop' },
+  { label: 'Үйлчилгээ',     href: '/services' },
+  { label: 'Marketplace',   href: '/marketplace' },
+  { label: 'Түнш болох',    href: '/partner' },
+  { label: 'Үнэ авах',      href: '/quote' },
+  { label: 'Үйлдвэрүүд',   href: '/factory' },
 ]
 
 export default function MegaNav() {
@@ -57,7 +58,7 @@ export default function MegaNav() {
   }, [])
 
   useEffect(() => {
-    const token = localStorage.getItem('token')
+    const token = localStorage.getItem('access_token') || localStorage.getItem('token')
     if (!token) return
     fetch(`${API}/auth/me`, { headers: { Authorization: `Bearer ${token}` } })
       .then(r => r.json())
@@ -158,7 +159,7 @@ export default function MegaNav() {
           {/* Desktop actions */}
           <div className="nav-desktop" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <div style={{ position: 'relative' }}>
-              <input placeholder="Search..." style={{ padding: '8px 14px 8px 36px', border: '1px solid #EBEBEB', borderRadius: 10, fontSize: 13, outline: 'none', background: '#F5F5F0', width: 180, fontFamily: F }} />
+              <input placeholder="Хайх..." style={{ padding: '8px 14px 8px 36px', border: '1px solid #EBEBEB', borderRadius: 10, fontSize: 13, outline: 'none', background: '#F5F5F0', width: 180, fontFamily: F }} />
               <svg style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)' }} width="14" height="14" fill="none" stroke="#999" strokeWidth="2" viewBox="0 0 24 24">
                 <circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>
               </svg>
@@ -171,8 +172,8 @@ export default function MegaNav() {
               </svg>
               {cartCount > 0 && <span style={{ position: 'absolute', top: -6, right: -6, background: '#FF6B35', color: '#fff', fontSize: 10, fontWeight: 700, width: 16, height: 16, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{cartCount}</span>}
             </a>
-            <a href="/login" style={{ fontSize: 14, fontWeight: 500, color: '#333', textDecoration: 'none', padding: '8px 16px', borderRadius: 8, border: '1px solid #EBEBEB' }}>Login</a>
-            <a href="/quote" style={{ fontSize: 14, fontWeight: 700, color: '#fff', textDecoration: 'none', padding: '9px 20px', borderRadius: 10, background: '#FF6B35' }}>Start →</a>
+            <a href="/login" style={{ fontSize: 14, fontWeight: 500, color: '#333', textDecoration: 'none', padding: '8px 16px', borderRadius: 8, border: '1px solid #EBEBEB' }}>Нэвтрэх</a>
+            <a href="/quote" style={{ fontSize: 14, fontWeight: 700, color: '#fff', textDecoration: 'none', padding: '9px 20px', borderRadius: 10, background: '#FF6B35' }}>Үнэ авах →</a>
           </div>
 
           {/* Mobile right side */}
@@ -186,7 +187,7 @@ export default function MegaNav() {
               {cartCount > 0 && <span style={{ position: 'absolute', top: -6, right: -6, background: '#FF6B35', color: '#fff', fontSize: 10, fontWeight: 700, width: 16, height: 16, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{cartCount}</span>}
             </a>
             <a href="/quote" className="nav-mobile" style={{ display: 'none', fontSize: 13, fontWeight: 700, color: '#fff', textDecoration: 'none', padding: '7px 14px', borderRadius: 8, background: '#FF6B35' }}>
-              Start
+              Үнэ авах
             </a>
             {/* Hamburger */}
             <button
@@ -217,7 +218,7 @@ export default function MegaNav() {
         }}>
           {/* Search */}
           <div style={{ position: 'relative', marginBottom: 20 }}>
-            <input placeholder="Search..." style={{ width: '100%', padding: '10px 14px 10px 38px', border: '1px solid #EBEBEB', borderRadius: 10, fontSize: 14, outline: 'none', background: '#F5F5F0', fontFamily: F, boxSizing: 'border-box' }} />
+            <input placeholder="Хайх..." style={{ width: '100%', padding: '10px 14px 10px 38px', border: '1px solid #EBEBEB', borderRadius: 10, fontSize: 14, outline: 'none', background: '#F5F5F0', fontFamily: F, boxSizing: 'border-box' }} />
             <svg style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)' }} width="16" height="16" fill="none" stroke="#999" strokeWidth="2" viewBox="0 0 24 24">
               <circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>
             </svg>
@@ -250,14 +251,14 @@ export default function MegaNav() {
               textDecoration: 'none', borderRadius: 12, textAlign: 'center',
               fontSize: 15, fontWeight: 700,
             }}>
-              Get a Quote →
+              Үнэ авах →
             </a>
             <a href="/login" onClick={() => setMobileOpen(false)} style={{
               padding: '14px', background: 'transparent', color: '#333',
               textDecoration: 'none', borderRadius: 12, textAlign: 'center',
               fontSize: 15, fontWeight: 500, border: '1px solid #EBEBEB',
             }}>
-              Login
+              Нэвтрэх
             </a>
           </div>
         </div>

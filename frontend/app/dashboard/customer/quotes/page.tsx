@@ -220,8 +220,8 @@ export default function MyQuotesPage() {
                   ['Цаас GSM',      detail.paper_gsm ? `${detail.paper_gsm}gsm` : '—'],
                   ['Өнгө',          detail.color_mode || '—'],
                   ['Тал',           detail.sides || '—'],
-                  ['Finishing',     detail.finishing || '—'],
-                  ['Binding',       detail.binding || '—'],
+                  ['Боловсруулалт',  detail.finishing || '—'],
+                  ['Хавтаслалт',    detail.binding || '—'],
                   ['Огноо',         new Date(detail.created_at).toLocaleDateString('mn-MN')],
                   ['Хүчинтэй хүртэл', detail.valid_until ? new Date(detail.valid_until).toLocaleDateString('mn-MN') : '—'],
                 ].filter(([, v]) => v !== '—').map(([label, value]) => (

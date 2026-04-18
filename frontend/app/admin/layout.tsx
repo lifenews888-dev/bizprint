@@ -8,7 +8,7 @@ const F = "'DM Sans','Segoe UI',system-ui,sans-serif"
 
 const NAV = [
   { section: 'Хяналт', items: [
-    { label: 'Dashboard',  href: '/admin',           icon: 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-4 0h4' },
+    { label: 'Хяналтын самбар', href: '/admin',      icon: 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-4 0h4' },
     { label: 'Тайлан',    href: '/admin/reports',    icon: 'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z' },
     { label: 'Маркетинг', href: '/admin/marketing',  icon: 'M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z' },
   ]},
@@ -16,7 +16,7 @@ const NAV = [
     { label: 'Захиалгууд',      href: '/admin/orders',          icon: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2' },
     { label: 'Дизайн хүсэлт',   href: '/admin/design-requests', icon: 'M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z' },
     { label: 'Үнийн санал',     href: '/admin/pricing-rules',   icon: 'M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z' },
-    { label: 'Workflow',         href: '/admin/workflow',        icon: 'M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15' },
+    { label: 'Ажлын урсгал',    href: '/admin/workflow',        icon: 'M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15' },
     { label: 'Тоног төхөөрөмж', href: '/admin/machines',        icon: 'M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573' },
   ]},
   { section: 'Бүтээгдэхүүн & Үнэ', items: [
@@ -40,7 +40,7 @@ const NAV = [
     { label: 'Тохиргоо', href: '/admin/settings', icon: 'M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z M15 12a3 3 0 11-6 0 3 3 0 016 0z' },
   ]},
   { section: 'Харилцаа', items: [
-    { label: 'Chat',     href: '/admin/chat',     icon: 'M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z' },
+    { label: 'Чат',      href: '/admin/chat',     icon: 'M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z' },
     { label: 'Webhooks', href: '/admin/webhooks', icon: 'M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1' },
   ]},
 ]
@@ -51,17 +51,23 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [collapsed, setCollapsed] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
   const [user, setUser] = useState<any>(null)
+  const [roleReqCount, setRoleReqCount] = useState(0)
 
   useEffect(() => {
     const token = typeof window !== 'undefined' ? (localStorage.getItem('access_token') || localStorage.getItem('token')) : null
     if (!token) { router.push('/login'); return }
     const stored = localStorage.getItem('user')
     if (stored) { try { setUser(JSON.parse(stored)) } catch {} }
+    // Fetch pending role requests count
+    fetch('http://localhost:4000/admin/role-requests', { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.ok ? r.json() : [])
+      .then(d => setRoleReqCount(Array.isArray(d) ? d.length : 0))
+      .catch(() => {})
   }, [])
 
   const W = collapsed ? '56px' : '230px'
   const activeItem = NAV.flatMap(g => g.items).find(i => i.href === path)
-  const activeLabel = activeItem?.label || 'Dashboard'
+  const activeLabel = activeItem?.label || 'Хяналтын самбар'
 
   const logout = () => { localStorage.clear(); router.push('/') }
 
@@ -147,7 +153,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                       <path d={item.icon} />
                     </svg>
                     {!collapsed && <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.label}</span>}
-                    {!collapsed && active && <div style={{ marginLeft: 'auto', width: '5px', height: '5px', borderRadius: '50%', background: '#FF6B00', flexShrink: 0 }} />}
+                    {!collapsed && roleReqCount > 0 && item.href === '/admin/users' && (
+                      <span style={{ marginLeft: 'auto', fontSize: 10, background: '#EF4444', color: '#fff', padding: '1px 6px', borderRadius: 99, fontWeight: 700, flexShrink: 0 }}>{roleReqCount}</span>
+                    )}
+                    {!collapsed && active && item.href !== '/admin/users' && <div style={{ marginLeft: 'auto', width: '5px', height: '5px', borderRadius: '50%', background: '#FF6B00', flexShrink: 0 }} />}
                   </button>
                 )
               })}

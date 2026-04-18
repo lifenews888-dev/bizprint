@@ -275,7 +275,7 @@ export default function CustomerChatPage() {
                         marginTop: 6, display: 'inline-flex', alignItems: 'center', gap: 6,
                         color: mine ? '#fff' : '#FF6B35', fontWeight: 600,
                       }}>
-                        ⭳ Attachment
+                        ⭳ Хавсралт
                       </a>
                     )}
                     <div style={{ fontSize: 11, opacity: 0.7, marginTop: 6 }}>
