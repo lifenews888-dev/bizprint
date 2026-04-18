@@ -17,7 +17,7 @@ export default function LoginPage() {
   }
 
   async function login() {
-    if (!email || !password) { setError('Please enter email and password'); return }
+    if (!email || !password) { setError('Имэйл болон нууц үгийг оруулна уу'); return }
     setLoading(true); setError('')
     try {
       const res = await fetch('http://localhost:4000/auth/login', {
@@ -37,8 +37,8 @@ export default function LoginPage() {
         else if (role === 'courier') router.push('/courier')
         else if (role === 'factory') router.push('/dashboard/factory')
         else router.push('/dashboard')
-      } else { setError('Invalid email or password') }
-    } catch { setError('Cannot connect to server') }
+      } else { setError('Имэйл эсвэл нууц үг буруу байна') }
+    } catch { setError('Серверт холбогдож чадсангүй') }
     setLoading(false)
   }
 
@@ -68,18 +68,18 @@ export default function LoginPage() {
             <span style={{ fontSize: '12px', color: 'var(--orange)', fontWeight: 500 }}>Print Industry Platform</span>
           </div>
           <h1 style={{ fontSize: '48px', fontWeight: 700, color: '#F1F5F9', lineHeight: 1.1, letterSpacing: '-1.5px', margin: '0 0 20px' }}>
-            Your orders,<br/>
-            <span style={{ color: 'var(--orange)' }}>all in one place</span>
+            Таны захиалгууд<br/>
+            <span style={{ color: 'var(--orange)' }}>нэг дор</span>
           </h1>
           <p style={{ fontSize: '15px', color: '#666', lineHeight: 1.7, maxWidth: '360px', margin: '0 0 40px' }}>
-            AI quote calculator, automatic factory selection, real-time delivery tracking — all in one platform.
+            AI үнэ тооцоолол, автоматаар үйлдвэр сонгох, бодит цагийн хүргэлт хянах — бүгд нэг платформд.
           </p>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
             {[
-              { n: '01', t: 'AI Quote', d: 'Upload PDF — instant price calculation' },
-              { n: '02', t: 'Factory Match', d: 'Best factory selected automatically' },
-              { n: '03', t: 'Live Track', d: 'Real-time delivery tracking' },
+              { n: '01', t: 'AI Үнэ', d: 'PDF байршуулах — шуурхай үнэ тооцоолол' },
+              { n: '02', t: 'Үйлдвэр сонгох', d: 'Хамгийн тохиромжтой үйлдвэрийг автоматаар' },
+              { n: '03', t: 'Хүргэлт хянах', d: 'Бодит цагийн хүргэлтийн мэдээлэл' },
             ].map(s => (
               <div key={s.n} style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
                 <div style={{ width: '34px', height: '34px', borderRadius: '9px', background: 'var(--orange-10)', border: '1px solid var(--orange-20)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 700, color: 'var(--orange)', flexShrink: 0 }}>{s.n}</div>
@@ -93,7 +93,7 @@ export default function LoginPage() {
         </div>
 
         <div style={{ position: 'relative', zIndex: 1, paddingTop: '28px', borderTop: '1px solid #1A1A1A', display: 'flex', gap: '36px' }}>
-          {[{ v: '250+', l: 'Orders' }, { v: '3', l: 'Factories' }, { v: '99%', l: 'Satisfaction' }].map(st => (
+          {[{ v: '250+', l: 'Захиалга' }, { v: '3', l: 'Үйлдвэр' }, { v: '99%', l: 'Сэтгэл ханамж' }].map(st => (
             <div key={st.l}>
               <div style={{ fontSize: '24px', fontWeight: 700, color: 'var(--orange)' }}>{st.v}</div>
               <div style={{ fontSize: '12px', color: '#555', marginTop: '2px' }}>{st.l}</div>
@@ -114,9 +114,9 @@ export default function LoginPage() {
           </div>
 
           <div style={{ marginBottom: '32px' }}>
-            <h2 style={{ fontSize: '26px', fontWeight: 700, color: '#F1F5F9', margin: '0 0 6px', letterSpacing: '-0.5px' }}>Welcome back</h2>
+            <h2 style={{ fontSize: '26px', fontWeight: 700, color: '#F1F5F9', margin: '0 0 6px', letterSpacing: '-0.5px' }}>Тавтай морил</h2>
             <p style={{ fontSize: '14px', color: '#555', margin: 0 }}>
-              No account? <a href="/register" style={{ color: 'var(--orange)', textDecoration: 'none', fontWeight: 500 }}>Register</a>
+              Бүртгэл байхгүй юу? <a href="/register" style={{ color: 'var(--orange)', textDecoration: 'none', fontWeight: 500 }}>Бүртгүүлэх</a>
             </p>
           </div>
 
@@ -147,25 +147,25 @@ export default function LoginPage() {
                 onKeyDown={e => e.key === 'Enter' && login()} />
               <button onClick={() => setShowPass(!showPass)}
                 style={{ position: 'absolute', right: '14px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#555', fontSize: '11px', fontWeight: 600, letterSpacing: '0.5px' }}>
-                {showPass ? 'HIDE' : 'SHOW'}
+                {showPass ? 'Нуух' : 'Харах'}
               </button>
             </div>
           </div>
 
           <button onClick={login} disabled={loading}
             style={{ width: '100%', padding: '14px', background: loading ? '#7a3300' : 'var(--orange)', color: loading ? '#aaa' : '#fff', border: 'none', borderRadius: '10px', fontSize: '15px', fontWeight: 600, cursor: loading ? 'not-allowed' : 'pointer', transition: 'background 0.2s', marginBottom: '20px' }}>
-            {loading ? 'Logging in...' : 'Login'}
+            {loading ? 'Нэвтэрч байна...' : 'Нэвтрэх'}
           </button>
 
           <div style={{ textAlign: 'center', paddingTop: '20px', borderTop: '1px solid #1A1A1A' }}>
-            <p style={{ fontSize: '13px', color: '#444', margin: '0 0 10px' }}>Want to become a partner?</p>
+            <p style={{ fontSize: '13px', color: '#444', margin: '0 0 10px' }}>Түнш болохыг хүсэж байна уу?</p>
             <a href="/partner" style={{ fontSize: '13px', color: 'var(--orange)', textDecoration: 'none', fontWeight: 500, background: 'var(--orange-08)', border: '1px solid var(--orange-20)', borderRadius: '8px', padding: '8px 18px', display: 'inline-block' }}>
-              Apply as Partner
+              Түнш болох
             </a>
           </div>
 
           <p style={{ marginTop: '24px', fontSize: '11px', color: '#333', textAlign: 'center', lineHeight: 1.6 }}>
-            By logging in you agree to our terms of service.
+            Нэвтэрснээр та манай <a href="/terms" style={{ color: '#555', textDecoration: 'underline' }}>үйлчилгээний нөхцөл</a>-ийг зөвшөөрч байна.
           </p>
         </div>
       </div>

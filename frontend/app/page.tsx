@@ -294,6 +294,48 @@ export default function HomePage() {
         </section>
       )}
 
+      {/* ═══ B2B ═══ */}
+      <section style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 24px 80px' }}>
+        <div style={{ background: 'linear-gradient(135deg, rgba(59,130,246,0.06) 0%, rgba(139,92,246,0.06) 100%)', border: '1px solid var(--border)', borderRadius: '24px', padding: '52px 48px', display: 'grid', gridTemplateColumns: '1fr auto', gap: '40px', alignItems: 'center' }} className="grid-2">
+          <div>
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.2)', borderRadius: '8px', padding: '5px 14px', marginBottom: '18px' }}>
+              <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#3B82F6' }} />
+              <span style={{ fontSize: '12px', color: '#3B82F6', fontWeight: 600 }}>Бизнес шийдэл</span>
+            </div>
+            <h2 style={{ fontSize: '32px', fontWeight: 700, margin: '0 0 12px', letterSpacing: '-1px', lineHeight: 1.2 }}>
+              Том тоо хэмжээний<br/>
+              <span style={{ color: '#3B82F6' }}>B2B захиалга</span>
+            </h2>
+            <p style={{ fontSize: '15px', color: 'var(--text2)', lineHeight: 1.7, margin: '0 0 28px', maxWidth: '480px' }}>
+              Сарын 500ш+ захиалгатай бизнест: 30% хүртэл хямдрал, нэхэмжлэхийн төлбөр, хувийн менежер, загварын сан.
+            </p>
+            <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
+              <a href="/b2b" style={{ padding: '12px 28px', background: '#3B82F6', color: '#fff', borderRadius: '10px', textDecoration: 'none', fontSize: '14px', fontWeight: 600 }}>
+                Дэлгэрэнгүй →
+              </a>
+              <a href="/b2b#contact" style={{ padding: '12px 28px', background: 'transparent', border: '1px solid rgba(59,130,246,0.3)', color: '#3B82F6', borderRadius: '10px', textDecoration: 'none', fontSize: '14px', fontWeight: 500 }}>
+                Хүсэлт илгээх
+              </a>
+            </div>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', minWidth: '200px' }} className="hide-mobile">
+            {[
+              { icon: '💰', text: '30% хямдрал', sub: '10,000ш+ захиалгад' },
+              { icon: '🏦', text: 'Нэхэмжлэх', sub: '30 хоногийн хугацаатай' },
+              { icon: '👤', text: 'Хувийн менежер', sub: 'Онцгой дэмжлэг' },
+            ].map(item => (
+              <div key={item.text} style={{ display: 'flex', alignItems: 'center', gap: '12px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '12px', padding: '14px 16px' }}>
+                <span style={{ fontSize: '22px' }}>{item.icon}</span>
+                <div>
+                  <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text)' }}>{item.text}</div>
+                  <div style={{ fontSize: '12px', color: 'var(--text2)' }}>{item.sub}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* ═══ CTA ═══ */}
       <section style={{ maxWidth: '1200px', margin: '0 auto', padding: '0 24px 100px' }}>
         <div style={{ background: 'linear-gradient(135deg, #FF6B00 0%, #e05500 100%)', borderRadius: '24px', padding: '60px 48px', textAlign: 'center', position: 'relative', overflow: 'hidden' }}>

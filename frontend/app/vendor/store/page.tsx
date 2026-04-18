@@ -373,7 +373,7 @@ export default function VendorStorePage() {
                 <div>
                   <label style={labelStyle}>Нэр (EN) *</label>
                   <input style={inputStyle} value={form.name}
-                    onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="Product name" />
+                    onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="Бүтээгдэхүүний нэр" />
                 </div>
                 <div>
                   <label style={labelStyle}>Нэр (MN)</label>

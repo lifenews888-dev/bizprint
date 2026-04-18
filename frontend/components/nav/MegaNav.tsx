@@ -11,9 +11,9 @@ const NAV_LINKS = [
   { label: 'Дэлгүүр',       href: '/shop' },
   { label: 'Үйлчилгээ',     href: '/services' },
   { label: 'Marketplace',   href: '/marketplace' },
+  { label: 'B2B',           href: '/b2b' },
   { label: 'Түнш болох',    href: '/partner' },
   { label: 'Үнэ авах',      href: '/quote' },
-  { label: 'Үйлдвэрүүд',   href: '/factory' },
 ]
 
 export default function MegaNav() {
@@ -48,9 +48,9 @@ export default function MegaNav() {
         if (Array.isArray(data)) data.forEach((s: any) => { m[s.key] = s.value })
         else if (data && typeof data === 'object') Object.assign(m, data)
         setCta({
-          title: m['mega_cta_title'] || 'AI Quote Calculator',
-          desc: m['mega_cta_desc'] || 'Upload PDF and get instant pricing',
-          button: m['mega_cta_button'] || 'Get Started',
+          title: m['mega_cta_title'] || 'AI Үнийн Тооцоолуур',
+          desc: m['mega_cta_desc'] || 'PDF байршуулаад шуурхай үнэ авна уу',
+          button: m['mega_cta_button'] || 'Эхлэх',
           url: m['mega_cta_url'] || '/quote',
         })
       })
