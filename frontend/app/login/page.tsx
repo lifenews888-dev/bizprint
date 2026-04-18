@@ -35,6 +35,7 @@ export default function LoginPage() {
         else if (role === 'designer') router.push('/designer')
         else if (role === 'sales') router.push('/sales')
         else if (role === 'courier') router.push('/courier')
+        else if (role === 'factory') router.push('/dashboard/factory')
         else router.push('/dashboard')
       } else { setError('Invalid email or password') }
     } catch { setError('Cannot connect to server') }

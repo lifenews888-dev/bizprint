@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import NotificationBell from '@/components/NotificationBell'
 
 const API = 'http://localhost:4000'
 const BASE_URL = 'http://localhost:3000'
@@ -121,6 +122,7 @@ export default function SalesDashboard() {
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <span style={{ fontSize: 13, color: 'var(--text2)' }}>{user?.full_name}</span>
+          <NotificationBell userId={user?.id} />
           <button onClick={() => { localStorage.clear(); router.push('/') }}
             style={{ ...inp, cursor: 'pointer', fontSize: 12 }}>
             Гарах

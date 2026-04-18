@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import NotificationBell from '@/components/NotificationBell'
 
 const API = 'http://localhost:4000'
 const F   = "'DM Sans','Segoe UI',system-ui,sans-serif"
@@ -310,6 +311,7 @@ export default function VendorDashboard() {
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <span style={{ fontSize: 13, color: 'var(--text2)' }}>{user?.full_name || user?.email}</span>
+          <NotificationBell userId={user?.id} />
           <button onClick={() => { localStorage.clear(); router.push('/') }}
             style={{ background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 8, padding: '7px 14px', fontSize: 13, cursor: 'pointer', color: 'var(--text)' }}>
             Гарах

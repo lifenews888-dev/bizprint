@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import NotificationBell from '@/components/NotificationBell'
 
 const API = 'http://localhost:4000'
 
@@ -167,6 +168,7 @@ export default function CourierDashboard() {
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <span style={{ fontSize: 13, color: 'var(--text2)' }}>{user?.full_name}</span>
+          <NotificationBell userId={user?.id} />
           <button onClick={fetchDeliveries} style={s({ fontSize: 12 })}>↻ Шинэчлэх</button>
           <button onClick={() => { localStorage.clear(); router.push('/') }} style={s({ fontSize: 12 })}>Гарах</button>
         </div>
