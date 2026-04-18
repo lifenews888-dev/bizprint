@@ -42,8 +42,12 @@ const DIGITAL_BW_RATE    = 60_000;
 const DIGITAL_COLOR_RATE = 180_000;
 const DIGITAL_MACHINE_SPEED = 1_500;
 
-/** Minimum quantity to even consider switching to offset press */
-const OFFSET_MIN_QTY = 200;
+/**
+ * Quantity threshold for press selection:
+ *   1–100  → digital short-run
+ *   101+   → offset press
+ */
+const DIGITAL_MAX_QTY = 300;
 
 /** Paper price per sheet (₮) by GSM bracket */
 const PAPER_PRICE: Record<number, number> = {
@@ -254,21 +258,13 @@ function calcForPress(p: PrintParams, useOffset: boolean): PrintResult {
 }
 
 /**
- * Pick the cheaper technology (digital vs offset) for this job.
- * Offset is only considered at qty ≥ OFFSET_MIN_QTY (200).
- * Both prices are pre-platform; the dynamic selection avoids cliff pricing.
+ * Select press technology by quantity:
+ *   qty ≤ 100  → digital short-run (no plate setup, color/B&W rates)
+ *   qty > 100  → offset press     (CTP plates + fast press rate)
  */
 function calcPrintCost(p: PrintParams): PrintResult {
-  const digital = calcForPress(p, false);
-
-  if (p.quantity < OFFSET_MIN_QTY) {
-    return digital;
-  }
-
-  const offset = calcForPress(p, true);
-
-  // Pick whichever is cheaper for the customer
-  return offset.subtotal < digital.subtotal ? offset : digital;
+  const useOffset = p.quantity > DIGITAL_MAX_QTY;
+  return calcForPress(p, useOffset);
 }
 
 // ─── Service ─────────────────────────────────────────────────────────────────
