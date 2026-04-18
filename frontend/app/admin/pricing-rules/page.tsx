@@ -84,7 +84,7 @@ const CALC_TYPES = [
 
 function getToken() {
   if (typeof window === 'undefined') return ''
-  return localStorage.getItem('access_token') || ''
+  return localStorage.getItem('access_token') || localStorage.getItem('token') || ''
 }
 
 function authHeaders() {
