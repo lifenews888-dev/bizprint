@@ -37,7 +37,7 @@ interface Product {
 type Tab = 'categories' | 'attributes'
 
 const API = 'http://localhost:4000'
-const getToken = () => localStorage.getItem('access_token') || ''
+const getToken = () => localStorage.getItem('access_token') || localStorage.getItem('token') || ''
 const hdrs = () => ({ 'Content-Type': 'application/json', Authorization: 'Bearer ' + getToken() })
 const slugify = (s: string) => s.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
 

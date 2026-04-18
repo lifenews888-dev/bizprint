@@ -276,7 +276,7 @@ export default function AdminWorkflowPage() {
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, flexWrap: 'wrap', gap: 8, flexShrink: 0 }}>
         <div>
-          <h1 style={{ fontSize: 20, fontWeight: 700, margin: 0 }}>Production Workflow</h1>
+          <h1 style={{ fontSize: 20, fontWeight: 700, margin: 0 }}>Үйлдвэрлэлийн ажлын урсгал</h1>
           <p style={{ color: 'var(--text2)', fontSize: 12, margin: '2px 0 0' }}>Захиалга → Дизайн → Prepress → Хэвлэл → QC → Хүргэлт → Дууссан</p>
         </div>
         <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>

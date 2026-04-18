@@ -42,7 +42,7 @@ const ST_CLR: Record<string, string> = {
   completed: '#10B981', shipped: '#1D9E75', cancelled: '#e24b4a',
 }
 
-function tok() { return localStorage.getItem('access_token') || '' }
+function tok() { return localStorage.getItem('access_token') || localStorage.getItem('token') || '' }
 function hdrs() { return { 'Content-Type': 'application/json', Authorization: 'Bearer ' + tok() } }
 
 function QRCode({ code }: { code: string }) {
@@ -118,7 +118,7 @@ export default function SalesDashboard() {
       <div style={{ background: 'var(--surface)', borderBottom: '1px solid var(--border)', padding: '0 32px', height: 54, display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 10 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <span style={{ fontSize: 16, fontWeight: 700 }}><span style={{ color: '#FF6B00' }}>Biz</span>Print</span>
-          <span style={{ fontSize: 11, background: 'rgba(255,107,0,0.1)', color: '#FF6B00', border: '1px solid rgba(255,107,0,0.3)', borderRadius: 20, padding: '2px 10px' }}>Sales</span>
+          <span style={{ fontSize: 11, background: 'rgba(255,107,0,0.1)', color: '#FF6B00', border: '1px solid rgba(255,107,0,0.3)', borderRadius: 20, padding: '2px 10px' }}>Борлуулагч</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <span style={{ fontSize: 13, color: 'var(--text2)' }}>{user?.full_name}</span>
@@ -134,8 +134,8 @@ export default function SalesDashboard() {
 
         {/* Title */}
         <div style={{ marginBottom: 24 }}>
-          <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>Sales Dashboard</h1>
-          <p style={{ color: 'var(--text2)', fontSize: 13, margin: '4px 0 0' }}>Referral линк, комисс, захиалгын хяналт</p>
+          <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>Борлуулалтын хяналтын самбар</h1>
+          <p style={{ color: 'var(--text2)', fontSize: 13, margin: '4px 0 0' }}>Рефэрал линк, комисс, захиалгын хяналт</p>
         </div>
 
         {/* Stats */}

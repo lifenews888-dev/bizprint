@@ -42,7 +42,7 @@ const WORKFLOW = [
   { status: 'completed',     label: 'Дууссан',          icon: '✅' },
 ]
 
-function tok() { return localStorage.getItem('access_token') || '' }
+function tok() { return localStorage.getItem('access_token') || localStorage.getItem('token') || '' }
 function hdrs() { return { Authorization: 'Bearer ' + tok() } }
 
 type FilterType = 'all' | 'pending' | 'paid' | 'in_production' | 'completed'
@@ -152,7 +152,7 @@ export default function DesignerDashboard() {
       <div style={{ background: 'var(--surface)', borderBottom: '1px solid var(--border)', padding: '0 32px', height: 54, display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 10 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <span style={{ fontSize: 16, fontWeight: 700 }}><span style={{ color: '#FF6B00' }}>Biz</span>Print</span>
-          <span style={{ fontSize: 11, background: 'rgba(139,92,246,0.1)', color: '#8B5CF6', border: '1px solid rgba(139,92,246,0.3)', borderRadius: 20, padding: '2px 10px' }}>Designer</span>
+          <span style={{ fontSize: 11, background: 'rgba(139,92,246,0.1)', color: '#8B5CF6', border: '1px solid rgba(139,92,246,0.3)', borderRadius: 20, padding: '2px 10px' }}>Дизайнер</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <span style={{ fontSize: 13, color: 'var(--text2)' }}>{user?.full_name}</span>
@@ -165,8 +165,8 @@ export default function DesignerDashboard() {
       <div style={{ padding: '28px 32px', maxWidth: 1300, margin: '0 auto' }}>
 
         <div style={{ marginBottom: 24 }}>
-          <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>Designer Dashboard</h1>
-          <p style={{ color: 'var(--text2)', fontSize: 13, margin: '4px 0 0' }}>Захиалгын дизайн, файл дамжуулалт, workflow</p>
+          <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>Дизайнерийн хяналтын самбар</h1>
+          <p style={{ color: 'var(--text2)', fontSize: 13, margin: '4px 0 0' }}>Захиалгын дизайн, файл дамжуулалт, ажлын урсгал</p>
         </div>
 
         {/* Stats */}
@@ -274,7 +274,7 @@ export default function DesignerDashboard() {
 
               {/* Workflow */}
               <div style={{ marginBottom: 16 }}>
-                <div style={{ fontSize: 11, color: 'var(--text2)', marginBottom: 8, textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.07em' }}>Workflow</div>
+                <div style={{ fontSize: 11, color: 'var(--text2)', marginBottom: 8, textTransform: 'uppercase', fontWeight: 700, letterSpacing: '0.07em' }}>Ажлын урсгал</div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                   {WORKFLOW.map((step, i) => {
                     const curIdx = WORKFLOW.findIndex(w => w.status === selected.status)

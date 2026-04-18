@@ -60,7 +60,7 @@ const STATUS_LABEL: Record<string, { label: string; color: string; bg: string }>
 
 function getToken() {
   if (typeof window === 'undefined') return ''
-  return localStorage.getItem('access_token') || ''
+  return localStorage.getItem('access_token') || localStorage.getItem('token') || ''
 }
 
 function authHeaders() {

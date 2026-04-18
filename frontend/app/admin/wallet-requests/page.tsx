@@ -34,7 +34,7 @@ const STATUS_CONFIG = {
 // Helpers
 function getToken() {
   if (typeof window === 'undefined') return ''
-  return localStorage.getItem('access_token') || ''
+  return localStorage.getItem('access_token') || localStorage.getItem('token') || ''
 }
 
 function authHeaders() {

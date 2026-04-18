@@ -420,8 +420,8 @@ export default function AdminPricingRulesPage() {
             textTransform: 'uppercase', letterSpacing: '0.07em',
           }}>
             <span>Хамаарал</span>
-            <span>Attribute key</span>
-            <span>Attribute утга</span>
+            <span>Атрибут нэр</span>
+            <span>Атрибут утга</span>
             <span>Тооцооллын төрөл</span>
             <span>Утга</span>
             <span>Идэвхтэй</span>
@@ -654,7 +654,7 @@ export default function AdminPricingRulesPage() {
             <SectionTitle>2. Ямар attribute-ийн хувьд?</SectionTitle>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
               <div>
-                <Label>Attribute key *</Label>
+                <Label>Атрибут нэр *</Label>
                 <input
                   value={editRule.attribute_key || ''}
                   onChange={e => setEditRule({ ...editRule, attribute_key: e.target.value })}
@@ -663,7 +663,7 @@ export default function AdminPricingRulesPage() {
                 />
               </div>
               <div>
-                <Label>Attribute утга (хоосон = бүх утга)</Label>
+                <Label>Атрибут утга (хоосон = бүх утга)</Label>
                 <input
                   value={editRule.attribute_value || ''}
                   onChange={e => setEditRule({ ...editRule, attribute_value: e.target.value })}

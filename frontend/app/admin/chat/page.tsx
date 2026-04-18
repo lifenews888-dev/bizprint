@@ -437,7 +437,7 @@ export default function AdminChatPage() {
                   padding: '10px 16px', fontWeight: 700, cursor: sending ? 'not-allowed' : 'pointer',
                 }}
               >
-                {sending ? 'Sending…' : 'Send'}
+                {sending ? 'Илгээж байна…' : 'Илгээх'}
               </button>
             </div>
           </>
