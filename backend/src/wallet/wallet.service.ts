@@ -75,6 +75,28 @@ export class WalletService {
   }
 
   async getAllWithdrawRequests() {
-    return this.txRepo.find({ where: { type: 'withdraw' }, order: { created_at: 'DESC' }, relations: ['wallet', 'wallet.user'] });
+    const txs = await this.txRepo.find({
+      where: { type: 'withdraw' },
+      order: { created_at: 'DESC' },
+      relations: ['wallet', 'wallet.user'],
+    });
+    return txs.map(tx => ({
+      id:            tx.id,
+      user_id:       tx.wallet?.user_id,
+      amount:        Number(tx.amount),
+      note:          tx.note,
+      status:        tx.status,
+      reject_reason: tx.reject_reason,
+      bank_name:     tx.bank_name,
+      bank_account:  tx.bank_account,
+      bank_account_name: tx.bank_account_name,
+      created_at:    tx.created_at,
+      user: tx.wallet?.user ? {
+        id:    tx.wallet.user.id,
+        email: tx.wallet.user.email,
+        name:  tx.wallet.user.full_name,
+        role:  tx.wallet.user.role,
+      } : null,
+    }));
   }
 }
