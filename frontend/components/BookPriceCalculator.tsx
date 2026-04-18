@@ -19,6 +19,9 @@ interface Props {
 export default function BookPriceCalculator({ product, onPriceChange, isAdminView = false }: Props) {
   const [constants] = useState<PricingConstants>(DEFAULT_CONSTANTS)
   const [expanded, setExpanded] = useState(false)
+  const [isCustomSize, setIsCustomSize] = useState(false)
+  const [customW, setCustomW] = useState(210)
+  const [customH, setCustomH] = useState(297)
   const [input, setInput] = useState<CalcInput>({
     quantity: 500,
     totalPages: 64,
@@ -37,7 +40,22 @@ export default function BookPriceCalculator({ product, onPriceChange, isAdminVie
 
   const set = (k: keyof CalcInput, v: any) => setInput(prev => ({ ...prev, [k]: v }))
 
-  const result = useMemo(() => calculate(input, constants), [input, constants])
+  // Custom хэмжээг A3 (420×297мм) талбайтай харьцуулан sizeMultiplier тооцоолох
+  const effectiveInput = useMemo(() => {
+    if (!isCustomSize) return input
+    const customAreaMm2 = customW * customH
+    const a3AreaMm2 = 420 * 297
+    const customMultiplier = Math.max(0.25, Math.round((customAreaMm2 / a3AreaMm2) * 100) / 100)
+    const customConstants = {
+      ...constants,
+      sizeMultiplier: { ...constants.sizeMultiplier, __CUSTOM__: customMultiplier },
+      pagesPerSignature: { ...constants.pagesPerSignature, __CUSTOM__: 2 },
+    }
+    return { ...input, paperSize: '__CUSTOM__' as any, _customConstants: customConstants }
+  }, [input, isCustomSize, customW, customH, constants])
+
+  const activeConstants = (effectiveInput as any)._customConstants || constants
+  const result = useMemo(() => calculate(effectiveInput, activeConstants), [effectiveInput, activeConstants])
   const total = result.total
   const unitPrice = result.unitPrice
 
@@ -126,12 +144,18 @@ export default function BookPriceCalculator({ product, onPriceChange, isAdminVie
             <div className="grid grid-cols-2 gap-2 mb-2">
               <div>
                 <div className="text-[10px] text-[var(--text3)] mb-1 font-semibold">Хэмжээ</div>
-                <select value={input.paperSize} onChange={e => set('paperSize', e.target.value)}
+                <select
+                  value={isCustomSize ? '__CUSTOM__' : input.paperSize}
+                  onChange={e => {
+                    if (e.target.value === '__CUSTOM__') { setIsCustomSize(true) }
+                    else { setIsCustomSize(false); set('paperSize', e.target.value) }
+                  }}
                   className="w-full h-9 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 text-xs font-bold text-[var(--text)] outline-none focus:border-[#FF6B00] cursor-pointer">
                   {Object.keys(constants.pagesPerSignature).map(k => {
                     const mult = constants.sizeMultiplier?.[k] || 1
                     return <option key={k} value={k}>{k}{mult > 1 ? ` (×${mult})` : ''}</option>
                   })}
+                  <option value="__CUSTOM__">📐 Custom хэмжээ</option>
                 </select>
               </div>
               <div>
@@ -142,6 +166,28 @@ export default function BookPriceCalculator({ product, onPriceChange, isAdminVie
                 </select>
               </div>
             </div>
+
+            {/* Custom size inputs */}
+            {isCustomSize && (
+              <div className="grid grid-cols-2 gap-2 mb-2 bg-[#FF6B00]/5 border border-[#FF6B00]/20 rounded-lg p-2">
+                <div>
+                  <div className="text-[10px] text-[var(--text3)] mb-1 font-semibold">Өргөн (мм)</div>
+                  <input type="number" min={50} max={2000} value={customW}
+                    onChange={e => setCustomW(Math.max(50, +e.target.value))}
+                    className="w-full h-8 rounded border border-[var(--border)] bg-[var(--surface)] px-2 text-[11px] font-bold text-[var(--text)] outline-none focus:border-[#FF6B00]" />
+                </div>
+                <div>
+                  <div className="text-[10px] text-[var(--text3)] mb-1 font-semibold">Өндөр (мм)</div>
+                  <input type="number" min={50} max={2000} value={customH}
+                    onChange={e => setCustomH(Math.max(50, +e.target.value))}
+                    className="w-full h-8 rounded border border-[var(--border)] bg-[var(--surface)] px-2 text-[11px] font-bold text-[var(--text)] outline-none focus:border-[#FF6B00]" />
+                </div>
+                <div className="col-span-2 text-[10px] text-[var(--text3)]">
+                  Талбай: {customW}×{customH}мм = {(customW * customH / 1_000_000).toFixed(3)} м²
+                  · Коэфф: ×{(Math.round((customW * customH / (420 * 297)) * 100) / 100).toFixed(2)}
+                </div>
+              </div>
+            )}
 
             {/* Color & Binding */}
             <div className="grid grid-cols-2 gap-2 mb-2">
