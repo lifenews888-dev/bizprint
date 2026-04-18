@@ -21,6 +21,11 @@ export class MachinesController {
     return this.machinesService.getMachine(Number(id))
   }
 
+  @Patch(':id')
+  updateMachine(@Param('id') id: string, @Body() body: any) {
+    return this.machinesService.updateMachine(Number(id), body)
+  }
+
   @Patch(':id/status')
   updateStatus(@Param('id') id: string, @Body() body: { status: MachineStatus }) {
     return this.machinesService.updateStatus(Number(id), body.status)

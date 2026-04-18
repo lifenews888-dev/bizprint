@@ -6,6 +6,7 @@ import { Order } from '../orders/entities/order.entity'
 import { Machine } from '../machines/machine.entity'
 import { ProductionJob } from '../production/entities/production-job.entity'
 import { User } from '../users/user.entity'
+import { Campaign } from './campaign.entity'
 
 @Injectable()
 export class AdminService {
@@ -14,7 +15,8 @@ export class AdminService {
     @InjectRepository(Order) private orderRepo: Repository<Order>,
     @InjectRepository(Machine) private machineRepo: Repository<Machine>,
     @InjectRepository(ProductionJob) private productionRepo: Repository<ProductionJob>,
-    @InjectRepository(User) private userRepo: Repository<User>
+    @InjectRepository(User) private userRepo: Repository<User>,
+    @InjectRepository(Campaign) private campaignRepo: Repository<Campaign>,
   ) {}
 
   async getUsers() { return this.userRepo.find() }
@@ -28,6 +30,33 @@ export class AdminService {
     return this.userRepo.findOne({ where: { id } });
   }
 
+  async updateUser(id: string, body: any) {
+    const { password, ...rest } = body;
+    await this.userRepo.update(id, rest);
+    return this.userRepo.findOne({ where: { id } });
+  }
+
+  async deleteUser(id: string) {
+    return this.userRepo.delete(id);
+  }
+
+  async createVendor(body: any) {
+    const { email, ...rest } = body;
+    const vendor = this.vendorRepo.create({ contact_email: email || rest.contact_email, ...rest });
+    return this.vendorRepo.save(vendor);
+  }
+
+  async updateVendor(id: string, body: any) {
+    const { email, ...rest } = body;
+    if (email) rest.contact_email = email;
+    await this.vendorRepo.update(id, rest);
+    return this.vendorRepo.findOne({ where: { id } });
+  }
+
+  async deleteVendor(id: string) {
+    return this.vendorRepo.delete(id);
+  }
+
   async getStats() {
     const [users, orders, vendors, machines, production] = await Promise.all([
       this.userRepo.count(), this.orderRepo.count(), this.vendorRepo.count(),
@@ -35,4 +64,10 @@ export class AdminService {
     ])
     return { users, orders, vendors, machines, production }
   }
+
+  // Campaigns
+  async getCampaigns() { return this.campaignRepo.find({ order: { created_at: 'DESC' } }) }
+  async createCampaign(body: any) { return this.campaignRepo.save(this.campaignRepo.create(body)) }
+  async updateCampaign(id: string, body: any) { await this.campaignRepo.update(id, body); return this.campaignRepo.findOne({ where: { id } }) }
+  async deleteCampaign(id: string) { return this.campaignRepo.delete(id) }
 }

@@ -1,4 +1,4 @@
-﻿import { Controller, Get, Patch, Param, Body, UseGuards } from '@nestjs/common';
+﻿import { Controller, Get, Post, Patch, Delete, Param, Body, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AdminService } from './admin.service';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -20,8 +20,32 @@ export class AdminController {
     return this.adminService.updateUserRole(id, body.role)
   }
 
+  @Patch('users/:id')
+  @UseGuards(JwtAuthGuard)
+  updateUser(@Param('id') id: string, @Body() body: any) {
+    return this.adminService.updateUser(id, body)
+  }
+
+  @Delete('users/:id')
+  @UseGuards(JwtAuthGuard)
+  deleteUser(@Param('id') id: string) {
+    return this.adminService.deleteUser(id)
+  }
+
   @Get('vendors')
   getVendors() { return this.adminService.getVendors() }
+
+  @Post('vendors')
+  @UseGuards(JwtAuthGuard)
+  createVendor(@Body() body: any) { return this.adminService.createVendor(body) }
+
+  @Patch('vendors/:id')
+  @UseGuards(JwtAuthGuard)
+  updateVendor(@Param('id') id: string, @Body() body: any) { return this.adminService.updateVendor(id, body) }
+
+  @Delete('vendors/:id')
+  @UseGuards(JwtAuthGuard)
+  deleteVendor(@Param('id') id: string) { return this.adminService.deleteVendor(id) }
 
   @Get('machines')
   getMachines() { return this.adminService.getMachines() }
@@ -34,4 +58,24 @@ export class AdminController {
 
   @Get('stats')
   getStats() { return this.adminService.getStats() }
+}
+
+@Controller('marketing')
+export class MarketingController {
+  constructor(private readonly adminService: AdminService) {}
+
+  @Get('campaigns')
+  getCampaigns() { return this.adminService.getCampaigns() }
+
+  @Post('campaigns')
+  @UseGuards(JwtAuthGuard)
+  createCampaign(@Body() body: any) { return this.adminService.createCampaign(body) }
+
+  @Patch('campaigns/:id')
+  @UseGuards(JwtAuthGuard)
+  updateCampaign(@Param('id') id: string, @Body() body: any) { return this.adminService.updateCampaign(id, body) }
+
+  @Delete('campaigns/:id')
+  @UseGuards(JwtAuthGuard)
+  deleteCampaign(@Param('id') id: string) { return this.adminService.deleteCampaign(id) }
 }

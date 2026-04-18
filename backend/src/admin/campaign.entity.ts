@@ -1,25 +1,27 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn } from 'typeorm';
 
-@Entity('vendors')
-export class Vendor {
-
+@Entity('campaigns')
+export class Campaign {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
   @Column()
-  company_name: string;
+  name: string;
 
-  @Column()
-  contact_email: string;
-
-  @Column({ nullable: true })
-  phone: string;
+  @Column({ default: 'discount' })
+  type: string;
 
   @Column({ nullable: true })
-  address: string;
+  code: string;
+
+  @Column({ type: 'float', default: 0 })
+  discount_percent: number;
 
   @Column({ nullable: true })
-  contact_name: string;
+  start_date: string;
+
+  @Column({ nullable: true })
+  end_date: string;
 
   @Column({ nullable: true })
   description: string;
@@ -27,10 +29,6 @@ export class Vendor {
   @Column({ default: true })
   is_active: boolean;
 
-  @Column({ default: false })
-  verified: boolean;
-
   @CreateDateColumn()
   created_at: Date;
-
 }
