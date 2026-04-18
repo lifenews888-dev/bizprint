@@ -31,7 +31,7 @@ export default function ShopPage() {
   const [toast, setToast] = useState('')
 
   useEffect(() => {
-    const token = localStorage.getItem('token')
+    const token = localStorage.getItem('access_token') || localStorage.getItem('access_token') || localStorage.getItem('token') || ''
     const headers: any = {}
     if (token) headers.Authorization = `Bearer ${token}`
     fetch(`${API}/products`, { headers })
@@ -67,7 +67,7 @@ export default function ShopPage() {
     try {
       await fetch(`${API}/cart/items`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token') || ''}` },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('access_token') || localStorage.getItem('access_token') || localStorage.getItem('token') || '' || ''}` },
         body: JSON.stringify({ user_id: user.id, product_id: productId, quantity: 1 }),
       })
       setToast('Сагсанд нэмэгдлээ')

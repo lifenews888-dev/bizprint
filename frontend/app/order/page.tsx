@@ -68,7 +68,7 @@ export default function OrderPage() {
   const [filter, setFilter]   = useState('all')
 
   useEffect(() => {
-    const t = localStorage.getItem('token')
+    const t = localStorage.getItem('access_token') || localStorage.getItem('token') || ''
     setToken(t)
     if (t) fetchMe(t)
     else setLoading(false)

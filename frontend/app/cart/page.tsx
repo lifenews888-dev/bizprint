@@ -35,7 +35,7 @@ export default function CartPage() {
   const [hasToken, setHasToken] = useState(false)
 
   useEffect(() => {
-    const token = localStorage.getItem('token')
+    const token = localStorage.getItem('access_token') || localStorage.getItem('access_token') || localStorage.getItem('token') || ''
     setHasToken(!!token)
     if (!token) { setLoading(false); return }
 
@@ -59,7 +59,7 @@ export default function CartPage() {
   }, [])
 
   const removeItem = async (itemId: string) => {
-    const token = localStorage.getItem('token')
+    const token = localStorage.getItem('access_token') || localStorage.getItem('access_token') || localStorage.getItem('token') || ''
     setRemovingId(itemId)
     try {
       await fetch(`${API}/cart/items/${itemId}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token || ''}` } })

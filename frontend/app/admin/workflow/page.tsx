@@ -2,7 +2,8 @@
 import { useState, useEffect, useRef } from 'react'
 
 const API = 'http://localhost:4000'
-const getHeaders = () => ({ 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token')}` })
+const tok = () => localStorage.getItem('access_token') || localStorage.getItem('token') || ''
+const getHeaders = () => ({ 'Content-Type': 'application/json', Authorization: `Bearer ${tok()}` })
 
 const STAGES = [
   { key: 'pending', label: 'Хүлээгдэж буй', color: '#F59E0B', icon: '📋', next: 'designing' },
@@ -118,13 +119,13 @@ export default function AdminWorkflowPage() {
     setUploading(true)
     try {
       const formData = new FormData(); formData.append('file', file)
-      const uploadRes = await fetch(`${API}/upload/file`, { method: 'POST', headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }, body: formData })
+      const uploadRes = await fetch(`${API}/upload/file`, { method: 'POST', headers: { Authorization: `Bearer ${localStorage.getItem('access_token') || localStorage.getItem('token') || ''}` }, body: formData })
       const uploadData = await uploadRes.json()
       const filePath = uploadData.url || uploadData.path || uploadData.filename || file.name
       await fetch(`${API}/order-files`, { method: 'POST', headers: getHeaders(), body: JSON.stringify({ order_id: orderId, filename: file.name, path: filePath, size: file.size, mime_type: file.type, file_type: fileType, uploaded_by: currentUser, uploaded_by_role: 'admin' }) })
       if (file.type === 'application/pdf') {
         const inspectForm = new FormData(); inspectForm.append('file', file)
-        const inspectRes = await fetch(`${API}/ai/pdf-inspector/inspect`, { method: 'POST', headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }, body: inspectForm }).catch(() => null)
+        const inspectRes = await fetch(`${API}/ai/pdf-inspector/inspect`, { method: 'POST', headers: { Authorization: `Bearer ${localStorage.getItem('access_token') || localStorage.getItem('token') || ''}` }, body: inspectForm }).catch(() => null)
         if (inspectRes?.ok) {
           const analysis = await inspectRes.json()
           const files = await fetch(`${API}/order-files?order_id=${orderId}`, { headers: getHeaders() }).then(r => r.json())

@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 const API = 'http://localhost:4000'
 const F = "'DM Sans','Segoe UI',system-ui,sans-serif"
 const H = () => {
-  const t = typeof window !== 'undefined' ? localStorage.getItem('token') : ''
+  const t = typeof window !== 'undefined' ? (localStorage.getItem('access_token') || localStorage.getItem('token')) : ''
   return { 'Content-Type': 'application/json', ...(t ? { Authorization: `Bearer ${t}` } : {}) }
 }
 const fmt = (n: number) => Number(n).toLocaleString('mn-MN')

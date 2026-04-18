@@ -54,7 +54,7 @@ export default function CommissionPage() {
   const [msg, setMsg] = useState('');
 
   useEffect(() => {
-    const t = localStorage.getItem('token') || '';
+    const t = localStorage.getItem('access_token') || localStorage.getItem('token') || '';
     setToken(t);
     if (t) {
       loadSettings(t);

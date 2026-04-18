@@ -53,7 +53,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [user, setUser] = useState<any>(null)
 
   useEffect(() => {
-    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null
+    const token = typeof window !== 'undefined' ? (localStorage.getItem('access_token') || localStorage.getItem('token')) : null
     if (!token) { router.push('/login'); return }
     const stored = localStorage.getItem('user')
     if (stored) { try { setUser(JSON.parse(stored)) } catch {} }

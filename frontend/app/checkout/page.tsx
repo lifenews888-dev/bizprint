@@ -76,7 +76,7 @@ export default function CheckoutPage() {
       } catch { /* ignore */ }
     }
 
-    const token = localStorage.getItem('token')
+    const token = localStorage.getItem('access_token') || localStorage.getItem('access_token') || localStorage.getItem('token') || ''
     setHasToken(!!token)
     if (!token) { setLoading(false); return }
 
@@ -156,7 +156,7 @@ export default function CheckoutPage() {
   // ── Place order ────────────────────────────────────────────────────────────
 
   async function placeOrder() {
-    const token = localStorage.getItem('token')
+    const token = localStorage.getItem('access_token') || localStorage.getItem('access_token') || localStorage.getItem('token') || ''
     if (!token || !userId || submitting) return
     setSubmitting(true)
     try {

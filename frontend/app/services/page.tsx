@@ -3,7 +3,8 @@ import { useState, useEffect } from 'react'
 
 const API = 'http://localhost:4000'
 const F = "'DM Sans','Segoe UI',system-ui,sans-serif"
-const getHeaders = () => ({ 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token')}` })
+const tok = () => localStorage.getItem('access_token') || localStorage.getItem('token') || ''
+const getHeaders = () => ({ 'Content-Type': 'application/json', Authorization: `Bearer ${tok()}` })
 
 const COLORS = ['#FF6B00', '#8B5CF6', '#10B981', '#3B82F6', '#F59E0B', '#EC4899', '#06B6D4', '#EF4444']
 const ICONS = ['📱', '📸', '💼', '📄', '🖼️', '📅', '🎨', '📦']
@@ -37,7 +38,7 @@ export default function ServicesPage() {
   const filteredProducts = selectedCat ? products.filter(p => p.category === selectedCat || p.category_id === selectedCat) : products
 
   const submitOrder = async () => {
-    const token = localStorage.getItem('token')
+    const token = localStorage.getItem('access_token') || localStorage.getItem('token')
     if (!token) { window.location.href = '/login'; return }
     setSubmitting(true)
     try {

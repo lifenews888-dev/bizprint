@@ -2,7 +2,8 @@
 import { useState, useEffect } from 'react'
 
 const API = 'http://localhost:4000'
-const getHeaders = () => ({ 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token')}` })
+const tok = () => localStorage.getItem('access_token') || localStorage.getItem('token') || ''
+const getHeaders = () => ({ 'Content-Type': 'application/json', Authorization: `Bearer ${tok()}` })
 
 const EVENT_OPTIONS = [
   { key: 'delivery_created', label: 'Хүргэлт үүссэн', icon: '📦' },

@@ -130,7 +130,7 @@ export default function AdminQuoteEngine() {
   async function handleReload() {
     setReloading(true)
     try {
-      const token = localStorage.getItem('token')
+      const token = localStorage.getItem('access_token') || localStorage.getItem('token')
       const res = await fetch(`${API}/pricing-catalog/reload`, {
         method: 'POST',
         headers: token ? { Authorization: `Bearer ${token}` } : {},

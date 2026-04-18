@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 const API = 'http://localhost:4000'
 const F = "'DM Sans','Segoe UI',system-ui,sans-serif"
 
-function getToken() { return typeof window !== 'undefined' ? localStorage.getItem('token') || '' : '' }
+function getToken() { return typeof window !== 'undefined' ? (localStorage.getItem('access_token') || localStorage.getItem('token') || '') : '' }
 function getHeaders() { return { 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}` } }
 
 const STATUS_CFG: Record<string, { label: string; color: string; bg: string }> = {

@@ -48,7 +48,7 @@ export default function ProductPage({ params }: { params: { _slug: string } }) {
   }
 
   const addToCart = async () => {
-    const token = localStorage.getItem('token')
+    const token = localStorage.getItem('access_token') || localStorage.getItem('access_token') || localStorage.getItem('token') || ''
     if (!token) { router.push('/login'); return }
     setAddingCart(true)
     try {

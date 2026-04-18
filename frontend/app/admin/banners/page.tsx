@@ -5,7 +5,7 @@ const API = 'http://localhost:4000'
 const F = "'DM Sans','Segoe UI',system-ui,sans-serif"
 
 function getHeaders() {
-  return { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token')}` }
+  return { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('access_token') || localStorage.getItem('token') || ''}` }
 }
 
 export default function AdminBannersPage() {
@@ -51,7 +51,7 @@ export default function AdminBannersPage() {
     try {
       const res = await fetch(`${API}/upload/file`, {
         method: 'POST',
-        headers: { Authorization: 'Bearer ' + localStorage.getItem('token') },
+        headers: { Authorization: 'Bearer ' + localStorage.getItem('access_token') || localStorage.getItem('token') || '' },
         body: fd,
       })
       const data = await res.json()
