@@ -168,6 +168,86 @@ export class ProductsService {
     return { deleted: true }
   }
 
+  /**
+   * Smart lead time тооцоо
+   * Formula:
+   *   base_days + quantity_buffer + pages_buffer + capacity_buffer + file_review_buffer
+   */
+  async estimateLeadTime(product: any, quantity: number, pages: number = 0) {
+    const base = Number(product.lead_time_days) || 3
+
+    // ── Quantity buffer ──
+    let qtyBuffer = 0
+    if (quantity >= 10000) qtyBuffer = 5
+    else if (quantity >= 5000) qtyBuffer = 3
+    else if (quantity >= 1000) qtyBuffer = 2
+    else if (quantity >= 500) qtyBuffer = 1
+
+    // ── Pages buffer (зөвхөн ном/каталоги) ──
+    let pagesBuffer = 0
+    if (pages > 0) {
+      if (pages >= 200) pagesBuffer = 3
+      else if (pages >= 100) pagesBuffer = 2
+      else if (pages >= 50) pagesBuffer = 1
+    }
+
+    // ── File review buffer (print products require dieline check) ──
+    const isPrint = ['print', 'offset', 'book'].includes(product.product_type) ||
+      ['book', 'offset'].includes(product.category)
+    const fileReviewBuffer = isPrint ? 1 : 0
+
+    // ── Capacity buffer (factory ачаалал) ──
+    let capacityBuffer = 0
+    let utilization = 0
+    try {
+      const capacity = await this.productRepo.manager.query(`
+        SELECT
+          COALESCE(SUM(pv.daily_capacity), 0)::int as total,
+          COALESCE(SUM(pv.used_capacity), 0)::int as used
+        FROM product_vendors pv
+        WHERE pv.product_id = $1 AND pv.is_active = true
+      `, [product.id])
+      const total = Number(capacity[0]?.total) || 0
+      const used = Number(capacity[0]?.used) || 0
+      if (total > 0) {
+        utilization = Math.round((used / total) * 100)
+        if (utilization >= 85) capacityBuffer = 4
+        else if (utilization >= 70) capacityBuffer = 2
+        else if (utilization >= 50) capacityBuffer = 1
+      }
+    } catch {}
+
+    const total = base + qtyBuffer + pagesBuffer + fileReviewBuffer + capacityBuffer
+    const breakdown: string[] = [`Үндсэн: ${base} өдөр`]
+    if (qtyBuffer) breakdown.push(`Тоо (${quantity.toLocaleString()}ш): +${qtyBuffer} өдөр`)
+    if (pagesBuffer) breakdown.push(`Нүүр (${pages}): +${pagesBuffer} өдөр`)
+    if (fileReviewBuffer) breakdown.push(`Файл шалгалт: +${fileReviewBuffer} өдөр`)
+    if (capacityBuffer) breakdown.push(`Үйлдвэрийн ачаалал (${utilization}%): +${capacityBuffer} өдөр`)
+
+    // Бэлэн болох огноо (weekend-ийг алгасах)
+    const now = new Date()
+    const ready = new Date(now)
+    let added = 0
+    while (added < total) {
+      ready.setDate(ready.getDate() + 1)
+      const day = ready.getDay()
+      if (day !== 0 && day !== 6) added++
+    }
+
+    return {
+      total_days: total,
+      business_days: total,
+      base_days: base,
+      quantity_buffer: qtyBuffer,
+      pages_buffer: pagesBuffer,
+      file_review_buffer: fileReviewBuffer,
+      capacity_buffer: capacityBuffer,
+      capacity_utilization: utilization,
+      ready_date: ready.toISOString().slice(0, 10),
+      breakdown,
+    }
+  }
+
   // Vendor orders summary (join with orders)
   async getVendorOrderStats(vendorId: string) {
     const result = await this.productRepo.query(

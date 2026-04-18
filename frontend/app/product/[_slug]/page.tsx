@@ -156,6 +156,7 @@ export default function ProductPage({ params }: { params: Promise<{ _slug: strin
   const [shareOpen, setShareOpen] = useState(false)
   const [livePrice, setLivePrice] = useState<number | null>(null)
   const [liveBreakdown, setLiveBreakdown] = useState<any>(null)
+  const [leadTime, setLeadTime] = useState<any>(null)
   const { addToCart: storeAddToCart, cart, toggleWishlist, isWished, toggleCompare, isCompared } = useStore()
   const inCart = cart.some(c => c.id === product?.id)
   const wished = product ? isWished(product?.id) : false
@@ -163,6 +164,15 @@ export default function ProductPage({ params }: { params: Promise<{ _slug: strin
 
   const [addons, setAddons] = useState<any[]>([])
   const [selectedAddons, setSelectedAddons] = useState<string[]>([])
+
+  // Smart lead time тооцоо (quantity, pages өөрчлөгдөх үед шинэчлэгдэнэ)
+  useEffect(() => {
+    if (!product?.id) return
+    const q = liveBreakdown?.quantity || qty
+    const pages = liveBreakdown?.pages || liveBreakdown?.totalPages || 0
+    apiFetch<any>(`/products/${product.id}/estimate-lead-time?quantity=${q}&pages=${pages}`, { auth: false })
+      .then(setLeadTime).catch(() => {})
+  }, [product?.id, qty, liveBreakdown?.quantity])
 
   useEffect(() => {
     apiFetch<any>(`/products/${_slug}`, { auth: false })
@@ -439,11 +449,11 @@ export default function ProductPage({ params }: { params: Promise<{ _slug: strin
             {/* Trust + Payment — inline */}
             <div className="grid grid-cols-3 gap-2">
               {[
-                { icon: '🚚', t: 'Хүргэлт', d: p.lead_time_days ? `${p.lead_time_days} өдөр` : '1–3 өдөр' },
+                { icon: '🚚', t: 'Хугацаа', d: leadTime?.total_days ? `${leadTime.total_days} ажлын өдөр` : (p.lead_time_days ? `${p.lead_time_days} өдөр` : '1–3 өдөр'), title: leadTime?.breakdown?.join('\n') || '' },
                 { icon: '🔒', t: 'Аюулгүй', d: 'SSL төлбөр' },
                 { icon: '🔄', t: 'Буцаалт', d: '7 хоног' },
-              ].map(i => (
-                <div key={i.t} className="flex items-center gap-1.5 p-2 rounded-lg bg-[var(--surface2)] border border-[var(--border)]">
+              ].map((i: any) => (
+                <div key={i.t} title={i.title || ''} className="flex items-center gap-1.5 p-2 rounded-lg bg-[var(--surface2)] border border-[var(--border)]">
                   <span className="text-sm">{i.icon}</span>
                   <div><div className="text-[10px] font-semibold text-[var(--text)]">{i.t}</div><div className="text-[9px] text-[var(--text3)]">{i.d}</div></div>
                 </div>
