@@ -768,15 +768,34 @@ export default function QuotePage() {
                   Нэвтэрч орон захиалгаа баталгаажуулна уу
                 </div>
 
-                <a href="/order" style={{
-                  display: 'block', textAlign: 'center',
-                  background: '#FF6B35', color: '#fff',
-                  padding: '14px', borderRadius: 12,
-                  textDecoration: 'none', fontSize: 15, fontWeight: 700,
-                  marginBottom: 12,
-                }}>
+                <button
+                  onClick={() => {
+                    if (!result || !selectedProductId) return
+                    localStorage.setItem('pending_quote', JSON.stringify({
+                      product_id: selectedProductId,
+                      product_name: result.product_name,
+                      quantity: result.quantity,
+                      unit_price: result.unit_price,
+                      subtotal: result.subtotal,
+                      platform_margin: result.platform_margin,
+                      delivery_fee: result.delivery_fee,
+                      total: result.total,
+                      currency: result.currency,
+                      valid_until: result.valid_until,
+                      options: attrValues,
+                    }))
+                    window.location.href = '/checkout?source=quote'
+                  }}
+                  style={{
+                    display: 'block', width: '100%', textAlign: 'center',
+                    background: '#FF6B35', color: '#fff',
+                    padding: '14px', borderRadius: 12,
+                    border: 'none', fontSize: 15, fontWeight: 700,
+                    marginBottom: 12, cursor: 'pointer',
+                  }}
+                >
                   Захиалга өгөх →
-                </a>
+                </button>
                 <button
                   onClick={() => { setStep(1); setResult(null) }}
                   style={{
