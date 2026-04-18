@@ -86,7 +86,7 @@ export default function AdminDashboard() {
       fetch(`${API}/orders`, { headers: getHeaders() }).then(r => r.json()).catch(() => []),
       fetch(`${API}/admin/users`, { headers: getHeaders() }).then(r => r.json()).catch(() => []),
       fetch(`${API}/quotes-v2`, { headers: getHeaders() }).then(r => r.json()).catch(() => []),
-      fetch(`${API}/wallet`, { headers: getHeaders() }).then(r => r.json()).catch(() => []),
+      fetch(`${API}/wallet/withdraw-requests`, { headers: getHeaders() }).then(r => r.json()).catch(() => []),
     ]).then(([o, u, q, w]) => {
       setOrders(Array.isArray(o) ? o : [])
       setUsers(Array.isArray(u) ? u : [])
@@ -173,6 +173,7 @@ export default function AdminDashboard() {
           { label: 'Нийт захиалга', value: orders.length.toString(), sub: `${stats.todayOrders.length} өнөөдөр`, color: '#FF6B00', icon: '📋' },
           { label: 'Хэрэглэгчид', value: users.length.toString(), sub: `${stats.roleCounts.vendor || 0} vendor, ${stats.roleCounts.designer || 0} designer`, color: '#3B82F6', icon: '👥' },
           { label: 'Үнийн санал', value: quotes.length.toString(), sub: 'Quotes-v2', color: '#8B5CF6', icon: '🧮' },
+          { label: 'Татах хүсэлт', value: wallets.filter((w:any) => w.status === 'pending').length.toString(), sub: wallets.filter((w:any) => w.status === 'pending').reduce((s:number,w:any)=>s+Number(w.amount),0).toLocaleString()+'₮ хүлээгдэж байна', color: '#F97316', icon: '💸' },
         ].map(kpi => (
           <div key={kpi.label} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, padding: '18px 20px', position: 'relative', overflow: 'hidden' }}>
             <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: kpi.color, opacity: 0.7 }} />
