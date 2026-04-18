@@ -32,13 +32,18 @@ export interface QuoteResult {
 /** CTP plate making cost per plate (Монголын зах зээл, 2024-2025) */
 const PLATE_COST = 30_000;
 
-/** Offset press: ₮50,000/hr, 4,000 sheets/hr */
-const OFFSET_MACHINE_RATE = 50_000;
+/** Offset press: ₮50,000/hr, 4,000 sheets/hr → ₮12.5/sheet */
+const OFFSET_MACHINE_RATE  = 50_000;
 const OFFSET_MACHINE_SPEED = 4_000;
 
-/** Digital/short-run: ₮25,000/hr, 1,500 sheets/hr */
-const DIGITAL_MACHINE_RATE = 25_000;
+/** Digital B&W: ₮40/sheet → ₮60,000/hr at 1,500 sheets/hr */
+const DIGITAL_BW_RATE    = 60_000;
+/** Digital Color (CMYK): ₮120/sheet → ₮180,000/hr at 1,500 sheets/hr */
+const DIGITAL_COLOR_RATE = 180_000;
 const DIGITAL_MACHINE_SPEED = 1_500;
+
+/** Minimum quantity to even consider switching to offset press */
+const OFFSET_MIN_QTY = 200;
 
 /** Paper price per sheet (₮) by GSM bracket */
 const PAPER_PRICE: Record<number, number> = {
@@ -68,32 +73,30 @@ const FINISHING_COST_PER_COPY: Record<string, number> = {
 
 /** Binding cost per copy (₮) */
 const BINDING_COST_PER_COPY: Record<string, number> = {
-  none:         0,
-  staple:     100,
+  none:            0,
+  staple:        100,
   saddle_stitch: 150,
-  perfect:    700,
-  spiral:    1000,
-  wire_o:    1200,
-  hardcover: 3500,
+  perfect:       700,
+  spiral:       1000,
+  wire_o:       1200,
+  hardcover:    3500,
 };
 
-/** Overhead on top of direct production cost */
+/** Overhead on direct production cost */
 const OVERHEAD_RATE   = 0.15;
-/** Platform / profit margin */
+/** Platform service margin (shown as separate line to customer) */
 const PLATFORM_MARGIN = 0.25;
 /** Paper waste factor */
 const WASTE_FACTOR    = 1.05;
 /** Minimum cutting/trimming charge per job */
 const CUTTING_FIXED   = 8_000;
-/** Minimum charge for any offset job */
-const OFFSET_MIN_JOB  = 50_000;
+/** Minimum total charge for any print job */
+const JOB_MIN_CHARGE  = 50_000;
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function getPaperPrice(gsm: number): number {
-  const brackets = Object.keys(PAPER_PRICE)
-    .map(Number)
-    .sort((a, b) => a - b);
+  const brackets = Object.keys(PAPER_PRICE).map(Number).sort((a, b) => a - b);
   for (const b of brackets) {
     if (gsm <= b) return PAPER_PRICE[b];
   }
@@ -102,7 +105,6 @@ function getPaperPrice(gsm: number): number {
 
 /**
  * Extract a numeric value from options, trying multiple possible key names.
- * e.g. extractNum(options, ['pages','хуудас тоо','page_count'], 1)
  */
 function extractNum(
   options: Record<string, string> | undefined,
@@ -158,78 +160,82 @@ function mapBinding(raw: string): string {
   return 'none';
 }
 
-// ─── Offset cost engine ───────────────────────────────────────────────────────
+// ─── Print cost engine ────────────────────────────────────────────────────────
 
-interface OffsetParams {
+interface PrintParams {
   quantity:   number;
-  pages:      number;  // total page count (1 = one-sided single sheet)
+  pages:      number;
   sides:      'single' | 'double';
   paper_gsm:  number;
-  colors:     number;  // 1 = B&W / spot color, 4 = CMYK
-  finishing:  string;  // normalised key
-  binding:    string;  // normalised key
+  colors:     number;  // 1 = B&W / spot, 4 = CMYK
+  finishing:  string;
+  binding:    string;
   rush:       boolean;
 }
 
-interface OffsetResult {
-  unit_price:     number;
-  setup_fee:      number;
-  subtotal:       number;
-  platform_fee:   number;
-  total_cost:     number;
-  breakdown:      Record<string, number>;
+interface PrintResult {
+  unit_price:    number;   // per-copy variable cost (paper+print+finishing+binding) with overhead
+  setup_fee:     number;   // one-time fixed cost (plates+cutting) with overhead
+  subtotal:      number;   // unit_price × qty + setup_fee
+  platform_fee:  number;   // 25% of subtotal (informational, added in outer layer)
+  total_cost:    number;   // same as subtotal (pre-platform total)
+  press:         'offset' | 'digital';
+  breakdown:     Record<string, number | boolean>;
 }
 
-function calcOffsetCost(p: OffsetParams): OffsetResult {
-  // sheets_per_copy: how many physical sheets one copy needs
-  const sheets_per_copy = Math.max(1, Math.ceil(p.pages / (p.sides === 'double' ? 2 : 1)));
+/**
+ * Calculate production cost for a specific press technology.
+ *
+ * unit_price  = variable cost per copy (paper + machine time + finishing + binding)
+ *               × rush × (1 + overhead)  — NO platform margin embedded
+ * setup_fee   = fixed one-time cost (plates + cutting)
+ *               × rush × (1 + overhead)  — NO platform margin embedded
+ *
+ * Platform margin (25%) is added by the caller on top of (unit_price × qty + setup_fee).
+ * This avoids double-counting.
+ */
+function calcForPress(p: PrintParams, useOffset: boolean): PrintResult {
+  const rush_factor = p.rush ? 1.35 : 1.0;
 
-  // plate_count: for each print form we need `colors` plates per side
-  // forms = ceil(pages / pages_per_form), where pages_per_form = 4 for A4, 8 for A5
-  // Simplified to ceil(pages / 4) — covers the majority of common formats
-  const form_count  = Math.max(1, Math.ceil(p.pages / 4));
-  const plate_count = p.colors * form_count * (p.sides === 'double' ? 2 : 1);
-  const plate_cost  = plate_count * PLATE_COST;
-
-  // Paper
-  const total_sheets = Math.ceil(sheets_per_copy * p.quantity * WASTE_FACTOR);
-  const paper_cost   = total_sheets * getPaperPrice(p.paper_gsm);
-
-  // Machine (offset for qty >= 200, digital below that)
-  const useOffset     = p.quantity >= 200;
-  const machine_rate  = useOffset ? OFFSET_MACHINE_RATE  : DIGITAL_MACHINE_RATE;
+  // ── Machine selection ─────────────────────────────────────────────────────
+  const machine_rate  = useOffset
+    ? OFFSET_MACHINE_RATE
+    : (p.colors === 4 ? DIGITAL_COLOR_RATE : DIGITAL_BW_RATE);
   const machine_speed = useOffset ? OFFSET_MACHINE_SPEED : DIGITAL_MACHINE_SPEED;
-  const print_cost    = Math.ceil((total_sheets / machine_speed) * machine_rate);
 
-  // Finishing & binding
-  const finish_cost  = (FINISHING_COST_PER_COPY[p.finishing] ?? 0) * p.quantity;
-  const bind_cost    = (BINDING_COST_PER_COPY[p.binding] ?? 0)     * p.quantity;
+  // ── Plate setup (OFFSET ONLY — digital presses don't use CTP plates) ──────
+  const form_count  = Math.max(1, Math.ceil(p.pages / 4));
+  const plate_count = useOffset
+    ? p.colors * form_count * (p.sides === 'double' ? 2 : 1)
+    : 0;
+  const plate_cost = plate_count * PLATE_COST;
 
-  // Rush premium
-  const rush_factor  = p.rush ? 1.35 : 1.0;
+  // ── Variable production costs (scale with quantity) ───────────────────────
+  const sheets_per_copy = Math.max(1, Math.ceil(p.pages / (p.sides === 'double' ? 2 : 1)));
+  const total_sheets    = Math.ceil(sheets_per_copy * p.quantity * WASTE_FACTOR);
+  const paper_cost      = total_sheets * getPaperPrice(p.paper_gsm);
+  const print_cost      = Math.ceil((total_sheets / machine_speed) * machine_rate);
+  const finish_cost     = (FINISHING_COST_PER_COPY[p.finishing] ?? 0) * p.quantity;
+  const bind_cost       = (BINDING_COST_PER_COPY[p.binding]    ?? 0) * p.quantity;
 
-  // Total direct production cost
-  const production_cost = Math.round(
-    (plate_cost + paper_cost + print_cost + finish_cost + bind_cost + CUTTING_FIXED) * rush_factor,
-  );
+  const variable_raw = Math.round((paper_cost + print_cost + finish_cost + bind_cost) * rush_factor);
+  const variable_oh  = Math.round(variable_raw * (1 + OVERHEAD_RATE));
+  const unit_price   = Math.ceil(variable_oh / p.quantity);
 
-  // Ensure we never go below minimum offset job charge
-  const adjusted_cost = Math.max(production_cost, OFFSET_MIN_JOB);
+  // ── Fixed one-time costs (per job, not per copy) ──────────────────────────
+  const fixed_raw = Math.round((plate_cost + CUTTING_FIXED) * rush_factor);
+  const setup_fee = Math.round(fixed_raw * (1 + OVERHEAD_RATE));
 
-  // Overhead + margin
-  const with_overhead  = Math.round(adjusted_cost * (1 + OVERHEAD_RATE));
-  const with_margin    = Math.round(with_overhead  * (1 + PLATFORM_MARGIN));
-
-  const unit_price   = Math.ceil(with_margin / p.quantity);
-  const subtotal     = unit_price * p.quantity;
-  const platform_fee = Math.round(subtotal * PLATFORM_MARGIN);
+  const raw_subtotal = unit_price * p.quantity + setup_fee;
+  const subtotal     = Math.max(raw_subtotal, JOB_MIN_CHARGE);
 
   return {
     unit_price,
-    setup_fee:    plate_cost,
+    setup_fee,
     subtotal,
-    platform_fee,
-    total_cost:   with_margin,
+    platform_fee: Math.round(subtotal * PLATFORM_MARGIN),
+    total_cost:   subtotal,
+    press:        useOffset ? 'offset' : 'digital',
     breakdown: {
       sheets_per_copy,
       total_sheets,
@@ -239,12 +245,30 @@ function calcOffsetCost(p: OffsetParams): OffsetResult {
       print_cost,
       finish_cost,
       bind_cost,
-      production_cost,
-      overhead: Math.round(adjusted_cost * OVERHEAD_RATE),
-      margin:   Math.round(with_overhead * PLATFORM_MARGIN),
+      variable_raw,
+      fixed_raw,
       rush_factor,
+      use_offset_press: useOffset,
     },
   };
+}
+
+/**
+ * Pick the cheaper technology (digital vs offset) for this job.
+ * Offset is only considered at qty ≥ OFFSET_MIN_QTY (200).
+ * Both prices are pre-platform; the dynamic selection avoids cliff pricing.
+ */
+function calcPrintCost(p: PrintParams): PrintResult {
+  const digital = calcForPress(p, false);
+
+  if (p.quantity < OFFSET_MIN_QTY) {
+    return digital;
+  }
+
+  const offset = calcForPress(p, true);
+
+  // Pick whichever is cheaper for the customer
+  return offset.subtotal < digital.subtotal ? offset : digital;
 }
 
 // ─── Service ─────────────────────────────────────────────────────────────────
@@ -264,22 +288,26 @@ export class PricingService {
     });
     if (!product) throw new NotFoundException('Бүтээгдэхүүн олдсонгүй');
 
-    const quantity    = Math.max(1, input.quantity);
-    const opts        = input.options ?? {};
+    const quantity = Math.max(1, input.quantity);
+    const opts     = input.options ?? {};
 
     // ── Extract print parameters from options ─────────────────────────────
-    const pages_raw     = extractNum(opts, ['pages', 'хуудас', 'хуудасны тоо', 'page_count'], 1);
-    const pages         = Math.max(1, pages_raw);
-    const sides_raw     = extractStr(opts, ['sides', 'хэвлэлийн тал', 'тал'], 'single');
-    const sides: 'single' | 'double' = sides_raw.includes('2') ||
+    const pages_raw  = extractNum(opts, ['pages', 'хуудас', 'хуудасны тоо', 'page_count'], 1);
+    const pages      = Math.max(1, pages_raw);
+    const sides_raw  = extractStr(opts, ['sides', 'хэвлэлийн тал', 'тал'], 'single');
+    const sides: 'single' | 'double' =
+      sides_raw.includes('2') ||
       sides_raw.toLowerCase().includes('double') ||
       sides_raw.includes('2 тал')
         ? 'double'
         : 'single';
     const paper_gsm     = extractNum(opts, ['paper_gsm', 'gsm', 'цаасны жин', 'грамм'], 150);
     const colors_raw    = extractStr(opts, ['colors', 'color_mode', 'өнгийн тоо', 'өнгө'], 'color');
-    const colors        = colors_raw.includes('1') || colors_raw.toLowerCase().includes('bw') ||
-      colors_raw.toLowerCase().includes('black') || colors_raw.includes('хар')
+    const colors        =
+      colors_raw.includes('1') ||
+      colors_raw.toLowerCase().includes('bw') ||
+      colors_raw.toLowerCase().includes('black') ||
+      colors_raw.includes('хар')
         ? 1
         : 4;
     const finishing_raw = extractStr(opts, ['finishing', 'арчаалт', 'ламинат'], 'none');
@@ -288,8 +316,6 @@ export class PricingService {
     const binding       = mapBinding(binding_raw);
 
     // ── Decide pricing strategy ────────────────────────────────────────────
-    // Use cost-based offset engine for print products.
-    // Use simple base-price model for 'ready' products (merchandise, etc.).
     const useOffsetEngine = product.product_type === 'print';
 
     let unit_price: number;
@@ -297,8 +323,8 @@ export class PricingService {
     let engine_breakdown: Record<string, any> = {};
 
     if (useOffsetEngine) {
-      // Cost-based offset / digital print calculation
-      const result = calcOffsetCost({
+      // ── Cost-based print calculation (digital or offset, auto-selected) ──
+      const result = calcPrintCost({
         quantity,
         pages,
         sides,
@@ -308,33 +334,69 @@ export class PricingService {
         binding,
         rush: !!input.rush,
       });
+
       unit_price       = result.unit_price;
       setup_fee        = result.setup_fee;
-      engine_breakdown = result.breakdown;
+      engine_breakdown = { ...result.breakdown, press: result.press };
+
+      // unit_price and setup_fee already include overhead but NOT platform margin.
+      // Compute subtotal here and add platform margin cleanly below.
+      const pre_margin_subtotal = unit_price * quantity + setup_fee;
+      const platform_margin     = Math.round(pre_margin_subtotal * PLATFORM_MARGIN);
+      const delivery_fee        = input.delivery ? 15_000 : 0;
+      const total               = pre_margin_subtotal + platform_margin + delivery_fee;
+
+      const valid_until = new Date();
+      valid_until.setHours(valid_until.getHours() + 24);
+
+      return {
+        product_id:       product.id,
+        product_name:     product.name_mn || product.name,
+        quantity,
+        unit_price,
+        setup_fee,
+        subtotal:         pre_margin_subtotal,
+        platform_margin,
+        delivery_fee,
+        total,
+        currency: 'MNT',
+        valid_until: valid_until.toISOString(),
+        breakdown: {
+          ...engine_breakdown,
+          unit_price,
+          setup_fee,
+          subtotal:              pre_margin_subtotal,
+          platform_margin_25pct: platform_margin,
+          delivery_fee,
+          total,
+          pricing_model: 'print_cost_based',
+          input_params: { pages, sides, paper_gsm, colors, finishing, binding },
+        },
+      };
 
     } else {
-      // Simple catalog-price model for ready/merchandise products
+      // ── Simple catalog-price model for ready/merchandise products ─────────
       const base_price = Number(product.base_price);
 
       // Smooth continuous quantity discount (no cliff)
-      const qty_discount = Math.min(0.35, Math.log10(Math.max(1, quantity / 50)) * 0.12);
+      const qty_discount   = Math.min(0.35, Math.log10(Math.max(1, quantity / 50)) * 0.12);
       const qty_multiplier = Math.max(0.65, 1.0 - qty_discount);
 
-      // Apply active pricing rules (respecting min_quantity and price_override)
       const rules = await this.rulesRepo.find({
         where: { product_id: input.product_id, is_active: true },
       });
 
-      let option_delta    = 0.0;  // sum of multiplier deltas
+      let option_delta    = 0.0;
       let option_addition = 0;
       let override_price: number | null = null;
       const applied_rules: string[] = [];
 
       for (const [key, value] of Object.entries(opts)) {
         const rule = rules.find(
-          r => r.attribute_key === key &&
-               r.attribute_value === value &&
-               (!r.min_quantity || quantity >= r.min_quantity),
+          r =>
+            r.attribute_key === key &&
+            r.attribute_value === value &&
+            (!r.min_quantity || quantity >= r.min_quantity),
         );
         if (!rule) continue;
         if (rule.price_override != null) {
@@ -346,18 +408,21 @@ export class PricingService {
         applied_rules.push(`${key}=${value}`);
       }
 
-      const rush_multiplier    = input.rush ? 1.35 : 1.0;
-      const option_multiplier  = 1.0 + option_delta;
+      const rush_multiplier   = input.rush ? 1.35 : 1.0;
+      const option_multiplier = 1.0 + option_delta;
 
       unit_price = override_price !== null
         ? Math.round(override_price * rush_multiplier)
-        : Math.round(base_price * qty_multiplier * option_multiplier * rush_multiplier + option_addition);
+        : Math.round(
+            base_price * qty_multiplier * option_multiplier * rush_multiplier +
+            option_addition,
+          );
 
       setup_fee = 0;
 
       engine_breakdown = {
         base_price,
-        qty_multiplier: Math.round(qty_multiplier * 1000) / 1000,
+        qty_multiplier:    Math.round(qty_multiplier    * 1000) / 1000,
         option_multiplier: Math.round(option_multiplier * 1000) / 1000,
         rush_multiplier,
         option_addition,
@@ -365,10 +430,11 @@ export class PricingService {
       };
     }
 
-    const subtotal       = unit_price * quantity + setup_fee;
+    // ── Final totals (catalog path) ────────────────────────────────────────
+    const subtotal        = unit_price * quantity + setup_fee;
     const platform_margin = Math.round(subtotal * PLATFORM_MARGIN);
-    const delivery_fee   = input.delivery ? 15_000 : 0;
-    const total          = subtotal + platform_margin + delivery_fee;
+    const delivery_fee    = input.delivery ? 15_000 : 0;
+    const total           = subtotal + platform_margin + delivery_fee;
 
     const valid_until = new Date();
     valid_until.setHours(valid_until.getHours() + 24);
@@ -393,15 +459,8 @@ export class PricingService {
         platform_margin_25pct: platform_margin,
         delivery_fee,
         total,
-        pricing_model: useOffsetEngine ? 'offset_cost_based' : 'catalog_multiplier',
-        input_params: {
-          pages,
-          sides,
-          paper_gsm,
-          colors,
-          finishing,
-          binding,
-        },
+        pricing_model: 'catalog_multiplier',
+        input_params: { pages, sides, paper_gsm, colors, finishing, binding },
       },
     };
   }
