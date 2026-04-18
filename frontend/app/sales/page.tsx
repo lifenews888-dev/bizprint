@@ -29,12 +29,12 @@ interface User {
 }
 
 const ST_MN: Record<string, string> = {
-  pending: '\u0425\u04af\u043b\u044d\u044d\u0433\u0434\u044d\u0436 \u0431\u0430\u0439\u043d\u0430',
-  paid: '\u0422\u04e9\u043b\u04e9\u0433\u0434\u0441\u04e9\u043d',
-  in_production: '\u0425\u044d\u0432\u043b\u044d\u0436 \u0431\u0430\u0439\u043d\u0430',
-  completed: '\u0414\u0443\u0443\u0441\u0441\u0430\u043d',
-  shipped: '\u0425\u04af\u0440\u0433\u044d\u0433\u0434\u0441\u044d\u043d',
-  cancelled: '\u0426\u0443\u0446\u043b\u0430\u0433\u0434\u0441\u0430\u043d',
+  pending:       'Хүлээгдэж байна',
+  paid:          'Төлөгдсөн',
+  in_production: 'Хэвлэж байна',
+  completed:     'Дууссан',
+  shipped:       'Хүргэгдсэн',
+  cancelled:     'Цуцлагдсан',
 }
 const ST_CLR: Record<string, string> = {
   pending: '#F59E0B', paid: '#378ADD', in_production: '#8B5CF6',

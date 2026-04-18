@@ -20,23 +20,25 @@ interface Order {
 interface User { id: string; email: string; full_name: string; role: string }
 
 const ST_MN: Record<string, string> = {
-  pending: '\u0425\u04af\u043b\u044d\u044d\u0433\u0434\u044d\u0436 \u0431\u0430\u0439\u043d\u0430',
-  paid: '\u0422\u04e9\u043b\u04e9\u0433\u0434\u0441\u04e9\u043d',
-  in_production: '\u0425\u044d\u0432\u043b\u044d\u0436 \u0431\u0430\u0439\u043d\u0430',
-  completed: '\u0414\u0443\u0443\u0441\u0441\u0430\u043d',
-  shipped: '\u0425\u04af\u0440\u0433\u044d\u0433\u0434\u0441\u044d\u043d',
-  cancelled: '\u0426\u0443\u0446\u043b\u0430\u0433\u0434\u0441\u0430\u043d',
+  pending:       'Хүлээгдэж байна',
+  paid:          'Төлөгдсөн',
+  in_design:     'Дизайнд байна',
+  in_production: 'Хэвлэж байна',
+  completed:     'Дууссан',
+  shipped:       'Хүргэгдсэн',
+  cancelled:     'Цуцлагдсан',
 }
 const ST_CLR: Record<string, string> = {
-  pending: '#F59E0B', paid: '#378ADD', in_production: '#8B5CF6',
-  completed: '#10B981', shipped: '#1D9E75', cancelled: '#e24b4a',
+  pending: '#F59E0B', paid: '#378ADD', in_design: '#8B5CF6',
+  in_production: '#8B5CF6', completed: '#10B981', shipped: '#1D9E75', cancelled: '#e24b4a',
 }
 
 const WORKFLOW = [
-  { status: 'pending',       label: '\u0425\u04af\u043b\u044d\u044d\u0433\u0434\u044d\u0436 \u0431\u0430\u0439\u043d\u0430', icon: '\u23f3' },
-  { status: 'paid',          label: '\u0422\u04e9\u043b\u04e9\u0433\u0434\u0441\u04e9\u043d',        icon: '\ud83d\udcb3' },
-  { status: 'in_production', label: '\u0425\u044d\u0432\u043b\u044d\u0436 \u0431\u0430\u0439\u043d\u0430',   icon: '\ud83d\udda8\ufe0f' },
-  { status: 'completed',     label: '\u0414\u0443\u0443\u0441\u0441\u0430\u043d',         icon: '\u2705' },
+  { status: 'pending',       label: 'Хүлээгдэж байна', icon: '⏳' },
+  { status: 'paid',          label: 'Төлөгдсөн',       icon: '💳' },
+  { status: 'in_design',     label: 'Дизайнд байна',   icon: '🎨' },
+  { status: 'in_production', label: 'Хэвлэж байна',    icon: '🖨️' },
+  { status: 'completed',     label: 'Дууссан',          icon: '✅' },
 ]
 
 function tok() { return localStorage.getItem('access_token') || '' }
@@ -66,8 +68,10 @@ export default function DesignerDashboard() {
   async function fetchOrders() {
     setLoading(true)
     try {
-      const r = await fetch(API + '/admin/orders', { headers: hdrs() })
-      setOrders(r.ok ? await r.json() : [])
+      // /orders is open (no admin guard) and returns all orders
+      const r = await fetch(API + '/orders', { headers: hdrs() })
+      const data = r.ok ? await r.json() : []
+      setOrders(Array.isArray(data) ? data : [])
     } catch {}
     setLoading(false)
   }
@@ -79,18 +83,18 @@ export default function DesignerDashboard() {
 
   async function updateStatus(order: Order, status: string) {
     try {
-      const r = await fetch(API + '/orders/' + order.id, {
+      const r = await fetch(API + '/orders/' + order.id + '/status', {
         method: 'PATCH',
         headers: { ...hdrs(), 'Content-Type': 'application/json' },
         body: JSON.stringify({ status }),
       })
       if (r.ok) {
-        showToast('\u0422\u04e9\u043b\u04e9\u0432 \u0448\u0438\u043d\u044d\u0447\u043b\u044d\u0433\u0434\u043b\u044d\u044d \u2713')
+        showToast('Төлөв шинэчлэгдлээ ✓')
         const updated = { ...order, status }
         setOrders(prev => prev.map(o => o.id === order.id ? updated : o))
         setSelected(updated)
-      } else showToast('\u0410\u043b\u0434\u0430\u0430 \u0433\u0430\u0440\u043b\u0430\u0430', false)
-    } catch { showToast('\u0410\u043b\u0434\u0430\u0430 \u0433\u0430\u0440\u043b\u0430\u0430', false) }
+      } else showToast('Алдаа гарлаа', false)
+    } catch { showToast('Алдаа гарлаа', false) }
   }
 
   async function uploadFile(order: Order, file: File) {
@@ -98,21 +102,29 @@ export default function DesignerDashboard() {
     try {
       const fd = new FormData()
       fd.append('file', file)
-      const r = await fetch(API + '/upload/file', { method: 'POST', headers: hdrs(), body: fd })
-      if (!r.ok) throw new Error()
-      const { url } = await r.json()
-      const r2 = await fetch(API + '/orders/' + order.id, {
+      // Strip auth header for multipart — token is in Authorization only
+      const uploadHeaders: Record<string, string> = { Authorization: 'Bearer ' + tok() }
+      const r = await fetch(API + '/upload/file', { method: 'POST', headers: uploadHeaders, body: fd })
+      if (!r.ok) throw new Error('Upload failed')
+      const data = await r.json()
+      const file_url: string = data.file_url || data.url || ''
+      if (!file_url) throw new Error('No file_url in response')
+
+      // Attach the uploaded file URL to the order and set status to in_design
+      const r2 = await fetch(API + '/orders/' + order.id + '/status', {
         method: 'PATCH',
         headers: { ...hdrs(), 'Content-Type': 'application/json' },
-        body: JSON.stringify({ file_url: url }),
+        body: JSON.stringify({ file_url, status: 'in_design' }),
       })
       if (r2.ok) {
-        showToast('\u0424\u0430\u0439\u043b \u0430\u043c\u062c\u0438\u043b\u0442\u0430\u0439 \u0438\u043b\u044d\u0433\u0434\u043b\u044d\u044d \u2713')
-        const updated = { ...order, file_url: url }
+        showToast('Файл амжилттай илэгдлээ ✓')
+        const updated = { ...order, file_url, status: 'in_design' }
         setOrders(prev => prev.map(o => o.id === order.id ? updated : o))
         setSelected(updated)
-      } else throw new Error()
-    } catch { showToast('\u0424\u0430\u0439\u043b \u0438\u043b\u044d\u0433\u044d\u0445 \u0430\u043b\u0434\u0430\u0430', false) }
+      } else throw new Error('Order update failed')
+    } catch (e: any) {
+      showToast('Файл илэгэх алдаа: ' + (e?.message || ''), false)
+    }
     setUploading(false)
   }
 
