@@ -3,6 +3,23 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Product } from '../products/product.entity';
 import { PricingRule } from '../pricing-rules/pricing-rule.entity';
+import {
+  PLATE_COST,
+  OFFSET_MACHINE_RATE,
+  OFFSET_MACHINE_SPEED,
+  DIGITAL_BW_RATE,
+  DIGITAL_COLOR_RATE,
+  DIGITAL_MACHINE_SPEED,
+  DIGITAL_MAX_QTY,
+  FINISHING_COST_PER_COPY,
+  BINDING_COST_PER_COPY,
+  OVERHEAD_RATE,
+  PLATFORM_MARGIN,
+  WASTE_FACTOR,
+  CUTTING_FIXED,
+  JOB_MIN_CHARGE,
+  getPaperPrice,
+} from './pricing.constants';
 
 export interface QuoteInput {
   product_id: string;
@@ -27,85 +44,7 @@ export interface QuoteResult {
   breakdown: Record<string, any>;
 }
 
-// ─── Offset / Print Cost Constants ───────────────────────────────────────────
-
-/** CTP plate making cost per plate (Монголын зах зээл, 2024-2025) */
-const PLATE_COST = 30_000;
-
-/** Offset press: ₮50,000/hr, 4,000 sheets/hr → ₮12.5/sheet */
-const OFFSET_MACHINE_RATE  = 50_000;
-const OFFSET_MACHINE_SPEED = 4_000;
-
-/** Digital B&W: ₮40/sheet → ₮60,000/hr at 1,500 sheets/hr */
-const DIGITAL_BW_RATE    = 60_000;
-/** Digital Color (CMYK): ₮120/sheet → ₮180,000/hr at 1,500 sheets/hr */
-const DIGITAL_COLOR_RATE = 180_000;
-const DIGITAL_MACHINE_SPEED = 1_500;
-
-/**
- * Quantity threshold for press selection:
- *   1–100  → digital short-run
- *   101+   → offset press
- */
-const DIGITAL_MAX_QTY = 300;
-
-/** Paper price per sheet (₮) by GSM bracket */
-const PAPER_PRICE: Record<number, number> = {
-  60:  30,
-  80:  38,
-  90:  45,
-  100: 55,
-  115: 68,
-  150: 92,
-  170: 115,
-  200: 140,
-  250: 180,
-  300: 225,
-  350: 275,
-};
-
-/** Finishing cost per copy (₮) for A4-size product */
-const FINISHING_COST_PER_COPY: Record<string, number> = {
-  none:           0,
-  laminate_matte: 90,
-  laminate_gloss: 80,
-  soft_touch:    140,
-  uv:             70,
-  fold:           25,
-  spot_uv:       110,
-};
-
-/** Binding cost per copy (₮) */
-const BINDING_COST_PER_COPY: Record<string, number> = {
-  none:            0,
-  staple:        100,
-  saddle_stitch: 150,
-  perfect:       700,
-  spiral:       1000,
-  wire_o:       1200,
-  hardcover:    3500,
-};
-
-/** Overhead on direct production cost */
-const OVERHEAD_RATE   = 0.15;
-/** Platform service margin (shown as separate line to customer) */
-const PLATFORM_MARGIN = 0.25;
-/** Paper waste factor */
-const WASTE_FACTOR    = 1.05;
-/** Minimum cutting/trimming charge per job */
-const CUTTING_FIXED   = 8_000;
-/** Minimum total charge for any print job */
-const JOB_MIN_CHARGE  = 50_000;
-
 // ─── Helpers ─────────────────────────────────────────────────────────────────
-
-function getPaperPrice(gsm: number): number {
-  const brackets = Object.keys(PAPER_PRICE).map(Number).sort((a, b) => a - b);
-  for (const b of brackets) {
-    if (gsm <= b) return PAPER_PRICE[b];
-  }
-  return PAPER_PRICE[350];
-}
 
 /**
  * Extract a numeric value from options, trying multiple possible key names.
