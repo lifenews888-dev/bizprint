@@ -157,7 +157,8 @@ export default function DashboardPage() {
           clearInterval(timer)
           show('Төлбөр амжилттай!')
           setShowPayment(false); setQrInfo(null)
-          fetchOrders()
+          fetch(API+'/orders/customer/'+user?.id, { headers: getH() }).then(r=>r.json()).catch(()=>[]).then((o:any)=>{ if(Array.isArray(o)) setOrders(o) })
+          fetch(API+'/quotes-v2', { headers: getH() }).then(r=>r.json()).catch(()=>[]).then((q:any)=>{ if(Array.isArray(q)) setQuotes(q) })
         }
       } catch {}
     }, 5000)
