@@ -3,6 +3,7 @@ import { useState, useMemo, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Calculator, Lock, Download, ChevronDown, ChevronUp, AlertTriangle } from 'lucide-react'
 import { toast } from 'sonner'
+import { apiFetch } from '@/lib/api'
 import {
   type PricingConstants, type CalcInput,
   DEFAULT_CONSTANTS, calculate,
@@ -17,7 +18,25 @@ interface Props {
 }
 
 export default function BookPriceCalculator({ product, onPriceChange, isAdminView = false }: Props) {
-  const [constants] = useState<PricingConstants>(DEFAULT_CONSTANTS)
+  const [constants, setConstants] = useState<PricingConstants>(DEFAULT_CONSTANTS)
+
+  // DB-ээс цаасны төрлүүд татах (байвал hardcoded-г орлуулна)
+  useEffect(() => {
+    apiFetch<any[]>('/paper-types/active', { auth: false })
+      .then(data => {
+        if (Array.isArray(data) && data.length > 0) {
+          const paperPrices = data
+            .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0))
+            .map(p => ({
+              label: p.name_mn || p.name || `${p.gsm}gsm`,
+              gsm: Number(p.gsm),
+              price: Number(p.price_per_sheet),
+            }))
+          setConstants(prev => ({ ...prev, paperPrices }))
+        }
+      })
+      .catch(() => {})
+  }, [])
   const [expanded, setExpanded] = useState(false)
   const [isCustomSize, setIsCustomSize] = useState(false)
   const [customW, setCustomW] = useState(210)
