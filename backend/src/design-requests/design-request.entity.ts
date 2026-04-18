@@ -14,7 +14,7 @@ export class DesignRequest {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column()
+  @Column({ nullable: true })
   order_id: string;
 
   @Column({ nullable: true })
