@@ -36,7 +36,7 @@ const ChevronRight = () => (
 
 export default function MegaNav() {
   const pathname = usePathname()
-  const { settings, megaMenu } = useSiteSettings()
+  const { settings, megaMenu, megaMenuV2 } = useSiteSettings()
 
   // Get categories from the MEGA nav item (for mega dropdown)
   const megaItem = megaMenu.find((m: any) => m.nav_type === 'MEGA')
@@ -50,26 +50,58 @@ export default function MegaNav() {
     }).catch(() => {})
   }, [])
 
-  // Build mega menu from categories:
-  // 1. If any category has show_in_mega_menu=true → show only those
-  // 2. Otherwise → show all root categories with children (default behavior)
-  // 3. If no categories at all → fallback to megaItem.columns from admin mega-menu
-  const megaMarked = navCategories.filter((c: any) => c.show_in_mega_menu && c.children?.length > 0)
-  const allWithChildren = navCategories.filter((c: any) => c.children?.length > 0)
-  const catsToShow = megaMarked.length > 0 ? megaMarked : allWithChildren
-  const catGroups = catsToShow.length > 0
-    ? catsToShow.map((c: any) => ({
-        title: c.name_mn || c.name,
-        icon: c.icon || '📦',
-        color: c.color || '#FF6B00',
-        slug: c.slug,
-        items: c.children.map((ch: any) => ({
-          label: ch.name_mn || ch.name,
-          url: `/shop?category=${ch.slug}`,
-          desc: '',
-        })),
+  // Build mega menu for АНГИЛАЛ button:
+  // 1. V2 mega menu admin data (columns → categories → items) — хамгийн өндөр давуу
+  // 2. DB categories (show_in_mega_menu) — fallback
+  // 3. megaItem.columns from default — final fallback
+  // V2 columns зөвхөн categories+items бодитоор байгаа үед ашиглана
+  const v2Columns = megaMenuV2?.columns?.filter((c: any) =>
+    c.title && (c.categories || []).some((cat: any) => (cat.items || []).length > 0)
+  ) || []
+
+  // Legacy CMS MEGA items → catGroups format
+  const legacyMegaItems = megaMenu.filter((m: any) => m.nav_type === 'MEGA' && m.columns?.length > 0)
+  const legacyCatGroups = legacyMegaItems.map((m: any) => ({
+    title: m.nav_label || m.columns?.[0]?.title || '',
+    icon: m.columns?.[0]?.icon || '📦',
+    color: m.columns?.[0]?.color || '#FF6B00',
+    items: m.columns?.flatMap((col: any) => col.items || []) || [],
+  }))
+
+  const catGroups = v2Columns.length > 0
+    ? v2Columns.map((col: any) => ({
+        title: col.title,
+        icon: col.icon || '📦',
+        color: col.color || '#FF6B00',
+        items: (col.categories || []).flatMap((cat: any) =>
+          (cat.items || []).map((item: any) => ({
+            label: item.name,
+            url: item.link || '#',
+            desc: item.description || '',
+            badge: item.badge,
+          }))
+        ),
       }))
-    : (megaItem?.columns || [])
+    : legacyCatGroups.length > 0
+    ? legacyCatGroups
+    : (() => {
+        const megaMarked = navCategories.filter((c: any) => c.show_in_mega_menu && c.children?.length > 0)
+        const allWithChildren = navCategories.filter((c: any) => c.children?.length > 0)
+        const catsToShow = megaMarked.length > 0 ? megaMarked : allWithChildren
+        return catsToShow.length > 0
+          ? catsToShow.map((c: any) => ({
+              title: c.name_mn || c.name,
+              icon: c.icon || '📦',
+              color: c.color || '#FF6B00',
+              slug: c.slug,
+              items: c.children.map((ch: any) => ({
+                label: ch.name_mn || ch.name,
+                url: `/shop?category=${ch.slug}`,
+                desc: '',
+              })),
+            }))
+          : (megaItem?.columns || [])
+      })()
 
   // Quick links from CMS settings (admin-managed)
   const headerQuickLinks = (() => {
@@ -88,8 +120,9 @@ export default function MegaNav() {
     { label: 'Marketplace', url: '/marketplace', icon: '🎨', color: '#EC4899' },
   ]
 
-  // Always use DEFAULT_QUICK_LINKS — DB may have stale items
-  const quickLinks: { label: string; url: string; icon: string; color: string }[] = DEFAULT_QUICK_LINKS
+  // DB-д quick links байвал ашиглах, үгүй бол default
+  const quickLinks: { label: string; url: string; icon: string; color: string }[] =
+    (headerQuickLinks?.length > 0) ? headerQuickLinks : DEFAULT_QUICK_LINKS
   const [openId, setOpenId] = useState<string | null>(null)
   const [mobileOpen, setMobileOpen] = useState(false)
   const [mobileAccordion, setMobileAccordion] = useState<string | null>(null)
@@ -135,7 +168,8 @@ export default function MegaNav() {
       try {
         const params = new URLSearchParams({ q })
         if (cat) params.set('category', cat)
-        const res = await fetch(`${typeof window !== 'undefined' ? 'http://localhost:4000' : ''}/products/search?${params}`)
+        const api = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'
+        const res = await fetch(`${api}/api/products/search?${params}`)
         const data = await res.json()
         setSearchResults(Array.isArray(data) ? data : [])
       } catch { setSearchResults([]) }

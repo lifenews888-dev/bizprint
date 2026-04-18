@@ -25,6 +25,19 @@ export class CloudinaryService {
     })
   }
 
+  async uploadVideo(buffer: Buffer, folder = 'bizprint'): Promise<{ url: string; publicId: string; width: number; height: number; duration?: number }> {
+    return new Promise((resolve, reject) => {
+      const stream = cloudinary.uploader.upload_stream(
+        { folder, resource_type: 'video', transformation: [{ width: 1920, height: 1080, crop: 'limit' }, { quality: 'auto', fetch_format: 'mp4' }] },
+        (error, result) => {
+          if (error) { this.logger.error('Video upload failed: ' + error.message); reject(error) }
+          else resolve({ url: result!.secure_url, publicId: result!.public_id, width: result!.width, height: result!.height, duration: result!.duration })
+        },
+      )
+      Readable.from(buffer).pipe(stream)
+    })
+  }
+
   async deleteImage(publicId: string): Promise<void> {
     await cloudinary.uploader.destroy(publicId)
   }

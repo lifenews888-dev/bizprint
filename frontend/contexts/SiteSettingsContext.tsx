@@ -154,9 +154,9 @@ export function SiteSettingsProvider({ children }: { children: ReactNode }) {
       fetch(`${API}/api/mega-menu/public`).then(r => r.ok ? r.json() : null).catch(() => null),
     ]).then(([s, m, v2]) => {
       // V2 mega menu → convert to unified megaMenu format
-      // Use V2 if it has columns with categories OR items
+      // Use V2 only if columns actually have categories with items inside
       const v2HasContent = v2 && v2.columns?.some((c: any) =>
-        c.title && ((c.categories || []).length > 0 || (c.items || []).length > 0)
+        c.title && (c.categories || []).some((cat: any) => (cat.items || []).length > 0)
       )
       if (v2HasContent) {
         setMegaMenuV2(v2)
@@ -196,15 +196,13 @@ export function SiteSettingsProvider({ children }: { children: ReactNode }) {
           .map((item: any, idx: number) => ({ ...item, sort_order: idx + 1 }))
         setMegaMenu([v2MegaItem, ...otherItems])
       }
-      // No V2 but legacy CMS items exist — always use DEFAULT for clean nav
+      // No V2 but legacy CMS items exist — use them directly
       else if (Array.isArray(m) && m.length > 0) {
-        // Keep MEGA item from DB if it has columns, otherwise use default
-        const dbMega = m.find((item: any) => item.nav_type === 'MEGA' && item.columns?.length > 0)
-        const megaItem = dbMega || DEFAULT_MEGA_MENU.find((item: any) => item.nav_type === 'MEGA')
-        const otherItems = DEFAULT_MEGA_MENU
-          .filter((item: any) => item.nav_type !== 'MEGA')
-          .map((item: any, idx: number) => ({ ...item, sort_order: idx + 1 }))
-        setMegaMenu(megaItem ? [megaItem, ...otherItems] : otherItems)
+        // DB-ийн бүх active item-ийг ашиглана
+        const dbItems = m.filter((item: any) => item.is_active !== false)
+        if (dbItems.length > 0) {
+          setMegaMenu(dbItems)
+        }
       }
       if (s && typeof s === 'object') {
         const filtered: Record<string, any> = {}

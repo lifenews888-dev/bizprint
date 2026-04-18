@@ -131,6 +131,34 @@ export class ProductsService {
 
   async updateAdmin(id: string, data: Partial<Product>) {
     if (data.base_price !== undefined) data.base_price = Number(data.base_price) || 0
+
+    // Бүтээгдэхүүн засагдах бүрд compare_specs автоматаар sync хийгдэнэ
+    const existing = await this.productRepo.findOne({ where: { id } })
+    if (existing) {
+      const specs = { ...(existing.compare_specs || {}), ...(data.compare_specs || {}) }
+      const newName = data.name_mn || data.name || existing.name_mn || existing.name
+      const newCat = data.category || existing.category
+
+      // Ангилал, төрөл
+      if (data.category) specs.shop_category = data.category
+      if (data.product_type) specs.top_menu = data.product_type
+
+      // Нэр → image_alt, seo_description
+      if (data.name || data.name_mn || data.category) {
+        specs.image_alt = `${newCat} ${newName} | Bizprint.mn`
+        specs.seo_description = `${newCat} - ${newName}`
+      }
+
+      // Дүн
+      if (data.base_price !== undefined) {
+        const price = Number(data.base_price)
+        specs.price_excl_vat = String(Math.round(price / 1.1))
+        specs.price_usd = String(Math.round(price / 3450 * 100) / 100)
+      }
+
+      data.compare_specs = specs as any
+    }
+
     await this.productRepo.update(id, data)
     return this.findOne(id)
   }

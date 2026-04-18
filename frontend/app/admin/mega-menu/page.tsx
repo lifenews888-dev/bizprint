@@ -88,6 +88,9 @@ export default function MegaMenuManager() {
   const [promoForm, setPromoForm] = useState({ title: '', description: '', type: 'FEATURED', link: '', cta_text: '', bg_color: '#0f172a' })
   const [editingPromoId, setEditingPromoId] = useState<string | null>(null)
 
+  // DB categories (for auto-fill)
+  const [dbCategories, setDbCategories] = useState<any[]>([])
+
   // Expanded columns
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
 
@@ -98,13 +101,20 @@ export default function MegaMenuManager() {
 
   const load = useCallback(async () => {
     try {
-      const [menus, nav, settings] = await Promise.all([
+      const [menus, nav, settings, cats] = await Promise.all([
         apiFetch<any[]>('/admin/mega-menu').catch(() => []),
         apiFetch<any[]>('/cms/mega-menu').catch(() => []),
         apiFetch<any>('/cms/settings/public').catch(() => null),
+        apiFetch<any[]>('/categories/navigation').catch(() => []),
       ])
-      if (menus?.[0]) {
-        const full = await apiFetch<any>(`/admin/mega-menu/${menus[0].id}`)
+      if (Array.isArray(cats)) setDbCategories(cats)
+      let activeMenu = menus?.[0]
+      if (!activeMenu) {
+        // Автоматаар шинэ mega menu үүсгэх
+        activeMenu = await apiFetch<any>('/admin/mega-menu', { method: 'POST', body: { name: 'Main Menu', is_active: true } })
+      }
+      if (activeMenu?.id) {
+        const full = await apiFetch<any>(`/admin/mega-menu/${activeMenu.id}`)
         setMenu(full)
       }
       setNavItems(Array.isArray(nav) ? nav.sort((a: any, b: any) => (a.sort_order || 0) - (b.sort_order || 0)) : [])
@@ -704,6 +714,29 @@ export default function MegaMenuManager() {
                               setCatForm({ name: '', slug: '', image_url: '' })
                               setCatDialog(true)
                             }}><Plus className="h-3 w-3 mr-1" /> Категори нэмэх</Button>
+                            {dbCategories.length > 0 && (
+                              <Button variant="ghost" size="sm" className="mt-2 text-xs h-7 text-primary" onClick={async () => {
+                                if (!confirm(`DB-ээс ${dbCategories.length} ангилалын дэд ангилалуудыг энэ баганад items болгож нэмэх үү?`)) return
+                                for (const cat of dbCategories) {
+                                  if (!cat.children?.length) continue
+                                  // Create category
+                                  const created = await apiFetch<any>(`/admin/mega-menu/columns/${col.id}/categories`, {
+                                    method: 'POST', body: { name: cat.name_mn || cat.name, slug: cat.slug || '', order: 0 }
+                                  })
+                                  // Create items from children
+                                  if (created?.id) {
+                                    for (const ch of cat.children) {
+                                      await apiFetch(`/admin/mega-menu/categories/${created.id}/items`, {
+                                        method: 'POST',
+                                        body: { name: ch.name_mn || ch.name, link: `/shop?category=${ch.slug}`, type: 'link', order: 0 }
+                                      })
+                                    }
+                                  }
+                                }
+                                toast.success('DB ангилалууд нэмэгдлээ')
+                                load()
+                              }}>📦 DB-ээс нэмэх</Button>
+                            )}
                           </div>
                         )}
                       </div>
@@ -771,6 +804,25 @@ export default function MegaMenuManager() {
       <Dialog open={catDialog} onOpenChange={setCatDialog}>
         <DialogContent><DialogHeader><DialogTitle>{editingCatId ? 'Категори засах' : 'Шинэ категори'}</DialogTitle></DialogHeader>
           <div className="grid gap-4 mt-4">
+            {/* DB ангилалаас сонгох */}
+            {!editingCatId && dbCategories.length > 0 && (
+              <div>
+                <Label className="text-xs">DB ангилалаас сонгох (хурдан)</Label>
+                <select
+                  className="w-full mt-1.5 h-9 rounded-md border border-input bg-background px-3 text-sm"
+                  value=""
+                  onChange={e => {
+                    const cat = dbCategories.find((c: any) => c.id === e.target.value)
+                    if (cat) setCatForm({ name: cat.name_mn || cat.name, slug: cat.slug || '', image_url: cat.image_url || '' })
+                  }}
+                >
+                  <option value="">-- Сонгох эсвэл доор гараар бичих --</option>
+                  {dbCategories.map((c: any) => (
+                    <option key={c.id} value={c.id}>{c.name_mn || c.name}{c.children?.length ? ` (${c.children.length} дэд)` : ''}</option>
+                  ))}
+                </select>
+              </div>
+            )}
             <div><Label className="text-xs">Нэр</Label><Input value={catForm.name} onChange={e => setCatForm({ ...catForm, name: e.target.value })} className="mt-1.5" placeholder="Нэрийн хуудас" /></div>
             <div><Label className="text-xs">Slug</Label><Input value={catForm.slug} onChange={e => setCatForm({ ...catForm, slug: e.target.value })} className="mt-1.5 font-mono" placeholder="business-card" /></div>
           </div>
