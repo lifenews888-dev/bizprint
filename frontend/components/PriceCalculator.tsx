@@ -14,7 +14,14 @@ interface Props {
 export default function PriceCalculator({ product, onPriceChange }: Props) {
   const p = product
   const formula = p.price_formula || {}
-  const isArea = p.pricing_mode === 'formula' && formula.type === 'area_based'
+  // Auto-detect area_based (price_formula null үед unit/category-аас шалгана)
+  const unit = (p.compare_specs?.unit || '').toLowerCase()
+  const category = (p.category || '').toLowerCase()
+  const autoAreaBased = !formula.type && (
+    unit === 'мкв' || unit === 'м2' || unit === 'm2' ||
+    category.includes('хэвлэл') || category.includes('баннер') || category.includes('самбар')
+  )
+  const isArea = p.pricing_mode === 'formula' && (formula.type === 'area_based' || autoAreaBased)
   const isTier = p.pricing_mode === 'tier'
   const needsDimensions = p.requires_dimensions || isArea
   const doubleSideMultiplier = Number(formula.double_side_multiplier ?? p.double_side_multiplier ?? 0)

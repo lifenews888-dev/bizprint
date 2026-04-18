@@ -49,7 +49,22 @@ export class ProductPriceCalculatorService {
     this.validateInput(input);
 
     const mode = product.pricing_mode || 'fixed';
-    const formula = product.price_formula || {};
+    let formula = product.price_formula || {};
+
+    // Auto-detect area_based бүтээгдэхүүн (price_formula тохируулагдаагүй үед)
+    if (mode === 'formula' && !formula.type) {
+      const unit = (product.compare_specs?.unit || '').toLowerCase();
+      const category = (product.category || '').toLowerCase();
+      const isAreaBased = unit === 'мкв' || unit === 'м2' || unit === 'm2' ||
+        category.includes('хэвлэл') || category.includes('баннер') || category.includes('самбар')
+      if (isAreaBased) {
+        formula = {
+          type: 'area_based',
+          price_per_m2: Number(product.base_price) || 0,
+          min_area_m2: 0.25,
+        };
+      }
+    }
 
     switch (mode) {
       case 'formula':

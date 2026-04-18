@@ -40,6 +40,13 @@ export class ProductsController {
     return this.priceCalc.calculate(product, input);
   }
 
+  @Get(':id/estimate-lead-time')
+  async estimateLeadTime(@Param('id') id: string, @Query('quantity') qtyStr?: string, @Query('pages') pagesStr?: string) {
+    const product = await this.productsService.findOne(id);
+    if (!product) return { error: 'Product not found' };
+    return this.productsService.estimateLeadTime(product, Number(qtyStr) || 1, Number(pagesStr) || 0);
+  }
+
   @Get('catalog')
   getCatalog() {
     return this.masterService.getCatalog();

@@ -68,6 +68,13 @@ export default function ProductConfiguratorPage() {
       apiFetch<any>(`/product-attributes?product_id=${id}`, { auth: false }).catch(() => []),
       apiFetch<any>('/creators?is_active=true&featured=true&limit=6', { auth: false }).catch(() => []),
     ]).then(([p, attrs, creatorList]) => {
+      // Book/offset бүтээгдэхүүнийг BookPriceCalculator-тэй хуудас руу redirect
+      if (p && (p.category === 'book' || p.category === 'offset' || p.product_type === 'book' ||
+                p.name_mn?.includes('Ном') || p.name?.includes('Ном') ||
+                p.name_mn?.includes('Сэтгүүл') || p.name_mn?.includes('Календарь')) && p.slug) {
+        router.replace(`/product/${p.slug}`)
+        return
+      }
       setProduct(p)
       const attrList = Array.isArray(attrs) ? attrs : []
       setAttributes(attrList)

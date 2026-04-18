@@ -17,6 +17,15 @@ export default function ProductPage({ params }: { params: { _slug: string } }) {
   const [toast, setToast] = useState('')
   const [imgErrors, setImgErrors] = useState<Set<number>>(new Set())
 
+  // Smart lead time тооцоо (quantity, pages өөрчлөгдөх үед шинэчлэгдэнэ)
+  useEffect(() => {
+    if (!product?.id) return
+    const q = liveBreakdown?.quantity || qty
+    const pages = liveBreakdown?.pages || liveBreakdown?.totalPages || 0
+    apiFetch<any>(`/products/${product.id}/estimate-lead-time?quantity=${q}&pages=${pages}`, { auth: false })
+      .then(setLeadTime).catch(() => {})
+  }, [product?.id, qty, liveBreakdown?.quantity])
+
   useEffect(() => {
     fetch(`${API}/products/${slug}`)
       .then(r => r.json())

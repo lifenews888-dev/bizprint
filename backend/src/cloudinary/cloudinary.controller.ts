@@ -1,5 +1,5 @@
-import { Controller, Post, UseInterceptors, UploadedFiles, UseGuards } from '@nestjs/common'
-import { FilesInterceptor } from '@nestjs/platform-express'
+import { Controller, Post, UseInterceptors, UploadedFiles, UploadedFile, UseGuards } from '@nestjs/common'
+import { FilesInterceptor, FileInterceptor } from '@nestjs/platform-express'
 import { memoryStorage } from 'multer'
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard'
 import { CloudinaryService } from './cloudinary.service'
@@ -29,5 +29,24 @@ export class CloudinaryController {
       images: results,
       count: results.length,
     }
+  }
+
+  @Post('media')
+  @UseGuards(JwtAuthGuard)
+  @UseInterceptors(FileInterceptor('file', {
+    storage: memoryStorage(),
+    limits: { fileSize: 50 * 1024 * 1024 }, // 50 MB (видео том байж болно)
+    fileFilter: (_req, file, cb) => {
+      if (file.mimetype.startsWith('image/') || file.mimetype.startsWith('video/')) cb(null, true)
+      else cb(new Error('Зөвхөн зураг эсвэл видео байх ёстой'), false)
+    },
+  }))
+  async uploadMedia(@UploadedFile() file: Express.Multer.File) {
+    if (!file) return { error: 'Файл олдсонгүй' }
+    const isVideo = file.mimetype.startsWith('video/')
+    const result = isVideo
+      ? await this.cloudinary.uploadVideo(file.buffer, 'bizprint-gallery')
+      : await this.cloudinary.uploadImage(file.buffer, 'bizprint-gallery')
+    return { url: result.url, publicId: result.publicId, type: isVideo ? 'video' : 'image', ...result }
   }
 }
