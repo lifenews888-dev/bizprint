@@ -226,7 +226,7 @@ export default function CheckoutPage() {
       }
 
       localStorage.removeItem('pending_quote')
-      router.push('/order')
+      router.push(`/payment?order_id=${order.id}&amount=${orderPayload.total_price}`)
     } catch {
       alert('Захиалга өгөхөд алдаа гарлаа. Дахин оролдоно уу.')
     }
