@@ -91,7 +91,7 @@ export default function AdminReportsPage() {
         </div>
         <div style={{ display: 'flex', gap: 6 }}>
           {([['7d', '7 хоног'], ['30d', '30 хоног'], ['all', 'Бүгд']] as const).map(([k, label]) => (
-            <button key={k} onClick={() => setPeriod(k as any)} style={{ padding: '7px 16px', borderRadius: 8, border: 'none', fontSize: 12, fontWeight: 500, cursor: 'pointer', background: period === k ? '#FF6B00' : 'var(--surface)', color: period === k ? '#fff' : 'var(--text2)', border: period === k ? 'none' : '1px solid var(--border)' }}>{label}</button>
+            <button key={k} onClick={() => setPeriod(k as any)} style={{ padding: '7px 16px', borderRadius: 8, fontSize: 12, fontWeight: 500, cursor: 'pointer', background: period === k ? '#FF6B00' : 'var(--surface)', color: period === k ? '#fff' : 'var(--text2)', border: period === k ? 'none' : '1px solid var(--border)' }}>{label}</button>
           ))}
         </div>
       </div>
