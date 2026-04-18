@@ -58,6 +58,18 @@ export class AdminController {
 
   @Get('stats')
   getStats() { return this.adminService.getStats() }
+
+  @Get('role-requests')
+  @UseGuards(JwtAuthGuard)
+  getRoleRequests() { return this.adminService.getRoleRequests() }
+
+  @Patch('users/:id/approve-role')
+  @UseGuards(JwtAuthGuard)
+  approveRole(@Param('id') id: string) { return this.adminService.approveRole(id) }
+
+  @Patch('users/:id/reject-role')
+  @UseGuards(JwtAuthGuard)
+  rejectRole(@Param('id') id: string) { return this.adminService.rejectRole(id) }
 }
 
 @Controller('marketing')

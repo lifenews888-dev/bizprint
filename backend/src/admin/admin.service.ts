@@ -57,6 +57,27 @@ export class AdminService {
     return this.vendorRepo.delete(id);
   }
 
+  async getRoleRequests() {
+    return this.userRepo
+      .createQueryBuilder('u')
+      .where('u.role_request IS NOT NULL')
+      .select(['u.id', 'u.full_name', 'u.email', 'u.role', 'u.role_request', 'u.created_at'])
+      .getMany();
+  }
+
+  async approveRole(id: string) {
+    const user = await this.userRepo.findOne({ where: { id } });
+    if (!user || !user.role_request) throw new Error('Хүсэлт олдсонгүй');
+    const newRole = user.role_request;
+    await this.userRepo.update(id, { role: newRole, role_request: null });
+    return this.userRepo.findOne({ where: { id } });
+  }
+
+  async rejectRole(id: string) {
+    await this.userRepo.update(id, { role_request: null });
+    return { message: 'Хүсэлт татгалзагдлаа' };
+  }
+
   async getStats() {
     const [users, orders, vendors, machines, production] = await Promise.all([
       this.userRepo.count(), this.orderRepo.count(), this.vendorRepo.count(),

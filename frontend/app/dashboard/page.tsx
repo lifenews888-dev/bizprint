@@ -59,14 +59,37 @@ export default function DashboardPage() {
   const [qrInfo, setQrInfo] = useState<{invoiceNo:string; qrImage:string; expiresAt?:string}|null>(null)
   const [payLoading, setPayLoading] = useState(false)
   const [ordering, setOrdering] = useState(false)
+  const [creatorReqSent, setCreatorReqSent] = useState(false)
+  const [creatorReqLoading, setCreatorReqLoading] = useState(false)
 
   const show = (m: string) => { setToast(m); setTimeout(() => setToast(''), 2500) }
+
+  const requestCreatorRole = async () => {
+    if (creatorReqLoading) return
+    setCreatorReqLoading(true)
+    try {
+      const r = await fetch(API + '/auth/request-role', {
+        method: 'POST', headers: getH(),
+        body: JSON.stringify({ role: 'creator' }),
+      })
+      if (r.ok) {
+        setCreatorReqSent(true)
+        const u = { ...user, role_request: 'creator' }
+        localStorage.setItem('user', JSON.stringify(u)); setUser(u)
+        show('Бүтээгч болох хүсэлт илгээгдлээ ✅')
+      } else {
+        show('Алдаа гарлаа, дахин оролдоно уу')
+      }
+    } catch { show('Алдаа гарлаа') }
+    setCreatorReqLoading(false)
+  }
 
   useEffect(() => {
     const ud = localStorage.getItem('user'); const tk = getToken()
     if (!ud || !tk) { router.push('/login'); return }
     const u = JSON.parse(ud); setUser(u)
     setProfileForm({ full_name: u.full_name || '', email: u.email || '', phone: u.phone || '', address: u.address || '', company: u.company || '' })
+    if (u.role_request === 'creator' || u.role === 'creator') setCreatorReqSent(true)
     setLoading(true)
     Promise.all([
       fetch(API+'/orders/customer/'+u.id, { headers: getH() }).then(r=>r.json()).catch(()=>[]),
@@ -199,6 +222,14 @@ export default function DashboardPage() {
         </div>
         <div style={{ padding:'12px', borderTop:'1px solid #292524' }}>
           {user?.role==='admin'&&<button onClick={()=>router.push('/admin')} style={{ width:'100%', display:'flex', alignItems:'center', gap:10, padding:'9px 12px', borderRadius:10, border:'none', background:'rgba(255,107,0,0.08)', color:'#FF8C40', cursor:'pointer', fontSize:13, fontFamily:"'DM Sans',sans-serif", marginBottom:4, fontWeight:500 }}>⚙️ Admin Panel</button>}
+          {(user?.role==='customer'||user?.role==='creator') && (
+            <button
+              onClick={user?.role==='creator' ? ()=>router.push('/creator') : (creatorReqSent ? undefined : requestCreatorRole)}
+              disabled={creatorReqLoading}
+              style={{ width:'100%', display:'flex', alignItems:'center', gap:10, padding:'9px 12px', borderRadius:10, border:'1px solid rgba(139,92,246,0.3)', background:'rgba(139,92,246,0.08)', color:'#A78BFA', cursor: (creatorReqSent && user?.role!=='creator') ? 'default' : 'pointer', fontSize:13, fontFamily:"'DM Sans',sans-serif", marginBottom:4, fontWeight:500, opacity: creatorReqLoading ? 0.6 : 1 }}>
+              🎨 {user?.role==='creator' ? 'Бүтээгч самбар' : creatorReqSent ? 'Хүсэлт илгээгдсэн ✓' : 'Бүтээгч болох'}
+            </button>
+          )}
           <button onClick={()=>{localStorage.clear();router.push('/')}} style={{ width:'100%', display:'flex', alignItems:'center', gap:10, padding:'9px 12px', borderRadius:10, border:'none', background:'transparent', color:'#78716C', cursor:'pointer', fontSize:13, fontFamily:"'DM Sans',sans-serif" }}>🚪 Гарах</button>
         </div>
       </div>

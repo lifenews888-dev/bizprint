@@ -62,6 +62,9 @@ export class User {
   @Column({ nullable: true })
   bank_account_name: string;
 
+  @Column({ nullable: true })
+  role_request: string;
+
   @UpdateDateColumn()
   updated_at: Date;
 }

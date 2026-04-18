@@ -38,6 +38,14 @@ const PARTNERS = [
     perks: ['Захиалга бүрт шимтгэл авах', 'QR код ашиглах', 'Орлогоо хянах'],
     color: '#3b82f6',
   },
+  {
+    key: 'creator',
+    icon: '🎨',
+    title: 'Бүтээгч / Creator',
+    desc: 'Контент бүтээгч, дизайн худалдагч',
+    perks: ['Өөрийн дизайн зарах', 'Борлолт бүрт орлого авах', 'Брэнд бүтээх'],
+    color: '#a78bfa',
+  },
 ]
 
 export default function PartnerPage() {
