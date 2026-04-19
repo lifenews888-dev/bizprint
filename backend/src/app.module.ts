@@ -91,7 +91,6 @@ import { GeoRoutingModule } from './geo-routing/geo-routing.module'
 import { ExcelProductsModule } from './excel-products/excel-products.module'
 import { ReviewsModule } from './reviews/reviews.module'
 import { CloudinaryModule } from './cloudinary/cloudinary.module'
-import { ConfigMobileModule } from './config-mobile/config-mobile.module'
 
 @Module({
   imports: [
@@ -204,7 +203,6 @@ import { ConfigMobileModule } from './config-mobile/config-mobile.module'
     ExcelProductsModule,
     ReviewsModule,
     CloudinaryModule,
-    ConfigMobileModule,
   ],
   controllers: [], // PricingCatalogController removed — duplicate
   providers: [],   // PricingCatalogService removed — duplicate
