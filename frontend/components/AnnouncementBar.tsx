@@ -1,10 +1,15 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useSiteSettings } from '@/contexts/SiteSettingsContext'
+
+const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'
 
 export default function AnnouncementBar() {
   const { settings } = useSiteSettings()
   const [dismissed, setDismissed] = useState(false)
+  const [text, setText] = useState('')
+  const [visible, setVisible] = useState(false)
+  const color = settings.header_announcement_color || '#FF6B00'
 
   useEffect(() => {
     const DISMISS_KEY = 'announcement_dismissed_until'
