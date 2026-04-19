@@ -1,6 +1,7 @@
 'use client'
 import { apiFetch } from '@/lib/api'
 import React, { useState, useEffect, useRef } from 'react'
+import { useParams } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useStore } from '@/lib/store'
 import { toast } from 'sonner'
@@ -144,8 +145,8 @@ function AnimPrice({ value }: { value: number }) {
 }
 
 // ═══ MAIN PAGE ═══
-export default function ProductPage({ params }: { params: Promise<{ _slug: string }> }) {
-  const { _slug } = React.use(params)
+export default function ProductPage() {
+  const { _slug } = useParams<{ _slug: string }>()
   const [product, setProduct] = useState<any>(null)
   const [related, setRelated] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
