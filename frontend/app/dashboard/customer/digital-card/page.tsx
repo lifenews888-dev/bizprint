@@ -1,7 +1,7 @@
 'use client'
-import { useState, useEffect } from 'react'
-import { apiFetch } from '@/lib/api'
-import { QRCodeSVG } from 'qrcode.react'
+import React, { useState, useEffect } from 'react'
+import React, { apiFetch } from '@/lib/api'
+import React, { QRCodeSVG } from 'qrcode.react'
 
 const FONT = "'DM Sans','Segoe UI',system-ui,sans-serif"
 

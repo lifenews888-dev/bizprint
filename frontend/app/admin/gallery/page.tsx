@@ -1,8 +1,8 @@
 'use client'
-import { useState, useEffect, useCallback, useRef } from 'react'
-import { apiFetch, getToken, API_URL } from '@/lib/api'
-import { AdminPageHeader } from '@/components/admin/AdminPageHeader'
-import { Trash2, Edit3, Upload, Eye, EyeOff, Plus } from 'lucide-react'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
+import React, { apiFetch, getToken, API_URL } from '@/lib/api'
+import React, { AdminPageHeader } from '@/components/admin/AdminPageHeader'
+import React, { Trash2, Edit3, Upload, Eye, EyeOff, Plus } from 'lucide-react'
 
 interface GalleryImage {
   id: string

@@ -1,6 +1,6 @@
 'use client'
-import { useState, useEffect } from 'react'
-import { useParams } from 'next/navigation'
+import React, { useState, useEffect } from 'react'
+import React, { useParams } from 'next/navigation'
 
 const FONT = "'DM Sans','Segoe UI',system-ui,sans-serif"
 const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'

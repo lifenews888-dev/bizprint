@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
 const API = 'http://localhost:4000'
 const tok = () => localStorage.getItem('access_token') || localStorage.getItem('token') || ''
 const getHeaders = () => ({ 'Content-Type': 'application/json', Authorization: `Bearer ${tok()}` })

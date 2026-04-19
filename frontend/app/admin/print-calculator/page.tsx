@@ -1,12 +1,12 @@
 'use client'
-import { useState, useEffect, useMemo, useRef } from 'react'
+import React, { useState, useEffect, useMemo, useRef } from 'react'
 import {
   Calculator, Settings, FileText, Download, Send,
   ChevronDown, ChevronUp, AlertTriangle, Printer,
   Zap, BookOpen, Scissors, Stamp, Layers,
   RotateCcw, Sparkles, PenLine,
 } from 'lucide-react'
-import { toast } from 'sonner'
+import React, { toast } from 'sonner'
 import {
   type PricingConstants, type CalcInput, type CalcResult, type LineItem,
   DEFAULT_CONSTANTS, calculate,

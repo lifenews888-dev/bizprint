@@ -1,6 +1,6 @@
 'use client'
-import { useState, useEffect, Suspense } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import React, { useState, useEffect, Suspense } from 'react'
+import React, { useRouter, useSearchParams } from 'next/navigation'
 
 const API = 'http://localhost:4000'
 

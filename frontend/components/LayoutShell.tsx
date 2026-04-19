@@ -1,7 +1,7 @@
 'use client'
 
-import { usePathname } from 'next/navigation'
-import { useState, useEffect } from 'react'
+import React, { usePathname } from 'next/navigation'
+import React, { useState, useEffect } from 'react'
 import MegaNav from '@/components/nav/MegaNav'
 import AnnouncementBar from '@/components/AnnouncementBar'
 import Footer from '@/components/Footer'

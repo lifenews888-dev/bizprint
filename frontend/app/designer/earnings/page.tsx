@@ -1,11 +1,11 @@
 'use client'
-import { apiFetch } from '@/lib/api'
-import { useEffect, useState } from 'react'
+import React, { apiFetch } from '@/lib/api'
+import React, { useEffect, useState } from 'react'
 import DashboardLayout from '@/components/layouts/DashboardLayout'
 import KpiCard from '@/components/dashboard/KpiCard'
 import EmptyState from '@/components/dashboard/EmptyState'
-import { useRoleGuard } from '@/lib/use-role-guard'
-import { DESIGNER_MENU } from '@/config/sidebar-config'
+import React, { useRoleGuard } from '@/lib/use-role-guard'
+import React, { DESIGNER_MENU } from '@/config/sidebar-config'
 
 interface WalletTx { id: string; amount: number; type: string; reference?: string; description?: string; created_at: string }
 

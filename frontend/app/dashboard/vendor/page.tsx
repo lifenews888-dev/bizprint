@@ -1,6 +1,6 @@
 'use client'
-import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import React, { useState, useEffect } from 'react'
+import React, { useRouter } from 'next/navigation'
 import NotificationBell from '@/components/NotificationBell'
 
 const API = 'http://localhost:4000'

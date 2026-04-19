@@ -1,3 +1,4 @@
+import React from 'react'
 import ProGate from '@/components/ProGate'
 
 export default function AnalyticsLayout({ children }: { children: React.ReactNode }) {

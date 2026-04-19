@@ -1,26 +1,26 @@
 'use client'
-import { useState, useEffect, useCallback } from 'react'
-import { apiFetch } from '@/lib/api'
-import { AdminPageHeader } from '@/components/admin/AdminPageHeader'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Badge } from '@/components/ui/badge'
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { IconPicker, DynamicIcon } from '@/components/admin/IconPicker'
-import { PageSelector } from '@/components/admin/PageSelector'
+import React, { useState, useEffect, useCallback } from 'react'
+import React, { apiFetch } from '@/lib/api'
+import React, { AdminPageHeader } from '@/components/admin/AdminPageHeader'
+import React, { Button } from '@/components/ui/button'
+import React, { Input } from '@/components/ui/input'
+import React, { Label } from '@/components/ui/label'
+import React, { Badge } from '@/components/ui/badge'
+import React, { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import React, { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import React, { IconPicker, DynamicIcon } from '@/components/admin/IconPicker'
+import React, { PageSelector } from '@/components/admin/PageSelector'
 import {
   GripVertical, X, Plus, Save, Eye, Pencil, Trash2, ChevronDown, ChevronRight,
   ToggleLeft, ToggleRight, Sparkles, Megaphone,
 } from 'lucide-react'
-import { toast } from 'sonner'
-import { cn } from '@/lib/utils'
+import React, { toast } from 'sonner'
+import React, { cn } from '@/lib/utils'
 import {
   DndContext, closestCenter, PointerSensor, KeyboardSensor, useSensor, useSensors, type DragEndEvent,
 } from '@dnd-kit/core'
-import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable'
-import { CSS } from '@dnd-kit/utilities'
+import React, { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable'
+import React, { CSS } from '@dnd-kit/utilities'
 
 // ─── Sortable wrapper ───
 function SortableRow({ id, children }: { id: string; children: (props: { listeners: any; attributes: any; isDragging: boolean }) => React.ReactNode }) {

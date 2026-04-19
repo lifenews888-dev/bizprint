@@ -1,11 +1,11 @@
 'use client'
-import { apiFetch, API_URL } from '@/lib/api'
-import { useEffect, useState, useRef } from 'react'
+import React, { apiFetch, API_URL } from '@/lib/api'
+import React, { useEffect, useState, useRef } from 'react'
 import DashboardLayout from '@/components/layouts/DashboardLayout'
 import KpiCard from '@/components/dashboard/KpiCard'
 import EmptyState from '@/components/dashboard/EmptyState'
-import { useRoleGuard } from '@/lib/use-role-guard'
-import { DESIGNER_MENU } from '@/config/sidebar-config'
+import React, { useRoleGuard } from '@/lib/use-role-guard'
+import React, { DESIGNER_MENU } from '@/config/sidebar-config'
 
 interface Template {
   id: string; title: string; name?: string; description?: string; price?: number

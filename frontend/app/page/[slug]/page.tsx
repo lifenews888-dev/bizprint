@@ -1,7 +1,7 @@
 'use client'
-import { useState, useEffect } from 'react'
-import { useParams } from 'next/navigation'
-import { notFound } from 'next/navigation'
+import React, { useState, useEffect } from 'react'
+import React, { useParams } from 'next/navigation'
+import React, { notFound } from 'next/navigation'
 import DOMPurify from 'dompurify'
 
 const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'

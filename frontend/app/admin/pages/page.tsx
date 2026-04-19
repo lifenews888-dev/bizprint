@@ -1,12 +1,12 @@
 'use client'
-import { apiFetch } from '@/lib/api'
-import { useState, useEffect, useCallback } from 'react'
-import { AdminPageHeader } from '@/components/admin/AdminPageHeader'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Badge } from '@/components/ui/badge'
-import { Plus, Pencil, Trash2, ExternalLink, Eye, EyeOff, GripVertical, FileText, Phone, Layers, Rocket, HelpCircle, Truck, Info } from 'lucide-react'
-import { toast } from 'sonner'
+import React, { apiFetch } from '@/lib/api'
+import React, { useState, useEffect, useCallback } from 'react'
+import React, { AdminPageHeader } from '@/components/admin/AdminPageHeader'
+import React, { Button } from '@/components/ui/button'
+import React, { Input } from '@/components/ui/input'
+import React, { Badge } from '@/components/ui/badge'
+import React, { Plus, Pencil, Trash2, ExternalLink, Eye, EyeOff, GripVertical, FileText, Phone, Layers, Rocket, HelpCircle, Truck, Info } from 'lucide-react'
+import React, { toast } from 'sonner'
 
 const TEMPLATES = [
   { value: 'default', label: 'Энгийн', icon: FileText, desc: 'Гарчиг + агуулга' },

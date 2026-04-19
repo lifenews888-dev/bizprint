@@ -1,8 +1,8 @@
 'use client'
 
-import { apiFetch } from '@/lib/api'
-import { useState, useEffect, useCallback } from 'react'
-import { AdminPageHeader } from '@/components/admin/AdminPageHeader'
+import React, { apiFetch } from '@/lib/api'
+import React, { useState, useEffect, useCallback } from 'react'
+import React, { AdminPageHeader } from '@/components/admin/AdminPageHeader'
 
 function fmt(n: number) {
   return new Intl.NumberFormat('mn-MN').format(Math.round(n)) + '₮'

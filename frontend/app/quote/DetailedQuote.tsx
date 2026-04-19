@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useCallback, useMemo, useEffect, FormEvent } from 'react';
-import { useRouter } from 'next/navigation';
-import { apiFetch, apiUpload, API_URL } from '@/lib/api';
+import React, { useState, useCallback, useMemo, useEffect, FormEvent } from 'react';
+import React, { useRouter } from 'next/navigation';
+import React, { apiFetch, apiUpload, API_URL } from '@/lib/api';
 import QuotePreview from '@/components/QuotePreview';
 
 /* ─── DEFAULT PRICES ─── */

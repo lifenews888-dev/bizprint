@@ -1,8 +1,8 @@
 'use client'
-import { useState, useMemo, useEffect } from 'react'
+import React, { useState, useMemo, useEffect } from 'react'
 import Link from 'next/link'
 import PrintPreview from '@/components/PrintPreview'
-import { API_URL } from '@/lib/api'
+import React, { API_URL } from '@/lib/api'
 
 interface PrintType {
   id: string
