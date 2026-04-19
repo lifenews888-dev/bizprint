@@ -120,6 +120,17 @@ export default function MegaNav() {
   const { cartCount, wishlist } = useStore()
   const [mounted, setMounted] = useState(false)
   useEffect(() => setMounted(true), [])
+
+  // Search state
+  const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [searchResults, setSearchResults] = useState<any[] | null>(null)
+  const [searching, setSearching] = useState(false)
+  const [searchCat, setSearchCat] = useState('')
+
+  // Category dropdown state
+  const [catMenuOpen, setCatMenuOpen] = useState(false)
+  const [activeCatIdx, setActiveCatIdx] = useState(0)
   const headerLogoUrl = settings.header_logo_url || ''
   const siteName = settings.site_name || 'BizPrint'
   const phone = settings.site_phone || '+976 7711-7700'
@@ -169,6 +180,9 @@ export default function MegaNav() {
     .filter((item: any) => item.is_active !== false)
     .sort((a: any, b: any) => (a.sort_order || 0) - (b.sort_order || 0))
 
+  const handleMouseEnter = (id: string) => setOpenId(id)
+  const handleMouseLeave = () => setOpenId(null)
+
   useEffect(() => {
     fetch(API + '/settings/public')
       .then(r => r.json())
@@ -195,12 +209,12 @@ export default function MegaNav() {
         if (!u?.id) return
         return fetch(`${API}/cart/${u.id}`, { headers: { Authorization: `Bearer ${token}` } })
           .then(r => r.json())
-          .then(cart => { if (cart?.items) setCartCount(cart.items.length) })
+          .then(() => {})
       })
       .catch(() => {})
   }, [])
 
-  const sections = Array.from(new Set(megaItems.map((i: any) => i.section_title).filter(Boolean)))
+  const sections = Array.from(new Set(megaMenu.map((i: any) => i.section_title).filter(Boolean)))
 
   /* ═══════════════════════════════════════════════
      ROW 1 — TOP BAR: Logo | Phone | Search | Account/Heart/Cart
@@ -548,7 +562,7 @@ export default function MegaNav() {
                 <line x1="3" y1="6" x2="21" y2="6"/>
                 <path d="M16 10a4 4 0 01-8 0"/>
               </svg>
-              {cartCount > 0 && <span style={{ position: 'absolute', top: -6, right: -6, background: '#FF6B35', color: '#fff', fontSize: 10, fontWeight: 700, width: 16, height: 16, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{cartCount}</span>}
+              {cartCount() > 0 && <span style={{ position: 'absolute', top: -6, right: -6, background: '#FF6B35', color: '#fff', fontSize: 10, fontWeight: 700, width: 16, height: 16, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{cartCount()}</span>}
             </a>
             <a href="/login" style={{ fontSize: 14, fontWeight: 500, color: '#333', textDecoration: 'none', padding: '8px 16px', borderRadius: 8, border: '1px solid #EBEBEB' }}>Нэвтрэх</a>
             <a href="/quote" style={{ fontSize: 14, fontWeight: 700, color: '#fff', textDecoration: 'none', padding: '9px 20px', borderRadius: 10, background: '#FF6B35' }}>Үнэ авах →</a>
@@ -562,7 +576,7 @@ export default function MegaNav() {
                 <line x1="3" y1="6" x2="21" y2="6"/>
                 <path d="M16 10a4 4 0 01-8 0"/>
               </svg>
-              {cartCount > 0 && <span style={{ position: 'absolute', top: -6, right: -6, background: '#FF6B35', color: '#fff', fontSize: 10, fontWeight: 700, width: 16, height: 16, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{cartCount}</span>}
+              {cartCount() > 0 && <span style={{ position: 'absolute', top: -6, right: -6, background: '#FF6B35', color: '#fff', fontSize: 10, fontWeight: 700, width: 16, height: 16, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>{cartCount()}</span>}
             </a>
             <a href="/quote" className="nav-mobile" style={{ display: 'none', fontSize: 13, fontWeight: 700, color: '#fff', textDecoration: 'none', padding: '7px 14px', borderRadius: 8, background: '#FF6B35' }}>
               Үнэ авах
