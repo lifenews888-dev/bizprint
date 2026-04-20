@@ -1,4 +1,7 @@
 'use client';
+// Dashboard delivery page нь authentication шаарддаг тул static prerender хийхгүй
+export const dynamic = 'force-dynamic';
+
 import { useState, useEffect } from 'react';
 import { apiFetch, getToken } from '@/lib/api';
 

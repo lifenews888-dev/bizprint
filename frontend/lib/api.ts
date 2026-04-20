@@ -23,11 +23,15 @@ type ApiFetchOptions = Omit<RequestInit, 'body'> & {
 
 export function getToken(): string | null {
   if (typeof window === 'undefined') return null
-  return (
-    localStorage.getItem('access_token') ||
-    localStorage.getItem('token') ||
-    null
-  )
+  try {
+    return (
+      localStorage.getItem('access_token') ||
+      localStorage.getItem('token') ||
+      null
+    )
+  } catch {
+    return null
+  }
 }
 
 export async function apiFetch<T = unknown>(
