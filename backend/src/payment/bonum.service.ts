@@ -6,6 +6,7 @@ export class BonumService {
   private accessToken = '';
   private refreshToken = '';
   private tokenExpiry = new Date(0);
+  private rateLimitedUntil = 0;
 
   private get BASE() {
     return process.env.BONUM_API_BASE || 'https://testapi.bonum.mn';
@@ -25,6 +26,11 @@ export class BonumService {
     }
     if (!this.SECRET || !this.TERMINAL_ID) {
       throw new Error('Bonum credentials not configured (BONUM_APP_SECRET, BONUM_TERMINAL_ID)');
+    }
+    // Back off after recent 429 to avoid hammering Bonum and resetting their rate-limit clock
+    if (Date.now() < this.rateLimitedUntil) {
+      const seconds = Math.ceil((this.rateLimitedUntil - Date.now()) / 1000);
+      throw new Error(`Bonum rate-limited, retry in ${seconds}s`);
     }
 
     // Try refresh first — avoids 429 rate-limit on /auth/create (25-min minimum)
@@ -56,6 +62,10 @@ export class BonumService {
     });
     if (!res.ok) {
       const err = await res.text().catch(() => '');
+      // Remember 429 so we don't hammer the endpoint and reset their rate-limit clock
+      if (res.status === 429) {
+        this.rateLimitedUntil = Date.now() + 5 * 60 * 1000; // back off 5min
+      }
       throw new Error(`Bonum auth failed: ${res.status} ${err}`);
     }
     const data: any = await res.json();

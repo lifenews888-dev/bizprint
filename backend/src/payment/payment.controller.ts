@@ -95,9 +95,14 @@ export class PaymentController {
       return { error: 'orderId болон amount шаардлагатай' }
     }
 
-    // SECURITY: Validate amount against DB order
+    // SECURITY: Require orderId to exist in DB (prevents abuse hitting Bonum with fake orderIds)
     const order = await this.orderRepo.findOne({ where: { id: body.orderId } }).catch(() => null)
-    if (order && order.total_price) {
+    if (!order) {
+      this.logger.warn(`Invoice create rejected: order ${body.orderId} not found in DB`)
+      return { error: 'Захиалга олдсонгүй' }
+    }
+    // Validate amount against DB order
+    if (order.total_price) {
       const dbAmount = Math.round(Number(order.total_price))
       const requestedAmount = Math.round(body.amount)
       if (Math.abs(dbAmount - requestedAmount) > 1) {
