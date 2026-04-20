@@ -4,6 +4,7 @@ import { AdminGuard } from './admin.guard';
 import { AdminService } from './admin.service';
 
 @Controller('admin')
+@UseGuards(JwtAuthGuard, AdminGuard)
 export class AdminController {
   constructor(private readonly adminService: AdminService) {}
 
@@ -11,7 +12,6 @@ export class AdminController {
   getUsers() { return this.adminService.getUsers() }
 
   @Patch('users/:id/role')
-  @UseGuards(JwtAuthGuard, AdminGuard)
   updateRole(@Param('id') id: string, @Body() body: { role: string }) {
     return this.adminService.updateUserRole(id, body.role)
   }
@@ -28,29 +28,14 @@ export class AdminController {
     return this.adminService.deleteUser(id)
   }
 
+  /** Broadcast notification to users (by role or all) */
+  @Post('broadcast')
+  broadcast(@Body() body: { title: string; message: string; roles?: string[]; send_email?: boolean; attachment_url?: string }) {
+    return this.adminService.broadcast(body)
+  }
+
   @Get('vendors')
   getVendors() { return this.adminService.getVendors() }
-
-  @Post('vendors')
-  @UseGuards(JwtAuthGuard)
-  createVendor(@Body() body: any) { return this.adminService.createVendor(body) }
-
-  @Patch('vendors/:id')
-  @UseGuards(JwtAuthGuard)
-  updateVendor(@Param('id') id: string, @Body() body: any) { return this.adminService.updateVendor(id, body) }
-
-  @Delete('vendors/:id')
-  @UseGuards(JwtAuthGuard)
-  deleteVendor(@Param('id') id: string) { return this.adminService.deleteVendor(id) }
-
-  @Get('machines')
-  getMachines() { return this.adminService.getMachines() }
-
-  @Get('orders')
-  getOrders() { return this.adminService.getOrders() }
-
-  @Get('production')
-  getProductionJobs() { return this.adminService.getProductionJobs() }
 
   @Get('stats')
   getStats() { return this.adminService.getStats() }
@@ -59,31 +44,16 @@ export class AdminController {
   @UseGuards(JwtAuthGuard)
   getRoleRequests() { return this.adminService.getRoleRequests() }
 
-  @Patch('users/:id/approve-role')
-  @UseGuards(JwtAuthGuard)
-  approveRole(@Param('id') id: string) { return this.adminService.approveRole(id) }
-
   @Patch('users/:id/reject-role')
   @UseGuards(JwtAuthGuard)
   rejectRole(@Param('id') id: string) { return this.adminService.rejectRole(id) }
-}
 
-@Controller('marketing')
-export class MarketingController {
-  constructor(private readonly adminService: AdminService) {}
+  // ─── Verification Management ───
+  @Get('users/pending-verification')
+  getPendingVerifications() { return this.adminService.getPendingVerifications() }
 
-  @Get('campaigns')
-  getCampaigns() { return this.adminService.getCampaigns() }
-
-  @Post('campaigns')
-  @UseGuards(JwtAuthGuard)
-  createCampaign(@Body() body: any) { return this.adminService.createCampaign(body) }
-
-  @Patch('campaigns/:id')
-  @UseGuards(JwtAuthGuard)
-  updateCampaign(@Param('id') id: string, @Body() body: any) { return this.adminService.updateCampaign(id, body) }
-
-  @Delete('campaigns/:id')
-  @UseGuards(JwtAuthGuard)
-  deleteCampaign(@Param('id') id: string) { return this.adminService.deleteCampaign(id) }
+  @Patch('users/:id/verify')
+  verifyUser(@Param('id') id: string, @Body() body: { status: string; note?: string; verified_by?: string }) {
+    return this.adminService.verifyUser(id, body.status, body.note, body.verified_by)
+  }
 }
