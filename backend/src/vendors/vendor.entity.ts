@@ -158,15 +158,9 @@ export class Vendor {
   @Column({ default: false })
   is_priority: boolean;  // Давуу эрхтэй vendor (захиалга сонголтонд)
 
-  @Column({ nullable: true })
-  contact_name: string;
-
   // ─── Business Info ───
   @Column({ nullable: true })
   logo_url: string;
-
-  @Column({ nullable: true })
-  description: string;
 
   @Column({ type: 'decimal', precision: 3, scale: 1, default: 0 })
   rating: number;

@@ -414,6 +414,38 @@ export class MailService {
     return map[finishing] || finishing
   }
 
+  async sendBatchQuoteEmail(to: string, name: string, quotes: any[]) {
+    const fmt = (n: number) => Number(n).toLocaleString('mn-MN')
+    const total = quotes.reduce((s, q) => s + Number(q.total_price || 0), 0)
+    const rowsHtml = quotes.map((q, i) =>
+      `<tr style="background:${i % 2 === 0 ? '#f9fafb' : '#fff'}">` +
+      `<td style="padding:8px 12px;font-size:13px">${q.product_name || '-'}</td>` +
+      `<td style="padding:8px 12px;font-size:13px;text-align:center">${q.quantity || '-'}</td>` +
+      `<td style="padding:8px 12px;font-size:13px;text-align:right;font-weight:600;color:${BRAND}">${fmt(q.total_price || 0)}₮</td>` +
+      `</tr>`
+    ).join('')
+
+    await this.mailerService.sendMail({
+      to,
+      subject: `BizPrint — Таны ${quotes.length} үнийн санал`,
+      html:
+        '<div style="font-family:Arial,sans-serif;max-width:640px;margin:0 auto;background:#fff;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden">' +
+        this.header('linear-gradient(135deg,#FF6B00,#FF8C42)', 'BizPrint — Үнийн санал') +
+        '<div style="padding:32px">' +
+        `<h2 style="margin:0 0 8px;color:#111">Сайн байна уу, ${name}!</h2>` +
+        `<p style="color:#6b7280;margin:0 0 20px">Таны ${quotes.length} бүтээгдэхүүний үнийн санал доор байна.</p>` +
+        '<table style="width:100%;border-collapse:collapse;margin-bottom:20px">' +
+        '<tr style="background:#f3f4f6"><th style="padding:8px 12px;text-align:left;font-size:12px;color:#6b7280">Бүтээгдэхүүн</th><th style="padding:8px 12px;text-align:center;font-size:12px;color:#6b7280">Тоо</th><th style="padding:8px 12px;text-align:right;font-size:12px;color:#6b7280">Дүн</th></tr>' +
+        rowsHtml +
+        `<tr style="background:#fff7ed"><td colspan="2" style="padding:10px 12px;font-weight:700;font-size:14px">Нийт дүн</td><td style="padding:10px 12px;font-weight:800;font-size:16px;color:${BRAND};text-align:right">${fmt(total)}₮</td></tr>` +
+        '</table>' +
+        '<div style="margin-top:20px;text-align:center">' +
+        '<a href="http://bizprint.mn/quote" style="background:#FF6B00;color:#fff;padding:11px 24px;border-radius:8px;text-decoration:none;font-weight:700;font-size:14px">Захиалга өгөх</a>' +
+        '</div>' +
+        '</div></div>',
+    })
+  }
+
   async sendDailyReport(adminEmail: string, quotes: any[], date: string) {
     const total = quotes.reduce((s, q) => s + Number(q.total_price), 0)
     const fmt = (n: number) => Number(n).toLocaleString('mn-MN')

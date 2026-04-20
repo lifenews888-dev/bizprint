@@ -48,6 +48,13 @@ export class QuoteEngineService {
     const paper_gsm  = Number(input.paper_gsm)  || 150
     const finishing  = input.finishing  || 'none'
     const binding    = input.binding    || 'none'
+    const size             = input.size             || null
+    const urgency          = input.urgency          || 'standard'
+    const gang_run         = input.gang_run         || false
+    const category_id      = input.category_id      || null
+    const product_master_id = input.product_master_id || null
+    const material_code    = input.material_code    || null
+    const size_code        = input.size_code        || null
 
     // ── Load product_master material/size if provided ────────────────────────
     let selectedMaterial: any = null

@@ -111,9 +111,6 @@ export class User {
   @Column({ nullable: true })
   service_categories: string;   // comma-separated: "Сошиал контент,Хэвлэл дизайн"
 
-  @Column({ nullable: true })
-  portfolio_url: string;
-
   @Column({ nullable: true, default: 'Starter' })
   creator_tier: string;         // Starter | Pro | Expert | Elite
 
