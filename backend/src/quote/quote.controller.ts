@@ -360,17 +360,13 @@ export class QuoteController {
       }
     }
 
-    // Send single summary email with all quotes
+    // Send individual quote emails (one per created quote)
     if (created.length > 0) {
-      try {
-        await this.mail.sendBatchQuoteEmail(contact.email, contact.name, created);
-      } catch (e) {
-        console.error('Batch email error:', e.message);
-        // Fallback: send individual emails
-        for (const quote of created) {
-          try {
-            await this.mail.sendQuoteToCustomer(this.buildMailParams(quote));
-          } catch {}
+      for (const quote of created) {
+        try {
+          await this.mail.sendQuoteToCustomer(this.buildMailParams(quote));
+        } catch (e: any) {
+          console.error('Quote email error:', e?.message);
         }
       }
     }

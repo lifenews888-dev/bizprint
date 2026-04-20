@@ -194,7 +194,7 @@ export class AuthService {
     return { message: 'Хүсэлт амжилттай илгээгдлээ', role_request: role };
   }
 
-  private generateToken(user: User) {
+  private async generateTokens(user: User, deviceId?: string, deviceName?: string, platform?: string) {
     const payload = {
       sub: user.id,
       email: user.email,
