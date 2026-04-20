@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
 import { Repository } from 'typeorm'
-import { ProductionJob, ProductionJobStatus } from './production-job.entity'
+import { ProductionJob, ProductionStatus } from '../production/entities/production-job.entity'
 import { Order } from '../orders/entities/order.entity'
 import { DeliveryService } from '../delivery/delivery.service'
 import { NotificationService } from '../notifications/notification.service'
@@ -30,7 +30,7 @@ export class ProductionJobsService {
     await this.repo.save(job)
 
     // When job completes → update order + auto-create delivery + notify courier
-    if (status === ProductionJobStatus.COMPLETED && job.order) {
+    if (status === ProductionStatus.COMPLETED && job.order) {
       const order = job.order as Order
 
       // 1. Mark order as completed (production done, awaiting pickup)
@@ -84,7 +84,7 @@ export class ProductionJobsService {
 
     const job = this.repo.create({
       order: { id } as any,
-      status: ProductionJobStatus.PENDING,
+      status: ProductionStatus.PENDING,
     })
     return this.repo.save(job)
   }
