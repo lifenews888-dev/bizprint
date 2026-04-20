@@ -4,6 +4,7 @@ import { Injectable, Logger } from '@nestjs/common';
 export class BonumService {
   private readonly logger = new Logger(BonumService.name);
   private accessToken = '';
+  private refreshToken = '';
   private tokenExpiry = new Date(0);
 
   private get BASE() {
@@ -14,13 +15,21 @@ export class BonumService {
     return process.env.BONUM_APP_SECRET || '';
   }
 
+  private get TERMINAL_ID() {
+    return process.env.BONUM_TERMINAL_ID || '';
+  }
+
   async getToken(): Promise<string> {
     if (this.accessToken && this.tokenExpiry > new Date()) {
       return this.accessToken;
     }
-    const res = await fetch(`${this.BASE}/bonum-gateway/auth/token`, {
+    if (!this.SECRET || !this.TERMINAL_ID) {
+      throw new Error('Bonum credentials not configured (BONUM_APP_SECRET, BONUM_TERMINAL_ID)');
+    }
+    const res = await fetch(`${this.BASE}/bonum-gateway/ecommerce/auth/create`, {
       headers: {
-        Authorization: `Bearer ${this.SECRET}`,
+        Authorization: `AppSecret ${this.SECRET}`,
+        'X-TERMINAL-ID': this.TERMINAL_ID,
         'Accept-Language': 'mn',
       },
     });
@@ -30,7 +39,9 @@ export class BonumService {
     }
     const data: any = await res.json();
     this.accessToken = data.accessToken || data.access_token || '';
-    this.tokenExpiry = new Date(Date.now() + 55 * 60 * 1000);
+    this.refreshToken = data.refreshToken || '';
+    // accessToken expires in 1800s (30min) — cache 28min to refresh 2min early
+    this.tokenExpiry = new Date(Date.now() + 28 * 60 * 1000);
     this.logger.log('Bonum token refreshed');
     return this.accessToken;
   }
@@ -50,7 +61,7 @@ export class BonumService {
       callback: `${backendUrl}/api/payment/bonum/webhook`,
       transactionId: `BP-${params.orderId.slice(0, 8)}-${Date.now()}`,
       expiresIn: 3600,
-      providers: params.providers || ['QPAY'],
+      providers: params.providers || ['QPAY', 'E_COMMERCE', 'WE_CHAT', 'SONO_SHOP'],
       items: params.items || [
         {
           title: params.description || `BizPrint #${params.orderId.slice(0, 8)}`,
