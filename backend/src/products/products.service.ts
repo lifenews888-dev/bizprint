@@ -3,6 +3,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Product } from './product.entity';
 import { ProductImage } from './product-image.entity';
+import { EventBusService } from '../events/event-bus.service';
+import { BizEvent } from '../events/event-types';
 
 @Injectable()
 export class ProductsService {
@@ -11,6 +13,7 @@ export class ProductsService {
     private productRepo: Repository<Product>,
     @InjectRepository(ProductImage)
     private imageRepo: Repository<ProductImage>,
+    private eventBus: EventBusService,
   ) {}
 
   async create(data: Partial<Product>) {
