@@ -266,4 +266,18 @@ export class PaymentController {
       return { error: e.message }
     }
   }
+
+  @Get('bonum/debug-env')
+  async bonumDebugEnv() {
+    const secret = process.env.BONUM_APP_SECRET || ''
+    const checksum = process.env.BONUM_CHECKSUM_KEY || ''
+    return {
+      BONUM_API_BASE: process.env.BONUM_API_BASE || '(not set)',
+      BONUM_TERMINAL_ID: process.env.BONUM_TERMINAL_ID || '(not set)',
+      BONUM_APP_SECRET_length: secret.length,
+      BONUM_APP_SECRET_preview: secret ? secret.slice(0, 8) + '...' + secret.slice(-4) : '(not set)',
+      BONUM_CHECKSUM_KEY_length: checksum.length,
+      BONUM_CHECKSUM_KEY_preview: checksum ? checksum.slice(0, 8) + '...' + checksum.slice(-4) : '(not set)',
+    }
+  }
 }
