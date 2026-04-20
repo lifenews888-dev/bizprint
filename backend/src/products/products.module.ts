@@ -8,9 +8,9 @@ import { ProductsController, VendorStoreController, AdminShopProductsController 
 import { ProductsMasterModule } from '../products-master/products-master.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Product, ProductImage])],
-  controllers: [ProductsController, VendorStoreController],
-  providers: [ProductsService],
+  imports: [TypeOrmModule.forFeature([Product, ProductImage]), ProductsMasterModule],
+  controllers: [ProductsController, VendorStoreController, AdminShopProductsController],
+  providers: [ProductsService, ProductPriceCalculatorService],
   exports: [ProductsService],
 })
 export class ProductsModule {}
