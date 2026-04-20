@@ -1,8 +1,8 @@
 'use client'
-import { apiFetch, API_URL } from '@/lib/api'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { io, Socket } from 'socket.io-client'
 
+const API = 'http://localhost:4000'
 const F = "'DM Sans','Segoe UI',system-ui,sans-serif"
 
 type Role = 'admin' | 'customer' | 'designer' | 'factory' | 'sales' | 'courier' | 'vendor' | 'user'
@@ -24,7 +24,10 @@ const ROLE_COLOR: Record<string, string> = {
   sales: '#06B6D4', factory: '#EC4899',
 }
 
-const EMOJI_QUICK = ['👍', '❤️', '😊', '🙏', '👏', '🔥', '✅', '😂']
+function getToken() {
+  if (typeof window === 'undefined') return ''
+  return localStorage.getItem('token') || localStorage.getItem('access_token') || ''
+}
 
 export default function CustomerChatPage() {
   const [me, setMe] = useState<ChatUser | null>(null)
@@ -35,20 +38,14 @@ export default function CustomerChatPage() {
   const [file, setFile] = useState<File | null>(null)
   const [search, setSearch] = useState('')
   const [toast, setToast] = useState<string | null>(null)
-  const [typingUser, setTypingUser] = useState<string | null>(null)
-  const [msgSearch, setMsgSearch] = useState('')
-  const [showMsgSearch, setShowMsgSearch] = useState(false)
-  const [replyTo, setReplyTo] = useState<ChatMessage | null>(null)
-  const [showEmoji, setShowEmoji] = useState(false)
   const socketRef = useRef<Socket | null>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
-  const typingTimerRef = useRef<NodeJS.Timeout | null>(null)
-  const typingClearRef = useRef<NodeJS.Timeout | null>(null)
 
   // load me
   useEffect(() => {
-    apiFetch<any>(`/auth/me`)
-      .then(u => {
+    fetch(`${API}/auth/me`, { headers: { Authorization: `Bearer ${getToken()}` } })
+      .then(r => r.json())
+      .then((u) => {
         if (u?.id) {
           setMe({ id: u.id, email: u.email, full_name: u.full_name, role: (u.role || 'customer') as Role })
         }
@@ -63,7 +60,8 @@ export default function CustomerChatPage() {
       const all: ChatUser[] = []
       for (const role of roles) {
         try {
-          const list = await apiFetch<any>(`/chat/users/role/${role}`)
+          const res = await fetch(`${API}/chat/users/role/${role}`, { headers: { Authorization: `Bearer ${getToken()}` } })
+          const list = await res.json()
           if (Array.isArray(list)) {
             all.push(...list.map((u: any) => ({ id: u.id, email: u.email, full_name: u.full_name, role: role })))
           }
@@ -83,7 +81,10 @@ export default function CustomerChatPage() {
 
   async function fetchMessages(userId: string) {
     if (!me) return
-    const d: any[] = await apiFetch<any>(`/chat/messages?userId=${userId}&me=${me.id}`)
+    const res = await fetch(`${API}/chat/messages?userId=${userId}&me=${me.id}`, {
+      headers: { Authorization: `Bearer ${getToken()}` },
+    })
+    const d: any[] = await res.json()
     if (!Array.isArray(d)) return setMessages([])
     setMessages(d.map(mapMsg))
   }
@@ -93,7 +94,7 @@ export default function CustomerChatPage() {
   // WS
   useEffect(() => {
     if (!me) return
-    const s = io(API_URL + '/chat', { transports: ['websocket'] })
+    const s = io(API + '/chat', { transports: ['websocket'] })
     socketRef.current = s
     s.emit('join', { userId: me.id, userName: me.full_name || me.email, role: me.role })
     s.on('new_message', (msg: any) => {
@@ -103,28 +104,8 @@ export default function CustomerChatPage() {
         setTimeout(() => setToast(null), 3500)
       }
     })
-    // Typing indicator
-    s.on('user_typing', (data: { room_id: string; user_name: string; user_id: string }) => {
-      if (data.user_id === me.id) return
-      setTypingUser(data.user_name)
-      if (typingClearRef.current) clearTimeout(typingClearRef.current)
-      typingClearRef.current = setTimeout(() => setTypingUser(null), 3000)
-    })
-    s.on('user_stop_typing', () => {
-      setTypingUser(null)
-    })
     return () => { s.disconnect() }
   }, [me, selected])
-
-  function handleTextChange(val: string) {
-    setInput(val)
-    if (!me || !socketRef.current) return
-    socketRef.current.emit('typing', { room_id: selected?.id || '', user_id: me.id, user_name: me.full_name || me.email })
-    if (typingTimerRef.current) clearTimeout(typingTimerRef.current)
-    typingTimerRef.current = setTimeout(() => {
-      socketRef.current?.emit('stop_typing', { room_id: selected?.id || '', user_id: me.id, user_name: me.full_name || me.email })
-    }, 2000)
-  }
 
   const filtered = useMemo(() => {
     if (!search.trim()) return recipients
@@ -140,26 +121,20 @@ export default function CustomerChatPage() {
     if (!file) return undefined
     const form = new FormData()
     form.append('file', file)
-    const data = await apiFetch<any>(`/upload/file`, {
+    const res = await fetch(`${API}/upload/file`, {
       method: 'POST',
+      headers: { Authorization: `Bearer ${getToken()}` },
       body: form,
     })
+    const data = await res.json()
     return data?.file_url || undefined
   }
 
   async function send() {
     if (!me || !selected || (!input.trim() && !file)) return
-    let content = input.trim() || (file ? file.name : '')
-    // Prepend reply context
-    if (replyTo) {
-      content = `[REPLY:${replyTo.sender_name || replyTo.sender_id}:${replyTo.message.slice(0, 60)}]\n${content}`
-    }
+    const content = input.trim() || (file ? file.name : '')
     setInput('')
     setFile(null)
-    setReplyTo(null)
-    setShowEmoji(false)
-    // Stop typing
-    socketRef.current?.emit('stop_typing', { room_id: selected.id, user_id: me.id, user_name: me.full_name || me.email })
     const fileUrl = await uploadFileIfAny()
 
     const optimistic: ChatMessage = {
@@ -173,27 +148,19 @@ export default function CustomerChatPage() {
     }
     setMessages(prev => [...prev, optimistic])
 
-    await apiFetch<any>(`/chat/send`, {
+    await fetch(`${API}/chat/send`, {
       method: 'POST',
-      body: {
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}` },
+      body: JSON.stringify({
         receiverId: selected.id,
         content,
         senderId: me.id,
         senderName: me.full_name || me.email,
         senderRole: me.role,
         fileUrl,
-      },
+      }),
     }).catch(() => {})
   }
-
-  // Filter messages by search
-  const filteredMessages = useMemo(() => {
-    if (!msgSearch.trim()) return messages
-    const q = msgSearch.toLowerCase()
-    return messages.filter(m => m.message.toLowerCase().includes(q) || m.sender_name?.toLowerCase().includes(q))
-  }, [messages, msgSearch])
-
-  const displayMessages = showMsgSearch ? filteredMessages : messages
 
   return (
     <div style={{ display: 'flex', height: 'calc(100vh - 52px)', fontFamily: F }}>
@@ -271,187 +238,98 @@ export default function CustomerChatPage() {
         ) : (
           <>
             <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 10 }}>
-              <div style={{ fontWeight: 700, fontSize: 15, flex: 1 }}>{selected.full_name || selected.email}</div>
+              <div style={{ fontWeight: 700, fontSize: 15 }}>{selected.full_name || selected.email}</div>
               <span style={{
                 padding: '3px 8px', borderRadius: 999,
                 background: (ROLE_COLOR[selected.role] || '#ccc') + '20',
                 color: ROLE_COLOR[selected.role] || '#666',
                 fontSize: 11, fontWeight: 700,
               }}>{selected.role}</span>
-              <button onClick={() => { setShowMsgSearch(!showMsgSearch); setMsgSearch('') }} style={{
-                background: showMsgSearch ? 'rgba(255,107,0,0.1)' : 'transparent', border: '1px solid var(--border)',
-                borderRadius: 8, width: 32, height: 32, cursor: 'pointer', fontSize: 14,
-                display: 'flex', alignItems: 'center', justifyContent: 'center', color: showMsgSearch ? '#FF6B00' : 'var(--text2)',
-              }}>🔍</button>
             </div>
-            {showMsgSearch && (
-              <div style={{ padding: '8px 16px', borderBottom: '1px solid var(--border)', display: 'flex', gap: 8, alignItems: 'center' }}>
-                <input value={msgSearch} onChange={e => setMsgSearch(e.target.value)} placeholder="Мессеж хайх..."
-                  autoFocus
-                  style={{ flex: 1, padding: '6px 10px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 13, color: 'var(--text)', outline: 'none' }}
-                />
-                {msgSearch && <span style={{ fontSize: 11, color: 'var(--text3)' }}>{filteredMessages.length}/{messages.length}</span>}
-              </div>
-            )}
 
             <div style={{ flex: 1, overflowY: 'auto', padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {displayMessages.length === 0 ? (
+              {messages.length === 0 ? (
                 <div style={{ textAlign: 'center', color: 'var(--text2)', marginTop: 80 }}>
-                  {msgSearch ? 'Хайлтад тохирох мессеж олдсонгүй' : 'Одоогоор мессеж алга. Сайн уу? гэж эхлээрэй.'}
+                  Одоогоор мессеж алга. Сайн уу? гэж эхлээрэй.
                 </div>
-              ) : displayMessages.map((m) => {
+              ) : messages.map((m) => {
                 const mine = me && (m.sender_id === me.id)
-                // Parse reply
-                const replyMatch = m.message.match(/^\[REPLY:(.+?):(.+?)\]\n([\s\S]*)$/)
-                const replyName = replyMatch?.[1]
-                const replyText = replyMatch?.[2]
-                const mainText = replyMatch ? replyMatch[3] : m.message
                 return (
                   <div key={m.id || Math.random()} style={{
                     alignSelf: mine ? 'flex-end' : 'flex-start',
                     maxWidth: '72%',
-                    position: 'relative',
-                    group: 'msg',
-                  } as any}>
-                    <div style={{
-                      background: mine ? '#FF6B35' : 'var(--surface)',
-                      color: mine ? '#fff' : 'var(--text)',
-                      padding: '10px 12px',
-                      borderRadius: mine ? '12px 12px 2px 12px' : '12px 12px 12px 2px',
-                      boxShadow: '0 6px 16px rgba(0,0,0,0.08)',
-                    }}>
-                      <div style={{ fontSize: 12, opacity: 0.9, marginBottom: 4 }}>
-                        {m.sender_name || m.sender_id}
-                      </div>
-                      {replyName && (
-                        <div style={{
-                          padding: '6px 10px', borderRadius: 8, marginBottom: 6,
-                          background: mine ? 'rgba(255,255,255,0.15)' : 'rgba(255,107,0,0.06)',
-                          borderLeft: '3px solid ' + (mine ? 'rgba(255,255,255,0.5)' : '#FF6B00'),
-                          fontSize: 12, color: mine ? 'rgba(255,255,255,0.85)' : 'var(--text2)',
-                        }}>
-                          <div style={{ fontWeight: 600, fontSize: 11, marginBottom: 2 }}>{replyName}</div>
-                          <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{replyText}</div>
-                        </div>
-                      )}
-                      {mainText && (
-                        <div style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontSize: 14 }}>{mainText}</div>
-                      )}
-                      {m.file_url && (
-                        <a href={m.file_url} target="_blank" rel="noreferrer" style={{
-                          marginTop: 6, display: 'inline-flex', alignItems: 'center', gap: 6,
-                          color: mine ? '#fff' : '#FF6B35', fontWeight: 600,
-                        }}>
-                          ⭳ Attachment
-                        </a>
-                      )}
-                      <div style={{ fontSize: 11, opacity: 0.7, marginTop: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
-                        {m.created_at ? new Date(m.created_at).toLocaleString('mn-MN') : ''}
-                        {mine && <span style={{ color: mine ? 'rgba(255,255,255,0.7)' : '#10B981' }}>✓✓</span>}
-                      </div>
+                    background: mine ? '#FF6B35' : 'var(--surface)',
+                    color: mine ? '#fff' : 'var(--text)',
+                    padding: '10px 12px',
+                    borderRadius: mine ? '12px 12px 2px 12px' : '12px 12px 12px 2px',
+                    boxShadow: '0 6px 16px rgba(0,0,0,0.08)',
+                  }}>
+                    <div style={{ fontSize: 12, opacity: 0.9, marginBottom: 4 }}>
+                      {m.sender_name || m.sender_id}
                     </div>
-                    {/* Reply button on hover */}
-                    <button onClick={() => setReplyTo(m)} title="Хариулах"
-                      style={{
-                        position: 'absolute', top: 4, ...(mine ? { left: -28 } : { right: -28 }),
-                        background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 6,
-                        width: 24, height: 24, cursor: 'pointer', fontSize: 12, display: 'flex', alignItems: 'center',
-                        justifyContent: 'center', opacity: 0.4, transition: 'opacity 0.15s',
-                      }}
-                      onMouseEnter={e => (e.currentTarget.style.opacity = '1')}
-                      onMouseLeave={e => (e.currentTarget.style.opacity = '0.4')}>
-                      ↩
-                    </button>
+                    {m.message && (
+                      <div style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontSize: 14 }}>{m.message}</div>
+                    )}
+                    {m.file_url && (
+                      <a href={m.file_url} target="_blank" rel="noreferrer" style={{
+                        marginTop: 6, display: 'inline-flex', alignItems: 'center', gap: 6,
+                        color: mine ? '#fff' : '#FF6B35', fontWeight: 600,
+                      }}>
+                        ⭳ Хавсралт
+                      </a>
+                    )}
+                    <div style={{ fontSize: 11, opacity: 0.7, marginTop: 6 }}>
+                      {m.created_at ? new Date(m.created_at).toLocaleString('mn-MN') : ''}
+                    </div>
                   </div>
                 )
               })}
-              {/* Typing indicator */}
-              {typingUser && (
-                <div style={{ alignSelf: 'flex-start', display: 'flex', alignItems: 'center', gap: 8, padding: '6px 12px', background: 'var(--surface)', borderRadius: 12, fontSize: 12, color: 'var(--text3)' }}>
-                  <span style={{ display: 'flex', gap: 3 }}>
-                    <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#FF6B00', animation: 'typingBounce 1.4s ease-in-out infinite', animationDelay: '0s' }} />
-                    <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#FF6B00', animation: 'typingBounce 1.4s ease-in-out infinite', animationDelay: '0.2s' }} />
-                    <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#FF6B00', animation: 'typingBounce 1.4s ease-in-out infinite', animationDelay: '0.4s' }} />
-                  </span>
-                  {typingUser} бичиж байна...
-                </div>
-              )}
               <div ref={bottomRef} />
             </div>
 
-            {/* Reply bar */}
-            {replyTo && (
-              <div style={{ padding: '8px 16px', borderTop: '1px solid var(--border)', background: 'rgba(255,107,0,0.04)', display: 'flex', alignItems: 'center', gap: 10 }}>
-                <div style={{ flex: 1, fontSize: 12, color: 'var(--text2)', borderLeft: '3px solid #FF6B00', paddingLeft: 10 }}>
-                  <div style={{ fontWeight: 600, color: '#FF6B00', fontSize: 11 }}>↩ {replyTo.sender_name || replyTo.sender_id}</div>
-                  <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 400 }}>{replyTo.message}</div>
-                </div>
-                <button onClick={() => setReplyTo(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 16, color: 'var(--text3)', padding: 4 }}>✕</button>
-              </div>
-            )}
-
-            <div style={{ padding: '12px 16px', borderTop: '1px solid var(--border)', display: 'flex', flexDirection: 'column', gap: 8 }}>
-              {/* Emoji quick bar */}
-              {showEmoji && (
-                <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-                  {EMOJI_QUICK.map(e => (
-                    <button key={e} onClick={() => { setInput(prev => prev + e); setShowEmoji(false) }}
-                      style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8, padding: '4px 8px', cursor: 'pointer', fontSize: 18 }}>{e}</button>
-                  ))}
-                </div>
-              )}
-              <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-                <button onClick={() => setShowEmoji(!showEmoji)}
-                  style={{ background: showEmoji ? 'rgba(255,107,0,0.1)' : 'transparent', border: '1px solid var(--border)', borderRadius: 8, width: 36, height: 36, cursor: 'pointer', fontSize: 16 }}>😊</button>
-                <label style={{
-                  border: '1px dashed var(--border)', padding: '8px 10px',
-                  borderRadius: 8, cursor: 'pointer', fontSize: 13, color: 'var(--text2)',
-                  display: 'inline-flex', alignItems: 'center', gap: 6,
-                }}>
-                  📎 Файл
-                  <input
-                    type="file"
-                    style={{ display: 'none' }}
-                    onChange={e => setFile(e.target.files?.[0] || null)}
-                  />
-                </label>
-                {file && <span style={{ fontSize: 12, color: 'var(--text2)' }}>{file.name}</span>}
+            <div style={{ padding: '12px 16px', borderTop: '1px solid var(--border)', display: 'flex', gap: 10, alignItems: 'center' }}>
+              <label style={{
+                border: '1px dashed var(--border)', padding: '8px 10px',
+                borderRadius: 8, cursor: 'pointer', fontSize: 13, color: 'var(--text2)',
+                display: 'inline-flex', alignItems: 'center', gap: 6,
+              }}>
+                📎 Файл
                 <input
-                  value={input}
-                  onChange={e => handleTextChange(e.target.value)}
-                  onKeyDown={e => {
-                    if (e.key === 'Enter' && !e.shiftKey) {
-                      e.preventDefault()
-                      send()
-                    }
-                  }}
-                  placeholder={replyTo ? `${replyTo.sender_name}-д хариулах...` : 'Мессеж бичих...'}
-                  style={{
-                    flex: 1, padding: '10px 12px',
-                    background: 'var(--surface)', border: '1px solid var(--border)',
-                    borderRadius: 10, fontSize: 14, color: 'var(--text)',
-                    outline: 'none', boxSizing: 'border-box',
-                  }}
+                  type="file"
+                  style={{ display: 'none' }}
+                  onChange={e => setFile(e.target.files?.[0] || null)}
                 />
-                <button
-                  onClick={send}
-                  disabled={!me || !selected || (!input.trim() && !file)}
-                  style={{
-                    background: '#FF6B35',
-                    color: '#fff', border: 'none', borderRadius: 10,
-                    padding: '10px 16px', fontWeight: 700, cursor: (!me || !selected || (!input.trim() && !file)) ? 'not-allowed' : 'pointer',
-                  }}
-                >
-                  Илгээх
-                </button>
-              </div>
+              </label>
+              {file && <span style={{ fontSize: 12, color: 'var(--text2)' }}>{file.name}</span>}
+              <input
+                value={input}
+                onChange={e => setInput(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault()
+                    send()
+                  }
+                }}
+                placeholder="Мессеж бичих..."
+                style={{
+                  flex: 1, padding: '10px 12px',
+                  background: 'var(--surface)', border: '1px solid var(--border)',
+                  borderRadius: 10, fontSize: 14, color: 'var(--text)',
+                  outline: 'none', boxSizing: 'border-box',
+                }}
+              />
+              <button
+                onClick={send}
+                disabled={!me || !selected || (!input.trim() && !file)}
+                style={{
+                  background: '#FF6B35',
+                  color: '#fff', border: 'none', borderRadius: 10,
+                  padding: '10px 16px', fontWeight: 700, cursor: (!me || !selected || (!input.trim() && !file)) ? 'not-allowed' : 'pointer',
+                }}
+              >
+                Илгээх
+              </button>
             </div>
-            <style>{`
-              @keyframes typingBounce {
-                0%, 80%, 100% { transform: scale(0.6); opacity: 0.4 }
-                40% { transform: scale(1); opacity: 1 }
-              }
-            `}</style>
           </>
         )}
       </div>

@@ -1,10 +1,10 @@
 'use client'
-import { useState, useEffect, Suspense, useMemo } from 'react'
-import { useSearchParams, useRouter } from 'next/navigation'
-import { apiFetch } from '@/lib/api'
+import React, { useState, useEffect, Suspense, useMemo } from 'react'
+import React, { useSearchParams, useRouter } from 'next/navigation'
+import React, { apiFetch } from '@/lib/api'
 import Link from 'next/link'
-import { Lock, CheckCircle, XCircle, Loader2, Eye, EyeOff, ShieldCheck } from 'lucide-react'
-import { toast } from 'sonner'
+import React, { Lock, CheckCircle, XCircle, Loader2, Eye, EyeOff, ShieldCheck } from 'lucide-react'
+import React, { toast } from 'sonner'
 
 export default function ResetPasswordPage() {
   return (

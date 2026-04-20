@@ -1,183 +1,175 @@
 'use client'
-import { useStore } from '@/lib/store'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { motion, AnimatePresence } from 'framer-motion'
-import { Trash2, Minus, Plus, Heart, ShoppingBag, ArrowRight, Truck, Shield, RotateCcw } from 'lucide-react'
-import { toast } from 'sonner'
 
-const fmt = (n: number) => '₮' + n.toLocaleString('mn-MN')
+const API = 'http://localhost:4000'
+const F = "'DM Sans','Segoe UI',system-ui,sans-serif"
+const fmt = (n: number) => n.toLocaleString('mn-MN') + '₮'
+
+const DELIVERY_FEE = 5000
+const VAT_RATE = 0.1
+
+interface CartItem {
+  id: string
+  product_id: string
+  quantity: number
+}
+
+interface Product {
+  id: string
+  name: string
+  name_mn?: string
+  price?: number
+  base_price?: number
+  sale_price?: number
+  thumbnail_url?: string
+}
 
 export default function CartPage() {
   const router = useRouter()
-  const { cart, removeFromCart, updateQty, clearCart, cartTotal, cartCount, toggleWishlist, isWished } = useStore()
+  const [userId, setUserId] = useState<string | null>(null)
+  const [items, setItems] = useState<CartItem[]>([])
+  const [products, setProducts] = useState<Record<string, Product>>({})
+  const [loading, setLoading] = useState(true)
   const [removingId, setRemovingId] = useState<string | null>(null)
+  const [hasToken, setHasToken] = useState(false)
 
-  const shipping = cartTotal() >= 50000 ? 0 : 5000
-  const tax = Math.round(cartTotal() * 0.1)
-  const grandTotal = cartTotal() + shipping + tax
+  useEffect(() => {
+    const token = localStorage.getItem('access_token') || localStorage.getItem('access_token') || localStorage.getItem('token') || ''
+    setHasToken(!!token)
+    if (!token) { setLoading(false); return }
 
-  const handleRemove = (id: string) => {
-    setRemovingId(id)
-    setTimeout(() => { removeFromCart(id); setRemovingId(null); toast('Сагснаас хасагдлаа') }, 300)
+    fetch(`${API}/auth/me`, { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.json())
+      .then(async u => {
+        if (!u?.id) { setLoading(false); return }
+        setUserId(u.id)
+        const [cartData, prods] = await Promise.all([
+          fetch(`${API}/cart/${u.id}`, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()).catch(() => null),
+          fetch(`${API}/products`, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()).catch(() => []),
+        ])
+        const cartItems: CartItem[] = cartData?.items ?? []
+        setItems(cartItems)
+        const prodMap: Record<string, Product> = {}
+        if (Array.isArray(prods)) prods.forEach((p: Product) => { prodMap[p.id] = p })
+        setProducts(prodMap)
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false))
+  }, [])
+
+  const removeItem = async (itemId: string) => {
+    const token = localStorage.getItem('access_token') || localStorage.getItem('access_token') || localStorage.getItem('token') || ''
+    setRemovingId(itemId)
+    try {
+      await fetch(`${API}/cart/items/${itemId}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token || ''}` } })
+      setItems(prev => prev.filter(i => i.id !== itemId))
+    } catch {}
+    setRemovingId(null)
   }
 
-  const moveToWishlist = (item: typeof cart[0]) => {
-    toggleWishlist(item.id)
-    removeFromCart(item.id)
-    toast('Хадгалсан руу шилжлээ ❤️')
+  const getPrice = (productId: string) => {
+    const p = products[productId]
+    if (!p) return 0
+    return Number(p.sale_price ?? p.base_price ?? p.price ?? 0)
   }
 
-  // Empty cart
-  if (cart.length === 0) {
+  const subtotal = items.reduce((s, i) => s + getPrice(i.product_id) * i.quantity, 0)
+  const vat = Math.round(subtotal * VAT_RATE)
+  const total = subtotal + DELIVERY_FEE + vat
+
+  if (!hasToken && !loading) {
     return (
-      <div className="min-h-[70vh] flex flex-col items-center justify-center bg-[var(--bg)] px-4">
-        <motion.div initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="text-center">
-          <div className="w-24 h-24 mx-auto mb-6 rounded-full bg-[var(--surface2)] flex items-center justify-center">
-            <ShoppingBag className="w-10 h-10 text-[var(--text3)]" strokeWidth={1} />
-          </div>
-          <h1 className="text-2xl font-bold text-[var(--text)] mb-2">Таны сагс хоосон байна</h1>
-          <p className="text-sm text-[var(--text3)] mb-6 max-w-[300px] mx-auto">Бүтээгдэхүүн сонгоод сагсандаа нэмээрэй</p>
-          <motion.a whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} href="/shop"
-            className="inline-flex items-center gap-2 px-8 py-3.5 bg-[#FF6B00] text-white rounded-xl text-sm font-bold no-underline shadow-lg shadow-[#FF6B00]/20 hover:bg-[#E55D00] transition-colors">
-            <ShoppingBag className="w-4 h-4" strokeWidth={1.5} /> Дэлгүүр хэсэх
-          </motion.a>
-        </motion.div>
+      <div style={{ maxWidth: 600, margin: '80px auto', padding: '0 24px', textAlign: 'center', fontFamily: F }}>
+        <div style={{ fontSize: 48, marginBottom: 16 }}>🛒</div>
+        <h2 style={{ fontSize: 22, fontWeight: 700, margin: '0 0 12px', color: 'var(--text)' }}>Нэвтэрч орно уу</h2>
+        <p style={{ color: 'var(--text2)', marginBottom: 24 }}>Сагсаа харахын тулд нэвтэрч орно уу.</p>
+        <a href="/login" style={{ padding: '12px 28px', background: '#FF6B00', color: '#fff', borderRadius: 10, textDecoration: 'none', fontWeight: 600, fontSize: 14 }}>Нэвтрэх</a>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-[var(--bg)] text-[var(--text)]">
-      <div className="max-w-[1100px] mx-auto px-4 py-6">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h1 className="text-2xl font-bold">Миний сагс</h1>
-            <p className="text-sm text-[var(--text3)]">{cartCount()} бүтээгдэхүүн</p>
-          </div>
-          <button onClick={() => { if (confirm('Сагсыг хоослох уу?')) { clearCart(); toast('Сагс хоосолсон') } }}
-            className="text-xs text-red-500 font-semibold bg-transparent border border-red-200 rounded-lg px-3 py-1.5 cursor-pointer hover:bg-red-50 transition-colors flex items-center gap-1">
-            <Trash2 className="w-3 h-3" strokeWidth={1.5} /> Бүгдийг хасах
-          </button>
+    <div style={{ maxWidth: 1000, margin: '0 auto', padding: '40px 24px', fontFamily: F }}>
+      <h1 style={{ fontSize: 28, fontWeight: 700, margin: '0 0 32px', color: 'var(--text)' }}>Миний сагс</h1>
+
+      {loading ? (
+        <div style={{ textAlign: 'center', padding: 60, color: 'var(--text2)' }}>Уншиж байна...</div>
+      ) : items.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: '60px 24px', border: '2px dashed var(--border)', borderRadius: 16 }}>
+          <div style={{ fontSize: 48, marginBottom: 16 }}>🛒</div>
+          <h2 style={{ fontSize: 20, fontWeight: 600, margin: '0 0 10px', color: 'var(--text)' }}>Сагс хоосон байна</h2>
+          <p style={{ color: 'var(--text2)', marginBottom: 24, fontSize: 14 }}>Дэлгүүр рүү очиж бүтээгдэхүүн нэм.</p>
+          <a href="/shop" style={{ padding: '12px 28px', background: '#FF6B00', color: '#fff', borderRadius: 10, textDecoration: 'none', fontWeight: 600, fontSize: 14 }}>Дэлгүүр үзэх</a>
         </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-6 items-start">
-          {/* ─── CART ITEMS ─── */}
-          <div className="space-y-3">
-            <AnimatePresence>
-              {cart.map(item => (
-                <motion.div key={item.id}
-                  layout initial={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: -200 }}
-                  animate={{ opacity: removingId === item.id ? 0.3 : 1, x: removingId === item.id ? -50 : 0 }}
-                  transition={{ duration: 0.3 }}
-                  className="flex gap-4 p-4 rounded-xl border border-[var(--border)] bg-[var(--surface)]">
-
-                  {/* Image */}
-                  <a href={`/product/${item.id}`} className="shrink-0 w-20 h-20 rounded-xl overflow-hidden bg-[var(--surface2)] no-underline">
-                    {item.image ? <img src={item.image} alt="" className="w-full h-full object-cover" /> :
-                      <div className="w-full h-full flex items-center justify-center text-2xl">🖨️</div>}
-                  </a>
-
-                  {/* Info */}
-                  <div className="flex-1 min-w-0">
-                    <a href={`/product/${item.id}`} className="text-sm font-semibold text-[var(--text)] no-underline hover:text-[#FF6B00] transition-colors line-clamp-2">{item.name}</a>
-                    <div className="text-lg font-extrabold text-[#FF6B00] mt-1">{fmt(item.price)}</div>
-
-                    {/* Controls */}
-                    <div className="flex items-center gap-3 mt-2">
-                      {/* Qty */}
-                      <div className="flex items-center border border-[var(--border)] rounded-lg overflow-hidden">
-                        <button onClick={() => updateQty(item.id, item.qty - 1)} className="w-8 h-8 bg-[var(--surface2)] border-none cursor-pointer flex items-center justify-center text-[var(--text2)] hover:bg-[var(--surface3)] transition-colors">
-                          <Minus className="w-3.5 h-3.5" strokeWidth={1.5} />
-                        </button>
-                        <span className="w-10 h-8 flex items-center justify-center text-sm font-bold bg-[var(--surface)]">{item.qty}</span>
-                        <button onClick={() => updateQty(item.id, item.qty + 1)} className="w-8 h-8 bg-[var(--surface2)] border-none cursor-pointer flex items-center justify-center text-[var(--text2)] hover:bg-[var(--surface3)] transition-colors">
-                          <Plus className="w-3.5 h-3.5" strokeWidth={1.5} />
-                        </button>
-                      </div>
-
-                      {/* Subtotal */}
-                      <span className="text-xs text-[var(--text3)]">= {fmt(item.price * item.qty)}</span>
-
-                      <div className="ml-auto flex items-center gap-1.5">
-                        {/* Save for later */}
-                        <motion.button whileTap={{ scale: 0.9 }} onClick={() => moveToWishlist(item)} title="Хадгалах"
-                          className={`w-8 h-8 rounded-lg border border-[var(--border)] bg-[var(--surface)] flex items-center justify-center cursor-pointer transition-colors ${isWished(item.id) ? 'text-red-500 border-red-200' : 'text-[var(--text3)] hover:text-red-500 hover:border-red-200'}`}>
-                          <Heart className="w-3.5 h-3.5" strokeWidth={1.5} fill={isWished(item.id) ? 'currentColor' : 'none'} />
-                        </motion.button>
-                        {/* Remove */}
-                        <motion.button whileTap={{ scale: 0.9 }} onClick={() => handleRemove(item.id)} title="Хасах"
-                          className="w-8 h-8 rounded-lg border border-[var(--border)] bg-[var(--surface)] flex items-center justify-center cursor-pointer text-[var(--text3)] hover:text-red-500 hover:border-red-200 transition-colors">
-                          <Trash2 className="w-3.5 h-3.5" strokeWidth={1.5} />
-                        </motion.button>
-                      </div>
-                    </div>
+      ) : (
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: 24, alignItems: 'start' }}>
+          {/* Items list */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {items.map(item => {
+              const prod = products[item.product_id]
+              const price = getPrice(item.product_id)
+              return (
+                <div key={item.id} style={{ display: 'flex', gap: 16, padding: 16, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14 }}>
+                  <div style={{ width: 80, height: 80, borderRadius: 10, overflow: 'hidden', background: '#F3F4F6', flexShrink: 0 }}>
+                    {prod?.thumbnail_url
+                      ? <img src={prod.thumbnail_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      : <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28 }}>📦</div>}
                   </div>
-                </motion.div>
-              ))}
-            </AnimatePresence>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontWeight: 600, fontSize: 15, marginBottom: 4, color: 'var(--text)' }}>
+                      {prod?.name_mn || prod?.name || 'Бүтээгдэхүүн'}
+                    </div>
+                    <div style={{ color: 'var(--text2)', fontSize: 13, marginBottom: 8 }}>Тоо ширхэг: {item.quantity}</div>
+                    <div style={{ fontWeight: 700, fontSize: 16, color: '#FF6B00' }}>{fmt(price * item.quantity)}</div>
+                    {item.quantity > 1 && <div style={{ fontSize: 12, color: 'var(--text3)' }}>{fmt(price)} / ш</div>}
+                  </div>
+                  <button
+                    onClick={() => removeItem(item.id)}
+                    disabled={removingId === item.id}
+                    style={{ background: 'none', border: 'none', cursor: removingId === item.id ? 'not-allowed' : 'pointer', color: '#9CA3AF', fontSize: 20, padding: '4px 8px', alignSelf: 'flex-start', lineHeight: 1, opacity: removingId === item.id ? 0.4 : 1 }}>
+                    ×
+                  </button>
+                </div>
+              )
+            })}
           </div>
 
-          {/* ─── ORDER SUMMARY (sticky glass) ─── */}
-          <div className="lg:sticky lg:top-[130px]">
-            <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)]/90 backdrop-blur-xl p-5 space-y-4" style={{ boxShadow: '0 8px 32px rgba(0,0,0,0.06)' }}>
-              <h2 className="text-base font-bold">Захиалгын дүн</h2>
+          {/* Order summary */}
+          <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: 24, position: 'sticky', top: 80 }}>
+            <h3 style={{ fontSize: 16, fontWeight: 700, margin: '0 0 20px', color: 'var(--text)' }}>Захиалгын дүн</h3>
 
-              <div className="space-y-2.5 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-[var(--text3)]">Бараа ({cartCount()})</span>
-                  <span className="font-semibold">{fmt(cartTotal())}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-[var(--text3)]">Хүргэлт</span>
-                  <span className={`font-semibold ${shipping === 0 ? 'text-emerald-600' : ''}`}>{shipping === 0 ? 'Үнэгүй' : fmt(shipping)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-[var(--text3)]">НӨАТ (10%)</span>
-                  <span className="font-semibold">{fmt(tax)}</span>
-                </div>
-                <div className="border-t border-[var(--border)] pt-2.5 flex justify-between">
-                  <span className="font-bold text-base">Нийт</span>
-                  <span className="font-extrabold text-xl text-[#FF6B00]">{fmt(grandTotal)}</span>
-                </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 20 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14 }}>
+                <span style={{ color: 'var(--text2)' }}>Дэд нийт ({items.length} бараа)</span>
+                <span style={{ fontWeight: 500, color: 'var(--text)' }}>{fmt(subtotal)}</span>
               </div>
-
-              {shipping > 0 && (
-                <div className="text-[10px] text-emerald-600 bg-emerald-50 rounded-lg px-3 py-2 font-semibold">
-                  🚚 ₮50,000+ захиалгад хүргэлт ҮНЭГҮЙ! Дутуу: {fmt(50000 - cartTotal())}
-                </div>
-              )}
-
-              {/* Checkout */}
-              <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}
-                onClick={() => router.push('/checkout')}
-                className="w-full py-3.5 rounded-xl border-none bg-[#FF6B00] text-white font-bold text-sm cursor-pointer shadow-lg shadow-[#FF6B00]/20 hover:bg-[#E55D00] transition-colors flex items-center justify-center gap-2">
-                Төлбөр төлөх <ArrowRight className="w-4 h-4" strokeWidth={2} />
-              </motion.button>
-
-              <a href="/shop" className="block text-center text-xs text-[var(--text3)] no-underline hover:text-[#FF6B00] transition-colors font-semibold">
-                ← Дэлгүүр үргэлжлүүлэх
-              </a>
-
-              {/* Trust */}
-              <div className="grid grid-cols-3 gap-2 pt-2 border-t border-[var(--border)]">
-                {[
-                  { icon: Truck, label: '1–3 өдөр' },
-                  { icon: Shield, label: 'Аюулгүй' },
-                  { icon: RotateCcw, label: 'Буцаалт' },
-                ].map(t => (
-                  <div key={t.label} className="flex flex-col items-center gap-1 text-center">
-                    <t.icon className="w-4 h-4 text-[var(--text3)]" strokeWidth={1.2} />
-                    <span className="text-[11px] text-[var(--text3)] font-medium">{t.label}</span>
-                  </div>
-                ))}
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14 }}>
+                <span style={{ color: 'var(--text2)' }}>Хүргэлтийн төлбөр</span>
+                <span style={{ fontWeight: 500, color: 'var(--text)' }}>{fmt(DELIVERY_FEE)}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14 }}>
+                <span style={{ color: 'var(--text2)' }}>НӨАТ (10%)</span>
+                <span style={{ fontWeight: 500, color: 'var(--text)' }}>{fmt(vat)}</span>
+              </div>
+              <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 18, fontWeight: 700 }}>
+                <span style={{ color: 'var(--text)' }}>Нийт дүн</span>
+                <span style={{ color: '#FF6B00' }}>{fmt(total)}</span>
               </div>
             </div>
+
+            <button
+              onClick={() => router.push('/checkout')}
+              style={{ width: '100%', padding: '14px', background: '#111', color: '#fff', border: 'none', borderRadius: 12, fontSize: 15, fontWeight: 700, cursor: 'pointer', fontFamily: F }}>
+              Захиалга баталгаажуулах →
+            </button>
+            <a href="/shop" style={{ display: 'block', textAlign: 'center', marginTop: 12, color: 'var(--text2)', fontSize: 13, textDecoration: 'none' }}>
+              ← Дэлгүүр рүү буцах
+            </a>
           </div>
         </div>
-      </div>
+      )}
     </div>
   )
 }

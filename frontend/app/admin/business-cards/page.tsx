@@ -1,6 +1,6 @@
 'use client'
-import { apiFetch } from '@/lib/api'
-import { useState, useEffect, useCallback } from 'react'
+import React, { apiFetch } from '@/lib/api'
+import React, { useState, useEffect, useCallback } from 'react'
 
 const inp: React.CSSProperties = { padding: '8px 12px', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text)', fontSize: 13, width: '100%', outline: 'none' }
 const num = (v: string) => { const n = parseFloat(v); return isNaN(n) ? 0 : n }

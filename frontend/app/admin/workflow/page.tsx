@@ -1,8 +1,9 @@
 'use client'
-import { apiFetch, API_URL } from '@/lib/api'
 import { useState, useEffect, useRef } from 'react'
-import PdfViewer from '@/components/PdfViewer'
-import { AdminPageHeader } from '@/components/admin/AdminPageHeader'
+
+const API = 'http://localhost:4000'
+const tok = () => localStorage.getItem('access_token') || localStorage.getItem('token') || ''
+const getHeaders = () => ({ 'Content-Type': 'application/json', Authorization: `Bearer ${tok()}` })
 
 const STAGES = [
   { key: 'pending', label: 'Хүлээгдэж буй', color: '#F59E0B', icon: '📋', next: 'designing' },
@@ -15,19 +16,6 @@ const STAGES = [
   { key: 'delivering', label: 'Хүргэлтэнд', color: '#6366F1', icon: '🚚', next: 'completed' },
   { key: 'completed', label: 'Дууссан', color: '#059669', icon: '🎉', next: null },
 ]
-
-// Frontend stage key → Backend OrderStatus mapping
-const STAGE_TO_BACKEND: Record<string, string> = {
-  pending: 'CONFIRMED',
-  designing: 'PENDING_FILE',
-  prepress: 'FILE_REVIEW',
-  printing: 'IN_PRODUCTION',
-  finishing: 'FINISHING',
-  qc: 'PARTIALLY_DISPATCHED',
-  ready: 'DISPATCHED',
-  delivering: 'DELIVERED',
-  completed: 'COMPLETED',
-}
 
 const ORDER_STATUS: Record<string, { label: string; color: string }> = {}
 STAGES.forEach(s => { ORDER_STATUS[s.key] = { label: s.label, color: s.color } })
@@ -58,21 +46,8 @@ const FILE_TYPE_MAP: Record<string, string> = {
   production: '🖨️ Хэвлэл', qc: '✅ QC', final: '📦 Final',
 }
 
-const DESIGN_STATUS_MAP: Record<string, { label: string; color: string; bg: string }> = {
-  pending:            { label: 'Хүлээгдэж буй', color: '#6366F1', bg: '#EEF2FF' },
-  assigned:           { label: 'Дизайнер томилогдсон', color: '#8B5CF6', bg: '#F5F3FF' },
-  in_progress:        { label: 'Хийгдэж байна', color: '#F59E0B', bg: '#FFFBEB' },
-  under_review:       { label: 'Хэрэглэгч шалгаж байна', color: '#3B82F6', bg: '#EFF6FF' },
-  revision_requested: { label: 'Засвар хүсэгдсэн', color: '#EF4444', bg: '#FEF2F2' },
-  updated_version:    { label: 'Шинэчлэгдсэн', color: '#F97316', bg: '#FFF7ED' },
-  zoom_scheduled:     { label: 'Zoom уулзалт', color: '#06B6D4', bg: '#ECFEFF' },
-  approved:           { label: 'Батлагдсан ✓', color: '#10B981', bg: '#ECFDF5' },
-  in_production:      { label: 'Үйлдвэрлэлд', color: '#059669', bg: '#D1FAE5' },
-}
-
 export default function AdminWorkflowPage() {
   const [orders, setOrders] = useState<any[]>([])
-  const [designRequests, setDesignRequests] = useState<any[]>([])
   const [jobs, setJobs] = useState<any[]>([])
   const [deliveries, setDeliveries] = useState<any[]>([])
   const [machines, setMachines] = useState<any[]>([])
@@ -93,8 +68,6 @@ export default function AdminWorkflowPage() {
 
   // Revert modal state
   const [revertModal, setRevertModal] = useState<any>(null)
-  // PDF preview state
-  const [previewFile, setPreviewFile] = useState<any>(null)
   const [revertReason, setRevertReason] = useState('')
   const [revertTarget, setRevertTarget] = useState('')
   const [reverting, setReverting] = useState(false)
@@ -106,28 +79,27 @@ export default function AdminWorkflowPage() {
   const load = () => {
     setLoading(true)
     Promise.all([
-      apiFetch<any>('/orders').catch(() => []),
-      apiFetch<any>('/production-jobs').catch(() => []),
-      apiFetch<any>('/delivery').catch(() => []),
-      apiFetch<any>('/machines').catch(() => []),
-      apiFetch<any>('/design-requests').catch(() => []),
-    ]).then(([o, j, d, m, dr]) => {
+      fetch(`${API}/orders`, { headers: getHeaders() }).then(r => r.json()).catch(() => []),
+      fetch(`${API}/production-jobs`, { headers: getHeaders() }).then(r => r.json()).catch(() => []),
+      fetch(`${API}/delivery`, { headers: getHeaders() }).then(r => r.json()).catch(() => []),
+      fetch(`${API}/machines`, { headers: getHeaders() }).then(r => r.json()).catch(() => []),
+    ]).then(([o, j, d, m]) => {
       setOrders(Array.isArray(o) ? o : []); setJobs(Array.isArray(j) ? j : [])
       setDeliveries(Array.isArray(d) ? d : []); setMachines(Array.isArray(m) ? m : [])
-      setDesignRequests(Array.isArray(dr) ? dr : [])
     }).finally(() => setLoading(false))
   }
   useEffect(load, [])
   useEffect(() => { if (!isLive) return; const i = setInterval(load, 30000); return () => clearInterval(i) }, [isLive])
 
   const loadFiles = async (orderId: string) => {
-    try { const d = await apiFetch<any>(`/order-files?order_id=${orderId}`); setOrderFiles(Array.isArray(d) ? d : []) } catch { setOrderFiles([]) }
+    try { const r = await fetch(`${API}/order-files?order_id=${orderId}`, { headers: getHeaders() }); const d = await r.json(); setOrderFiles(Array.isArray(d) ? d : []) } catch { setOrderFiles([]) }
   }
 
   // DB Audit Trail ачааллах
   const loadAuditTrail = async (orderId: string) => {
     try {
-      const d = await apiFetch<any>(`/audit-trail/${orderId}`)
+      const r = await fetch(`${API}/audit-trail/${orderId}`, { headers: getHeaders() })
+      const d = await r.json()
       setAuditTrail(Array.isArray(d) ? d : [])
     } catch { setAuditTrail([]) }
   }
@@ -135,9 +107,10 @@ export default function AdminWorkflowPage() {
   // DB Audit Trail бичих
   const addAuditEntry = async (orderId: string, action: string, file?: string) => {
     try {
-      await apiFetch<any>(`/audit-trail`, {
+      await fetch(`${API}/audit-trail`, {
         method: 'POST',
-        body: { order_id: orderId, user: currentUser, action, file },
+        headers: getHeaders(),
+        body: JSON.stringify({ order_id: orderId, user: currentUser, action, file }),
       })
     } catch (e) { console.log('Audit trail error:', e) }
   }
@@ -146,15 +119,17 @@ export default function AdminWorkflowPage() {
     setUploading(true)
     try {
       const formData = new FormData(); formData.append('file', file)
-      const uploadData = await apiFetch<any>(`/upload/file`, { method: 'POST', body: formData })
-      const filePath = uploadData?.url || uploadData?.path || uploadData?.filename || file.name
-      await apiFetch<any>('/order-files', { method: 'POST', body: { order_id: orderId, filename: file.name, path: filePath, size: file.size, mime_type: file.type, file_type: fileType, uploaded_by: currentUser, uploaded_by_role: 'admin' } })
+      const uploadRes = await fetch(`${API}/upload/file`, { method: 'POST', headers: { Authorization: `Bearer ${localStorage.getItem('access_token') || localStorage.getItem('token') || ''}` }, body: formData })
+      const uploadData = await uploadRes.json()
+      const filePath = uploadData.url || uploadData.path || uploadData.filename || file.name
+      await fetch(`${API}/order-files`, { method: 'POST', headers: getHeaders(), body: JSON.stringify({ order_id: orderId, filename: file.name, path: filePath, size: file.size, mime_type: file.type, file_type: fileType, uploaded_by: currentUser, uploaded_by_role: 'admin' }) })
       if (file.type === 'application/pdf') {
         const inspectForm = new FormData(); inspectForm.append('file', file)
-        const analysis = await apiFetch<any>(`/ai/pdf-inspector/inspect`, { method: 'POST', body: inspectForm }).catch(() => null)
-        if (analysis) {
-          const files = await apiFetch<any>(`/order-files?order_id=${orderId}`)
-          if (files.length > 0) await apiFetch<any>(`/order-files/${files[0].id}/analysis`, { method: 'PATCH', body: { analysis } }).catch(() => {})
+        const inspectRes = await fetch(`${API}/ai/pdf-inspector/inspect`, { method: 'POST', headers: { Authorization: `Bearer ${localStorage.getItem('access_token') || localStorage.getItem('token') || ''}` }, body: inspectForm }).catch(() => null)
+        if (inspectRes?.ok) {
+          const analysis = await inspectRes.json()
+          const files = await fetch(`${API}/order-files?order_id=${orderId}`, { headers: getHeaders() }).then(r => r.json())
+          if (files.length > 0) await fetch(`${API}/order-files/${files[0].id}/analysis`, { method: 'PATCH', headers: getHeaders(), body: JSON.stringify({ analysis }) }).catch(() => {})
         }
       }
       showToast(`📄 ${file.name} амжилттай`)
@@ -166,33 +141,30 @@ export default function AdminWorkflowPage() {
   }
 
   const approveFile = async (fileId: string, orderId: string) => {
-    await apiFetch<any>(`/order-files/${fileId}/approve`, { method: 'PATCH'})
+    await fetch(`${API}/order-files/${fileId}/approve`, { method: 'PATCH', headers: getHeaders() })
     await addAuditEntry(orderId, 'Файл батлагдсан ✅')
     await loadAuditTrail(orderId); await loadFiles(orderId); showToast('Файл батлагдлаа ✅')
   }
   const rejectFile = async (fileId: string, orderId: string) => {
-    await apiFetch<any>(`/order-files/${fileId}/reject`, { method: 'PATCH', body: { notes: 'Засвар шаардлагатай' } })
+    await fetch(`${API}/order-files/${fileId}/reject`, { method: 'PATCH', headers: getHeaders(), body: JSON.stringify({ notes: 'Засвар шаардлагатай' }) })
     await addAuditEntry(orderId, 'Файл буцаагдсан ❌')
     await loadAuditTrail(orderId); await loadFiles(orderId); showToast('Файл буцаагдлаа')
   }
   const setFinalFile = async (fileId: string, orderId: string) => {
-    await apiFetch<any>(`/order-files/${fileId}/set-final`, { method: 'PATCH'})
+    await fetch(`${API}/order-files/${fileId}/set-final`, { method: 'PATCH', headers: getHeaders() })
     await addAuditEntry(orderId, 'Final файл тогтоосон 📦')
     await loadAuditTrail(orderId); await loadFiles(orderId); showToast('Final файл тогтоогдлоо 📦')
   }
 
   const getStage = (o: any) => {
-    const s = (o.status || '').toLowerCase()
+    const s = o.status
     if (s === 'cancelled') return 'cancelled'
     if (s === 'delivered' || s === 'completed') return 'completed'
-    if (s === 'shipped' || s === 'delivering' || s === 'dispatched') return 'delivering'
-    if (s === 'ready' || s === 'partially_dispatched') return 'ready'
-    if (s === 'qc') return 'qc'
-    if (s === 'finishing') return 'finishing'
-    if (s === 'in_production' || s === 'printing') return 'printing'
-    if (s === 'prepress' || s === 'file_review') return 'prepress'
-    if (s === 'in_design' || s === 'designing' || s === 'pending_file' || s === 'file_rejected') return 'designing'
-    if (s === 'paid' || s === 'scheduled' || s === 'confirmed' || s === 'quotation_sent' || s === 'draft' || s === 'on_hold') return 'pending'
+    if (s === 'shipped' || s === 'delivering') return 'delivering'
+    if (s === 'ready') return 'ready'; if (s === 'qc') return 'qc'; if (s === 'finishing') return 'finishing'
+    if (s === 'in_production' || s === 'printing') return 'printing'; if (s === 'prepress') return 'prepress'
+    if (s === 'in_design' || s === 'designing') return 'designing'
+    if (s === 'paid' || s === 'scheduled') return 'pending'
     return 'pending'
   }
 
@@ -203,28 +175,15 @@ export default function AdminWorkflowPage() {
   const activeOrders = orders.filter(o => !['completed', 'delivered', 'cancelled'].includes(o.status))
 
   const updateOrderStatus = async (id: string, status: string) => {
-    await apiFetch<any>(`/orders/${id}/status`, { method: 'PATCH', body: { status } }); load()
+    await fetch(`${API}/orders/${id}/status`, { method: 'PATCH', headers: getHeaders(), body: JSON.stringify({ status }) }); load()
   }
-
-  const getDesignRequest = (orderId: string) =>
-    designRequests.find((dr: any) => dr.order_id === orderId || dr.orderId === orderId)
 
   const moveToNext = async (order: any) => {
     const cur = getStage(order); const so = STAGES.find(s => s.key === cur); if (!so?.next) return
     const ns = STAGES.find(s => s.key === so.next); if (!ns) return
-    // Warn if design not approved when moving designing → prepress
-    if (cur === 'designing') {
-      const dr = getDesignRequest(order.id)
-      if (dr && dr.status !== 'approved' && dr.status !== 'in_production') {
-        const dsm = DESIGN_STATUS_MAP[dr.status]
-        const ok = window.confirm(`⚠️ Дизайн батлагдаагүй байна!\n\nОдоогийн төлөв: ${dsm?.label || dr.status}\n\nГэсэн ч Prepress руу шилжүүлэх үү?`)
-        if (!ok) return
-      }
-    }
-    const backendStatus = STAGE_TO_BACKEND[so.next] || so.next
-    if (so.next === 'printing') { await apiFetch<any>(`/production-jobs/from-order/${order.id}`, { method: 'POST'}).catch(() => {}); await updateOrderStatus(order.id, 'IN_PRODUCTION') }
-    else if (so.next === 'delivering') { await apiFetch<any>('/delivery', { method: 'POST', body: { order_id: order.id, address: order.notes || '', status: 'assigned' } }).catch(() => {}); await updateOrderStatus(order.id, 'DELIVERED') }
-    else { await updateOrderStatus(order.id, backendStatus) }
+    if (so.next === 'printing') { await fetch(`${API}/production-jobs/from-order/${order.id}`, { method: 'POST', headers: getHeaders() }).catch(() => {}); await updateOrderStatus(order.id, 'in_production') }
+    else if (so.next === 'delivering') { await fetch(`${API}/delivery`, { method: 'POST', headers: getHeaders(), body: JSON.stringify({ order_id: order.id, address: order.notes || '', status: 'assigned' }) }).catch(() => {}); await updateOrderStatus(order.id, 'shipped') }
+    else { await updateOrderStatus(order.id, so.next) }
     await addAuditEntry(order.id, `"${ns.label}" руу шилжүүлсэн`)
     showToast(`${order.product_name || 'Захиалга'} → ${ns.icon} ${ns.label}`)
   }
@@ -243,15 +202,19 @@ export default function AdminWorkflowPage() {
     if (!revertModal || !revertReason.trim()) return
     setReverting(true)
     try {
-      const backendTarget = revertTarget ? (STAGE_TO_BACKEND[revertTarget] || revertTarget) : undefined
-      await apiFetch<any>(`/orders/${revertModal.order.id}/revert`, {
+      const res = await fetch(`${API}/orders/${revertModal.order.id}/revert`, {
         method: 'PATCH',
-        body: {
+        headers: getHeaders(),
+        body: JSON.stringify({
           reason: revertReason.trim(),
-          target_stage: backendTarget,
-          status: backendTarget,
-        },
+          target_stage: revertTarget || undefined,
+        }),
       })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        showToast(`❌ ${err.message || 'Буцаахад алдаа гарлаа'}`)
+        return
+      }
       const targetLabel = STAGES.find(s => s.key === revertTarget)?.label || 'Өмнөх'
       showToast(`↩️ Буцаагдлаа: "${targetLabel}" руу`)
       setRevertModal(null)
@@ -260,7 +223,7 @@ export default function AdminWorkflowPage() {
       load()
       // Detail modal нээлттэй бол шинэчлэх
       if (detail?.id === revertModal.order.id) {
-        const updated = await apiFetch<any>(`/orders/${revertModal.order.id}`)
+        const updated = await fetch(`${API}/orders/${revertModal.order.id}`, { headers: getHeaders() }).then(r => r.json())
         setDetail(updated)
         await loadAuditTrail(revertModal.order.id)
       }
@@ -295,7 +258,7 @@ export default function AdminWorkflowPage() {
   if (loading) return <div style={{ padding: 60, textAlign: 'center', color: 'var(--text2)' }}>Ачааллж байна...</div>
 
   return (
-    <div className="p-4 md:p-6" style={{ height: 'calc(100vh - 64px)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+    <div style={{ padding: '16px 20px', fontFamily: "'DM Sans','Segoe UI',system-ui,sans-serif", height: 'calc(100vh - 64px)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       {toast && <div style={{ position: 'fixed', top: 16, left: '50%', transform: 'translateX(-50%)', background: '#1e293b', color: '#e2e8f0', padding: '10px 24px', borderRadius: 10, fontSize: 13, fontWeight: 600, boxShadow: '0 8px 32px rgba(0,0,0,0.3)', zIndex: 9999, animation: 'toastIn 0.3s ease' }}>{toast}</div>}
       <style>{`
         @keyframes toastIn{from{opacity:0;transform:translateX(-50%) translateY(-12px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
@@ -310,14 +273,21 @@ export default function AdminWorkflowPage() {
         .revert-btn{transition:all .12s;cursor:pointer}.revert-btn:hover{filter:brightness(1.1);transform:scale(1.02)}.revert-btn:active{transform:scale(.98)}
       `}</style>
 
-      <AdminPageHeader title="Production Workflow" description="Захиалга → Дизайн → Prepress → Хэвлэл → QC → Хүргэлт → Дууссан">
-        <button onClick={() => setIsLive(!isLive)} style={{ padding: '5px 12px', borderRadius: 6, border: '1px solid var(--border)', fontSize: 11, cursor: 'pointer', background: isLive ? '#dcfce7' : 'var(--surface2)', color: isLive ? '#16a34a' : 'var(--text3)' }}>{isLive ? '● Live' : '○ Live'}</button>
-        {(['pipeline', 'table', 'delivery'] as const).map(v => (
-          <button key={v} onClick={() => { setView(v); setFilter('') }} style={{ padding: '6px 14px', borderRadius: 8, border: view === v ? 'none' : '1px solid var(--border)', fontSize: 12, fontWeight: 500, cursor: 'pointer', background: view === v ? '#FF6B00' : 'var(--surface)', color: view === v ? '#fff' : 'var(--text2)' }}>
-            {v === 'pipeline' ? 'Pipeline' : v === 'table' ? 'Хүснэгт' : `Хүргэлт (${deliveries.length})`}
-          </button>
-        ))}
-      </AdminPageHeader>
+      {/* Header */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, flexWrap: 'wrap', gap: 8, flexShrink: 0 }}>
+        <div>
+          <h1 style={{ fontSize: 20, fontWeight: 700, margin: 0 }}>Үйлдвэрлэлийн ажлын урсгал</h1>
+          <p style={{ color: 'var(--text2)', fontSize: 12, margin: '2px 0 0' }}>Захиалга → Дизайн → Prepress → Хэвлэл → QC → Хүргэлт → Дууссан</p>
+        </div>
+        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+          <button onClick={() => setIsLive(!isLive)} style={{ padding: '5px 12px', borderRadius: 6, border: '1px solid var(--border)', fontSize: 11, cursor: 'pointer', background: isLive ? '#dcfce7' : 'var(--surface2)', color: isLive ? '#16a34a' : 'var(--text3)' }}>{isLive ? '● Live' : '○ Live'}</button>
+          {(['pipeline', 'table', 'delivery'] as const).map(v => (
+            <button key={v} onClick={() => { setView(v); setFilter('') }} style={{ padding: '6px 14px', borderRadius: 8, border: view === v ? 'none' : '1px solid var(--border)', fontSize: 12, fontWeight: 500, cursor: 'pointer', background: view === v ? '#FF6B00' : 'var(--surface)', color: view === v ? '#fff' : 'var(--text2)' }}>
+              {v === 'pipeline' ? 'Pipeline' : v === 'table' ? 'Хүснэгт' : `Хүргэлт (${deliveries.length})`}
+            </button>
+          ))}
+        </div>
+      </div>
 
       {/* KPI */}
       <div style={{ display: 'flex', gap: 6, marginBottom: 12, flexWrap: 'wrap', flexShrink: 0 }}>
@@ -344,9 +314,6 @@ export default function AdminWorkflowPage() {
                   {stageOrders[stage.key].length === 0 ? <div style={{ padding: 16, textAlign: 'center', color: 'var(--text3)', fontSize: 11 }}>Хоосон</div>
                   : stageOrders[stage.key].map(o => {
                     const canRevert = si > 0 && stage.key !== 'completed'
-                    const dr = stage.key === 'designing' ? getDesignRequest(o.id) : null
-                    const drInfo = dr ? (DESIGN_STATUS_MAP[dr.status] || { label: dr.status, color: '#888', bg: '#f3f4f6' }) : null
-                    const isApproved = dr?.status === 'approved' || dr?.status === 'in_production'
                     return (
                       <div key={o.id} className="wf-card" onClick={() => openDetail(o)} style={{ padding: '8px 8px 6px', marginBottom: 4, background: 'var(--surface2)', borderRadius: 6, fontSize: 11, borderLeft: `3px solid ${stage.color}` }}>
                         <div style={{ fontWeight: 600, fontSize: 12, marginBottom: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{o.product_name || 'Захиалга'}</div>
@@ -355,23 +322,8 @@ export default function AdminWorkflowPage() {
                           <span style={{ color: '#FF6B00', fontWeight: 600 }}>₮{Number(o.total_price || 0).toLocaleString()}</span>
                           <div style={{ display: 'flex', gap: 4 }}>{o.file_url && <span style={{ fontSize: 9, color: '#3B82F6' }}>🔎</span>}</div>
                         </div>
-                        {/* Design approval badge — only for designing stage */}
-                        {stage.key === 'designing' && (
-                          <div style={{ marginTop: 5 }}>
-                            {drInfo ? (
-                              <div style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '3px 6px', borderRadius: 4, background: drInfo.bg, border: `1px solid ${drInfo.color}30` }}>
-                                <span style={{ fontSize: 9, color: drInfo.color, fontWeight: 700 }}>🎨</span>
-                                <span style={{ fontSize: 9, color: drInfo.color, fontWeight: 600, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{drInfo.label}</span>
-                                {isApproved && <span style={{ fontSize: 9, color: '#10B981' }}>✓ Батлагдсан</span>}
-                                {dr.zoom_join_url && <span title="Zoom уулзалт бий" style={{ fontSize: 9 }}>📹</span>}
-                              </div>
-                            ) : (
-                              <div style={{ fontSize: 9, color: 'var(--text3)', padding: '2px 4px', background: 'var(--surface)', borderRadius: 3, border: '1px dashed var(--border)' }}>🎨 Дизайн хүсэлт байхгүй</div>
-                            )}
-                          </div>
-                        )}
                         <div style={{ display: 'flex', gap: 3, marginTop: 4 }}>
-                          {nextStage && <button className="wf-move" onClick={e => { e.stopPropagation(); moveToNext(o) }} style={{ flex: 1, padding: '4px 0', background: stage.key === 'designing' && dr && !isApproved ? '#FEF3C7' : nextStage.color + '12', border: `1px solid ${stage.key === 'designing' && dr && !isApproved ? '#F59E0B' : nextStage.color}30`, borderRadius: 4, color: stage.key === 'designing' && dr && !isApproved ? '#92400E' : nextStage.color, fontSize: 10, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 3 }}>{stage.key === 'designing' && dr && !isApproved ? '⚠️' : nextStage.icon} {nextStage.label} →</button>}
+                          {nextStage && <button className="wf-move" onClick={e => { e.stopPropagation(); moveToNext(o) }} style={{ flex: 1, padding: '4px 0', background: nextStage.color + '12', border: `1px solid ${nextStage.color}30`, borderRadius: 4, color: nextStage.color, fontSize: 10, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 3 }}>{nextStage.icon} {nextStage.label} →</button>}
                           {canRevert && <button className="revert-btn" onClick={e => { e.stopPropagation(); openRevertModal(o) }} style={{ padding: '4px 6px', background: '#FEE2E2', border: '1px solid #FECACA', borderRadius: 4, color: '#DC2626', fontSize: 10, fontWeight: 600 }} title="Буцаах">↩️</button>}
                         </div>
                       </div>
@@ -438,7 +390,7 @@ export default function AdminWorkflowPage() {
                     <td style={{ padding: '6px 10px', color: 'var(--text2)', maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.address || '—'}</td>
                     <td style={{ padding: '6px 10px' }}>{d.courier_name || '—'}</td>
                     <td style={{ padding: '6px 10px' }}>
-                      <select value={d.status} onChange={async e => { await apiFetch<any>(`/delivery/${d.id}/status`, { method: 'PATCH', body: { status: e.target.value } }); load() }}
+                      <select value={d.status} onChange={async e => { await fetch(`${API}/delivery/${d.id}/status`, { method: 'PATCH', headers: getHeaders(), body: JSON.stringify({ status: e.target.value }) }); load() }}
                         style={{ fontSize: 11, padding: '2px 6px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--surface2)', color: 'var(--text)', cursor: 'pointer' }}>
                         {['assigned', 'picked_up', 'on_the_way', 'in_transit', 'delivered'].map(s => <option key={s} value={s}>{s}</option>)}
                       </select>
@@ -552,10 +504,7 @@ export default function AdminWorkflowPage() {
                               )}
                             </div>
                             <div style={{ display: 'flex', gap: 4, flexShrink: 0, marginLeft: 8 }}>
-                              {f.path && (/\.(pdf|jpg|jpeg|png|gif|webp)$/i.test(f.filename || f.path)) && (
-                                <button onClick={() => setPreviewFile(f)} className="file-action" style={{ background: 'rgba(99,102,241,0.1)', color: '#6366F1' }} title="Preview">👁️</button>
-                              )}
-                              {f.path && <a href={f.path.startsWith('http') ? f.path : `${API_URL}${f.path}`} target="_blank" className="file-action" style={{ background: 'rgba(59,130,246,0.1)', color: '#3B82F6', textDecoration: 'none' }}>Татах</a>}
+                              {f.path && <a href={f.path.startsWith('http') ? f.path : `${API}/${f.path}`} target="_blank" className="file-action" style={{ background: 'rgba(59,130,246,0.1)', color: '#3B82F6', textDecoration: 'none' }}>Татах</a>}
                               {f.status !== 'approved' && <button onClick={() => approveFile(f.id, detail.id)} className="file-action" style={{ background: 'rgba(16,185,129,0.1)', color: '#10B981' }}>✅</button>}
                               {f.status !== 'rejected' && <button onClick={() => rejectFile(f.id, detail.id)} className="file-action" style={{ background: 'rgba(239,68,68,0.1)', color: '#EF4444' }}>❌</button>}
                               {!f.is_final && f.status === 'approved' && <button onClick={() => setFinalFile(f.id, detail.id)} className="file-action" style={{ background: 'rgba(16,185,129,0.15)', color: '#059669' }}>📦</button>}
@@ -564,20 +513,6 @@ export default function AdminWorkflowPage() {
                         </div>
                       )
                     })}
-                  </div>
-                )}
-
-                {/* PDF/Image Preview Panel */}
-                {previewFile && (
-                  <div style={{ marginTop: 12 }}>
-                    <PdfViewer
-                      fileUrl={previewFile.path}
-                      filename={previewFile.filename}
-                      analysis={previewFile.analysis}
-                      height={500}
-                      showAnalysis={true}
-                      onClose={() => setPreviewFile(null)}
-                    />
                   </div>
                 )}
               </>}

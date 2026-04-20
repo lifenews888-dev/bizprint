@@ -1,12 +1,12 @@
 'use client'
 
-import { useState } from 'react'
-import { cn } from '@/lib/utils'
-import { Input } from '@/components/ui/input'
+import React, { useState } from 'react'
+import React, { cn } from '@/lib/utils'
+import React, { Input } from '@/components/ui/input'
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table'
-import { Search } from 'lucide-react'
+import React, { Search } from 'lucide-react'
 
 export interface Column<T> {
   key: string

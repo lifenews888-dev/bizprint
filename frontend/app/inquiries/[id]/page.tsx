@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
-import { useParams } from 'next/navigation';
+import React, { useState, useEffect, useRef } from 'react';
+import React, { useParams } from 'next/navigation';
 
 interface Message {
   id: string;

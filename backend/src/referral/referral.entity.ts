@@ -32,6 +32,9 @@ export class Referral {
   @Column({ default: true })
   is_active: boolean
 
+  @Column({ default: 0 })
+  referral_count: number
+
   @CreateDateColumn()
   created_at: Date
 }

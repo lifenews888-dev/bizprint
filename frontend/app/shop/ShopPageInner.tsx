@@ -1,7 +1,7 @@
 'use client'
-import { apiFetch, getToken } from '@/lib/api'
-import { useEffect, useMemo, useState } from 'react'
-import { useSearchParams } from 'next/navigation'
+import React, { apiFetch, getToken } from '@/lib/api'
+import React, { useEffect, useMemo, useState } from 'react'
+import React, { useSearchParams } from 'next/navigation'
 import ProductCard from '@/components/ProductCard'
 
 const F = "'DM Sans','Segoe UI',system-ui,sans-serif"

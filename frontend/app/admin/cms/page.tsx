@@ -1,9 +1,9 @@
 'use client'
-import { apiFetch } from '@/lib/api'
-import { useState, useEffect, useCallback } from 'react'
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { AdminPageHeader } from '@/components/admin/AdminPageHeader'
-import { toast as sonnerToast } from 'sonner'
+import React, { apiFetch } from '@/lib/api'
+import React, { useState, useEffect, useCallback } from 'react'
+import React, { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import React, { AdminPageHeader } from '@/components/admin/AdminPageHeader'
+import React, { toast as sonnerToast } from 'sonner'
 
 type Setting = { id: string; key: string; value: string; group: string; label: string }
 type MegaMenuItem = {

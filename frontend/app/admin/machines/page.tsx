@@ -1,15 +1,9 @@
 'use client'
-import { apiFetch } from '@/lib/api'
-import { useState, useEffect } from 'react'
-import { AdminPageHeader } from '@/components/admin/AdminPageHeader'
-import { AdminDataTable, type Column } from '@/components/admin/AdminDataTable'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Badge } from '@/components/ui/badge'
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { Plus, Pencil, Trash2 } from 'lucide-react'
-import { toast } from 'sonner'
+import React, { useState, useEffect } from 'react'
+
+const API = 'http://localhost:4000'
+const tok = () => localStorage.getItem('access_token') || localStorage.getItem('token') || ''
+const getHeaders = () => ({ 'Content-Type': 'application/json', Authorization: `Bearer ${tok()}` })
 
 const STATUS_CLR: Record<string, { label: string; color: string }> = {
   available: { label: 'Бэлэн', color: '#10B981' },
@@ -21,97 +15,105 @@ const STATUS_CLR: Record<string, { label: string; color: string }> = {
 export default function AdminMachinesPage() {
   const [items, setItems] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
-  const [open, setOpen] = useState(false)
   const [editing, setEditing] = useState<any>(null)
   const [form, setForm] = useState({ name: '', type: '', speed_per_hour: 0, sheet_width_mm: 0, sheet_height_mm: 0, hour_rate: 0, factory_id: '', status: 'available' })
 
-  const load = () => { apiFetch<any>('/machines').then(d => setItems(Array.isArray(d) ? d : [])).catch(() => {}).finally(() => setLoading(false)) }
+  const load = () => { fetch(`${API}/machines`, { headers: getHeaders() }).then(r => r.json()).then(d => setItems(Array.isArray(d) ? d : [])).catch(() => {}).finally(() => setLoading(false)) }
   useEffect(load, [])
 
-  const reset = () => { setEditing(null); setOpen(false); setForm({ name: '', type: '', speed_per_hour: 0, sheet_width_mm: 0, sheet_height_mm: 0, hour_rate: 0, factory_id: '', status: 'available' }) }
-
+  const reset = () => { setEditing(null); setForm({ name: '', type: '', speed_per_hour: 0, sheet_width_mm: 0, sheet_height_mm: 0, hour_rate: 0, factory_id: '', status: 'available' }) }
   const save = async () => {
     const method = editing?.id ? 'PATCH' : 'POST'
-    const url = editing?.id ? `/machines/${editing.id}` : `/machines`
-    try { await apiFetch<any>(url, { method, body: form }); toast.success('Амжилттай'); reset(); load() }
-    catch { toast.error('Алдаа') }
+    const url = editing?.id ? `${API}/machines/${editing.id}` : `${API}/machines`
+    await fetch(url, { method, headers: getHeaders(), body: JSON.stringify(form) })
+    reset(); load()
   }
+  const del = async (id: number) => { if (!confirm('Устгах уу?')) return; await fetch(`${API}/machines/${id}`, { method: 'DELETE', headers: getHeaders() }); load() }
+  const edit = (m: any) => { setEditing(m); setForm({ name: m.name || '', type: m.type || '', speed_per_hour: m.speed_per_hour || 0, sheet_width_mm: m.sheet_width_mm || 0, sheet_height_mm: m.sheet_height_mm || 0, hour_rate: m.hour_rate || 0, factory_id: m.factory_id || '', status: m.status || 'available' }) }
 
-  const del = async (id: number) => { if (!confirm('Устгах уу?')) return; await apiFetch<any>(`/machines/${id}`, { method: 'DELETE' }); toast.success('Устгагдлаа'); load() }
+  const inp: React.CSSProperties = { width: '100%', padding: '10px 14px', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 13, color: 'var(--text)', outline: 'none' }
 
-  const edit = (m: any) => {
-    setEditing(m)
-    setForm({ name: m.name || '', type: m.type || '', speed_per_hour: m.speed_per_hour || 0, sheet_width_mm: m.sheet_width_mm || 0, sheet_height_mm: m.sheet_height_mm || 0, hour_rate: m.hour_rate || 0, factory_id: m.factory_id || '', status: m.status || 'available' })
-    setOpen(true)
-  }
-
-  const columns: Column<any>[] = [
-    { key: 'name', label: 'Нэр', render: row => <span className="font-medium text-foreground">{row.name || '—'}</span> },
-    { key: 'type', label: 'Төрөл', render: row => row.type ? <Badge variant="secondary" className="text-[10px]">{row.type}</Badge> : <span className="text-muted-foreground">—</span> },
-    { key: 'speed', label: 'Хурд', render: row => <span className="text-muted-foreground">{row.speed_per_hour ? `${row.speed_per_hour} хуудас/цаг` : '—'}</span> },
-    { key: 'size', label: 'Хэмжээ (мм)', render: row => <span className="text-muted-foreground">{row.sheet_width_mm && row.sheet_height_mm ? `${row.sheet_width_mm}x${row.sheet_height_mm}` : '—'}</span> },
-    { key: 'hour_rate', label: 'Цагийн төлбөр', render: row => <span className="font-semibold text-primary">{`₮${Number(row.hour_rate || 0).toLocaleString()}`}</span> },
-    { key: 'status', label: 'Төлөв', render: row => {
-      const st = STATUS_CLR[row.status] || { label: row.status, color: '#888' }
-      return <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full" style={{ background: st.color + '15', color: st.color }}>{st.label}</span>
-    }},
-    { key: 'actions', label: 'Үйлдэл', className: 'w-[120px]', render: row => (
-      <div className="flex gap-1.5">
-        <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={() => edit(row)}><Pencil className="h-3 w-3 mr-1" />Засах</Button>
-        <Button variant="ghost" size="sm" className="h-7 px-2 text-xs text-destructive hover:text-destructive" onClick={() => del(row.id)}><Trash2 className="h-3 w-3" /></Button>
-      </div>
-    )},
-  ]
+  const totalMachines = items.length
+  const available = items.filter(m => m.status === 'available').length
+  const busy = items.filter(m => m.status === 'busy').length
 
   return (
-    <div className="p-4 md:p-6">
-      <AdminPageHeader title="Тоног төхөөрөмж" description="Хэвлэлийн машин, принтер удирдлага">
-        <Button size="sm" onClick={() => { reset(); setOpen(true) }}><Plus className="h-4 w-4 mr-1" />Шинэ машин</Button>
-      </AdminPageHeader>
+    <div style={{ padding: 24, fontFamily: "'DM Sans','Segoe UI',system-ui,sans-serif" }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+        <div>
+          <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>Тоног төхөөрөмж</h1>
+          <p style={{ color: 'var(--text2)', fontSize: 13, margin: '4px 0 0' }}>Хэвлэлийн машин, принтер удирдлага</p>
+        </div>
+        <button onClick={() => { reset(); setEditing({}) }} style={{ padding: '10px 20px', background: '#FF6B00', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>+ Шинэ машин</button>
+      </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 12, marginBottom: 20 }}>
         {[
-          { label: 'Нийт', value: items.length, color: '#FF6B00' },
-          { label: 'Бэлэн', value: items.filter(m => m.status === 'available').length, color: '#10B981' },
-          { label: 'Ачаалалтай', value: items.filter(m => m.status === 'busy').length, color: '#F59E0B' },
+          { label: 'Нийт', value: totalMachines, color: '#FF6B00' },
+          { label: 'Бэлэн', value: available, color: '#10B981' },
+          { label: 'Ачаалалтай', value: busy, color: '#F59E0B' },
           { label: 'Засвартай', value: items.filter(m => m.status === 'maintenance').length, color: '#EF4444' },
         ].map(s => (
-          <div key={s.label} className="rounded-xl border border-border bg-card px-4 py-3.5" style={{ borderTopWidth: 3, borderTopColor: s.color }}>
-            <div className="text-xl font-bold" style={{ color: s.color }}>{s.value}</div>
-            <div className="text-xs text-muted-foreground mt-0.5">{s.label}</div>
+          <div key={s.label} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, padding: '14px 16px', borderTop: `3px solid ${s.color}` }}>
+            <div style={{ fontSize: 22, fontWeight: 700, color: s.color }}>{s.value}</div>
+            <div style={{ fontSize: 12, color: 'var(--text2)', marginTop: 2 }}>{s.label}</div>
           </div>
         ))}
       </div>
 
-      <div className="rounded-xl border border-border bg-card overflow-hidden">
-        <AdminDataTable data={items} columns={columns} loading={loading} searchKeys={['name', 'type']} searchPlaceholder="Машин хайх..." emptyIcon="⚙️" emptyText="Машин бүртгэгдээгүй" />
-      </div>
-
-      {/* Dialog */}
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader><DialogTitle>{editing?.id ? 'Машин засах' : 'Шинэ машин'}</DialogTitle></DialogHeader>
-          <div className="grid grid-cols-3 gap-4 mt-4">
-            <div><Label className="text-xs">Нэр</Label><Input value={form.name} onChange={e => setForm({...form, name: e.target.value})} className="mt-1.5" placeholder="Epson L1300" /></div>
-            <div><Label className="text-xs">Төрөл</Label><Input value={form.type} onChange={e => setForm({...form, type: e.target.value})} className="mt-1.5" placeholder="Inkjet / Offset" /></div>
-            <div><Label className="text-xs">Төлөв</Label>
-              <select value={form.status} onChange={e => setForm({...form, status: e.target.value})} className="mt-1.5 w-full rounded-md border border-input bg-background px-3 py-2 text-sm">
+      {/* Form */}
+      {editing !== null && (
+        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, padding: 24, marginBottom: 24 }}>
+          <h3 style={{ fontSize: 16, fontWeight: 600, margin: '0 0 16px' }}>{editing?.id ? 'Машин засах' : 'Шинэ машин'}</h3>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 14 }} className="form-row">
+            <div><label style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 6, display: 'block' }}>Нэр</label><input value={form.name} onChange={e => setForm({...form, name: e.target.value})} style={inp} placeholder="Epson L1300" /></div>
+            <div><label style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 6, display: 'block' }}>Төрөл</label><input value={form.type} onChange={e => setForm({...form, type: e.target.value})} style={inp} placeholder="Inkjet / Offset / Digital" /></div>
+            <div><label style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 6, display: 'block' }}>Төлөв</label>
+              <select value={form.status} onChange={e => setForm({...form, status: e.target.value})} style={inp}>
                 <option value="available">Бэлэн</option><option value="busy">Ачаалалтай</option><option value="maintenance">Засвартай</option><option value="offline">Офлайн</option>
               </select>
             </div>
-            <div><Label className="text-xs">Хурд (хуудас/цаг)</Label><Input type="number" value={form.speed_per_hour} onChange={e => setForm({...form, speed_per_hour: +e.target.value})} className="mt-1.5" /></div>
-            <div><Label className="text-xs">Өргөн (мм)</Label><Input type="number" value={form.sheet_width_mm} onChange={e => setForm({...form, sheet_width_mm: +e.target.value})} className="mt-1.5" /></div>
-            <div><Label className="text-xs">Өндөр (мм)</Label><Input type="number" value={form.sheet_height_mm} onChange={e => setForm({...form, sheet_height_mm: +e.target.value})} className="mt-1.5" /></div>
-            <div><Label className="text-xs">Цагийн төлбөр (₮)</Label><Input type="number" value={form.hour_rate} onChange={e => setForm({...form, hour_rate: +e.target.value})} className="mt-1.5" /></div>
-            <div><Label className="text-xs">Үйлдвэр ID</Label><Input value={form.factory_id} onChange={e => setForm({...form, factory_id: e.target.value})} className="mt-1.5" /></div>
+            <div><label style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 6, display: 'block' }}>Хурд (хуудас/цаг)</label><input type="number" value={form.speed_per_hour} onChange={e => setForm({...form, speed_per_hour: +e.target.value})} style={inp} /></div>
+            <div><label style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 6, display: 'block' }}>Хуудас өргөн (мм)</label><input type="number" value={form.sheet_width_mm} onChange={e => setForm({...form, sheet_width_mm: +e.target.value})} style={inp} /></div>
+            <div><label style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 6, display: 'block' }}>Хуудас өндөр (мм)</label><input type="number" value={form.sheet_height_mm} onChange={e => setForm({...form, sheet_height_mm: +e.target.value})} style={inp} /></div>
+            <div><label style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 6, display: 'block' }}>Цагийн төлбөр (₮)</label><input type="number" value={form.hour_rate} onChange={e => setForm({...form, hour_rate: +e.target.value})} style={inp} /></div>
+            <div><label style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 6, display: 'block' }}>Үйлдвэр ID</label><input value={form.factory_id} onChange={e => setForm({...form, factory_id: e.target.value})} style={inp} /></div>
           </div>
-          <div className="flex justify-end gap-2 mt-4">
-            <Button variant="outline" onClick={reset}>Болих</Button>
-            <Button onClick={save}>Хадгалах</Button>
+          <div style={{ display: 'flex', gap: 10, marginTop: 18 }}>
+            <button onClick={save} style={{ padding: '10px 24px', background: '#FF6B00', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>Хадгалах</button>
+            <button onClick={reset} style={{ padding: '10px 24px', background: 'var(--surface2)', color: 'var(--text2)', border: '1px solid var(--border)', borderRadius: 8, cursor: 'pointer', fontSize: 13 }}>Болих</button>
           </div>
-        </DialogContent>
-      </Dialog>
+        </div>
+      )}
+
+      {/* Table */}
+      <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden' }} className="table-scroll">
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+          <thead><tr style={{ background: 'var(--surface2)' }}>{['Нэр', 'Төрөл', 'Хурд', 'Хэмжээ (мм)', 'Цагийн төлбөр', 'Төлөв', 'Үйлдэл'].map(h => <th key={h} style={{ padding: '10px 16px', textAlign: 'left', color: 'var(--text2)', fontWeight: 500, whiteSpace: 'nowrap' }}>{h}</th>)}</tr></thead>
+          <tbody>
+            {loading ? <tr><td colSpan={7} style={{ padding: 32, textAlign: 'center', color: 'var(--text2)' }}>Уншиж байна...</td></tr>
+            : items.length === 0 ? <tr><td colSpan={7} style={{ padding: 32, textAlign: 'center', color: 'var(--text2)' }}>Машин бүртгэгдээгүй</td></tr>
+            : items.map(m => {
+              const st = STATUS_CLR[m.status] || { label: m.status, color: '#888' }
+              return (
+                <tr key={m.id} style={{ borderTop: '1px solid var(--border)' }}>
+                  <td style={{ padding: '10px 16px', fontWeight: 500 }}>{m.name || '—'}</td>
+                  <td style={{ padding: '10px 16px' }}><span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 6, background: 'rgba(59,130,246,0.1)', color: '#3B82F6' }}>{m.type || '—'}</span></td>
+                  <td style={{ padding: '10px 16px', color: 'var(--text2)' }}>{m.speed_per_hour ? `${m.speed_per_hour} хуудас/цаг` : '—'}</td>
+                  <td style={{ padding: '10px 16px', color: 'var(--text2)' }}>{m.sheet_width_mm && m.sheet_height_mm ? `${m.sheet_width_mm}×${m.sheet_height_mm}` : '—'}</td>
+                  <td style={{ padding: '10px 16px', color: '#FF6B00', fontWeight: 600 }}>₮{Number(m.hour_rate || 0).toLocaleString()}</td>
+                  <td style={{ padding: '10px 16px' }}><span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 99, background: st.color + '15', color: st.color, fontWeight: 600 }}>{st.label}</span></td>
+                  <td style={{ padding: '10px 16px' }}><div style={{ display: 'flex', gap: 6 }}>
+                    <button onClick={() => edit(m)} style={{ padding: '5px 12px', background: 'rgba(59,130,246,0.1)', color: '#3B82F6', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 12 }}>Засах</button>
+                    <button onClick={() => del(m.id)} style={{ padding: '5px 12px', background: 'rgba(239,68,68,0.1)', color: '#EF4444', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 12 }}>Устгах</button>
+                  </div></td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
     </div>
   )
 }

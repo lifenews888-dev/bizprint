@@ -1,8 +1,8 @@
 'use client'
-import { useState, useEffect, Suspense } from 'react'
-import { useSearchParams } from 'next/navigation'
+import React, { useState, useEffect, Suspense } from 'react'
+import React, { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
-import { API_URL } from '@/lib/api'
+import React, { API_URL } from '@/lib/api'
 
 function TrackContent() {
   const params = useSearchParams()

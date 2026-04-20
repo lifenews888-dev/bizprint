@@ -1,5 +1,6 @@
-import { useState, useRef, useCallback } from 'react'
-import { useChatStore } from '@/stores/chat.store'
+'use client'
+import React, { useState, useRef, useCallback } from 'react'
+import React, { useChatStore } from '@/stores/chat.store'
 
 export default function MessageInput() {
   const { activeRoomId, sendMessage, emitTyping, emitStopTyping, handleFileUpload, uploading } = useChatStore()

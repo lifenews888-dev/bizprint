@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
-import { useParams, useRouter } from 'next/navigation';
-import { apiFetch } from '@/lib/api';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useParams, useRouter } from 'next/navigation';
+import React, { apiFetch } from '@/lib/api';
 
 interface ProofVersion {
   id: string; version: number; fileUrl: string;

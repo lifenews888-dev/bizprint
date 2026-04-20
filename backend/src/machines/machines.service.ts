@@ -28,6 +28,11 @@ export class MachinesService {
     return this.machineRepo.findOne({ where: { id } })
   }
 
+  async updateMachine(id: number, data: any) {
+    await this.machineRepo.update(id, data)
+    return this.machineRepo.findOne({ where: { id } })
+  }
+
   async deleteMachine(id: number) {
     await this.machineRepo.delete(id)
     return { message: 'Машин устгагдлаа' }

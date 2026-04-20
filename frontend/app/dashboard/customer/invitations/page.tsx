@@ -1,6 +1,6 @@
 'use client'
-import { useState, useEffect } from 'react'
-import { apiFetch } from '@/lib/api'
+import React, { useState, useEffect } from 'react'
+import React, { apiFetch } from '@/lib/api'
 import UpgradeModal from '@/components/UpgradeModal'
 
 const FONT = "'DM Sans','Segoe UI',system-ui,sans-serif"

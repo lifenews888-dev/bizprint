@@ -1,13 +1,10 @@
 'use client'
-import { apiFetch, getToken } from '@/lib/api'
-import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
-import DashboardLayout from '@/components/layouts/DashboardLayout'
-import KpiCard from '@/components/dashboard/KpiCard'
-import { useRoleGuard } from '@/lib/use-role-guard'
-import { SALES_MENU } from '@/config/sidebar-config'
+import React, { useEffect, useState } from 'react'
+import React, { useRouter } from 'next/navigation'
+import NotificationBell from '@/components/NotificationBell'
 
-const BASE_URL = typeof window !== 'undefined' ? window.location.origin : (process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000')
+const API = 'http://localhost:4000'
+const BASE_URL = 'http://localhost:3000'
 
 interface ReferralData {
   code: string
@@ -33,17 +30,20 @@ interface User {
 }
 
 const ST_MN: Record<string, string> = {
-  pending: '\u0425\u04af\u043b\u044d\u044d\u0433\u0434\u044d\u0436 \u0431\u0430\u0439\u043d\u0430',
-  paid: '\u0422\u04e9\u043b\u04e9\u0433\u0434\u0441\u04e9\u043d',
-  in_production: '\u0425\u044d\u0432\u043b\u044d\u0436 \u0431\u0430\u0439\u043d\u0430',
-  completed: '\u0414\u0443\u0443\u0441\u0441\u0430\u043d',
-  shipped: '\u0425\u04af\u0440\u0433\u044d\u0433\u0434\u0441\u044d\u043d',
-  cancelled: '\u0426\u0443\u0446\u043b\u0430\u0433\u0434\u0441\u0430\u043d',
+  pending:       'Хүлээгдэж байна',
+  paid:          'Төлөгдсөн',
+  in_production: 'Хэвлэж байна',
+  completed:     'Дууссан',
+  shipped:       'Хүргэгдсэн',
+  cancelled:     'Цуцлагдсан',
 }
 const ST_CLR: Record<string, string> = {
   pending: '#F59E0B', paid: '#378ADD', in_production: '#8B5CF6',
   completed: '#10B981', shipped: '#1D9E75', cancelled: '#e24b4a',
 }
+
+function tok() { return localStorage.getItem('access_token') || localStorage.getItem('token') || '' }
+function hdrs() { return { 'Content-Type': 'application/json', Authorization: 'Bearer ' + tok() } }
 
 function QRCode({ code }: { code: string }) {
   const cells: boolean[] = []
@@ -71,7 +71,6 @@ function QRCode({ code }: { code: string }) {
 
 export default function SalesDashboard() {
   const router = useRouter()
-  const { user: guardUser, loading: authLoading } = useRoleGuard(['sales', 'admin'])
   const [user, setUser]         = useState<User | null>(null)
   const [referral, setReferral] = useState<ReferralData | null>(null)
   const [orders, setOrders]     = useState<Order[]>([])
@@ -79,15 +78,15 @@ export default function SalesDashboard() {
   const [copied, setCopied]     = useState(false)
 
   useEffect(() => {
-    if (authLoading) return
     const ud = localStorage.getItem('user')
-    const tk = getToken()
+    const tk = tok()
     if (!ud || !tk) { router.push('/login'); return }
     const u = JSON.parse(ud)
+    if (u.role !== 'sales' && u.role !== 'admin') { router.push('/login'); return }
     setUser(u)
     Promise.all([
-      apiFetch<any>('/referral/my').catch(() => null),
-      apiFetch<any>('/orders/customer/' + u.id).catch(() => []),
+      fetch(API + '/referral/my', { headers: hdrs() }).then(r => r.ok ? r.json() : null),
+      fetch(API + '/orders/customer/' + u.id, { headers: hdrs() }).then(r => r.ok ? r.json() : []),
     ]).then(([ref, ord]) => {
       if (ref) setReferral(ref)
       setOrders(Array.isArray(ord) ? ord : [])
@@ -113,27 +112,53 @@ export default function SalesDashboard() {
     </div>
   )
 
-  if (authLoading) return <div style={{ minHeight: '100vh', background: 'var(--bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text2)' }}>Ачааллаж байна...</div>
-
   return (
-    <DashboardLayout navGroups={SALES_MENU} user={user || guardUser || undefined}>
+    <div style={{ minHeight: '100vh', background: 'var(--bg)', fontFamily: "'Segoe UI',system-ui,sans-serif", color: 'var(--text)' }}>
+
+      {/* Topbar */}
+      <div style={{ background: 'var(--surface)', borderBottom: '1px solid var(--border)', padding: '0 32px', height: 54, display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, zIndex: 10 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <span style={{ fontSize: 16, fontWeight: 700 }}><span style={{ color: '#FF6B00' }}>Biz</span>Print</span>
+          <span style={{ fontSize: 11, background: 'rgba(255,107,0,0.1)', color: '#FF6B00', border: '1px solid rgba(255,107,0,0.3)', borderRadius: 20, padding: '2px 10px' }}>Борлуулагч</span>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <span style={{ fontSize: 13, color: 'var(--text2)' }}>{user?.full_name}</span>
+          <NotificationBell userId={user?.id} />
+          <button onClick={() => { localStorage.clear(); router.push('/') }}
+            style={{ ...inp, cursor: 'pointer', fontSize: 12 }}>
+            Гарах
+          </button>
+        </div>
+      </div>
+
+      <div style={{ padding: '28px 32px', maxWidth: 1100, margin: '0 auto' }}>
+
+        {/* Title */}
         <div style={{ marginBottom: 24 }}>
-          <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>Борлуулалтын удирдлага</h1>
-          <p style={{ color: 'var(--text2)', fontSize: 13, margin: '4px 0 0' }}>Referral линк, комисс, захиалгын хяналт</p>
+          <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>Борлуулалтын хяналтын самбар</h1>
+          <p style={{ color: 'var(--text2)', fontSize: 13, margin: '4px 0 0' }}>Рефэрал линк, комисс, захиалгын хяналт</p>
         </div>
 
-        <KpiCard items={[
-          { label: 'Нийт захиалга', value: orders.length, color: 'orange', icon: '📋' },
-          { label: 'Дууссан', value: orders.filter(o=>o.status==='completed').length, color: 'green', icon: '✅' },
-          { label: 'Нийт орлого', value: totalRev.toLocaleString()+'₮', color: 'blue', icon: '💰' },
-          { label: 'Комисс ('+(referral?.commission_rate||10)+'%)', value: commission.toLocaleString()+'₮', color: 'purple', icon: '🎯' },
-        ]} />
+        {/* Stats */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 14, marginBottom: 24 }}>
+          {[
+            { label: 'Нийт захиалга',  val: orders.length,                        color: '#FF6B00' },
+            { label: 'Дууссан',        val: orders.filter(o=>o.status==='completed').length, color: '#10B981' },
+            { label: 'Нийт орлого',    val: totalRev.toLocaleString()+'₮',         color: '#378ADD' },
+            { label: 'Комисс ('+(referral?.commission_rate||10)+'%)', val: commission.toLocaleString()+'₮', color: '#8B5CF6' },
+          ].map(s => (
+            <div key={s.label} style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:12, padding:'18px 20px', borderTop:'3px solid '+s.color }}>
+              <div style={{ fontSize:22, fontWeight:700, color:s.color }}>{s.val}</div>
+              <div style={{ fontSize:12, color:'var(--text2)', marginTop:4 }}>{s.label}</div>
+            </div>
+          ))}
+        </div>
 
         <div style={{ display:'grid', gridTemplateColumns:'1fr 300px', gap:20, marginBottom:24 }}>
 
           {/* Referral card */}
           <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:12, padding:24 }}>
-            <div style={{ fontWeight:700, fontSize:15, marginBottom:4 }}>Таны Referral линк</div>
+            <div style={{ fontWeight:700, fontSize:15, marginBottom:4 }}>Таны Рефэрал линк</div>
             <div style={{ fontSize:12, color:'var(--text2)', marginBottom:20 }}>Энэ линкээр бүртгүүлсэн хэрэглэгч бүрт комисс авна</div>
 
             {referral ? (
@@ -162,7 +187,7 @@ export default function SalesDashboard() {
                 <div style={{ display:'flex', gap:8, marginBottom:16 }}>
                   {[
                     { label:'📘 Facebook', color:'#1877F2', href:'https://facebook.com/sharer/sharer.php?u='+encodeURIComponent(refLink) },
-                    { label:'✉️ Email', color:'#6366F1', href:'mailto:?body='+encodeURIComponent(refLink) },
+                    { label:'✉️ Имэйл', color:'#6366F1', href:'mailto:?body='+encodeURIComponent(refLink) },
                   ].map(s=>(
                     <a key={s.label} href={s.href} target="_blank" rel="noreferrer"
                       style={{ flex:1, textAlign:'center', padding:'8px', background:s.color+'15', border:'1px solid '+s.color+'44', borderRadius:8, fontSize:12, fontWeight:600, color:s.color, textDecoration:'none' }}>
@@ -185,7 +210,7 @@ export default function SalesDashboard() {
               </>
             ) : (
               <div style={{ padding:24, textAlign:'center', color:'var(--text2)', background:'var(--surface2)', borderRadius:8 }}>
-                Referral мэдээлэл байхгүй байна
+                Рефэрал мэдээлэл байхгүй байна
               </div>
             )}
           </div>
@@ -237,6 +262,7 @@ export default function SalesDashboard() {
             </div>
           ))}
         </div>
-    </DashboardLayout>
+      </div>
+    </div>
   )
 }

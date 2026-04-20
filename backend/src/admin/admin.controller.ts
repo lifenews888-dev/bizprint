@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Delete, Param, Body, UseGuards } from '@nestjs/common';
+﻿import { Controller, Get, Post, Patch, Delete, Param, Body, UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AdminGuard } from './admin.guard';
 import { AdminService } from './admin.service';
@@ -17,11 +17,13 @@ export class AdminController {
   }
 
   @Patch('users/:id')
+  @UseGuards(JwtAuthGuard)
   updateUser(@Param('id') id: string, @Body() body: any) {
     return this.adminService.updateUser(id, body)
   }
 
   @Delete('users/:id')
+  @UseGuards(JwtAuthGuard)
   deleteUser(@Param('id') id: string) {
     return this.adminService.deleteUser(id)
   }
@@ -35,23 +37,20 @@ export class AdminController {
   @Get('vendors')
   getVendors() { return this.adminService.getVendors() }
 
-  @Get('machines')
-  getMachines() { return this.adminService.getMachines() }
-
-  @Get('orders')
-  getOrders() { return this.adminService.getOrders() }
-
-  @Get('production')
-  getProductionJobs() { return this.adminService.getProductionJobs() }
-
   @Get('stats')
   getStats() { return this.adminService.getStats() }
 
+  @Get('role-requests')
+  @UseGuards(JwtAuthGuard)
+  getRoleRequests() { return this.adminService.getRoleRequests() }
+
+  @Patch('users/:id/reject-role')
+  @UseGuards(JwtAuthGuard)
+  rejectRole(@Param('id') id: string) { return this.adminService.rejectRole(id) }
+
   // ─── Verification Management ───
   @Get('users/pending-verification')
-  getPendingVerifications() {
-    return this.adminService.getPendingVerifications()
-  }
+  getPendingVerifications() { return this.adminService.getPendingVerifications() }
 
   @Patch('users/:id/verify')
   verifyUser(@Param('id') id: string, @Body() body: { status: string; note?: string; verified_by?: string }) {

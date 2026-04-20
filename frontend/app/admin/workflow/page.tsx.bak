@@ -1,0 +1,312 @@
+'use client'
+import { useState, useEffect } from 'react'
+
+const API = 'http://localhost:4000'
+const getHeaders = () => ({ 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token')}` })
+
+const STAGES = [
+  { key: 'pending', label: 'Хүлээгдэж буй', color: '#F59E0B', icon: '📝' },
+  { key: 'designing', label: 'Дизайн', color: '#8B5CF6', icon: '🎨' },
+  { key: 'prepress', label: 'Prepress', color: '#06B6D4', icon: '🔍' },
+  { key: 'printing', label: 'Хэвлэл', color: '#EC4899', icon: '🖨️' },
+  { key: 'finishing', label: 'Finishing', color: '#3B82F6', icon: '✂️' },
+  { key: 'qc', label: 'QC шалгалт', color: '#F97316', icon: '✅' },
+  { key: 'ready', label: 'Бэлэн', color: '#10B981', icon: '📦' },
+  { key: 'delivering', label: 'Хүргэлтэнд', color: '#6366F1', icon: '🚚' },
+  { key: 'completed', label: 'Дууссан', color: '#059669', icon: '🏁' },
+]
+
+const ORDER_STATUS: Record<string, { label: string; color: string }> = {}
+STAGES.forEach(s => { ORDER_STATUS[s.key] = { label: s.label, color: s.color } })
+ORDER_STATUS['paid'] = { label: 'Төлөгдсөн', color: '#3B82F6' }
+ORDER_STATUS['in_production'] = { label: 'Үйлдвэрлэлд', color: '#EC4899' }
+ORDER_STATUS['in_design'] = { label: 'Дизайнд', color: '#8B5CF6' }
+ORDER_STATUS['shipped'] = { label: 'Хүргэгдсэн', color: '#10B981' }
+ORDER_STATUS['delivered'] = { label: 'Хүргэгдсэн', color: '#059669' }
+ORDER_STATUS['cancelled'] = { label: 'Цуцлагдсан', color: '#EF4444' }
+
+export default function AdminWorkflowPage() {
+  const [orders, setOrders] = useState<any[]>([])
+  const [jobs, setJobs] = useState<any[]>([])
+  const [deliveries, setDeliveries] = useState<any[]>([])
+  const [machines, setMachines] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [view, setView] = useState<'pipeline' | 'table' | 'delivery'>('pipeline')
+  const [filter, setFilter] = useState('')
+  const [detail, setDetail] = useState<any>(null)
+
+  const load = () => {
+    setLoading(true)
+    Promise.all([
+      fetch(`${API}/orders`, { headers: getHeaders() }).then(r => r.json()).catch(() => []),
+      fetch(`${API}/production-jobs`, { headers: getHeaders() }).then(r => r.json()).catch(() => []),
+      fetch(`${API}/delivery`, { headers: getHeaders() }).then(r => r.json()).catch(() => []),
+      fetch(`${API}/machines`, { headers: getHeaders() }).then(r => r.json()).catch(() => []),
+    ]).then(([o, j, d, m]) => {
+      setOrders(Array.isArray(o) ? o : [])
+      setJobs(Array.isArray(j) ? j : [])
+      setDeliveries(Array.isArray(d) ? d : [])
+      setMachines(Array.isArray(m) ? m : [])
+    }).finally(() => setLoading(false))
+  }
+  useEffect(load, [])
+
+  // Map jobs to orders
+  const orderJobMap: Record<string, any> = {}
+  jobs.forEach(j => { if (j.order?.id || j.order_id) orderJobMap[j.order?.id || j.order_id] = j })
+
+  const getStage = (o: any) => {
+    const s = o.status
+    if (s === 'cancelled') return 'cancelled'
+    if (s === 'delivered' || s === 'completed') return 'completed'
+    if (s === 'shipped' || s === 'delivering') return 'delivering'
+    if (s === 'ready') return 'ready'
+    if (s === 'in_production' || s === 'printing') return 'printing'
+    if (s === 'in_design' || s === 'designing') return 'designing'
+    if (s === 'paid' || s === 'scheduled') return 'prepress'
+    return 'pending'
+  }
+
+  const stageCounts: Record<string, number> = {}
+  const stageOrders: Record<string, any[]> = {}
+  STAGES.forEach(s => { stageCounts[s.key] = 0; stageOrders[s.key] = [] })
+  orders.forEach(o => {
+    const st = getStage(o)
+    if (stageCounts[st] !== undefined) { stageCounts[st]++; stageOrders[st].push(o) }
+  })
+
+  const filtered = filter ? orders.filter(o => getStage(o) === filter) : orders.filter(o => o.status !== 'cancelled')
+  const activeOrders = orders.filter(o => !['completed', 'delivered', 'cancelled'].includes(o.status))
+
+  const updateOrderStatus = async (id: string, status: string) => {
+    await fetch(`${API}/orders/${id}/status`, { method: 'PATCH', headers: getHeaders(), body: JSON.stringify({ status }) })
+    load()
+  }
+
+  const assignMachine = async (jobId: number, machineId: number) => {
+    await fetch(`${API}/production/${jobId}/assign`, { method: 'PATCH', headers: getHeaders(), body: JSON.stringify({ machine_id: machineId }) }).catch(() => {})
+    await fetch(`${API}/production-jobs/${jobId}/status`, { method: 'PATCH', headers: getHeaders(), body: JSON.stringify({ status: 'in_progress' }) }).catch(() => {})
+    load()
+  }
+
+  const startProduction = async (orderId: string) => {
+    await fetch(`${API}/production-jobs/from-order/${orderId}`, { method: 'POST', headers: getHeaders() }).catch(() => {})
+    await updateOrderStatus(orderId, 'in_production')
+  }
+
+  const createDelivery = async (order: any) => {
+    await fetch(`${API}/delivery`, { method: 'POST', headers: getHeaders(), body: JSON.stringify({ order_id: order.id, address: order.notes || '', status: 'pending' }) }).catch(() => {})
+    await updateOrderStatus(order.id, 'shipped')
+  }
+
+  const st = (status: string) => ORDER_STATUS[status] || { label: status, color: '#888' }
+
+  if (loading) return <div style={{ padding: 60, textAlign: 'center', color: 'var(--text2)', fontFamily: "'DM Sans',system-ui,sans-serif" }}>Ачаалж байна...</div>
+
+  return (
+    <div style={{ padding: 24, fontFamily: "'DM Sans','Segoe UI',system-ui,sans-serif" }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
+        <div>
+          <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>Production Workflow</h1>
+          <p style={{ color: 'var(--text2)', fontSize: 13, margin: '4px 0 0' }}>Захиалга → Дизайн → Prepress → Хэвлэл → QC → Хүргэлт → Дууссан</p>
+        </div>
+        <div style={{ display: 'flex', gap: 6 }}>
+          {(['pipeline', 'table', 'delivery'] as const).map(v => (
+            <button key={v} onClick={() => { setView(v); setFilter('') }} style={{ padding: '7px 16px', borderRadius: 8, border: 'none', fontSize: 12, fontWeight: 500, cursor: 'pointer', background: view === v ? '#FF6B00' : 'var(--surface)', color: view === v ? '#fff' : 'var(--text2)', border: view === v ? 'none' : '1px solid var(--border)' }}>
+              {v === 'pipeline' ? 'Pipeline' : v === 'table' ? 'Хүснэгт' : `Хүргэлт (${deliveries.length})`}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* KPI */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: 8, marginBottom: 20 }}>
+        {[
+          { label: 'Идэвхтэй', value: activeOrders.length, color: '#FF6B00' },
+          { label: 'Хэвлэлд', value: stageCounts.printing, color: '#EC4899' },
+          { label: 'Хүргэлтэнд', value: stageCounts.delivering, color: '#6366F1' },
+          { label: 'Дууссан', value: stageCounts.completed, color: '#059669' },
+          { label: 'Машин', value: machines.length, color: '#3B82F6' },
+          { label: 'Нийт', value: orders.length, color: '#888' },
+        ].map(k => (
+          <div key={k.label} style={{ background: 'var(--surface)', borderLeft: `3px solid ${k.color}`, borderRadius: '0 8px 8px 0', padding: '10px 14px', border: '1px solid var(--border)', borderLeftWidth: 3, borderLeftColor: k.color }}>
+            <div style={{ fontSize: 20, fontWeight: 700, color: k.color }}>{k.value}</div>
+            <div style={{ fontSize: 11, color: 'var(--text3)' }}>{k.label}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* PIPELINE VIEW */}
+      {view === 'pipeline' && (
+        <div style={{ display: 'flex', gap: 10, overflowX: 'auto', paddingBottom: 12 }}>
+          {STAGES.filter(s => s.key !== 'cancelled').map(stage => (
+            <div key={stage.key} style={{ minWidth: 220, maxWidth: 260, flex: '0 0 auto', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, overflow: 'hidden' }}>
+              <div style={{ padding: '10px 14px', borderBottom: `2px solid ${stage.color}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: 13, fontWeight: 600 }}>{stage.icon} {stage.label}</span>
+                <span style={{ fontSize: 12, fontWeight: 700, color: stage.color }}>{stageCounts[stage.key]}</span>
+              </div>
+              <div style={{ padding: 8, maxHeight: 400, overflowY: 'auto' }}>
+                {stageOrders[stage.key].length === 0 ? (
+                  <div style={{ padding: 16, textAlign: 'center', color: 'var(--text3)', fontSize: 12 }}>Хоосон</div>
+                ) : stageOrders[stage.key].slice(0, 10).map(o => (
+                  <div key={o.id} onClick={() => setDetail(o)} style={{ padding: '10px 12px', marginBottom: 6, background: 'var(--surface2)', borderRadius: 8, cursor: 'pointer', fontSize: 12, transition: 'all 0.15s', borderLeft: `3px solid ${stage.color}` }}
+                    onMouseEnter={e => (e.currentTarget.style.background = 'var(--surface3)')}
+                    onMouseLeave={e => (e.currentTarget.style.background = 'var(--surface2)')}>
+                    <div style={{ fontWeight: 600, marginBottom: 3, fontSize: 13 }}>{o.product_name || 'Захиалга'}</div>
+                    <div style={{ color: 'var(--text3)' }}>{o.customer_name || '—'} · {o.quantity}ш</div>
+                    <div style={{ color: '#FF6B00', fontWeight: 600, marginTop: 3 }}>₮{Number(o.total_price || 0).toLocaleString()}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* TABLE VIEW */}
+      {view === 'table' && (
+        <>
+          <div style={{ display: 'flex', gap: 6, marginBottom: 14, flexWrap: 'wrap' }}>
+            <button onClick={() => setFilter('')} style={{ padding: '5px 14px', borderRadius: 6, border: 'none', fontSize: 11, cursor: 'pointer', background: !filter ? '#FF6B00' : 'var(--surface2)', color: !filter ? '#fff' : 'var(--text2)' }}>Бүгд ({orders.length})</button>
+            {STAGES.map(s => (
+              <button key={s.key} onClick={() => setFilter(s.key)} style={{ padding: '5px 14px', borderRadius: 6, border: 'none', fontSize: 11, cursor: 'pointer', background: filter === s.key ? s.color + '20' : 'var(--surface2)', color: filter === s.key ? s.color : 'var(--text2)' }}>
+                {s.icon} {s.label} ({stageCounts[s.key]})
+              </button>
+            ))}
+          </div>
+          <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+              <thead><tr style={{ background: 'var(--surface2)' }}>
+                {['Захиалга', 'Хэрэглэгч', 'Бүтээгдэхүүн', 'Тоо', 'Дүн', 'Төлөв', 'Үйлдэл'].map(h =>
+                  <th key={h} style={{ padding: '9px 12px', textAlign: 'left', color: 'var(--text2)', fontWeight: 500, whiteSpace: 'nowrap' }}>{h}</th>
+                )}
+              </tr></thead>
+              <tbody>
+                {filtered.length === 0 ? <tr><td colSpan={7} style={{ padding: 32, textAlign: 'center', color: 'var(--text2)' }}>Захиалга байхгүй</td></tr>
+                : filtered.slice(0, 30).map(o => {
+                  const s = st(o.status)
+                  const stage = getStage(o)
+                  return (
+                    <tr key={o.id} style={{ borderTop: '1px solid var(--border)' }}>
+                      <td style={{ padding: '8px 12px', fontFamily: 'monospace', fontSize: 11, color: 'var(--text3)' }}>#{o.id?.slice(0, 8)}</td>
+                      <td style={{ padding: '8px 12px' }}><div style={{ fontWeight: 500 }}>{o.customer_name || '—'}</div><div style={{ fontSize: 11, color: 'var(--text3)' }}>{o.customer_phone || ''}</div></td>
+                      <td style={{ padding: '8px 12px' }}>{o.product_name || '—'}</td>
+                      <td style={{ padding: '8px 12px', color: 'var(--text2)' }}>{o.quantity}</td>
+                      <td style={{ padding: '8px 12px', color: '#FF6B00', fontWeight: 600 }}>₮{Number(o.total_price || 0).toLocaleString()}</td>
+                      <td style={{ padding: '8px 12px' }}>
+                        <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 99, background: s.color + '15', color: s.color, fontWeight: 600 }}>{s.label}</span>
+                      </td>
+                      <td style={{ padding: '8px 12px' }}>
+                        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                          <button onClick={() => setDetail(o)} style={{ padding: '3px 8px', background: 'rgba(59,130,246,0.1)', color: '#3B82F6', border: 'none', borderRadius: 4, cursor: 'pointer', fontSize: 10 }}>Харах</button>
+                          {stage === 'pending' && <button onClick={() => updateOrderStatus(o.id, 'paid')} style={{ padding: '3px 8px', background: 'rgba(16,185,129,0.1)', color: '#10B981', border: 'none', borderRadius: 4, cursor: 'pointer', fontSize: 10 }}>Төлбөр ОК</button>}
+                          {(stage === 'prepress' || stage === 'pending') && <button onClick={() => startProduction(o.id)} style={{ padding: '3px 8px', background: 'rgba(236,72,153,0.1)', color: '#EC4899', border: 'none', borderRadius: 4, cursor: 'pointer', fontSize: 10 }}>Хэвлэлд</button>}
+                          {stage === 'printing' && <button onClick={() => updateOrderStatus(o.id, 'completed')} style={{ padding: '3px 8px', background: 'rgba(16,185,129,0.1)', color: '#10B981', border: 'none', borderRadius: 4, cursor: 'pointer', fontSize: 10 }}>Дууссан</button>}
+                          {(stage === 'ready' || stage === 'completed') && !deliveries.find(d => d.order_id === o.id) && <button onClick={() => createDelivery(o)} style={{ padding: '3px 8px', background: 'rgba(99,102,241,0.1)', color: '#6366F1', border: 'none', borderRadius: 4, cursor: 'pointer', fontSize: 10 }}>Хүргэлт</button>}
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+
+      {/* DELIVERY VIEW */}
+      {view === 'delivery' && (
+        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, overflow: 'hidden' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+            <thead><tr style={{ background: 'var(--surface2)' }}>
+              {['ID', 'Захиалга', 'Хаяг', 'Курьер', 'Төлөв', 'Огноо', 'Үйлдэл'].map(h =>
+                <th key={h} style={{ padding: '9px 12px', textAlign: 'left', color: 'var(--text2)', fontWeight: 500 }}>{h}</th>
+              )}
+            </tr></thead>
+            <tbody>
+              {deliveries.length === 0 ? <tr><td colSpan={7} style={{ padding: 32, textAlign: 'center', color: 'var(--text2)' }}>Хүргэлт байхгүй</td></tr>
+              : deliveries.map(d => (
+                <tr key={d.id} style={{ borderTop: '1px solid var(--border)' }}>
+                  <td style={{ padding: '8px 12px', fontFamily: 'monospace', fontSize: 11, color: 'var(--text3)' }}>#{String(d.id).slice(0, 8)}</td>
+                  <td style={{ padding: '8px 12px' }}>#{String(d.order_id || d.order?.id || '').slice(0, 8)}</td>
+                  <td style={{ padding: '8px 12px', color: 'var(--text2)', maxWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{d.address || '—'}</td>
+                  <td style={{ padding: '8px 12px' }}>{d.courier_name || '—'}</td>
+                  <td style={{ padding: '8px 12px' }}>
+                    <select value={d.status} onChange={async e => { await fetch(`${API}/delivery/${d.id}/status`, { method: 'PATCH', headers: getHeaders(), body: JSON.stringify({ status: e.target.value }) }); load() }}
+                      style={{ fontSize: 11, padding: '2px 6px', borderRadius: 4, border: '1px solid var(--border)', background: 'var(--surface2)', color: 'var(--text)', cursor: 'pointer' }}>
+                      {['pending', 'assigned', 'picked_up', 'in_transit', 'delivered'].map(s => <option key={s} value={s}>{s}</option>)}
+                    </select>
+                  </td>
+                  <td style={{ padding: '8px 12px', color: 'var(--text3)', fontSize: 11 }}>{d.created_at ? new Date(d.created_at).toLocaleDateString() : '—'}</td>
+                  <td style={{ padding: '8px 12px' }}>
+                    <button onClick={() => alert(JSON.stringify(d, null, 2))} style={{ padding: '3px 8px', background: 'rgba(59,130,246,0.1)', color: '#3B82F6', border: 'none', borderRadius: 4, cursor: 'pointer', fontSize: 10 }}>Дэлгэрэнгүй</button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* DETAIL MODAL */}
+      {detail && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 999, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => setDetail(null)}>
+          <div style={{ background: 'var(--surface)', borderRadius: 16, padding: 28, width: '100%', maxWidth: 560, border: '1px solid var(--border)', maxHeight: '85vh', overflow: 'auto' }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <h3 style={{ fontSize: 18, fontWeight: 600, margin: 0 }}>Захиалгын дэлгэрэнгүй</h3>
+              <span style={{ fontSize: 12, padding: '3px 10px', borderRadius: 99, background: st(detail.status).color + '15', color: st(detail.status).color, fontWeight: 600 }}>{st(detail.status).label}</span>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, fontSize: 13, marginBottom: 20 }}>
+              {[
+                ['ID', '#' + (detail.id?.slice(0, 12) || '')],
+                ['Бүтээгдэхүүн', detail.product_name],
+                ['Хэрэглэгч', detail.customer_name],
+                ['Утас', detail.customer_phone],
+                ['И-мэйл', detail.customer_email],
+                ['Тоо', detail.quantity],
+                ['Хэмжээ', detail.width_mm && detail.height_mm ? `${detail.width_mm}×${detail.height_mm}мм` : '—'],
+                ['Цаас', detail.paper_gsm ? detail.paper_gsm + 'gsm' : '—'],
+                ['Өнгө', detail.color_mode || '—'],
+                ['Нийт', `₮${Number(detail.total_price || 0).toLocaleString()}`],
+                ['Огноо', detail.created_at ? new Date(detail.created_at).toLocaleString() : '—'],
+                ['Файл', detail.file_url || '—'],
+              ].map(([k, v]) => (
+                <div key={k as string} style={{ padding: '6px 0', borderBottom: '1px solid var(--border)' }}>
+                  <div style={{ fontSize: 11, color: 'var(--text3)' }}>{k}</div>
+                  <div style={{ fontWeight: 500, wordBreak: 'break-all' }}>{v as string}</div>
+                </div>
+              ))}
+            </div>
+
+            <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8 }}>Төлөв шилжүүлэх</div>
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 16 }}>
+              {STAGES.map(s => (
+                <button key={s.key} onClick={() => { updateOrderStatus(detail.id, s.key); setDetail(null) }}
+                  style={{ padding: '5px 12px', borderRadius: 6, border: 'none', fontSize: 11, cursor: 'pointer', background: getStage(detail) === s.key ? s.color : s.color + '15', color: getStage(detail) === s.key ? '#fff' : s.color, fontWeight: 500 }}>
+                  {s.icon} {s.label}
+                </button>
+              ))}
+            </div>
+
+            {machines.length > 0 && (
+              <>
+                <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8 }}>Машин оноох</div>
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 16 }}>
+                  {machines.map(m => (
+                    <button key={m.id} onClick={() => { startProduction(detail.id); setDetail(null) }}
+                      style={{ padding: '5px 12px', borderRadius: 6, border: '1px solid var(--border)', fontSize: 11, cursor: 'pointer', background: 'var(--surface2)', color: 'var(--text)' }}>
+                      🖨️ {m.name}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+
+            <button onClick={() => setDetail(null)} style={{ width: '100%', padding: '10px', background: 'var(--surface2)', color: 'var(--text2)', border: '1px solid var(--border)', borderRadius: 8, cursor: 'pointer', fontSize: 13 }}>Хаах</button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}

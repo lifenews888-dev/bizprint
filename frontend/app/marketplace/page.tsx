@@ -1,277 +1,265 @@
 'use client'
-
-import { useState, useEffect, useMemo } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import SearchBar from '@/components/marketplace/SearchBar'
-import FilterPanel, { DEFAULT_FILTERS, type Filters } from '@/components/marketplace/FilterPanel'
-import CreatorCard, { type Creator } from '@/components/marketplace/CreatorCard'
-import { apiFetch } from '@/lib/api'
 
-/* ═══════════════════════════════════════
- *  CONSTANTS
- * ═══════════════════════════════════════ */
+const API = 'http://localhost:4000'
+const F   = "'DM Sans','Segoe UI',system-ui,sans-serif"
 
-const CREATOR_TYPES = [
-  { key: '', label: 'Бүгд', icon: '🎯' },
-  { key: 'social', label: 'Сошиал контент', icon: '📱' },
-  { key: 'print', label: 'Хэвлэл дизайн', icon: '🖨️' },
-  { key: 'live', label: 'Live борлуулалт', icon: '🔴' },
-  { key: 'ai', label: 'AI контент', icon: '🤖' },
-  { key: 'ugc', label: 'UGC контент', icon: '🎬' },
-]
+interface Creator {
+  id: string
+  full_name: string
+  avatar_url?: string
+  bio?: string
+  starting_price?: number
+  delivery_days?: number
+  service_categories?: string   // "Сошиал контент,Хэвлэл дизайн"
+  creator_tier?: string
+  creator_rating?: number
+  creator_completed?: number
+}
 
-const SORT_OPTIONS = [
-  { value: 'recommended', label: 'Санал болгох' },
-  { value: 'rating', label: 'Үнэлгээ' },
-  { value: 'price_low', label: 'Үнэ: Бага → Их' },
-  { value: 'price_high', label: 'Үнэ: Их → Бага' },
-  { value: 'delivery', label: 'Хурдан хүргэлт' },
-  { value: 'reviews', label: 'Шүүмж олонтой' },
-]
+const CATS = ['Бүгд','Сошиал контент','Хэвлэл дизайн','Live борлуулалт','AI контент','UGC контент']
 
-/* Demo data — replaced by API in production */
-const DEMO_CREATORS: Creator[] = [
-  { id: '1', name: 'Болор Б.', level: 'elite', rating: 4.9, reviewCount: 128, tags: ['Сошиал контент', 'Reels', 'TikTok'], startingPrice: 80000, deliveryDays: 2, matchScore: 95, type: 'social', completedJobs: 245, responseTime: '1 цаг' },
-  { id: '2', name: 'Тэмүүлэн О.', level: 'expert', rating: 4.8, reviewCount: 87, tags: ['Лого дизайн', 'Нэрийн хуудас', 'Брэндинг'], startingPrice: 120000, deliveryDays: 3, matchScore: 88, type: 'print', completedJobs: 180, responseTime: '2 цаг' },
-  { id: '3', name: 'Сарангэрэл Д.', level: 'pro', rating: 4.7, reviewCount: 64, tags: ['Live борлуулалт', 'Facebook', 'Бүтээгдэхүүн'], startingPrice: 200000, deliveryDays: 1, matchScore: 82, type: 'live', completedJobs: 95, responseTime: '30 мин' },
-  { id: '4', name: 'Ганбаатар М.', level: 'expert', rating: 4.9, reviewCount: 156, tags: ['AI контент', 'Midjourney', 'Зураг боловсруулалт'], startingPrice: 60000, deliveryDays: 1, matchScore: 91, type: 'ai', completedJobs: 320, responseTime: '1 цаг' },
-  { id: '5', name: 'Оюунтунгалаг Б.', level: 'pro', rating: 4.6, reviewCount: 42, tags: ['UGC видео', 'Бүтээгдэхүүн танилцуулга'], startingPrice: 150000, deliveryDays: 3, matchScore: 75, type: 'ugc', completedJobs: 67, responseTime: '3 цаг' },
-  { id: '6', name: 'Батбаяр Э.', level: 'elite', rating: 5.0, reviewCount: 203, tags: ['Постер', 'Баннер', 'Хэвлэл'], startingPrice: 100000, deliveryDays: 2, matchScore: 93, type: 'print', completedJobs: 410, responseTime: '45 мин' },
-  { id: '7', name: 'Номин С.', level: 'starter', rating: 4.3, reviewCount: 15, tags: ['Сошиал контент', 'Instagram'], startingPrice: 30000, deliveryDays: 4, type: 'social', completedJobs: 18, responseTime: '5 цаг' },
-  { id: '8', name: 'Энхтүвшин Л.', level: 'pro', rating: 4.5, reviewCount: 53, tags: ['AI контент', 'Копирайтинг', 'ChatGPT'], startingPrice: 45000, deliveryDays: 2, type: 'ai', completedJobs: 88, responseTime: '2 цаг' },
-  { id: '9', name: 'Мөнхзул Г.', level: 'expert', rating: 4.8, reviewCount: 91, tags: ['UGC видео', 'Unboxing', 'Review'], startingPrice: 180000, deliveryDays: 2, matchScore: 86, type: 'ugc', completedJobs: 142, responseTime: '1.5 цаг' },
-  { id: '10', name: 'Дэлгэрмаа Ц.', level: 'starter', rating: 4.1, reviewCount: 8, tags: ['Live борлуулалт', 'TikTok Shop'], startingPrice: 100000, deliveryDays: 1, type: 'live', completedJobs: 12, responseTime: '4 цаг' },
-  { id: '11', name: 'Ариунболд Н.', level: 'elite', rating: 4.9, reviewCount: 175, tags: ['Хэвлэл дизайн', 'Каталог', 'Брошюр'], startingPrice: 250000, deliveryDays: 4, matchScore: 78, type: 'print', completedJobs: 290, responseTime: '1 цаг' },
-  { id: '12', name: 'Цэцэгмаа А.', level: 'pro', rating: 4.6, reviewCount: 38, tags: ['Сошиал контент', 'YouTube', 'Thumbnail'], startingPrice: 55000, deliveryDays: 3, type: 'social', completedJobs: 55, responseTime: '2 цаг' },
-]
+const TIER_CLR: Record<string, { bg: string; text: string; border: string }> = {
+  Elite:   { bg: '#FFF7ED', text: '#EA580C', border: '#FDBA74' },
+  Expert:  { bg: '#F5F3FF', text: '#7C3AED', border: '#C4B5FD' },
+  Pro:     { bg: '#EFF6FF', text: '#2563EB', border: '#93C5FD' },
+  Starter: { bg: '#F0FDF4', text: '#16A34A', border: '#86EFAC' },
+}
 
-/* ═══════════════════════════════════════
- *  MARKETPLACE PAGE
- * ═══════════════════════════════════════ */
+function stars(r: number) {
+  return '★'.repeat(Math.round(r)) + '☆'.repeat(5 - Math.round(r))
+}
+
+function CreatorCard({ c, onClick }: { c: Creator; onClick: () => void }) {
+  const cats   = (c.service_categories || '').split(',').filter(Boolean).slice(0, 3)
+  const tier   = c.creator_tier || 'Starter'
+  const tc     = TIER_CLR[tier] || TIER_CLR.Starter
+  const initials = (c.full_name || '?').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()
+  const hue    = [...(c.id || 'x')].reduce((s, ch) => s + ch.charCodeAt(0), 0) % 360
+
+  return (
+    <div
+      onClick={onClick}
+      style={{ background: '#fff', border: '1px solid #E7E5E4', borderRadius: 16, padding: 20, cursor: 'pointer', transition: 'all .18s', fontFamily: F }}
+      onMouseEnter={e => { e.currentTarget.style.borderColor = '#FF6B00'; e.currentTarget.style.boxShadow = '0 6px 24px rgba(255,107,0,0.10)'; e.currentTarget.style.transform = 'translateY(-2px)' }}
+      onMouseLeave={e => { e.currentTarget.style.borderColor = '#E7E5E4'; e.currentTarget.style.boxShadow = 'none'; e.currentTarget.style.transform = 'none' }}
+    >
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, marginBottom: 12 }}>
+        {c.avatar_url ? (
+          <img src={c.avatar_url} alt={c.full_name} style={{ width: 48, height: 48, borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} />
+        ) : (
+          <div style={{ width: 48, height: 48, borderRadius: '50%', background: `hsl(${hue},70%,55%)`, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 700, fontSize: 18, flexShrink: 0 }}>
+            {initials}
+          </div>
+        )}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+            <span style={{ fontWeight: 700, fontSize: 15, color: '#1C1917' }}>{c.full_name}</span>
+            <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 99, background: tc.bg, color: tc.text, border: `1px solid ${tc.border}`, fontWeight: 700 }}>
+              {tier === 'Elite' ? '⭐ ' : ''}{tier}
+            </span>
+          </div>
+          <div style={{ fontSize: 13, color: '#F59E0B', letterSpacing: 1, marginTop: 2 }}>
+            {stars(Number(c.creator_rating) || 5)}
+            <span style={{ fontSize: 12, color: '#78716C', fontWeight: 500, marginLeft: 4 }}>
+              {Number(c.creator_rating || 5).toFixed(1)} ({c.creator_completed || 0})
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Bio */}
+      {c.bio && (
+        <p style={{ fontSize: 13, color: '#78716C', margin: '0 0 12px', lineHeight: 1.5, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as any }}>
+          {c.bio}
+        </p>
+      )}
+
+      {/* Category tags */}
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 14 }}>
+        {cats.map(cat => (
+          <span key={cat} style={{ fontSize: 11, padding: '3px 9px', borderRadius: 99, background: '#F5F5F4', color: '#57534E', fontWeight: 500 }}>{cat}</span>
+        ))}
+      </div>
+
+      {/* Price & delivery */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid #F5F5F4', paddingTop: 12 }}>
+        <div>
+          <div style={{ fontSize: 11, color: '#A8A29E' }}>Эхлэх үнэ</div>
+          <div style={{ fontSize: 16, fontWeight: 700, color: '#FF6B00' }}>
+            {c.starting_price ? '₮' + Number(c.starting_price).toLocaleString() : 'Тохиролцоно'}
+          </div>
+        </div>
+        <div style={{ textAlign: 'right' }}>
+          <div style={{ fontSize: 11, color: '#A8A29E' }}>Хугацаа</div>
+          <div style={{ fontSize: 14, fontWeight: 600, color: '#1C1917' }}>{c.delivery_days || 3} хоног</div>
+        </div>
+      </div>
+    </div>
+  )
+}
 
 export default function MarketplacePage() {
   const router = useRouter()
-  const [creators, setCreators] = useState<Creator[]>(DEMO_CREATORS)
-  const [loading, setLoading] = useState(false)
-  const [search, setSearch] = useState('')
-  const [activeSearch, setActiveSearch] = useState('')
-  const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS)
-  const [sort, setSort] = useState('recommended')
-  const [mobileFilters, setMobileFilters] = useState(false)
-  const [activeType, setActiveType] = useState('')
+  const [creators, setCreators] = useState<Creator[]>([])
+  const [loading, setLoading]   = useState(true)
+  const [cat, setCat]           = useState('Бүгд')
+  const [search, setSearch]     = useState('')
+  const [aiMode, setAiMode]     = useState(false)
+  const searchRef = useRef<HTMLInputElement>(null)
 
-  /* Fetch creators from API (falls back to demo) */
   useEffect(() => {
-    setLoading(true)
-    apiFetch<Creator[]>('/marketplace/creators', { auth: false })
-      .then(data => { if (Array.isArray(data) && data.length > 0) setCreators(data) })
-      .catch(() => {})
-      .finally(() => setLoading(false))
+    fetch(`${API}/users/creators`)
+      .then(r => r.ok ? r.json() : [])
+      .then(d => { setCreators(Array.isArray(d) ? d : []); setLoading(false) })
+      .catch(() => setLoading(false))
   }, [])
 
-  /* Filter + sort logic */
-  const filtered = useMemo(() => {
-    let result = [...creators]
+  const filtered = creators.filter(c => {
+    const inCat = cat === 'Бүгд' || (c.service_categories || '').toLowerCase().includes(cat.toLowerCase())
+    const q     = search.toLowerCase()
+    const inSearch = !q || c.full_name.toLowerCase().includes(q)
+      || (c.bio || '').toLowerCase().includes(q)
+      || (c.service_categories || '').toLowerCase().includes(q)
+    return inCat && inSearch
+  })
 
-    // Search
-    if (activeSearch) {
-      const q = activeSearch.toLowerCase()
-      result = result.filter(c =>
-        c.name.toLowerCase().includes(q) ||
-        c.tags.some(t => t.toLowerCase().includes(q)) ||
-        (c.type || '').toLowerCase().includes(q)
-      )
-    }
-
-    // Type tab
-    if (activeType) {
-      result = result.filter(c => c.type === activeType)
-    }
-
-    // Content type filter
-    if (filters.contentType) {
-      result = result.filter(c => c.type === filters.contentType)
-    }
-
-    // Price range
-    result = result.filter(c =>
-      c.startingPrice >= filters.priceRange[0] && c.startingPrice <= filters.priceRange[1]
-    )
-
-    // Delivery
-    if (filters.deliveryDays > 0) {
-      result = result.filter(c => c.deliveryDays <= filters.deliveryDays)
-    }
-
-    // Rating
-    if (filters.minRating > 0) {
-      result = result.filter(c => c.rating >= filters.minRating)
-    }
-
-    // Level
-    if (filters.creatorLevel) {
-      result = result.filter(c => c.level === filters.creatorLevel)
-    }
-
-    // Sort
-    switch (sort) {
-      case 'rating': result.sort((a, b) => b.rating - a.rating); break
-      case 'price_low': result.sort((a, b) => a.startingPrice - b.startingPrice); break
-      case 'price_high': result.sort((a, b) => b.startingPrice - a.startingPrice); break
-      case 'delivery': result.sort((a, b) => a.deliveryDays - b.deliveryDays); break
-      case 'reviews': result.sort((a, b) => b.reviewCount - a.reviewCount); break
-      default: result.sort((a, b) => (b.matchScore || 0) - (a.matchScore || 0)); break
-    }
-
-    return result
-  }, [creators, activeSearch, activeType, filters, sort])
-
-  const recommended = useMemo(
-    () => creators.filter(c => (c.matchScore || 0) >= 85).slice(0, 4),
-    [creators]
-  )
+  const recommended = filtered.slice(0, 4)
+  const rest        = filtered.slice(4)
 
   return (
-    <div style={{ background: 'var(--bg)', minHeight: '100vh' }}>
-      {/* Hero */}
-      <section
-        className="relative overflow-hidden py-12 sm:py-16"
-        style={{ background: 'linear-gradient(135deg, var(--surface) 0%, var(--surface2) 100%)' }}
-      >
-        <div className="max-w-6xl mx-auto px-4 text-center">
-          <h1 className="text-3xl sm:text-4xl font-bold mb-3" style={{ color: 'var(--text)' }}>
-            Creator <span style={{ color: 'var(--primary)' }}>Marketplace</span>
-          </h1>
-          <p className="text-sm sm:text-base mb-8 max-w-lg mx-auto" style={{ color: 'var(--text2)' }}>
-            Монголын шилдэг контент бүтээгчдийг олж, бизнесээ өсгө
-          </p>
+    <div style={{ minHeight: '100vh', background: '#FAFAF8', fontFamily: F, color: '#1C1917' }}>
+      <style>{`
+        @import url("https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&display=swap");
+        .mp-search:focus { border-color: #FF6B00 !important; box-shadow: 0 0 0 3px rgba(255,107,0,0.12) !important; }
+      `}</style>
 
-          <SearchBar value={search} onChange={setSearch} onSearch={q => { setActiveSearch(q); setSearch(q) }} />
-
-          {/* Type tabs */}
-          <div className="flex flex-wrap justify-center gap-2 mt-8">
-            {CREATOR_TYPES.map(t => (
-              <button
-                key={t.key}
-                onClick={() => { setActiveType(t.key); if (t.key) setFilters(f => ({ ...f, contentType: t.key })) ; if (!t.key) setFilters(f => ({ ...f, contentType: '' })) }}
-                className="px-4 py-2 rounded-xl text-sm font-medium transition-all"
-                style={{
-                  background: activeType === t.key ? 'var(--primary)' : 'var(--surface)',
-                  color: activeType === t.key ? '#fff' : 'var(--text2)',
-                  border: `1px solid ${activeType === t.key ? 'var(--primary)' : 'var(--border)'}`,
-                }}
-              >
-                {t.icon} {t.label}
-              </button>
-            ))}
-          </div>
+      {/* ── Hero ── */}
+      <div style={{ background: 'linear-gradient(135deg, #fff 0%, #FFF7ED 50%, #FFF 100%)', borderBottom: '1px solid #E7E5E4', padding: '56px 24px 48px', textAlign: 'center' }}>
+        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'rgba(255,107,0,0.08)', border: '1px solid rgba(255,107,0,0.2)', borderRadius: 99, padding: '4px 14px', marginBottom: 20 }}>
+          <span style={{ fontSize: 11, color: '#FF6B00', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.08em' }}>🎨 Creator Marketplace</span>
         </div>
+        <h1 style={{ fontSize: 'clamp(28px,5vw,48px)', fontWeight: 800, margin: '0 0 12px', letterSpacing: '-0.03em', lineHeight: 1.1 }}>
+          Creator <span style={{ color: '#FF6B00' }}>Marketplace</span>
+        </h1>
+        <p style={{ fontSize: 16, color: '#78716C', maxWidth: 480, margin: '0 auto 32px', lineHeight: 1.7 }}>
+          Монголын шилдэг контент бүтээгчийг олж, бизнесээ өсгө
+        </p>
 
-        {/* Decorative dots */}
-        <div
-          className="absolute -bottom-6 left-1/2 -translate-x-1/2 w-40 h-12 rounded-full blur-3xl opacity-30"
-          style={{ background: 'var(--primary)' }}
-        />
-      </section>
-
-      {/* AI Recommended */}
-      {recommended.length > 0 && !activeSearch && (
-        <section className="max-w-6xl mx-auto px-4 mt-10">
-          <div className="flex items-center gap-2 mb-4">
-            <span
-              className="px-2 py-0.5 rounded-md text-xs font-semibold"
-              style={{ background: 'var(--secondary)', color: '#fff' }}
-            >
-              AI
-            </span>
-            <h2 className="font-bold text-lg" style={{ color: 'var(--text)' }}>
-              Танд санал болгох
-            </h2>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {recommended.map(c => (
-              <CreatorCard key={c.id} creator={c} onViewProfile={id => router.push(`/creators/${id}`)} />
-            ))}
-          </div>
-        </section>
-      )}
-
-      {/* Main content */}
-      <section className="max-w-6xl mx-auto px-4 mt-10 pb-16">
-        {/* Toolbar */}
-        <div className="flex items-center justify-between mb-5 gap-3 flex-wrap">
-          <div className="flex items-center gap-3">
+        {/* Search */}
+        <div style={{ maxWidth: 600, margin: '0 auto', position: 'relative' }}>
+          <div style={{ display: 'flex', alignItems: 'center', background: '#fff', border: '1.5px solid #E7E5E4', borderRadius: 14, padding: '4px 4px 4px 16px', boxShadow: '0 2px 12px rgba(0,0,0,0.06)', transition: 'all .2s' }}>
+            <span style={{ fontSize: 18, marginRight: 8 }}>🔍</span>
+            <input
+              ref={searchRef}
+              className="mp-search"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder='Creator хайх... (жишээ: "лого дизайн, 3 хоногт, Pro")'
+              style={{ flex: 1, border: 'none', outline: 'none', fontSize: 14, background: 'transparent', color: '#1C1917', fontFamily: F }}
+            />
             <button
-              className="lg:hidden px-3 py-2 rounded-xl text-sm font-medium"
-              style={{ background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text2)' }}
-              onClick={() => setMobileFilters(true)}
-            >
-              ☰ Шүүлтүүр
+              onClick={() => setAiMode(true)}
+              style={{ background: '#FF6B00', color: '#fff', border: 'none', borderRadius: 10, padding: '10px 20px', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
+              Хайх
             </button>
-            <p className="text-sm" style={{ color: 'var(--text3)' }}>
-              {filtered.length} creator олдлоо
-              {activeSearch && <span> — &ldquo;{activeSearch}&rdquo;</span>}
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 8, justifyContent: 'center' }}>
+            <span style={{ fontSize: 11, background: '#7C3AED15', color: '#7C3AED', border: '1px solid #7C3AED30', borderRadius: 6, padding: '2px 8px', fontWeight: 600 }}>AI</span>
+            <span style={{ fontSize: 12, color: '#A8A29E' }}>Байгалийн хэлээр хайлт хийх боломжтой</span>
+          </div>
+        </div>
+      </div>
+
+      <div style={{ maxWidth: 1200, margin: '0 auto', padding: '32px 24px' }}>
+
+        {/* Category filter */}
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 32, overflowX: 'auto' }}>
+          {CATS.map((c, i) => {
+            const icons = ['🎨','📱','🖨️','📺','🤖','📹']
+            const active = cat === c
+            return (
+              <button key={c} onClick={() => setCat(c)} style={{
+                display: 'flex', alignItems: 'center', gap: 6, padding: '8px 18px',
+                borderRadius: 99, border: `1.5px solid ${active ? '#FF6B00' : '#E7E5E4'}`,
+                background: active ? '#FF6B00' : '#fff', color: active ? '#fff' : '#57534E',
+                fontSize: 13, fontWeight: active ? 600 : 400, cursor: 'pointer', whiteSpace: 'nowrap',
+                transition: 'all .15s', fontFamily: F,
+              }}>
+                <span>{icons[i]}</span> {c}
+              </button>
+            )
+          })}
+        </div>
+
+        {loading ? (
+          <div style={{ textAlign: 'center', padding: '80px 0', color: '#A8A29E' }}>
+            <div style={{ fontSize: 40, marginBottom: 12 }}>⏳</div>
+            <div style={{ fontSize: 16 }}>Бүтээгчид ачааллаж байна...</div>
+          </div>
+        ) : filtered.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '80px 0' }}>
+            <div style={{ fontSize: 48, marginBottom: 12 }}>🔍</div>
+            <div style={{ fontWeight: 700, fontSize: 20, marginBottom: 8 }}>Бүтээгч олдсонгүй</div>
+            <p style={{ color: '#A8A29E', fontSize: 14, marginBottom: 24 }}>
+              Хайлтын үгийг өөрчилж эсвэл ангиллаас сонгоно уу
             </p>
+            <button onClick={() => { setCat('Бүгд'); setSearch('') }} style={{ background: '#FF6B00', color: '#fff', border: 'none', borderRadius: 99, padding: '10px 24px', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
+              Бүгдийг харах
+            </button>
           </div>
-          <select
-            value={sort}
-            onChange={e => setSort(e.target.value)}
-            className="px-3 py-2 rounded-xl text-sm"
-            style={{ background: 'var(--surface)', border: '1px solid var(--border)', color: 'var(--text)' }}
-          >
-            {SORT_OPTIONS.map(o => (
-              <option key={o.value} value={o.value}>{o.label}</option>
-            ))}
-          </select>
-        </div>
-
-        <div className="flex gap-6">
-          {/* Filter sidebar */}
-          <FilterPanel
-            filters={filters}
-            onChange={setFilters}
-            onReset={() => { setFilters(DEFAULT_FILTERS); setActiveType('') }}
-            mobileOpen={mobileFilters}
-            onMobileClose={() => setMobileFilters(false)}
-          />
-
-          {/* Grid */}
-          <div className="flex-1 min-w-0">
-            {loading ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {Array.from({ length: 6 }).map((_, i) => (
-                  <div
-                    key={i}
-                    className="rounded-2xl h-64 animate-pulse"
-                    style={{ background: 'var(--surface)' }}
-                  />
-                ))}
-              </div>
-            ) : filtered.length === 0 ? (
-              <div className="text-center py-20">
-                <p className="text-4xl mb-3">🔍</p>
-                <p className="font-semibold" style={{ color: 'var(--text)' }}>Creator олдсонгүй</p>
-                <p className="text-sm mt-1" style={{ color: 'var(--text3)' }}>
-                  Шүүлтүүр эсвэл хайлтаа өөрчилнө үү
-                </p>
-                <button
-                  onClick={() => { setFilters(DEFAULT_FILTERS); setActiveSearch(''); setSearch(''); setActiveType('') }}
-                  className="mt-4 px-4 py-2 rounded-xl text-sm font-medium"
-                  style={{ background: 'var(--primary)', color: '#fff' }}
-                >
-                  Бүгдийг харах
-                </button>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {filtered.map(c => (
-                  <CreatorCard key={c.id} creator={c} onViewProfile={id => router.push(`/creators/${id}`)} />
-                ))}
-              </div>
+        ) : (
+          <>
+            {/* Recommended */}
+            {recommended.length > 0 && (
+              <section style={{ marginBottom: 40 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
+                  <span style={{ fontSize: 12, background: '#7C3AED15', color: '#7C3AED', border: '1px solid #7C3AED30', borderRadius: 6, padding: '3px 10px', fontWeight: 700 }}>AI</span>
+                  <h2 style={{ fontSize: 20, fontWeight: 700, margin: 0 }}>Танд санал болгох</h2>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 16 }}>
+                  {recommended.map(c => (
+                    <CreatorCard key={c.id} c={c} onClick={() => router.push(`/marketplace/${c.id}`)} />
+                  ))}
+                </div>
+              </section>
             )}
+
+            {/* Rest */}
+            {rest.length > 0 && (
+              <section>
+                <h2 style={{ fontSize: 20, fontWeight: 700, margin: '0 0 20px' }}>
+                  Бүх бүтээгчид
+                  <span style={{ fontSize: 14, fontWeight: 400, color: '#A8A29E', marginLeft: 8 }}>{filtered.length} бүтээгч</span>
+                </h2>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 16 }}>
+                  {rest.map(c => (
+                    <CreatorCard key={c.id} c={c} onClick={() => router.push(`/marketplace/${c.id}`)} />
+                  ))}
+                </div>
+              </section>
+            )}
+          </>
+        )}
+
+        {/* Empty state CTA for admins/creators */}
+        {!loading && creators.length === 0 && (
+          <div style={{ marginTop: 40, padding: '32px', background: 'rgba(255,107,0,0.04)', border: '2px dashed rgba(255,107,0,0.2)', borderRadius: 16, textAlign: 'center' }}>
+            <div style={{ fontSize: 36, marginBottom: 12 }}>🎨</div>
+            <div style={{ fontWeight: 700, fontSize: 18, marginBottom: 8 }}>Бүтээгчид байхгүй байна</div>
+            <p style={{ color: '#A8A29E', fontSize: 14, marginBottom: 20 }}>
+              Бүтээгч болохыг хүсвэл /partner хуудсаар бүртгүүлнэ үү
+            </p>
+            <div style={{ display: 'flex', gap: 12, justifyContent: 'center' }}>
+              <button onClick={() => router.push('/partner')} style={{ background: '#FF6B00', color: '#fff', border: 'none', borderRadius: 10, padding: '10px 24px', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
+                Бүтээгч болох →
+              </button>
+            </div>
           </div>
-        </div>
-      </section>
+        )}
+      </div>
     </div>
   )
 }

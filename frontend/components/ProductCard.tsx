@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback } from 'react'
+import React, { useState, useEffect, useRef, useCallback } from 'react'
 import ProductImage from './ProductImage'
 
 const fmt = (n: number) => '₮' + n.toLocaleString('mn-MN')

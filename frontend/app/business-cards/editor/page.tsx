@@ -1,11 +1,11 @@
 'use client'
-import { useState, useRef, useCallback, useEffect } from 'react'
-import { useSearchParams } from 'next/navigation'
-import { Suspense } from 'react'
-import { QRCodeSVG } from 'qrcode.react'
-import { usePricing } from '@/hooks/usePricing'
-import { apiFetch, API_URL } from '@/lib/api'
-import { jsPDF } from 'jspdf'
+import React, { useState, useRef, useCallback, useEffect } from 'react'
+import React, { useSearchParams } from 'next/navigation'
+import React, { Suspense } from 'react'
+import React, { QRCodeSVG } from 'qrcode.react'
+import React, { usePricing } from '@/hooks/usePricing'
+import React, { apiFetch, API_URL } from '@/lib/api'
+import React, { jsPDF } from 'jspdf'
 
 // RGB ↔ CMYK хөрвүүлэгч
 function hexToCmyk(hex: string): [number, number, number, number] {

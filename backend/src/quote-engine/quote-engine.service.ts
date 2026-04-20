@@ -6,6 +6,21 @@ import { PricingRulesService } from '../pricing-rules/pricing-rules.service'
 import { PricingConfigService } from '../pricing-config/pricing-config.service'
 import { ProductsMasterService } from '../products-master/products-master.service'
 import pdfParse from 'pdf-parse'
+import {
+  PLATE_COST,
+  DIGITAL_MAX_QTY,
+  FINISHING_COST_PER_COPY,
+  BINDING_COST_PER_COPY,
+  OVERHEAD_RATE,
+  PLATFORM_MARGIN,
+  WASTE_FACTOR,
+  CUTTING_FIXED,
+  JOB_MIN_CHARGE,
+  getPaperPriceA0,
+  getPaperPricePerSheet,
+  A4_W,
+  A4_H,
+} from '../pricing/pricing.constants'
 
 @Injectable()
 export class QuoteEngineService {
@@ -24,24 +39,15 @@ export class QuoteEngineService {
   }
 
   async calculate(input: any) {
-    const quantity    = Number(input.quantity)  || 100
-    const pages       = Number(input.pages)     || 1
-    const width_mm    = Number(input.width_mm)  || 210
-    const height_mm   = Number(input.height_mm) || 297
-    const color_mode  = input.color_mode || 'color'
-    const sides       = input.sides || 'single'
-    const paper_gsm   = Number(input.paper_gsm) || 150
-    const finishing   = input.finishing || 'none'
-    const binding     = input.binding   || 'none'
-    const express_hours = Number(input.express_hours) || 0
-    const urgency     = express_hours === 24 ? 'rush_24h' : express_hours === 48 ? 'rush_48h' : (input.urgency || 'standard')
-    const gang_run    = input.gang_run  || false
-    const category_id = input.category_id || null
-    const product_id  = input.product_id  || null
-    // Print product fields (product_masters)
-    const product_master_id = input.product_master_id || null
-    const material_code     = input.material_code || null
-    const size_code         = input.size_code || null
+    const quantity   = Number(input.quantity)   || 100
+    const pages      = Number(input.pages)      || 1
+    const width_mm   = Number(input.width_mm)   || 210
+    const height_mm  = Number(input.height_mm)  || 297
+    const color_mode = input.color_mode || 'color'
+    const sides      = input.sides      || 'single'
+    const paper_gsm  = Number(input.paper_gsm)  || 150
+    const finishing  = input.finishing  || 'none'
+    const binding    = input.binding    || 'none'
 
     // ── Load product_master material/size if provided ────────────────────────
     let selectedMaterial: any = null
@@ -60,132 +66,63 @@ export class QuoteEngineService {
       } catch { /* product not found, continue */ }
     }
 
-    const size = selectedSize ? selectedSize.size_label || size_code : this.detectSize(width_mm, height_mm)
+    // Logical print sides per copy (= number of machine impressions per copy)
     const sheets_per_copy = Math.ceil(pages / (sides === 'double' ? 2 : 1))
 
-    // --- Machine selection ---
-    const machineSelection = await this.selectBestMachine({ quantity, width_mm, height_mm, color_mode })
+    // ── Machine selection (from DB) ─────────────────────────────────────────
+    const machineSelection = await this.selectBestMachine({
+      quantity, width_mm, height_mm, color_mode,
+    })
+
     const imposition    = machineSelection.bestFit ?? 1
-    const total_sheets  = Math.ceil((quantity * sheets_per_copy) / imposition)
     const machine_name  = machineSelection.machine?.name ?? 'Digital Press'
-    const machine_speed = machineSelection.machine?.speed_per_hour ?? 3000
-    const hour_rate     = machineSelection.machine?.hour_rate ?? 50000
-    const print_hours   = total_sheets / machine_speed
-    const color_rate    = color_mode === 'color' ? 1.0 : 0.4
+    const machine_speed = machineSelection.machine?.speed_per_hour ?? 3_000
+    const hour_rate     = machineSelection.machine?.hour_rate ?? 50_000
+    const sheet_w       = machineSelection.machine?.sheet_width_mm  ?? A4_W
+    const sheet_h       = machineSelection.machine?.sheet_height_mm ?? A4_H
 
-    // --- Base costs ---
-    // If product_master with material/size → use their defined base costs
-    const material_cost  = selectedMaterial ? Math.round(Number(selectedMaterial.base_cost || 0) * quantity) : 0
-    const size_base      = selectedSize ? Number(selectedSize.base_price || 0) : 0
-    const paper_cost     = material_cost > 0 ? material_cost : Math.round(total_sheets * this.getPaperPrice(paper_gsm))
-    const print_cost     = Math.round(print_hours * hour_rate * color_rate)
-    const finishing_cost = this.getFinishingCost(finishing, quantity)
-    const binding_cost   = this.getBindingCost(binding, quantity)
-    // Setup cost: if size has a base_price, use it; otherwise use quantity-based default
-    const setup_cost     = size_base > 0 ? size_base : (quantity < 500 ? 50000 : quantity < 2000 ? 30000 : 0)
+    // ── Sheet count (includes 5 % waste) ───────────────────────────────────
+    const total_sheets = Math.ceil((quantity * sheets_per_copy * WASTE_FACTOR) / imposition)
 
-    let subtotal = paper_cost + print_cost + finishing_cost + binding_cost + setup_cost
+    // ── Machine run time ───────────────────────────────────────────────────
+    const print_hours  = total_sheets / machine_speed
+    // B&W / spot color costs 40 % of full-color rate (matches two-rate digital model)
+    const color_rate   = color_mode === 'color' ? 1.0 : 0.4
+    // Number of ink colors for plate count calculation
+    const colors       = color_mode === 'color' ? 4 : 1
 
-    // ============================================
-    // SMART PRICING ENGINE
-    // ============================================
+    // ── Variable costs (per quantity) ──────────────────────────────────────
+    // Paper price is derived from A0 base price scaled to actual machine sheet size
+    const paper_price_per_sheet = getPaperPricePerSheet(paper_gsm, sheet_w, sheet_h)
+    const paper_cost     = Math.round(total_sheets * paper_price_per_sheet)
+    const print_cost     = Math.round(print_hours  * hour_rate * color_rate)
+    const finishing_cost = (FINISHING_COST_PER_COPY[finishing] ?? 0) * quantity
+    const binding_cost   = (BINDING_COST_PER_COPY[binding]     ?? 0) * quantity
+    const direct_cost    = paper_cost + print_cost + finishing_cost + binding_cost
 
-    const smart_adjustments: { name: string; type: string; value: number; description: string }[] = []
+    // ── Setup / plate costs ────────────────────────────────────────────────
+    // Offset press: CTP plates required (one plate per color per press form).
+    // Digital press: no plates, but cutting/trimming still applies.
+    // Press selection mirrors pricing.service.ts: offset when qty > DIGITAL_MAX_QTY.
+    const use_offset  = quantity > DIGITAL_MAX_QTY
 
-    // --- 1. Pricing Rules (DB-based) ---
-    // Attributes include material_code and size_code so rules can match on them
-    const ruleAttributes: Record<string, string> = {
-      color_mode, finishing, binding,
-      paper_gsm: String(paper_gsm), sides,
-      ...(material_code ? { material: material_code } : {}),
-      ...(size_code ? { size: size_code } : {}),
-    }
-    const matchingRules = await this.pricingRulesService.findMatchingRules({
-      product_id,
-      product_master_id,
-      category_id,
-      quantity,
-      attributes: ruleAttributes,
-    })
-    if (matchingRules.length > 0) {
-      const ruleResult = this.pricingRulesService.applyRules(subtotal, matchingRules)
-      const rulesDiff = ruleResult.adjusted - subtotal
-      if (rulesDiff !== 0) {
-        smart_adjustments.push({
-          name: 'pricing_rules',
-          type: rulesDiff > 0 ? 'surcharge' : 'discount',
-          value: rulesDiff,
-          description: `DB rules: ${ruleResult.applied.join(', ')}`,
-        })
-        subtotal = ruleResult.adjusted
-      }
-    }
+    // One "press form" covers 4 finished pages × imposition items per sheet.
+    // e.g. 4pp A5 at 2-up on B2 → pages_per_form = 8 → 1 form for the whole job.
+    const pages_per_form = 4 * imposition
+    const form_count     = Math.max(1, Math.ceil(pages / pages_per_form))
+    const plate_count    = use_offset
+      ? colors * form_count * (sides === 'double' ? 2 : 1)
+      : 0
+    const setup_raw      = plate_count * PLATE_COST + CUTTING_FIXED
 
-    // --- 2. Quantity Discount ---
-    const qty_discount = this.getQuantityDiscount(quantity)
-    if (qty_discount.percent > 0) {
-      const discount_amount = -Math.round(subtotal * qty_discount.percent)
-      smart_adjustments.push({
-        name: 'quantity_discount',
-        type: 'discount',
-        value: discount_amount,
-        description: qty_discount.label,
-      })
-      subtotal += discount_amount
-    }
+    // ── Apply overhead (15 %) to both variable and setup costs ─────────────
+    const overhead    = Math.round((direct_cost + setup_raw) * OVERHEAD_RATE)
+    const subtotal    = direct_cost + setup_raw + overhead
 
-    // --- 3. Rush Fee ---
-    const rush_fee = this.getRushFee(urgency)
-    if (rush_fee.percent > 0) {
-      const rush_amount = Math.round(subtotal * rush_fee.percent)
-      smart_adjustments.push({
-        name: 'rush_fee',
-        type: 'surcharge',
-        value: rush_amount,
-        description: rush_fee.label,
-      })
-      subtotal += rush_amount
-    }
-
-    // --- 4. Gang-Run Discount ---
-    if (gang_run) {
-      const gang_discount = -Math.round(subtotal * 0.10)
-      smart_adjustments.push({
-        name: 'gang_run_discount',
-        type: 'discount',
-        value: gang_discount,
-        description: 'Нэгтгэж хэвлэх хөнгөлөлт -10%',
-      })
-      subtotal += gang_discount
-    }
-
-    // --- 5. Category-Based Margin ---
-    const overhead       = Math.round(subtotal * 0.10)
-    const margin_rate    = await this.getCategoryMargin(category_id)
-    const margin         = Math.round((subtotal + overhead) * margin_rate.percent)
-    const total_price    = subtotal + overhead + margin
-    const unit_price     = Math.round(total_price / quantity)
-
-    smart_adjustments.push({
-      name: 'overhead',
-      type: 'fee',
-      value: overhead,
-      description: 'Нэмэлт зардал 10%',
-    })
-    smart_adjustments.push({
-      name: 'margin',
-      type: 'fee',
-      value: margin,
-      description: `${margin_rate.label} ${Math.round(margin_rate.percent * 100)}%`,
-    })
-
-    // --- Total discount/surcharge summary ---
-    const total_discount = smart_adjustments
-      .filter(a => a.type === 'discount')
-      .reduce((s, a) => s + a.value, 0)
-    const total_surcharge = smart_adjustments
-      .filter(a => a.type === 'surcharge')
-      .reduce((s, a) => s + a.value, 0)
+    // ── Platform margin (25 %) on top of full production cost ──────────────
+    const margin      = Math.round(subtotal * PLATFORM_MARGIN)
+    const total_price = Math.max(subtotal + margin, JOB_MIN_CHARGE)
+    const unit_price  = Math.round(total_price / quantity)
 
     return {
       // Input
@@ -205,35 +142,27 @@ export class QuoteEngineService {
       machine: machine_name,
       machine_speed,
       machine_sheet: machineSelection.machine
-        ? { w: machineSelection.machine.sheet_width_mm, h: machineSelection.machine.sheet_height_mm }
+        ? { w: sheet_w, h: sheet_h }
         : null,
       print_hours: Math.round(print_hours * 100) / 100,
-
-      // Base costs
-      paper_cost, print_cost, finishing_cost, binding_cost, setup_cost,
-
-      // Smart pricing
-      smart_adjustments,
-      total_discount,
-      total_surcharge,
-
-      // Final
+      paper_cost, print_cost, finishing_cost, binding_cost,
+      setup_cost: setup_raw, plate_count, use_offset,
       subtotal, overhead, margin,
       total_price, unit_price,
       currency: 'MNT',
 
       breakdown: {
-        paper_price_per_sheet: this.getPaperPrice(paper_gsm),
-        material_cost, size_base_price: size_base,
-        used_product_master: !!product_master_id,
-        color_rate, hour_rate, print_hours,
-        overhead_10pct: overhead,
-        margin_rate: margin_rate.percent,
-        margin_label: margin_rate.label,
-        quantity_discount: qty_discount,
-        rush_fee,
-        gang_run_discount: gang_run ? 0.10 : 0,
-        pricing_rules_applied: matchingRules.length,
+        paper_price_per_sheet,
+        paper_price_a0_base: getPaperPriceA0(paper_gsm),
+        color_rate,
+        hour_rate,
+        print_hours,
+        use_offset,
+        plate_count,
+        overhead_rate:  OVERHEAD_RATE,
+        overhead_15pct: overhead,
+        margin_rate:    PLATFORM_MARGIN,
+        margin_25pct:   margin,
       },
     }
   }
@@ -533,16 +462,20 @@ export class QuoteEngineService {
     if (W >= 195 && W <= 225 && H >= 280 && H <= 315) return 'A4'
     if (W >= 138 && W <= 158 && H >= 195 && H <= 225) return 'A5'
     if (W >= 280 && W <= 315 && H >= 400 && H <= 440) return 'A3'
-    if (W >= 85  && W <= 95  && H >= 50  && H <= 60)  return 'BusinessCard'
+    if (W >=  85 && W <=  95 && H >=  50 && H <=  60) return 'BusinessCard'
     return 'Custom'
   }
 
+  /**
+   * Compute best fit (imposition) per machine sheet, trying both normal and
+   * 90°-rotated orientations.
+   */
   private computeSheetFit(machine: Machine, width: number, height: number) {
     const fitNormal =
-      Math.floor(machine.sheet_width_mm / width) *
+      Math.floor(machine.sheet_width_mm  / width)  *
       Math.floor(machine.sheet_height_mm / height)
     const fitRotated =
-      Math.floor(machine.sheet_width_mm / height) *
+      Math.floor(machine.sheet_width_mm  / height) *
       Math.floor(machine.sheet_height_mm / width)
     if (fitRotated > fitNormal) {
       return { fit: Math.max(fitRotated, 1), rotated: true }
@@ -550,37 +483,14 @@ export class QuoteEngineService {
     return { fit: Math.max(fitNormal, 1), rotated: false }
   }
 
-  getPaperPrice(gsm: number) {
-    if (gsm <= 90)  return 35
-    if (gsm <= 115) return 45
-    if (gsm <= 150) return 60
-    if (gsm <= 200) return 85
-    if (gsm <= 250) return 110
-    if (gsm <= 300) return 145
-    if (gsm <= 350) return 180
-    return 220
-  }
-
-  getFinishingCost(finishing: string, quantity: number) {
-    const rates: Record<string, number> = {
-      'none': 0, 'laminate_matte': 80, 'laminate_gloss': 75,
-      'soft_touch': 120, 'uv': 60, 'fold': 30,
-    }
-    return Math.round((rates[finishing] || 0) * quantity)
-  }
-
-  getBindingCost(binding: string, quantity: number) {
-    const rates: Record<string, number> = {
-      'none': 0, 'staple': 50, 'perfect': 800,
-      'spiral': 1200, 'hardcover': 3500,
-    }
-    return Math.round((rates[binding] || 0) * quantity)
-  }
-
+  /**
+   * Select the lowest-cost machine for the given job parameters.
+   * Cost model: (total_sheets / speed) × hour_rate × color_multiplier
+   */
   async selectBestMachine(params: {
-    quantity: number
-    width_mm: number
-    height_mm: number
+    quantity:   number
+    width_mm:   number
+    height_mm:  number
     color_mode: string
   }) {
     const machines = await this.machineRepo.find()
@@ -591,7 +501,12 @@ export class QuoteEngineService {
     const { quantity, width_mm, height_mm, color_mode } = params
     const colorMultiplier = color_mode === 'color' ? 1.0 : 0.4
 
-    let best: { machine: Machine; cost: number; fit: number; rotated: boolean } | null = null
+    let best: {
+      machine: Machine
+      cost:    number
+      fit:     number
+      rotated: boolean
+    } | null = null
 
     for (const machine of machines) {
       const fitResult = this.computeSheetFit(machine, width_mm, height_mm)
@@ -600,7 +515,7 @@ export class QuoteEngineService {
 
       const total_sheets = Math.ceil(quantity / fit)
       const hours = total_sheets / machine.speed_per_hour
-      const cost = hours * machine.hour_rate * colorMultiplier
+      const cost  = hours * machine.hour_rate * colorMultiplier
 
       if (!best || cost < best.cost) {
         best = { machine, cost, fit, rotated: fitResult.rotated }

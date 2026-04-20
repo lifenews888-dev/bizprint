@@ -26,4 +26,12 @@ export class AuditTrailService {
     const items = entries.map(e => this.repo.create(e));
     return this.repo.save(items);
   }
+
+  async findAll(limit = 200, search?: string) {
+    const qb = this.repo.createQueryBuilder('a').orderBy('a.created_at', 'DESC').take(limit);
+    if (search) {
+      qb.where('a.order_id ILIKE :s OR a.user ILIKE :s OR a.action ILIKE :s', { s: `%${search}%` });
+    }
+    return qb.getMany();
+  }
 }

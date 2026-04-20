@@ -1,4 +1,5 @@
 'use client'
+import React from 'react'
 import DashboardLayout from '@/components/layouts/DashboardLayout'
 import { useRoleGuard } from '@/lib/use-role-guard'
 import { CREATOR_MENU } from '@/config/sidebar-config'

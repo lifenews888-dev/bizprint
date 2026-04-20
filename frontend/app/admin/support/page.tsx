@@ -1,9 +1,9 @@
 'use client'
 
-import { apiFetch } from '@/lib/api'
-import { useState, useEffect, useRef } from 'react'
-import { AdminPageHeader } from '@/components/admin/AdminPageHeader'
-import { Button } from '@/components/ui/button'
+import React, { apiFetch } from '@/lib/api'
+import React, { useState, useEffect, useRef } from 'react'
+import React, { AdminPageHeader } from '@/components/admin/AdminPageHeader'
+import React, { Button } from '@/components/ui/button'
 
 // Types
 interface TicketMessage {

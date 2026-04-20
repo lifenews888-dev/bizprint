@@ -1,6 +1,6 @@
 'use client'
-import { useState, useRef, useEffect } from 'react'
-import { API_URL, getToken } from '@/lib/api'
+import React, { useState, useRef, useEffect } from 'react'
+import React, { API_URL, getToken } from '@/lib/api'
 
 interface PdfViewerProps {
   /** File URL path (e.g., /uploads/123-file.pdf) or full URL */

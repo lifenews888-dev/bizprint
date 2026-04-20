@@ -95,71 +95,33 @@ export class User {
   @Column({ nullable: true })
   bank_account_name: string;
 
-  /** Гэрээний файл (signed contract PDF) */
   @Column({ nullable: true })
-  contract_url: string;
+  role_request: string;
 
-  /** Гэрээний хавсралт (нэмэлт баримт бичиг) */
-  @Column({ nullable: true })
-  contract_attachment_url: string;
+  // Creator profile fields
+  @Column({ type: 'text', nullable: true })
+  bio: string;
 
-  /** Гэрээ баталсан огноо */
-  @Column({ nullable: true })
-  contract_signed_at: Date;
+  @Column({ type: 'decimal', precision: 14, scale: 2, nullable: true })
+  starting_price: number;
 
-  // ─── Verification & KYC ───
-  /** pending | under_review | verified | rejected */
-  @Column({ type: 'varchar', length: 20, default: 'pending' })
-  verification_status: string;
+  @Column({ nullable: true, default: 3 })
+  delivery_days: number;
 
   @Column({ nullable: true })
-  verification_note: string;
+  service_categories: string;   // comma-separated: "Сошиал контент,Хэвлэл дизайн"
 
   @Column({ nullable: true })
-  verified_at: Date;
+  portfolio_url: string;
 
-  @Column({ nullable: true })
-  verified_by: string;
+  @Column({ nullable: true, default: 'Starter' })
+  creator_tier: string;         // Starter | Pro | Expert | Elite
 
-  // ─── Document Uploads (KYC) ───
-  @Column({ nullable: true })
-  id_card_front_url: string;
+  @Column({ type: 'decimal', precision: 4, scale: 2, nullable: true, default: 5.0 })
+  creator_rating: number;
 
-  @Column({ nullable: true })
-  id_card_back_url: string;
-
-  @Column({ nullable: true })
-  business_license_url: string;
-
-  @Column({ nullable: true })
-  certification_url: string;
-
-  // ─── Role-specific: Vendor/Factory ───
-  @Column({ nullable: true })
-  tax_id: string;
-
-  @Column({ nullable: true })
-  office_address: string;
-
-  // ─── Role-specific: Designer ───
-  @Column({ nullable: true })
-  professional_bio: string;
-
-  @Column('simple-array', { nullable: true })
-  skill_certifications: string[];
-
-  // ─── Role-specific: Courier/Driver ───
-  @Column({ nullable: true })
-  driver_license_number: string;
-
-  @Column({ nullable: true })
-  vehicle_plate_number: string;
-
-  @Column({ nullable: true })
-  vehicle_type: string;
-
-  @Column({ nullable: true })
-  insurance_details: string;
+  @Column({ default: 0 })
+  creator_completed: number;
 
   @UpdateDateColumn()
   updated_at: Date;

@@ -1,7 +1,7 @@
 'use client'
-import { useState, useRef, useCallback, useEffect, Suspense } from 'react'
-import { useSearchParams, useRouter } from 'next/navigation'
-import { API_URL } from '@/lib/api'
+import React, { useState, useRef, useCallback, useEffect, Suspense } from 'react'
+import React, { useSearchParams, useRouter } from 'next/navigation'
+import React, { API_URL } from '@/lib/api'
 
 interface TextElement {
   id: string

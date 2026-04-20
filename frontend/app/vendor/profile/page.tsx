@@ -1,7 +1,7 @@
 'use client'
-import { useState, useEffect, useRef } from 'react'
-import { useRouter } from 'next/navigation'
-import { API_URL } from '@/lib/api'
+import React, { useState, useEffect, useRef } from 'react'
+import React, { useRouter } from 'next/navigation'
+import React, { API_URL } from '@/lib/api'
 
 export default function VendorProfilePage() {
   const router = useRouter()

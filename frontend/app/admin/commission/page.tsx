@@ -1,9 +1,9 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { apiFetch, getToken } from '@/lib/api';
-import { AdminPageHeader } from '@/components/admin/AdminPageHeader';
 
-const F = "'Segoe UI',system-ui,sans-serif";
+const API = 'http://localhost:4000';
+const F = "'DM Sans','Segoe UI',system-ui,sans-serif";
+const getToken = () => localStorage.getItem('access_token') || localStorage.getItem('token') || '';
 
 interface Vendor {
   id: string;
@@ -55,7 +55,7 @@ export default function CommissionPage() {
   const [msg, setMsg] = useState('');
 
   useEffect(() => {
-    const t = getToken() || '';
+    const t = localStorage.getItem('access_token') || localStorage.getItem('token') || '';
     setToken(t);
     if (t) {
       loadSettings(t);
@@ -66,7 +66,8 @@ export default function CommissionPage() {
 
   async function loadSettings(t: string) {
     try {
-      const data = await apiFetch<any>(`/settings`);
+      const res = await fetch(`${API}/settings`, { headers: { Authorization: `Bearer ${t}` } });
+      const data = await res.json();
       if (data.commission_rate) setDefaultRate(data.commission_rate);
       setRoleRates(r => ({
         designer: data.commission_role_designer || r.designer,
@@ -89,7 +90,8 @@ export default function CommissionPage() {
 
   async function loadVendors(t: string) {
     try {
-      const data = await apiFetch<any>(`/admin/users`);
+      const res = await fetch(`${API}/admin/users`, { headers: { Authorization: `Bearer ${t}` } });
+      const data = await res.json();
       const list = Array.isArray(data) ? data : (data.users || []);
       setVendors(list.filter((u: Vendor) => u.role === 'vendor'));
     } catch {}
@@ -97,9 +99,11 @@ export default function CommissionPage() {
 
   async function loadAdminWallet(t: string) {
     try {
-      const data = await apiFetch<any>(`/wallet/balance`);
+      const res = await fetch(`${API}/wallet/balance`, { headers: { Authorization: `Bearer ${t}` } });
+      const data = await res.json();
       setAdminWallet(data);
-      const txData = await apiFetch<any>(`/wallet/transactions`);
+      const txRes = await fetch(`${API}/wallet/transactions`, { headers: { Authorization: `Bearer ${t}` } });
+      const txData = await txRes.json();
       setAdminTx(Array.isArray(txData) ? txData.filter((tx: WalletTx) => tx.source === 'platform_commission' || tx.source === 'order_commission') : []);
     } catch {}
   }
@@ -109,41 +113,44 @@ export default function CommissionPage() {
     setMsg('');
     try {
       // Save default rate
-      await apiFetch<any>(`/settings`, {
+      await fetch(`${API}/settings`, {
         method: 'POST',
-        body: { key: 'commission_rate', value: defaultRate, label: 'Default Commission Rate %', type: 'number' },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}` },
+        body: JSON.stringify({ key: 'commission_rate', value: defaultRate, label: 'Default Commission Rate %', type: 'number' }),
       });
 
       // Save role splits
       for (const [role, rate] of Object.entries(roleRates)) {
-        await apiFetch<any>(`/settings`, {
+        await fetch(`${API}/settings`, {
           method: 'POST',
-          body: {
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}` },
+          body: JSON.stringify({
             key: `commission_role_${role}`,
             value: rate,
             label: `Commission split for ${role}`,
             type: 'number',
-          },
+          }),
         });
       }
 
       // Save per-vendor rates
       for (const [vendorId, rate] of Object.entries(rules)) {
         if (rate) {
-          await apiFetch<any>(`/settings`, {
+          await fetch(`${API}/settings`, {
             method: 'POST',
-            body: {
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${getToken()}` },
+            body: JSON.stringify({
               key: `commission_vendor_${vendorId}`,
               value: rate,
               label: `Vendor ${vendorId} commission rate`,
               type: 'number',
-            },
+            }),
           });
         }
       }
-      setMsg('Settings saved successfully!');
+      setMsg('Тохиргоо амжилттай хадгалагдлаа!');
     } catch {
-      setMsg('Failed to save settings');
+      setMsg('Хадгалахад алдаа гарлаа');
     } finally {
       setSaving(false);
     }
@@ -154,16 +161,22 @@ export default function CommissionPage() {
     .reduce((s, k) => s + parseFloat(roleRates[k as keyof typeof roleRates] || '0'), 0);
 
   return (
-    <div className="p-4 md:p-6">
-      <AdminPageHeader title="Commission System" description="Manage platform commission rates and vendor earnings" />
+    <div style={{ padding: 24, maxWidth: 1000, margin: '0 auto', fontFamily: F }}>
+      {/* Header */}
+      <div style={{ marginBottom: 24 }}>
+        <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--text)', margin: 0 }}>Комисс систем</h1>
+        <p style={{ color: 'var(--text2)', margin: '4px 0 0', fontSize: 14 }}>
+          Платформын комисс хувь болон вендорын орлогыг удирдах
+        </p>
+      </div>
 
       {/* Admin wallet stats */}
       {adminWallet && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginBottom: 24 }}>
           {[
-            { label: 'Platform Balance', value: `T${Number(adminWallet.balance).toLocaleString()}`, color: 'var(--orange)' },
-            { label: 'Total Earned', value: `T${Number(adminWallet.total_earned).toLocaleString()}`, color: '#16a34a' },
-            { label: 'Total Withdrawn', value: `T${Number(adminWallet.total_withdrawn).toLocaleString()}`, color: '#2563eb' },
+            { label: 'Платформ баланс', value: `₮${Number(adminWallet.balance).toLocaleString()}`, color: 'var(--orange)' },
+            { label: 'Нийт орлого', value: `₮${Number(adminWallet.total_earned).toLocaleString()}`, color: '#16a34a' },
+            { label: 'Нийт татсан', value: `₮${Number(adminWallet.total_withdrawn).toLocaleString()}`, color: '#2563eb' },
           ].map(s => (
             <div key={s.label} style={{
               background: 'var(--surface)', border: '1px solid var(--border)',
@@ -179,8 +192,8 @@ export default function CommissionPage() {
       {/* Tabs */}
       <div style={{ display: 'flex', gap: 4, marginBottom: 20, borderBottom: '1px solid var(--border)', paddingBottom: 0 }}>
         {[
-          { key: 'settings', label: 'Commission Rules' },
-          { key: 'history', label: 'Transaction History' },
+          { key: 'settings', label: 'Комисс дүрэм' },
+          { key: 'history', label: 'Гүйлгээний түүх' },
         ].map(t => (
           <button key={t.key} onClick={() => setActiveTab(t.key as any)} style={{
             padding: '8px 16px', border: 'none', background: 'transparent',
@@ -202,7 +215,7 @@ export default function CommissionPage() {
             borderRadius: 12, padding: 20, marginBottom: 20,
           }}>
             <h3 style={{ margin: '0 0 16px', fontSize: 15, fontWeight: 600, color: 'var(--text)' }}>
-              Default Commission Rate
+              Үндсэн комисс хувь
             </h3>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
               <div style={{ position: 'relative' }}>
@@ -223,11 +236,11 @@ export default function CommissionPage() {
                 }}>%</span>
               </div>
               <div style={{ fontSize: 13, color: 'var(--text2)' }}>
-                Applied to all vendors without custom rate
+                Тусгай хувь тогтоогдоогүй бүх вендорт хамаарна
                 <br />
                 <span style={{ color: 'var(--text3)', fontSize: 12 }}>
-                  Vendor receives: {100 - parseFloat(defaultRate || '15')}% &nbsp;|&nbsp;
-                  Platform receives: {defaultRate || '15'}%
+                  Вендор авах: {100 - parseFloat(defaultRate || '15')}% &nbsp;|&nbsp;
+                  Платформ авах: {defaultRate || '15'}%
                 </span>
               </div>
             </div>
@@ -283,15 +296,15 @@ export default function CommissionPage() {
             borderRadius: 12, padding: 20, marginBottom: 20,
           }}>
             <h3 style={{ margin: '0 0 4px', fontSize: 15, fontWeight: 600, color: 'var(--text)' }}>
-              Per-Vendor Custom Rates
+              Вендор тус бүрийн тусгай хувь
             </h3>
             <p style={{ margin: '0 0 16px', fontSize: 13, color: 'var(--text2)' }}>
-              Leave empty to use default rate
+              Хоосон орхивол үндсэн хувь хэрэглэгдэнэ
             </p>
 
             {vendors.length === 0 ? (
               <div style={{ textAlign: 'center', padding: 24, color: 'var(--text2)', fontSize: 13 }}>
-                No vendors found
+                Вендор олдсонгүй
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
@@ -319,11 +332,11 @@ export default function CommissionPage() {
                         </div>
                         <div style={{ fontSize: 11, color: 'var(--text2)' }}>
                           {v.company_name || v.email} &nbsp;·&nbsp;
-                          Effective: Platform {effective}% / Vendor {vendorShare}%
+                          Платформ {effective}% / Вендор {vendorShare}%
                         </div>
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <div style={{ fontSize: 12, color: 'var(--text2)' }}>Custom rate:</div>
+                        <div style={{ fontSize: 12, color: 'var(--text2)' }}>Тусгай хувь:</div>
                         <div style={{ position: 'relative' }}>
                           <input
                             type="number" min="0" max="100" step="0.5"
@@ -359,8 +372,8 @@ export default function CommissionPage() {
           {msg && (
             <div style={{
               padding: '10px 16px', borderRadius: 8, marginBottom: 16, fontSize: 13,
-              background: msg.includes('success') ? '#dcfce7' : '#fee2e2',
-              color: msg.includes('success') ? '#16a34a' : '#dc2626',
+              background: msg.includes('амжилт') ? '#dcfce7' : '#fee2e2',
+              color: msg.includes('амжилт') ? '#16a34a' : '#dc2626',
             }}>
               {msg}
             </div>
@@ -372,7 +385,7 @@ export default function CommissionPage() {
             cursor: saving || roleTotal !== 100 ? 'not-allowed' : 'pointer', fontFamily: F,
             opacity: saving || roleTotal !== 100 ? 0.7 : 1,
           }}>
-            {saving ? 'Saving...' : 'Save Commission Rules'}
+            {saving ? 'Хадгалж байна...' : 'Комисс дүрэм хадгалах'}
           </button>
         </div>
       )}
@@ -383,12 +396,12 @@ export default function CommissionPage() {
           borderRadius: 12, overflow: 'hidden',
         }}>
           <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--border)', fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>
-            Platform Commission Transactions
+            Платформын комисс гүйлгээнүүд
           </div>
           {adminTx.length === 0 ? (
             <div style={{ padding: 40, textAlign: 'center', color: 'var(--text2)', fontSize: 13 }}>
               <div style={{ fontSize: 32, marginBottom: 8 }}>💰</div>
-              No commission transactions yet
+              Комисс гүйлгээ байхгүй байна
             </div>
           ) : (
             <div>
@@ -411,7 +424,7 @@ export default function CommissionPage() {
                     </div>
                   </div>
                   <div style={{ fontSize: 14, fontWeight: 700, color: '#16a34a' }}>
-                    +T{Number(tx.amount).toLocaleString()}
+                    +₮{Number(tx.amount).toLocaleString()}
                   </div>
                 </div>
               ))}

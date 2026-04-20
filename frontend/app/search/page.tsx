@@ -1,9 +1,9 @@
 'use client'
-import { useState, useEffect, Suspense } from 'react'
-import { useSearchParams, useRouter } from 'next/navigation'
+import React, { useState, useEffect, Suspense } from 'react'
+import React, { useSearchParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { API_URL } from '@/lib/api'
-import { fbPixel } from '@/components/FacebookPixel'
+import React, { API_URL } from '@/lib/api'
+import React, { fbPixel } from '@/components/FacebookPixel'
 
 const SUGGESTED_SEARCHES = ['Нэрийн хуудас', 'Флаер', 'Баннер', 'Стикер', 'Каталог', 'Роллап', 'Постер', 'Ном']
 

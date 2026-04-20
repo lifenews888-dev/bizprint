@@ -6,10 +6,7 @@ import { Order } from '../orders/entities/order.entity'
 import { Machine } from '../machines/machine.entity'
 import { ProductionJob } from '../production/entities/production-job.entity'
 import { User } from '../users/user.entity'
-import { NotificationService } from '../notifications/notification.service'
-import { MailService } from '../mail/mail.service'
-
-const CONTRACT_ROLES = ['vendor', 'designer', 'sales', 'courier', 'factory', 'creator']
+import { Campaign } from './campaign.entity'
 
 @Injectable()
 export class AdminService {
@@ -19,8 +16,7 @@ export class AdminService {
     @InjectRepository(Machine) private machineRepo: Repository<Machine>,
     @InjectRepository(ProductionJob) private productionRepo: Repository<ProductionJob>,
     @InjectRepository(User) private userRepo: Repository<User>,
-    private notificationService: NotificationService,
-    private mailService: MailService,
+    @InjectRepository(Campaign) private campaignRepo: Repository<Campaign>,
   ) {}
 
   async getUsers() { return this.userRepo.find({ order: { created_at: 'DESC' } }) }
@@ -45,6 +41,54 @@ export class AdminService {
   async deleteUser(id: string) {
     await this.userRepo.delete(id)
     return { deleted: true }
+  }
+
+  async updateUser(id: string, body: any) {
+    const { password, ...rest } = body;
+    await this.userRepo.update(id, rest);
+    return this.userRepo.findOne({ where: { id } });
+  }
+
+  async deleteUser(id: string) {
+    return this.userRepo.delete(id);
+  }
+
+  async createVendor(body: any) {
+    const { email, ...rest } = body;
+    const vendor = this.vendorRepo.create({ contact_email: email || rest.contact_email, ...rest });
+    return this.vendorRepo.save(vendor);
+  }
+
+  async updateVendor(id: string, body: any) {
+    const { email, ...rest } = body;
+    if (email) rest.contact_email = email;
+    await this.vendorRepo.update(id, rest);
+    return this.vendorRepo.findOne({ where: { id } });
+  }
+
+  async deleteVendor(id: string) {
+    return this.vendorRepo.delete(id);
+  }
+
+  async getRoleRequests() {
+    return this.userRepo
+      .createQueryBuilder('u')
+      .where('u.role_request IS NOT NULL')
+      .select(['u.id', 'u.full_name', 'u.email', 'u.role', 'u.role_request', 'u.created_at'])
+      .getMany();
+  }
+
+  async approveRole(id: string) {
+    const user = await this.userRepo.findOne({ where: { id } });
+    if (!user || !user.role_request) throw new Error('Хүсэлт олдсонгүй');
+    const newRole = user.role_request;
+    await this.userRepo.update(id, { role: newRole, role_request: null });
+    return this.userRepo.findOne({ where: { id } });
+  }
+
+  async rejectRole(id: string) {
+    await this.userRepo.update(id, { role_request: null });
+    return { message: 'Хүсэлт татгалзагдлаа' };
   }
 
   async getStats() {
@@ -160,4 +204,10 @@ export class AdminService {
     await this.userRepo.save(user)
     return { success: true, user_id: id, verification_status: status }
   }
+
+  // Campaigns
+  async getCampaigns() { return this.campaignRepo.find({ order: { created_at: 'DESC' } }) }
+  async createCampaign(body: any) { return this.campaignRepo.save(this.campaignRepo.create(body)) }
+  async updateCampaign(id: string, body: any) { await this.campaignRepo.update(id, body); return this.campaignRepo.findOne({ where: { id } }) }
+  async deleteCampaign(id: string) { return this.campaignRepo.delete(id) }
 }

@@ -1,8 +1,8 @@
 'use client'
-import { useState } from 'react'
-import { apiFetch } from '@/lib/api'
+import React, { useState } from 'react'
+import React, { apiFetch } from '@/lib/api'
 import Link from 'next/link'
-import { Mail, ArrowLeft, CheckCircle, Loader2 } from 'lucide-react'
+import React, { Mail, ArrowLeft, CheckCircle, Loader2 } from 'lucide-react'
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('')
