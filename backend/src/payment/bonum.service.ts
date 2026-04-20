@@ -84,7 +84,7 @@ export class BonumService {
     if (!res.ok) {
       const err = await res.text().catch(() => '');
       this.logger.error(`Bonum createInvoice error: ${err}`);
-      throw new Error(`Invoice creation failed: ${res.status}`);
+      throw new Error(`Invoice creation failed: ${res.status} ${err}`);
     }
 
     const data: any = await res.json();
