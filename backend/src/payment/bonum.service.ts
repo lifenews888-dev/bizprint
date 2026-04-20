@@ -26,6 +26,27 @@ export class BonumService {
     if (!this.SECRET || !this.TERMINAL_ID) {
       throw new Error('Bonum credentials not configured (BONUM_APP_SECRET, BONUM_TERMINAL_ID)');
     }
+
+    // Try refresh first — avoids 429 rate-limit on /auth/create (25-min minimum)
+    if (this.refreshToken) {
+      try {
+        const res = await fetch(`${this.BASE}/bonum-gateway/ecommerce/auth/refresh`, {
+          headers: { Authorization: `Bearer ${this.refreshToken}` },
+        });
+        if (res.ok) {
+          const data: any = await res.json();
+          this.accessToken = data.accessToken || data.access_token || '';
+          this.refreshToken = data.refreshToken || this.refreshToken;
+          this.tokenExpiry = new Date(Date.now() + 28 * 60 * 1000);
+          this.logger.log('Bonum token refreshed via refresh-flow');
+          return this.accessToken;
+        }
+      } catch (e: any) {
+        this.logger.warn(`Bonum refresh failed, will try fresh auth: ${e.message}`);
+      }
+    }
+
+    // Full auth (rate-limited: min 25min between requests)
     const res = await fetch(`${this.BASE}/bonum-gateway/ecommerce/auth/create`, {
       headers: {
         Authorization: `AppSecret ${this.SECRET}`,
@@ -40,9 +61,8 @@ export class BonumService {
     const data: any = await res.json();
     this.accessToken = data.accessToken || data.access_token || '';
     this.refreshToken = data.refreshToken || '';
-    // accessToken expires in 1800s (30min) — cache 28min to refresh 2min early
     this.tokenExpiry = new Date(Date.now() + 28 * 60 * 1000);
-    this.logger.log('Bonum token refreshed');
+    this.logger.log('Bonum token obtained via fresh auth');
     return this.accessToken;
   }
 
