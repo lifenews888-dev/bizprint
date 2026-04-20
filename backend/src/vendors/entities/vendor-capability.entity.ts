@@ -2,7 +2,7 @@ import {
   Entity, PrimaryGeneratedColumn, Column,
   CreateDateColumn, UpdateDateColumn, ManyToOne, JoinColumn, Index,
 } from 'typeorm';
-import { Vendor } from '../vendor.entity';
+import type { Vendor } from '../vendor.entity';
 import { Capability } from './capability.entity';
 
 @Entity('vendor_capabilities')
@@ -14,7 +14,7 @@ export class VendorCapability {
   @Column()
   vendor_id: string;
 
-  @ManyToOne(() => Vendor)
+  @ManyToOne('Vendor')
   @JoinColumn({ name: 'vendor_id' })
   vendor: Vendor;
 

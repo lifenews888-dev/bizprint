@@ -1,5 +1,5 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, OneToMany } from 'typeorm';
-import { VendorCapability } from './entities/vendor-capability.entity';
+import type { VendorCapability } from './entities/vendor-capability.entity';
 
 export enum VendorTier {
   GOLD = 'gold',
@@ -168,7 +168,7 @@ export class Vendor {
   @Column({ type: 'int', default: 0 })
   total_orders: number;
 
-  @OneToMany(() => VendorCapability, (vc) => vc.vendor)
+  @OneToMany('VendorCapability', (vc: VendorCapability) => vc.vendor)
   vendor_capabilities: VendorCapability[];
 
   // ── Geo Location ──────────────────────────────────────
