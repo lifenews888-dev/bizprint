@@ -48,22 +48,34 @@ export class ProductPriceCalculatorService {
     // ── Validate input ──
     this.validateInput(input);
 
-    const mode = product.pricing_mode || 'fixed';
+    let mode = product.pricing_mode || 'fixed';
     let formula = product.price_formula || {};
 
-    // Auto-detect area_based бүтээгдэхүүн (price_formula тохируулагдаагүй үед)
-    if (mode === 'formula' && !formula.type) {
-      const unit = (product.compare_specs?.unit || '').toLowerCase();
-      const category = (product.category || '').toLowerCase();
-      const isAreaBased = unit === 'мкв' || unit === 'м2' || unit === 'm2' ||
-        category.includes('хэвлэл') || category.includes('баннер') || category.includes('самбар')
-      if (isAreaBased) {
-        formula = {
-          type: 'area_based',
-          price_per_m2: Number(product.base_price) || 0,
-          min_area_m2: 0.25,
-        };
-      }
+    // ── Auto-detect area_based ──
+    // 1) pricing_mode=formula but no formula.type set
+    // 2) requires_dimensions=true (flags, banners, signs, anything with m² UI)
+    // 3) category/unit keywords match known area-based products
+    const unit = (product.compare_specs?.unit || '').toLowerCase();
+    const category = (product.category || '').toLowerCase();
+    const name = ((product.name_mn || product.name) || '').toLowerCase();
+    const keywordMatch =
+      unit === 'мкв' || unit === 'м2' || unit === 'm2' ||
+      category.includes('хэвлэл') || category.includes('баннер') ||
+      category.includes('самбар') || category.includes('туг') ||
+      category.includes('далбаа') || category.includes('флаг') ||
+      name.includes('туг') || name.includes('далбаа') || name.includes('баннер');
+
+    const shouldUseArea =
+      (mode === 'formula' && !formula.type && keywordMatch) ||
+      (product.requires_dimensions === true && !formula.type);
+
+    if (shouldUseArea) {
+      formula = {
+        type: 'area_based',
+        price_per_m2: Number(product.base_price) || 0,
+        min_area_m2: formula.min_area_m2 || 0.25,
+      };
+      if (mode !== 'formula') mode = 'formula';
     }
 
     switch (mode) {

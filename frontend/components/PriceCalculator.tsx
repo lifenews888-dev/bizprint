@@ -59,8 +59,8 @@ export default function PriceCalculator({ product, onPriceChange }: Props) {
     const sidesNote = effectiveSides === 'double' ? `Хоёр талын хэвлэл (${sidesPctLabel})` : 'Нэг талын хэвлэл'
     const basePrice = Number(p.sale_price || p.base_price || 0)
 
-    // Fixed price — no API needed
-    if (!isArea && !isTier) {
+    // Fixed price — no API needed (only if no dimensions required)
+    if (!isArea && !isTier && !needsDimensions) {
       const total = Math.round(basePrice * qty * sidesMultiplier)
       const r = { total, unit_price: Math.round(total / qty), formula_used: 'fixed', notes: [sidesNote], volume_discount: 0, quantity: qty, is_estimate: false }
       setResult(r)
@@ -68,7 +68,7 @@ export default function PriceCalculator({ product, onPriceChange }: Props) {
       return
     }
 
-    // Need valid dimensions for area
+    // Need valid dimensions for area/dimensioned products
     if (needsDimensions && (widthM <= 0 || heightM <= 0)) {
       setResult(null)
       onPriceChange?.(0, null)
@@ -94,8 +94,8 @@ export default function PriceCalculator({ product, onPriceChange }: Props) {
     } catch {
       // Fallback: client-side calc using base_price and area/qty
       const pricePerM2 = Number(formula.price_per_m2 || basePrice)
-      const effectiveArea = Math.max(areaM2, Number(formula.min_area_m2) || 0)
-      const fallbackTotal = isArea
+      const effectiveArea = Math.max(areaM2, Number(formula.min_area_m2) || 0.25)
+      const fallbackTotal = (isArea || needsDimensions)
         ? Math.round(pricePerM2 * effectiveArea * qty * sidesMultiplier)
         : Math.round(basePrice * qty * sidesMultiplier)
       const r = { total: fallbackTotal, unit_price: Math.round(fallbackTotal / qty), formula_used: 'fallback', notes: [sidesNote, '⚠ Серверийн алдаа — суурь үнээр тооцоолсон'], volume_discount: 0, quantity: qty, is_estimate: true }
