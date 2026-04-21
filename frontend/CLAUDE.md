@@ -17,7 +17,7 @@ Print-on-demand e-commerce platform frontend built with Next.js.
 - **QR:** qrcode.react
 - **Images:** Cloudinary + next-cloudinary
 - **DnD:** @dnd-kit
-- **API:** `http://localhost:4000` (NestJS backend)
+- **API:** `https://bizprint-production.up.railway.app` (NestJS backend)
 - **Auth:** JWT in localStorage, role-based routing
 - **Localization:** Mongolian (hardcoded, no i18n library)
 
