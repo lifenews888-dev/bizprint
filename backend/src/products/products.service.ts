@@ -36,11 +36,13 @@ export class ProductsService {
         [categoryId],
       );
     }
-    return this.productRepo.find({
-      where: { is_active: true, category: categoryId },
-      order: { sort_order: 'ASC', created_at: 'DESC' },
-      ...(limit ? { take: limit } : {}),
-    });
+    // Category name/slug — case-insensitive partial match so "Туг далбаа" also
+    // catches "Туг далбаа (багц үнэ)" etc.
+    const limitClause = limit ? ` LIMIT ${limit}` : '';
+    return this.productRepo.query(
+      `SELECT * FROM products WHERE is_active = true AND category ILIKE $1 ORDER BY sort_order ASC, created_at DESC${limitClause}`,
+      [`%${categoryId}%`],
+    );
   }
 
   async search(query: string, category?: string) {
