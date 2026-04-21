@@ -27,6 +27,21 @@ bizprint/
 
 See `backend/CLAUDE.md` and `frontend/CLAUDE.md` for detailed module docs.
 
+## Branching Strategy
+
+| Branch    | Purpose                          | Deploys to              |
+|-----------|----------------------------------|-------------------------|
+| `master`  | Production (bizprint.mn)         | Vercel auto-deploy      |
+| `develop` | Active development               | Never deploys directly  |
+
+**Rules:**
+- **Never push directly to `master`** — only merge from `develop` after testing
+- All new features and fixes go on `develop` (or a feature branch off `develop`)
+- Workflow: `develop` → test locally → merge to `master` → Vercel auto-deploys to production
+- Vercel is configured to only deploy the `master` branch to production
+
+**Emergency hotfix:** branch from `master` → fix → test → merge back to `master` AND `develop`
+
 ## Quick Start
 
 ```bash
