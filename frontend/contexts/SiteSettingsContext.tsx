@@ -3,7 +3,7 @@
 import { createContext, useContext, useEffect, useState, useCallback, ReactNode } from 'react'
 import { useRealtime } from './RealtimeContext'
 
-const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000'
+const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://bizprint-production.up.railway.app'
 
 // Default settings fallback
 const DEFAULT_SETTINGS: Record<string, any> = {

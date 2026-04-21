@@ -1,7 +1,7 @@
 'use client'
 import React, { useState, useEffect } from 'react'
 
-const API = 'http://localhost:4000'
+const API = process.env.NEXT_PUBLIC_API_URL || 'https://bizprint-production.up.railway.app'
 const F = "'DM Sans','Segoe UI',system-ui,sans-serif"
 const tok = () => localStorage.getItem('access_token') || localStorage.getItem('token') || ''
 const getHeaders = () => ({ 'Content-Type': 'application/json', Authorization: `Bearer ${tok()}` })

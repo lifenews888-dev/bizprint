@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react'
 import { useParams } from 'next/navigation'
 
-const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'
+const API = process.env.NEXT_PUBLIC_API_URL || 'https://bizprint-production.up.railway.app'
 const FONT = "'DM Sans','Segoe UI',system-ui,sans-serif"
 
 const SOCIAL_META: Record<string, { icon: string; color: string; label: string }> = {

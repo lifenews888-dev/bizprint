@@ -5,7 +5,7 @@ interface Props { params: Promise<{ slug: string }> }
 
 async function getVendor(slug: string) {
   try {
-    const base = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'
+    const base = process.env.NEXT_PUBLIC_API_URL || 'https://bizprint-production.up.railway.app'
     const res = await fetch(`${base}/api/vendors/slug/${encodeURIComponent(slug)}`, {
       next: { revalidate: 300 },
     })

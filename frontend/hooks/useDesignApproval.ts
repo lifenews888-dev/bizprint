@@ -12,7 +12,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useRealtime } from '../contexts/RealtimeContext'
 
-const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000'
+const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://bizprint-production.up.railway.app'
 
 interface UseDesignApprovalResult {
   design: any | null

@@ -26,7 +26,7 @@ export default function ProductQrDashboard() {
     const token = localStorage.getItem('access_token') || localStorage.getItem('token')
     if (!token) { setLoading(false); return }
     const headers = { Authorization: `Bearer ${token}` }
-    const safeFetch = (path: string) => fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}${path}`, { headers }).then(r => r.ok ? r.json() : null).catch(() => null)
+    const safeFetch = (path: string) => fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://bizprint-production.up.railway.app'}${path}`, { headers }).then(r => r.ok ? r.json() : null).catch(() => null)
     Promise.all([
       safeFetch('/product-qr/my'),
       safeFetch('/subscription/usage'),
@@ -50,7 +50,7 @@ export default function ProductQrDashboard() {
     fd.append('file', file)
     try {
       const res = await apiFetch<any>('/upload/file', { method: 'POST', body: fd })
-      return res?.file_url ? `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}${res.file_url}` : null
+      return res?.file_url ? `${process.env.NEXT_PUBLIC_API_URL || 'https://bizprint-production.up.railway.app'}${res.file_url}` : null
     } catch { return null }
   }
 
@@ -74,7 +74,7 @@ export default function ProductQrDashboard() {
       setImgFile(null); setImgPreview(''); setVideoFile(null); setVideoName('')
       const token = localStorage.getItem('access_token') || localStorage.getItem('token')
       if (token) {
-        fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/subscription/usage`, { headers: { Authorization: `Bearer ${token}` } })
+        fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://bizprint-production.up.railway.app'}/subscription/usage`, { headers: { Authorization: `Bearer ${token}` } })
           .then(r => r.ok ? r.json() : null).then(u => u && setUsage(u)).catch(() => {})
       }
     } catch (err: any) {

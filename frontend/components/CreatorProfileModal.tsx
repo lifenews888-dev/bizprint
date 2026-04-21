@@ -61,7 +61,7 @@ export default function CreatorProfileModal({
       fd.append('file', file)
       const res = await apiUpload<any>('/upload/file', fd)
       if (res?.file_url) {
-        const fullUrl = res.file_url.startsWith('http') ? res.file_url : `http://localhost:4000${res.file_url}`
+        const fullUrl = res.file_url.startsWith('http') ? res.file_url : `${process.env.NEXT_PUBLIC_API_URL || 'https://bizprint-production.up.railway.app'}${res.file_url}`
         setAvatarUrl(fullUrl)
         // Save to user
         await apiFetch('/users/profile', { method: 'PATCH', body: JSON.stringify({ avatar_url: fullUrl }) }).catch(() => {})

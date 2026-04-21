@@ -3,7 +3,7 @@ import React, { useRouter } from 'next/navigation'
 import React, { useState } from 'react'
 
 const F = "'DM Sans','Segoe UI',system-ui,sans-serif"
-const API = 'http://localhost:4000'
+const API = process.env.NEXT_PUBLIC_API_URL || 'https://bizprint-production.up.railway.app'
 
 const BENEFITS = [
   {

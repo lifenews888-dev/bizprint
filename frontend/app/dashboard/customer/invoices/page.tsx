@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react'
 
 const FONT = "'DM Sans','Segoe UI',system-ui,sans-serif"
 const ORANGE = '#FF6B00'
-const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'
+const API = process.env.NEXT_PUBLIC_API_URL || 'https://bizprint-production.up.railway.app'
 
 const STATUS_MAP: Record<string, { label: string; color: string; bg: string }> = {
   draft: { label: 'Ноорог', color: '#6B7280', bg: '#F3F4F6' },

@@ -2,7 +2,7 @@
  * Client-side Error Reporter — sends errors to /errors/report endpoint.
  * Use in any BizPrint app: web, user_app, driver_app, vendor_app.
  */
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://bizprint-production.up.railway.app'
 
 type ErrorSource = 'web' | 'user_app' | 'driver_app' | 'vendor_app'
 

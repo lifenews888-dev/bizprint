@@ -6,7 +6,7 @@ import Paywall from '@/components/Paywall'
 
 const F = "'DM Sans','Segoe UI',system-ui,sans-serif"
 const O = '#FF6B00'
-const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'
+const API = process.env.NEXT_PUBLIC_API_URL || 'https://bizprint-production.up.railway.app'
 
 export default function CampaignsPage() {
   const [programs, setPrograms] = useState<any[]>([])
@@ -299,7 +299,7 @@ export default function CampaignsPage() {
                                   const fd = new FormData(); fd.append('file', f)
                                   try {
                                     const res = await apiFetch<any>('/upload/file', { method: 'POST', body: fd })
-                                    if (res?.file_url) updateLast('image_url', `http://localhost:4000${res.file_url}`)
+                                    if (res?.file_url) updateLast('image_url', `${process.env.NEXT_PUBLIC_API_URL || 'https://bizprint-production.up.railway.app'}${res.file_url}`)
                                   } catch {}
                                 }} />
                               </label>

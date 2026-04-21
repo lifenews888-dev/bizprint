@@ -5,7 +5,7 @@ import { apiFetch } from '@/lib/api'
 
 const FONT = "'DM Sans','Segoe UI',system-ui,sans-serif"
 const ORANGE = '#FF6B00'
-const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'
+const API = process.env.NEXT_PUBLIC_API_URL || 'https://bizprint-production.up.railway.app'
 
 export default function MyLoyaltyCards() {
   const [cards, setCards] = useState<any[]>([])

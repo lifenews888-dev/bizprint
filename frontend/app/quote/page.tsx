@@ -43,7 +43,7 @@ interface QuoteResult {
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const API = 'http://localhost:4000'
+const API = process.env.NEXT_PUBLIC_API_URL || 'https://bizprint-production.up.railway.app'
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 

@@ -28,7 +28,7 @@ import {
 } from 'react'
 import { io, Socket } from 'socket.io-client'
 
-const SYNC_URL = (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000') + ''
+const SYNC_URL = (process.env.NEXT_PUBLIC_API_URL ?? 'https://bizprint-production.up.railway.app') + ''
 const FALLBACK_POLL_MS = 10_000
 
 type Handler = (data: any) => void

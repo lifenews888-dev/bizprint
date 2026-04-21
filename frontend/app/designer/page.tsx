@@ -3,7 +3,7 @@ import React, { useEffect, useState, useRef } from 'react'
 import React, { useRouter } from 'next/navigation'
 import NotificationBell from '@/components/NotificationBell'
 
-const API = 'http://localhost:4000'
+const API = process.env.NEXT_PUBLIC_API_URL || 'https://bizprint-production.up.railway.app'
 
 interface DesignRequest {
   id: string

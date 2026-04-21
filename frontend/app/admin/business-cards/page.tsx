@@ -525,7 +525,7 @@ export default function AdminBusinessCardsPage() {
               {/* Show uploaded bgs */}
               {(l.backgrounds || []).filter((bg: any) => bg.side === edSide).map((bg: any) => (
                 <div key={bg.id} style={{ position: 'relative', marginTop: 6, borderRadius: 6, overflow: 'hidden', border: '1px solid var(--border)' }}>
-                  <img src={bg.url?.startsWith('http') ? bg.url : `http://localhost:4000${bg.url}`} alt="" style={{ width: '100%', height: 60, objectFit: 'cover' }} />
+                  <img src={bg.url?.startsWith('http') ? bg.url : `${process.env.NEXT_PUBLIC_API_URL || 'https://bizprint-production.up.railway.app'}${bg.url}`} alt="" style={{ width: '100%', height: 60, objectFit: 'cover' }} />
                   <button onClick={async () => {
                     if (!productId || !l.id) return
                     await apiFetch(`/admin/business-cards/${productId}/layouts/${l.id}/backgrounds/${bg.id}`, { method: 'DELETE' }).catch(() => {})
@@ -546,7 +546,7 @@ export default function AdminBusinessCardsPage() {
                 {/* Background image */}
                 {(() => {
                   const bgImg = (l.backgrounds || []).find((bg: any) => bg.side === edSide)
-                  return bgImg ? <img src={bgImg.url?.startsWith('http') ? bgImg.url : `http://localhost:4000${bgImg.url}`} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} /> : null
+                  return bgImg ? <img src={bgImg.url?.startsWith('http') ? bgImg.url : `${process.env.NEXT_PUBLIC_API_URL || 'https://bizprint-production.up.railway.app'}${bgImg.url}`} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} /> : null
                 })()}
 
                 {/* Zones */}

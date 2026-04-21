@@ -17,7 +17,7 @@ export default function GalleryPreview() {
   const [images, setImages] = useState<GalleryImage[]>([])
 
   useEffect(() => {
-    const api = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'
+    const api = process.env.NEXT_PUBLIC_API_URL || 'https://bizprint-production.up.railway.app'
     fetch(`${api}/gallery/recent?limit=6`)
       .then(r => r.json())
       .then(data => { if (Array.isArray(data)) setImages(data) })

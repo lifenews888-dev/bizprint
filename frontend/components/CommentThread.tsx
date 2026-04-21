@@ -159,10 +159,10 @@ export default function CommentThread({
                     {c.attachment_urls && c.attachment_urls.length > 0 && (
                       <div style={{ display: 'flex', gap: 4, marginTop: 4, flexWrap: 'wrap', maxWidth: '85%' }}>
                         {c.attachment_urls.map((url, j) => (
-                          <a key={j} href={url.startsWith('http') ? url : `http://localhost:4000${url}`} target="_blank" rel="noreferrer"
+                          <a key={j} href={url.startsWith('http') ? url : `${process.env.NEXT_PUBLIC_API_URL || 'https://bizprint-production.up.railway.app'}${url}`} target="_blank" rel="noreferrer"
                             style={{ display: 'block', borderRadius: 8, overflow: 'hidden', border: '1px solid var(--border)' }}>
                             {isImage(url) ? (
-                              <img src={url.startsWith('http') ? url : `http://localhost:4000${url}`} alt="" style={{ width: 80, height: 80, objectFit: 'cover' }} />
+                              <img src={url.startsWith('http') ? url : `${process.env.NEXT_PUBLIC_API_URL || 'https://bizprint-production.up.railway.app'}${url}`} alt="" style={{ width: 80, height: 80, objectFit: 'cover' }} />
                             ) : (
                               <div style={{ padding: '8px 12px', fontSize: 10, color: 'var(--text2)', background: 'var(--surface2)' }}>
                                 📎 {url.split('/').pop()?.slice(0, 20)}

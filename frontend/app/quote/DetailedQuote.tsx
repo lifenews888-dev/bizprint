@@ -700,7 +700,7 @@ export default function DetailedQuote() {
                   try {
                     const fd = new FormData(); fd.append('file', file)
                     const res = await apiUpload<any>('/upload/file', fd)
-                    if (res?.file_url) setSignLogoUrl(`http://localhost:4000${res.file_url}`)
+                    if (res?.file_url) setSignLogoUrl(`${process.env.NEXT_PUBLIC_API_URL || 'https://bizprint-production.up.railway.app'}${res.file_url}`)
                   } catch {}
                 }} />
               📎 Лого оруулах

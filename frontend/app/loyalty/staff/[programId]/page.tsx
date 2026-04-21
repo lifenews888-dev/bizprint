@@ -20,7 +20,7 @@ export default function StaffQrPage() {
 
   // Load program info
   useEffect(() => {
-    fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/loyalty/program/${programId}`)
+    fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://bizprint-production.up.railway.app'}/loyalty/program/${programId}`)
       .then(r => r.ok ? r.json() : null)
       .then(setProgram)
       .catch(() => {})
@@ -59,7 +59,7 @@ export default function StaffQrPage() {
       if (pollRef.current) clearInterval(pollRef.current)
       pollRef.current = setInterval(async () => {
         try {
-          const s: any = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/loyalty/session/${res.token}/status`).then(r => r.json())
+          const s: any = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://bizprint-production.up.railway.app'}/loyalty/session/${res.token}/status`).then(r => r.json())
           if (s.is_used) {
             setStatus('used')
             setUsedMessage('Тамга амжилттай нэмэгдлээ!')

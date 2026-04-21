@@ -54,7 +54,7 @@ export default function SubscriptionPage() {
   useEffect(() => {
     const token = localStorage.getItem('access_token') || localStorage.getItem('token')
     const headers: any = token ? { Authorization: `Bearer ${token}` } : {}
-    const safeFetch = (path: string) => fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}${path}`, { headers }).then(r => r.ok ? r.json() : null).catch(() => null)
+    const safeFetch = (path: string) => fetch(`${process.env.NEXT_PUBLIC_API_URL || 'https://bizprint-production.up.railway.app'}${path}`, { headers }).then(r => r.ok ? r.json() : null).catch(() => null)
     Promise.all([
       safeFetch('/subscription/plans'),
       token ? safeFetch('/subscription/my') : Promise.resolve(null),

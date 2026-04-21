@@ -63,7 +63,7 @@ export default function BusinessCardsPage() {
   const [layouts, setLayouts] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
 
-  const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'
+  const API = process.env.NEXT_PUBLIC_API_URL || 'https://bizprint-production.up.railway.app'
 
   useEffect(() => {
     async function load() {

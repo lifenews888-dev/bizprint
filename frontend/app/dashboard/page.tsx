@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 
-const API = 'http://localhost:4000'
+const API = process.env.NEXT_PUBLIC_API_URL || 'https://bizprint-production.up.railway.app'
 const getToken = () => localStorage.getItem('access_token') || localStorage.getItem('token') || ''
 const getH = () => ({ 'Content-Type': 'application/json', Authorization: 'Bearer ' + getToken() })
 

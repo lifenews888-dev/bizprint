@@ -4,7 +4,7 @@ import React, { useParams } from 'next/navigation'
 import React, { notFound } from 'next/navigation'
 import DOMPurify from 'dompurify'
 
-const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'
+const API = process.env.NEXT_PUBLIC_API_URL || 'https://bizprint-production.up.railway.app'
 
 function sanitizeHtml(html: string): string {
   if (typeof window === 'undefined') return html

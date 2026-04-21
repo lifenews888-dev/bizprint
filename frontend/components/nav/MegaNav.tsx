@@ -7,7 +7,7 @@ import { useStore } from '@/lib/store'
 import { Phone as PhoneIcon, Search as SearchIcon, User as UserIcon, Heart as HeartIcon, ShoppingCart as CartIcon, Menu as MenuIcon, ChevronDown, ChevronRight } from 'lucide-react'
 
 
-const API = 'http://localhost:4000'
+const API = process.env.NEXT_PUBLIC_API_URL || 'https://bizprint-production.up.railway.app'
 const F = "'DM Sans','Segoe UI',system-ui,sans-serif"
 
 const NAV_LINKS = [
@@ -30,7 +30,7 @@ export default function MegaNav() {
   // Fetch categories marked for mega menu from DB
   const [navCategories, setNavCategories] = useState<any[]>([])
   useEffect(() => {
-    const api = typeof window !== 'undefined' ? (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000') : ''
+    const api = typeof window !== 'undefined' ? (process.env.NEXT_PUBLIC_API_URL || 'https://bizprint-production.up.railway.app') : ''
     fetch(`${api}/api/categories/navigation`).then(r => r.ok ? r.json() : []).then(data => {
       if (Array.isArray(data) && data.length > 0) setNavCategories(data)
     }).catch(() => {})
@@ -160,7 +160,7 @@ export default function MegaNav() {
       try {
         const params = new URLSearchParams({ q })
         if (cat) params.set('category', cat)
-        const api = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'
+        const api = process.env.NEXT_PUBLIC_API_URL || 'https://bizprint-production.up.railway.app'
         const res = await fetch(`${api}/api/products/search?${params}`)
         const data = await res.json()
         setSearchResults(Array.isArray(data) ? data : [])
