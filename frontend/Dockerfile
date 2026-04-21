@@ -5,14 +5,14 @@ WORKDIR /app
 
 COPY package*.json ./
 RUN npm ci --ignore-scripts
-
+h
 COPY . .
 
 # Build-time API URL (overridable via docker-compose build args)
-ARG NEXT_PUBLIC_API_URL=http://localhost:4000
+ARG NEXT_PUBLIC_API_URL=https://bizprint-production.up.railway.app
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 
-RUN npm run build
+RUN npm run buildh
 
 # ── Stage 2: Production ───────────────────────────────────────────────────────
 FROM node:20-alpine AS production
