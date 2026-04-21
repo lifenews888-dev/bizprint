@@ -173,7 +173,7 @@ export default function SmartQuote() {
                     try {
                       const fd = new FormData(); fd.append('file', file)
                       const res = await apiUpload<any>('/upload/file', fd)
-                      if (res?.file_url) setLogoUrl(`http://localhost:4000${res.file_url}`)
+                      if (res?.file_url) setLogoUrl(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}${res.file_url}`)
                     } catch {}
                   }} />
                   {logoUrl ? (

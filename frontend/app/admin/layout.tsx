@@ -59,7 +59,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     const stored = localStorage.getItem('user')
     if (stored) { try { setUser(JSON.parse(stored)) } catch {} }
     // Fetch pending role requests count
-    fetch('http://localhost:4000/admin/role-requests', { headers: { Authorization: `Bearer ${token}` } })
+    fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/admin/role-requests`, { headers: { Authorization: `Bearer ${token}` } })
       .then(r => r.ok ? r.json() : [])
       .then(d => setRoleReqCount(Array.isArray(d) ? d.length : 0))
       .catch(() => {})

@@ -299,7 +299,7 @@ export default function CampaignsPage() {
                                   const fd = new FormData(); fd.append('file', f)
                                   try {
                                     const res = await apiFetch<any>('/upload/file', { method: 'POST', body: fd })
-                                    if (res?.file_url) updateLast('image_url', `http://localhost:4000${res.file_url}`)
+                                    if (res?.file_url) updateLast('image_url', `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}${res.file_url}`)
                                   } catch {}
                                 }} />
                               </label>

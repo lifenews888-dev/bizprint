@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 
-const API = 'http://localhost:4000'
+const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'
 const F   = "'DM Sans','Segoe UI',system-ui,sans-serif"
 
 const getToken  = () => typeof window !== 'undefined' ? (localStorage.getItem('access_token') || localStorage.getItem('token') || '') : ''

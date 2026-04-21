@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react'
 import React, { useRouter } from 'next/navigation'
 import NotificationBell from '@/components/NotificationBell'
 
-const API = 'http://localhost:4000'
+const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'
 const F   = "'DM Sans','Segoe UI',system-ui,sans-serif"
 
 // ─── Types ────────────────────────────────────────────────────────────────────

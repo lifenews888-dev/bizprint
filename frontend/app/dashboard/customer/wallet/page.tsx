@@ -31,7 +31,7 @@ interface UserInfo {
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const API = 'http://localhost:4000'
+const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'
 
 const ROLE_CONFIG: Record<string, { title: string; color: string; icon: string; earnLabel: string }> = {
   sales:    { title: 'Комиссын хэтэвч',    color: '#3B82F6', icon: '💼', earnLabel: 'Нийт комисс' },
