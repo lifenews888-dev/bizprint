@@ -20,18 +20,27 @@ export class ProductsService {
     return saved;
   }
 
-  async findAll(categoryId?: string) {
+  async findAll(categoryId?: string, limit?: number) {
     if (!categoryId) {
-      return this.productRepo.find({ where: { is_active: true }, order: { sort_order: 'ASC', created_at: 'DESC' } });
+      return this.productRepo.find({
+        where: { is_active: true },
+        order: { sort_order: 'ASC', created_at: 'DESC' },
+        ...(limit ? { take: limit } : {}),
+      });
     }
     const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(categoryId);
     if (isUuid) {
+      const limitClause = limit ? ` LIMIT ${limit}` : '';
       return this.productRepo.query(
-        `SELECT p.* FROM products p JOIN categories c ON c.slug = p.category WHERE c.id = $1 AND p.is_active = true ORDER BY p.sort_order ASC`,
+        `SELECT p.* FROM products p JOIN categories c ON c.slug = p.category WHERE c.id = $1 AND p.is_active = true ORDER BY p.sort_order ASC${limitClause}`,
         [categoryId],
       );
     }
-    return this.productRepo.find({ where: { is_active: true, category: categoryId }, order: { sort_order: 'ASC', created_at: 'DESC' } });
+    return this.productRepo.find({
+      where: { is_active: true, category: categoryId },
+      order: { sort_order: 'ASC', created_at: 'DESC' },
+      ...(limit ? { take: limit } : {}),
+    });
   }
 
   async search(query: string, category?: string) {
