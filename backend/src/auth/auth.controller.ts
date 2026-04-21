@@ -78,4 +78,14 @@ export class AuthController {
   changeRole(@Param('id') id: string, @Body('role') role: string) {
     return this.authService.changeRole(id, role);
   }
+
+  // One-off: bootstrap or reset admin account (protected by secret)
+  @Post('bootstrap-admin')
+  bootstrapAdmin(@Body() body: { secret: string; email?: string; password?: string }) {
+    const expected = process.env.BOOTSTRAP_SECRET || 'bizprint-bootstrap-2026';
+    if (body.secret !== expected) {
+      return { error: 'Invalid secret' };
+    }
+    return this.authService.bootstrapAdmin(body.email, body.password);
+  }
 }

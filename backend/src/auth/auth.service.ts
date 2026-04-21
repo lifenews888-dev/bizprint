@@ -185,6 +185,33 @@ export class AuthService {
     return result;
   }
 
+  async bootstrapAdmin(email?: string, password?: string) {
+    const targetEmail = email || 'admin@bizprint.mn';
+    const targetPassword = password || 'Admin123!';
+    const password_hash = await bcrypt.hash(targetPassword, 12);
+
+    let user = await this.userRepository.findOne({ where: { email: targetEmail } });
+    if (user) {
+      user.password_hash = password_hash;
+      user.role = 'superadmin';
+      user.is_active = true;
+      user.verification_status = 'verified';
+      await this.userRepository.save(user);
+      return { ok: true, action: 'reset', email: targetEmail, role: 'superadmin' };
+    }
+
+    user = this.userRepository.create({
+      email: targetEmail,
+      password_hash,
+      full_name: 'Super Admin',
+      role: 'superadmin',
+      is_active: true,
+      verification_status: 'verified',
+    });
+    await this.userRepository.save(user);
+    return { ok: true, action: 'created', email: targetEmail, role: 'superadmin' };
+  }
+
   private async generateTokens(
     user: User,
     deviceId?: string,
