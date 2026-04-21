@@ -15,7 +15,7 @@ interface WithdrawRequest {
 }
 
 // Constants
-const API = 'http://localhost:4000'
+const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'
 
 const ROLE_LABEL: Record<string, { label: string; color: string }> = {
   sales:    { label: 'Борлуулагч', color: '#3B82F6' },

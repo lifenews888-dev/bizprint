@@ -2,7 +2,7 @@
 import { useEffect, useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 
-const API = 'http://localhost:4000'
+const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'
 const F   = "'DM Sans','Segoe UI',system-ui,sans-serif"
 
 interface Creator {

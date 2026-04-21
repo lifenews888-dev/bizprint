@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { io, Socket } from 'socket.io-client'
 
-const API = 'http://localhost:4000'
+const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'
 const F = "'DM Sans','Segoe UI',system-ui,sans-serif"
 
 type Role = 'admin' | 'customer' | 'designer' | 'factory' | 'sales' | 'courier' | 'vendor' | 'user'

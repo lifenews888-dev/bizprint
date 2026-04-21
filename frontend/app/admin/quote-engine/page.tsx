@@ -47,7 +47,7 @@ const CATEGORY_LABELS: Record<string, string> = {
   fabric:            'Даавуун хэвлэл (м²)',
 }
 
-const API = 'http://localhost:4000'
+const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'
 const fmt = (n: number) => new Intl.NumberFormat('mn-MN').format(Math.round(n))
 
 // ─── Component ────────────────────────────────────────────────────────────────
