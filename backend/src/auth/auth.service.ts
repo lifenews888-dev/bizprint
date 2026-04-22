@@ -106,18 +106,15 @@ export class AuthService {
     if (!user) throw new UnauthorizedException('Хэрэглэгч олдсонгүй');
     user.role = role;
     await this.userRepository.save(user);
-    const { password_hash, ...result } = user;
-    return result;
+    return user;
   }
 
   async login(dto: LoginDto) {
-    // Find by email OR phone number
-    const user = await this.userRepository.findOne({
-      where: [
-        { email: dto.email },
-        { phone: dto.email },
-      ],
-    });
+    // password_hash and totp_secret have select:false, so we must explicitly addSelect
+    const user = await this.userRepository.createQueryBuilder('u')
+      .addSelect(['u.password_hash', 'u.totp_secret'])
+      .where('u.email = :id OR u.phone = :id', { id: dto.email })
+      .getOne();
 
     if (!user) {
       throw new UnauthorizedException('Имэйл/утас эсвэл нууц үг буруу байна');
@@ -130,6 +127,29 @@ export class AuthService {
 
     if (!user.is_active) {
       throw new UnauthorizedException('Таны бүртгэл идэвхгүй байна');
+    }
+
+    // Enforce 2FA when enabled. Setup UI is not yet shipped, so this acts as
+    // a guarantee that totp_enabled flag actually protects the account.
+    if (user.totp_enabled) {
+      const code = (dto.totp_code || '').trim()
+      if (!code) {
+        throw new UnauthorizedException('TOTP_REQUIRED')
+      }
+      if (!user.totp_secret) {
+        throw new UnauthorizedException('2FA тохиргоо дутуу байна. Админд хандана уу.')
+      }
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const speakeasy = require('speakeasy')
+      const ok = speakeasy.totp.verify({
+        secret: user.totp_secret,
+        encoding: 'base32',
+        token: code,
+        window: 1,
+      })
+      if (!ok) {
+        throw new UnauthorizedException('TOTP код буруу байна')
+      }
     }
 
     return this.generateTokens(user, dto.device_id, dto.device_name, dto.platform);
@@ -181,27 +201,30 @@ export class AuthService {
       where: { id: userId },
     });
     if (!user) return null;
-    const { password_hash, ...result } = user;
-    return result;
+    return user;
   }
 
   async bootstrapAdmin(email?: string, password?: string) {
-    const targetEmail = email || 'admin@bizprint.mn';
-    const targetPassword = password || 'Admin123!';
-    const password_hash = await bcrypt.hash(targetPassword, 12);
+    if (!email || !password) {
+      throw new BadRequestException('Email and password are required');
+    }
+    if (password.length < 12) {
+      throw new BadRequestException('Bootstrap admin password must be at least 12 characters');
+    }
+    const password_hash = await bcrypt.hash(password, 12);
 
-    let user = await this.userRepository.findOne({ where: { email: targetEmail } });
+    let user = await this.userRepository.findOne({ where: { email } });
     if (user) {
       user.password_hash = password_hash;
       user.role = 'superadmin';
       user.is_active = true;
       user.verification_status = 'verified';
       await this.userRepository.save(user);
-      return { ok: true, action: 'reset', email: targetEmail, role: 'superadmin' };
+      return { ok: true, action: 'reset', email, role: 'superadmin' };
     }
 
     user = this.userRepository.create({
-      email: targetEmail,
+      email,
       password_hash,
       full_name: 'Super Admin',
       role: 'superadmin',
@@ -209,7 +232,7 @@ export class AuthService {
       verification_status: 'verified',
     });
     await this.userRepository.save(user);
-    return { ok: true, action: 'created', email: targetEmail, role: 'superadmin' };
+    return { ok: true, action: 'created', email, role: 'superadmin' };
   }
 
   private async generateTokens(
@@ -281,8 +304,7 @@ export class AuthService {
       user.verification_status = 'under_review';
     }
     await this.userRepository.save(user);
-    const { password_hash, totp_secret, ...result } = user;
-    return result;
+    return user;
   }
 
   // ─── Forgot / Reset Password ─────────────────────────────────

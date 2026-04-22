@@ -146,29 +146,43 @@ export class PaymentController {
   ) {
     this.logger.log(`Bonum webhook received: ${JSON.stringify(body)}`)
 
-    // SECURITY FIX 1: Verify webhook signature
+    // SECURITY: Webhook signature is mandatory. Without CHECKSUM_KEY configured
+    // we have no way to distinguish a real Bonum callback from a spoofed one,
+    // so reject everything until the operator wires the secret.
     const CHECKSUM_KEY = process.env.BONUM_CHECKSUM_KEY || ''
-    let checksumValid = false
-    if (CHECKSUM_KEY && checksum) {
-      const expected = createHmac('sha256', CHECKSUM_KEY)
-        .update(JSON.stringify(body))
-        .digest('hex')
-      if (expected !== checksum) {
-        this.logger.warn(`Invalid webhook checksum for invoice ${body?.body?.invoiceId}`)
-        // Log failed attempt
-        this.logRepo.save(this.logRepo.create({
-          invoice_id: body?.body?.invoiceId,
-          provider: 'bonum',
-          event_type: 'webhook',
-          status: body?.status || body?.body?.status,
-          raw_payload: body,
-          checksum_valid: false,
-          ip_address: req?.ip || req?.headers?.['x-forwarded-for'],
-        })).catch(() => {})
-        throw new UnauthorizedException('Invalid webhook signature')
-      }
-      checksumValid = true
+    if (!CHECKSUM_KEY) {
+      this.logger.error('Bonum webhook rejected: BONUM_CHECKSUM_KEY not configured')
+      throw new UnauthorizedException('Webhook verification not configured')
     }
+    if (!checksum) {
+      this.logRepo.save(this.logRepo.create({
+        invoice_id: body?.body?.invoiceId,
+        provider: 'bonum',
+        event_type: 'webhook',
+        status: body?.status || body?.body?.status,
+        raw_payload: body,
+        checksum_valid: false,
+        ip_address: req?.ip || req?.headers?.['x-forwarded-for'],
+      })).catch(() => {})
+      throw new UnauthorizedException('Missing webhook signature')
+    }
+    const expected = createHmac('sha256', CHECKSUM_KEY)
+      .update(JSON.stringify(body))
+      .digest('hex')
+    if (expected !== checksum) {
+      this.logger.warn(`Invalid webhook checksum for invoice ${body?.body?.invoiceId}`)
+      this.logRepo.save(this.logRepo.create({
+        invoice_id: body?.body?.invoiceId,
+        provider: 'bonum',
+        event_type: 'webhook',
+        status: body?.status || body?.body?.status,
+        raw_payload: body,
+        checksum_valid: false,
+        ip_address: req?.ip || req?.headers?.['x-forwarded-for'],
+      })).catch(() => {})
+      throw new UnauthorizedException('Invalid webhook signature')
+    }
+    const checksumValid = true
 
     const invoiceId = body?.body?.invoiceId || body?.invoiceId
     const status = body?.body?.status || body?.status
@@ -236,6 +250,23 @@ export class PaymentController {
     if (expired.length) {
       this.logger.log(`Expired ${expired.length} pending Bonum invoices`)
     }
+  }
+
+  // ─── Refund endpoint (admin only triggers, customer-side via cancel flow) ──
+  @Post('refund/:orderId')
+  @UseGuards(JwtAuthGuard)
+  async refund(
+    @Param('orderId') orderId: string,
+    @Body() body: { reason?: string },
+    @Req() req: any,
+  ) {
+    // Only admin/superadmin can trigger refund directly. Customer cancel flow
+    // calls this server-side via OrdersService.cancelOrder().
+    const role = req?.user?.role
+    if (!['admin', 'superadmin'].includes(role)) {
+      throw new UnauthorizedException('Refund-ийг зөвхөн админ хийнэ')
+    }
+    return this.paymentService.refundOrder(orderId, body?.reason || 'admin_refund')
   }
 
   @Get('bonum/status/:invoiceId')

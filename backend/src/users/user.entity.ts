@@ -12,7 +12,7 @@ export class User {
   @Column({ unique: true })
   email: string;
 
-  @Column()
+  @Column({ select: false })
   password_hash: string;
 
   @Column()
@@ -71,7 +71,7 @@ export class User {
   @Column({ default: false })
   totp_enabled: boolean;
 
-  @Column({ nullable: true })
+  @Column({ nullable: true, select: false })
   totp_secret: string;
 
   @Column({ default: false })

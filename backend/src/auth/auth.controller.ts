@@ -79,11 +79,16 @@ export class AuthController {
     return this.authService.changeRole(id, role);
   }
 
-  // One-off: bootstrap or reset admin account (protected by secret)
+  // One-off: bootstrap or reset admin account (protected by secret).
+  // Disabled unless BOOTSTRAP_SECRET is explicitly set (≥32 chars) AND no superadmin yet exists.
   @Post('bootstrap-admin')
-  bootstrapAdmin(@Body() body: { secret: string; email?: string; password?: string }) {
-    const expected = process.env.BOOTSTRAP_SECRET || 'bizprint-bootstrap-2026';
-    if (body.secret !== expected) {
+  @Throttle({ default: { limit: 3, ttl: 3600000 } })
+  async bootstrapAdmin(@Body() body: { secret: string; email?: string; password?: string }) {
+    const expected = process.env.BOOTSTRAP_SECRET;
+    if (!expected || expected.length < 32) {
+      return { error: 'Bootstrap disabled' };
+    }
+    if (!body?.secret || body.secret !== expected) {
       return { error: 'Invalid secret' };
     }
     return this.authService.bootstrapAdmin(body.email, body.password);

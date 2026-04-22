@@ -700,7 +700,7 @@ export default function DetailedQuote() {
                   try {
                     const fd = new FormData(); fd.append('file', file)
                     const res = await apiUpload<any>('/upload/file', fd)
-                    if (res?.file_url) setSignLogoUrl(`http://localhost:4000${res.file_url}`)
+                    if (res?.file_url) setSignLogoUrl(res.file_url.startsWith('http') ? res.file_url : `${API_URL}${res.file_url}`)
                   } catch {}
                 }} />
               📎 Лого оруулах

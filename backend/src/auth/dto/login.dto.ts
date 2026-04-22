@@ -18,4 +18,8 @@ export class LoginDto {
   @IsOptional()
   @IsString()
   platform?: string;  // web | ios | android
+
+  @IsOptional()
+  @IsString()
+  totp_code?: string;
 }

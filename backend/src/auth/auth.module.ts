@@ -16,9 +16,15 @@ import { MailModule } from '../mail/mail.module';
     TypeOrmModule.forFeature([User, RefreshToken, Role, PasswordReset]),
     PassportModule,
     MailModule,
-    JwtModule.register({
-      secret: process.env.JWT_SECRET || 'bizprint_super_secret_key_2026',
-      signOptions: { expiresIn: '15m' },
+    JwtModule.registerAsync({
+      useFactory: () => {
+        const secret = process.env.JWT_SECRET;
+        const knownDefaults = ['bizprint_super_secret_key_2026', 'bizprint-bootstrap-2026', 'changeme', 'secret'];
+        if (!secret || secret.length < 24 || knownDefaults.includes(secret)) {
+          throw new Error('JWT_SECRET environment variable must be set to a non-default value of at least 24 characters');
+        }
+        return { secret, signOptions: { expiresIn: '15m' } };
+      },
     }),
   ],
   controllers: [AuthController],

@@ -2,7 +2,7 @@ import {
   Entity, PrimaryGeneratedColumn, Column, CreateDateColumn,
 } from 'typeorm';
 
-@Entity('chat_messages')
+@Entity('print_inquiry_messages')
 export class ChatMessage {
   @PrimaryGeneratedColumn('uuid')
   id: string;

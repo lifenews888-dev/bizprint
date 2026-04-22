@@ -15,21 +15,60 @@ import helmet from 'helmet';
 async function bootstrap() {
   try { mkdirSync(join(process.cwd(), 'logs'), { recursive: true }); } catch {}
 
-  // Bonum payment gateway safety checks
-  const bonumEnv = process.env.BONUM_API_BASE || '';
-  if (bonumEnv.includes('testapi') && process.env.NODE_ENV === 'production') {
-    console.warn('⚠️  WARNING: Using Bonum TEST environment in production!');
-  }
-  if (!process.env.BONUM_APP_SECRET) {
-    console.warn('⚠️  WARNING: BONUM_APP_SECRET not set — Bonum payments will fail!');
-  }
-  if (!process.env.BONUM_CHECKSUM_KEY) {
-    console.warn('⚠️  WARNING: BONUM_CHECKSUM_KEY not set — webhook signatures will not be verified!');
+  // Production safety: refuse to start with insecure / sandbox credentials.
+  // Each fatal mistake in payment config can drain real customer money.
+  if (process.env.NODE_ENV === 'production') {
+    const fatal: string[] = []
+
+    const bonumBase = process.env.BONUM_API_BASE || ''
+    if (!bonumBase) fatal.push('BONUM_API_BASE not set')
+    else if (bonumBase.includes('testapi')) fatal.push('BONUM_API_BASE points at sandbox (testapi.bonum.mn)')
+    if (!process.env.BONUM_APP_SECRET) fatal.push('BONUM_APP_SECRET not set')
+    if (!process.env.BONUM_TERMINAL_ID) fatal.push('BONUM_TERMINAL_ID not set')
+    if (!process.env.BONUM_CHECKSUM_KEY) fatal.push('BONUM_CHECKSUM_KEY not set (webhook would be unverified)')
+
+    const tdbOauth = process.env.TDB_OAUTH_URL || ''
+    if (tdbOauth.includes('sandbox')) fatal.push('TDB_OAUTH_URL points at sandbox')
+    if (!process.env.TDB_CLIENT_ID) fatal.push('TDB_CLIENT_ID not set')
+    if (!process.env.TDB_CLIENT_SECRET) fatal.push('TDB_CLIENT_SECRET not set')
+
+    if (!process.env.CORS_ORIGINS) fatal.push('CORS_ORIGINS not set (would default to localhost)')
+
+    if (fatal.length) {
+      console.error('❌ FATAL: refusing to start in production with insecure config:')
+      fatal.forEach(m => console.error('   - ' + m))
+      process.exit(1)
+    }
+  } else {
+    // Dev mode — just warn
+    if (!process.env.BONUM_APP_SECRET) console.warn('⚠️  BONUM_APP_SECRET not set — Bonum payments will fail')
+    if (!process.env.BONUM_CHECKSUM_KEY) console.warn('⚠️  BONUM_CHECKSUM_KEY not set — webhook signatures will not be verified')
   }
 
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
+
+  // CSP — strict in production, permissive in dev so the Next.js HMR /
+  // chat widget / inline analytics scripts don't choke. The frontend lives
+  // on a separate origin so we don't need our own scripts to be inline; we
+  // do allow inline styles for dynamic colour tokens, and Cloudinary +
+  // payment provider hosts for images and iframes.
+  const isProd = process.env.NODE_ENV === 'production'
   app.use(helmet({
-    contentSecurityPolicy: false,
+    contentSecurityPolicy: isProd ? {
+      useDefaults: true,
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'"],
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        imgSrc: ["'self'", 'data:', 'blob:', 'https://res.cloudinary.com', 'https:'],
+        connectSrc: ["'self'", 'https://api.bonum.mn', 'https://api.tdbmlabs.mn', 'wss:', 'https:'],
+        frameSrc: ["'self'", 'https://*.bonum.mn', 'https://*.tdbmlabs.mn', 'https://zoom.us'],
+        objectSrc: ["'none'"],
+        baseUri: ["'self'"],
+        formAction: ["'self'"],
+        frameAncestors: ["'self'"],
+      },
+    } : false,
     crossOriginEmbedderPolicy: false,
     crossOriginResourcePolicy: { policy: 'cross-origin' },
     crossOriginOpenerPolicy: false,
