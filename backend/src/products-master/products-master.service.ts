@@ -101,6 +101,23 @@ export class ProductsMasterService {
     return { deleted: ids.length }
   }
 
+  // Nullifies thumbnail_url + images for products with URLs that aren't
+  // real image links (google-image-search pages, vistaprint hotlinks, etc.)
+  async cleanBrokenThumbnails() {
+    const result: any = await this.masterRepo.query(`
+      UPDATE product_masters
+      SET thumbnail_url = NULL, images = '[]'
+      WHERE
+        thumbnail_url ILIKE '%google.com/search%'
+        OR thumbnail_url ILIKE '%vistaprint.com%'
+        OR (thumbnail_url IS NOT NULL AND thumbnail_url NOT ILIKE 'http%')
+      RETURNING id
+    `)
+    // TypeORM returns [rows, affectedCount] for UPDATE...RETURNING
+    const cleaned = Array.isArray(result) && Array.isArray(result[0]) ? result[0].length : 0
+    return { cleaned }
+  }
+
   async addMaterial(productId: string, data: Partial<ProductMaterial>) {
     const item = this.materialRepo.create({ ...data, product_id: productId })
     return this.materialRepo.save(item)

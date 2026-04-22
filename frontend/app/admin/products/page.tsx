@@ -49,6 +49,39 @@ const tdStyle: React.CSSProperties = {
   padding: '10px 14px', fontSize: 13, borderBottom: '1px solid var(--border)', color: 'var(--text)',
 }
 
+// ─── Product thumbnail with category emoji fallback ──────────────────────────
+const CATEGORY_EMOJI: Record<string, string> = {
+  book: '📚', flag: '🚩', sticker: '🏷️', banner: '🪧', poster: '📄',
+  card: '💳', bc: '💳', flyer: '📃', brochure: '📖', box: '📦',
+  bag: '👜', mug: '☕', shirt: '👕', clothing: '👕', photo: '📷',
+  drinkware: '🥤', hat: '🎩', tech: '💻', office: '🖊️', outdoor: '🌳',
+  signage: '🪧', writing: '✏️', travel: '🧳', award: '🏆',
+  HADAG_REKLAM: '🪧', KHEVLEL: '📄', EXTRA: '✨',
+}
+function pickEmoji(category?: string): string {
+  if (!category) return '📦'
+  const lower = category.toLowerCase()
+  for (const [k, v] of Object.entries(CATEGORY_EMOJI)) {
+    if (lower.includes(k.toLowerCase())) return v
+  }
+  return '📦'
+}
+function ProductThumb({ url, category }: { url?: string; category?: string }) {
+  const [broken, setBroken] = React.useState(false)
+  const validUrl = url && url.startsWith('http') && !url.includes('google.com/search') && !url.includes('vistaprint.com')
+  if (validUrl && !broken) {
+    return (
+      <img src={url} alt="" onError={() => setBroken(true)}
+        style={{ width: 44, height: 44, borderRadius: 8, objectFit: 'cover', flexShrink: 0 }} />
+    )
+  }
+  return (
+    <div style={{ width: 44, height: 44, borderRadius: 8, background: 'var(--surface2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, flexShrink: 0 }}>
+      {pickEmoji(category)}
+    </div>
+  )
+}
+
 // ─── PRINT PRODUCTS TAB ───────────────────────────────────────────────────────
 const emptyPrint = {
   name_mn: '', name_en: '', code: '', category: 'HADAG_REKLAM',
@@ -431,7 +464,7 @@ function PrintProductsTab() {
                   <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--text)', marginBottom: 2 }}>{item.name_mn || '—'}</div>
                   {item.code && <div style={{ fontSize: 11, color: 'var(--text3)', fontFamily: 'monospace' }}>{item.code}</div>}
                 </div>
-                {item.thumbnail_url && <img src={item.thumbnail_url} alt="" style={{ width: 44, height: 44, borderRadius: 8, objectFit: 'cover' }} />}
+                <ProductThumb url={item.thumbnail_url} category={item.category} />
               </div>
               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                 <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 99, background: 'rgba(255,107,0,0.1)', color: '#FF6B00', fontWeight: 600 }}>

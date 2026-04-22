@@ -44,6 +44,14 @@ export class ProductsMasterController {
     return this.service.bulkMove(body.ids, body.product_type, body.category)
   }
 
+  // One-off: clear thumbnail_url for products that have garbage URLs
+  // (Google image-search links, Vistaprint hotlinks that return 403, etc.)
+  @Post('admin/products-master/clean-broken-thumbnails')
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  cleanBrokenThumbnails() {
+    return this.service.cleanBrokenThumbnails()
+  }
+
   @Post('admin/products-master/bulk-delete')
   @UseGuards(JwtAuthGuard, AdminGuard)
   bulkDelete(@Body() body: { ids: string[] }) {
