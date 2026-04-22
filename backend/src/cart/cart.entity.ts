@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, OneToMany, Index } from 'typeorm'
+import { Entity, PrimaryGeneratedColumn, Column, OneToMany, Index, CreateDateColumn, UpdateDateColumn } from 'typeorm'
 import { CartItem } from './entities/cart-item.entity'
 
 export enum CartStatus {
@@ -32,5 +32,11 @@ export class Cart {
     cascade: true
   })
   items: CartItem[]
+
+  @CreateDateColumn()
+  created_at: Date
+
+  @UpdateDateColumn()
+  updated_at: Date
 
 }

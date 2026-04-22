@@ -1,6 +1,17 @@
 import * as dotenv from 'dotenv';
 dotenv.config({ override: true });
 
+// In production, silence stray console.log/info/debug from legacy code paths
+// so customer data, payment details and verbose object dumps don't leak into
+// container logs. Errors and warnings still go through. Use NestJS Logger or
+// the structured `systemLogger` for anything you actually want to keep.
+if (process.env.NODE_ENV === 'production') {
+  const noop = () => {};
+  console.log = noop;
+  console.info = noop;
+  console.debug = noop;
+}
+
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { NestExpressApplication } from '@nestjs/platform-express';

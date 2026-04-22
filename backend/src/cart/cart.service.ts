@@ -9,6 +9,7 @@ import { QuotationItem } from '../quote/entities/quotation-item.entity'
 import { Order, OrderStatus } from '../orders/entities/order.entity'
 import { OrderItem } from '../orders/entities/order-item.entity'
 import { OrderVendorGroup } from '../orders/entities/order-vendor-group.entity'
+import { Product } from '../products/product.entity'
 import { PricingService } from '../quote/pricing.service'
 import { QuoteService } from '../quote/quote.service'
 import { EventsLogService } from '../events/events.service'
@@ -37,6 +38,9 @@ export class CartService {
 
     @InjectRepository(OrderVendorGroup)
     private vendorGroupRepo: Repository<OrderVendorGroup>,
+
+    @InjectRepository(Product)
+    private productRepo: Repository<Product>,
 
     private pricingService: PricingService,
     private quoteService: QuoteService,
@@ -67,12 +71,26 @@ export class CartService {
 
   // ── POST /cart/items ───────────────────────────────────────────────────────
   async addItem(customerId: string, data: { product_id: string; quantity: number; specs?: Record<string, any> }) {
+    // Stock guard: refuse to add items that don't exist, are inactive, are
+    // explicitly out of stock, or would exceed the available stock_quantity
+    // (when the vendor tracks finite inventory).
+    const product = await this.productRepo.findOne({ where: { id: data.product_id } })
+    if (!product) throw new NotFoundException('Бүтээгдэхүүн олдсонгүй')
+    if (!product.is_active) throw new BadRequestException('Энэ бүтээгдэхүүн идэвхгүй байна')
+    if (product.is_out_of_stock) throw new BadRequestException('Бүтээгдэхүүн дууссан байна')
+    const requestedQty = data.quantity || 1
+    if (product.stock_quantity != null && requestedQty > product.stock_quantity) {
+      throw new BadRequestException(
+        `Зөвхөн ${product.stock_quantity} ширхэг бэлэн байна (та ${requestedQty} хүссэн)`,
+      )
+    }
+
     const cart = await this.getOrCreateCart(customerId)
 
     const item = this.itemRepo.create({
       cart_id: cart.id,
       product_id: data.product_id,
-      quantity: data.quantity || 1,
+      quantity: requestedQty,
       specs: data.specs || null,
     })
     const saved = await this.itemRepo.save(item)

@@ -248,9 +248,24 @@ export class OrdersService {
             to: email, name: customerName,
             orderId: id, productName,
           });
+        } else if (status === OrderStatus.DISPATCHED) {
+          await this.mailService.sendDeliveryStarted({
+            to: email,
+            customerName,
+            productName,
+            courierName: (order as any).courier_name || 'Хүргэлтийн ажилтан',
+            courierPhone: (order as any).courier_phone || '',
+            address: (order as any).shipping_address || (order as any).delivery_address || '',
+          });
+        } else if (status === OrderStatus.DELIVERED) {
+          await this.mailService.sendDeliveryCompleted({
+            to: email,
+            customerName,
+            productName,
+          });
         }
-      } catch (e) {
-        this.logger.warn('File email error: ' + e.message);
+      } catch (e: any) {
+        this.logger.warn('Status email error: ' + e.message);
       }
     }
 
