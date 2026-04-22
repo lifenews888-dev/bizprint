@@ -106,13 +106,13 @@ export class BonumService {
       transactionId: `BP-${params.orderId.slice(0, 8)}-${Date.now()}`,
       expiresIn: 3600,
       providers: params.providers || ['QPAY', 'E_COMMERCE', 'WE_CHAT', 'SONO_SHOP'],
-      items: params.items || [
+      items: (params.items || [
         {
           title: params.description || `BizPrint #${params.orderId.slice(0, 8)}`,
           amount: Math.round(params.amount),
           count: 1,
         },
-      ],
+      ]).map(it => ({ remark: '', image: '', ...it })),
     };
 
     const res = await fetch(`${this.BASE}/bonum-gateway/ecommerce/invoices`, {
