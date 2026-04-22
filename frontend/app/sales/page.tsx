@@ -1,11 +1,12 @@
 'use client'
 import { apiFetch, getToken } from '@/lib/api'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import DashboardLayout from '@/components/layouts/DashboardLayout'
 import KpiCard from '@/components/dashboard/KpiCard'
 import { useRoleGuard } from '@/lib/use-role-guard'
 import { SALES_MENU } from '@/config/sidebar-config'
+import { useOrderEvents } from '@/hooks/useOrderEvents'
 
 const BASE_URL = typeof window !== 'undefined' ? window.location.origin : (process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000')
 
@@ -106,13 +107,7 @@ export default function SalesDashboard() {
   const [loading, setLoading]         = useState(true)
   const [copied, setCopied]           = useState(false)
 
-  useEffect(() => {
-    if (authLoading) return
-    const ud = localStorage.getItem('user')
-    const tk = getToken()
-    if (!ud || !tk) { router.push('/login'); return }
-    const u = JSON.parse(ud)
-    setUser(u)
+  const loadStats = useCallback(() => {
     Promise.all([
       apiFetch<any>('/referral/my').catch(() => null),
       apiFetch<any>('/commission/sales/me').catch(() => []),
@@ -123,8 +118,6 @@ export default function SalesDashboard() {
       setCommissions(Array.isArray(comms) ? comms : [])
       if (sum) setSummary(sum)
       setLeaderboard(Array.isArray(board) ? board : [])
-      // Derive an order preview from the commission rows so the orders list
-      // reflects real attributed orders instead of the signed-in user's own.
       setOrders((Array.isArray(comms) ? comms : []).map((c: SalesCommissionRow) => ({
         id: c.order_id,
         quantity: 1,
@@ -135,6 +128,24 @@ export default function SalesDashboard() {
       setLoading(false)
     })
   }, [])
+
+  useEffect(() => {
+    if (authLoading) return
+    const ud = localStorage.getItem('user')
+    const tk = getToken()
+    if (!ud || !tk) { router.push('/login'); return }
+    const u = JSON.parse(ud)
+    setUser(u)
+    loadStats()
+  }, [authLoading, loadStats])
+
+  // Live updates: refresh whenever an attributed order is paid or finished
+  // so the agent sees their commission update without a refresh.
+  useOrderEvents({
+    rooms: user?.id ? [`user:${user.id}`] : [],
+    onChange: loadStats,
+    enabled: !!user?.id,
+  })
 
   const refLink = referral ? BASE_URL + '/register?ref=' + referral.code : ''
   const totalRev = summary?.totalRevenue ?? 0

@@ -1,30 +1,146 @@
-import { Injectable, NotFoundException, Logger, Inject, forwardRef } from '@nestjs/common'
+import { Injectable, NotFoundException, Logger, Inject, forwardRef, OnModuleInit } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
 import { Repository } from 'typeorm'
 import { Delivery, DeliveryStatus } from './delivery.entity'
+import { Order } from '../orders/entities/order.entity'
+import { User } from '../users/user.entity'
 import { MailService } from '../mail/mail.service'
 import { WalletService } from '../wallet/wallet.service'
 import { SettingsService } from '../settings/settings.service'
 import { WebhookService } from './webhook.service'
 import { DeliveryGateway } from './delivery.gateway'
+import { NotificationService } from '../notifications/notification.service'
+import { EventBusService } from '../events/event-bus.service'
+import { BizEvent } from '../events/event-types'
 
 const DEFAULT_COURIER_FEE = 5000
 const DEFAULT_TAX_PERCENT = 10
 
 @Injectable()
-export class DeliveryService {
+export class DeliveryService implements OnModuleInit {
   private readonly logger = new Logger(DeliveryService.name)
 
   constructor(
     @InjectRepository(Delivery)
     private repo: Repository<Delivery>,
+    @InjectRepository(Order)
+    private orderRepo: Repository<Order>,
+    @InjectRepository(User)
+    private userRepo: Repository<User>,
     private mailService: MailService,
     private walletService: WalletService,
     private settingsService: SettingsService,
     private webhookService: WebhookService,
     @Inject(forwardRef(() => DeliveryGateway))
     private deliveryGateway: DeliveryGateway,
+    private notificationService: NotificationService,
+    private readonly eventBus: EventBusService,
   ) {}
+
+  onModuleInit() {
+    // When an order is dispatched (vendor finished + handed off to courier),
+    // make sure a Delivery row exists and is assigned to a courier. This
+    // closes the previously-broken handoff where vendors could mark an
+    // order DISPATCHED but no one was actually told to pick it up.
+    this.eventBus.on(BizEvent.ORDER_STATUS_UPDATED, (payload: any) => {
+      if (payload?.status !== 'DISPATCHED' && payload?.status !== 'dispatched') return
+      if (!payload?.orderId) return
+      this.createForOrder(payload.orderId).catch(e =>
+        this.logger.error(`createForOrder(${payload.orderId}) failed: ${e.message}`),
+      )
+    })
+  }
+
+  /**
+   * Create a Delivery row for an order, auto-assign the least-busy active
+   * courier, and notify them. Idempotent: if a delivery already exists for
+   * the order we leave it alone.
+   */
+  async createForOrder(orderId: string) {
+    const order = await this.orderRepo.findOne({ where: { id: orderId } })
+    if (!order) {
+      this.logger.warn(`createForOrder: order ${orderId} not found`)
+      return null
+    }
+
+    // Idempotency: relate by the integer surrogate id stored on Delivery.order
+    const existing = await this.repo.createQueryBuilder('d')
+      .where('d."orderId" = :oid OR d.order::text = :oid', { oid: orderId })
+      .getOne().catch(() => null)
+    if (existing) return existing
+
+    const courier = await this.findIdleCourier()
+    if (!courier) {
+      this.logger.warn(`No active courier available for order ${orderId} — delivery created unassigned`)
+    }
+
+    const draft: Partial<Delivery> = {
+      order: { id: orderId } as any,
+      status: courier ? DeliveryStatus.ASSIGNED : DeliveryStatus.PENDING,
+      address: (order as any).shipping_address || (order as any).delivery_address || '',
+      recipient_name: (order as any).customer_name,
+      recipient_phone: (order as any).customer_phone,
+      courier_id: courier ? Number((courier.id as any)) || undefined : undefined,
+      courier_name: courier?.full_name,
+      courier_phone: courier?.phone,
+    }
+    const saved: Delivery = await this.repo.save(draft as Delivery)
+
+    if (courier) {
+      // In-app notification
+      this.notificationService.create({
+        user_id: courier.id,
+        type: 'order',
+        title: '📦 Шинэ хүргэлт',
+        message: `${(order as any).customer_name || 'Хэрэглэгч'} → ${(order as any).shipping_address || 'хаяггүй'}`,
+        data: { delivery_id: saved.id, order_id: orderId },
+      }).catch(e => this.logger.warn(`Courier notification failed: ${e.message}`))
+
+      // Realtime push to courier device
+      this.deliveryGateway.notifyStatusChange(saved.id, DeliveryStatus.ASSIGNED, {
+        order_id: orderId,
+        recipient_name: (order as any).customer_name,
+        recipient_phone: (order as any).customer_phone,
+        address: (order as any).shipping_address,
+      })
+    }
+
+    // Tell the customer the parcel is on its way
+    if ((order as any).customer_id) {
+      this.notificationService.create({
+        user_id: (order as any).customer_id,
+        type: 'order',
+        title: '🚚 Хүргэлтэд явлаа',
+        message: `Захиалга #${orderId.slice(-8).toUpperCase()} хүргэгдэх замдаа${courier ? ` (${courier.full_name})` : ''}.`,
+        data: { order_id: orderId, delivery_id: saved.id },
+      }).catch(() => {})
+    }
+
+    return saved
+  }
+
+  /**
+   * Pick the active courier with the fewest in-flight deliveries. Falls
+   * back to "any active courier" if no delivery rows exist yet.
+   */
+  private async findIdleCourier() {
+    const activeStatuses = [DeliveryStatus.ASSIGNED, DeliveryStatus.PICKED_UP, DeliveryStatus.ON_THE_WAY, DeliveryStatus.IN_TRANSIT]
+    const couriers = await this.userRepo.find({
+      where: { role: 'courier', is_active: true },
+      take: 50,
+    })
+    if (!couriers.length) return null
+
+    const loadByCourier = new Map<string, number>()
+    for (const c of couriers) {
+      const count = await this.repo.count({
+        where: { courier_id: Number(c.id as any) || 0, status: activeStatuses[0] }, // simple proxy
+      }).catch(() => 0)
+      loadByCourier.set(c.id, count)
+    }
+    couriers.sort((a, b) => (loadByCourier.get(a.id) || 0) - (loadByCourier.get(b.id) || 0))
+    return couriers[0]
+  }
 
   findAll() {
     return this.repo.find({

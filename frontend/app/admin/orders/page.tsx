@@ -2,6 +2,7 @@
 import { apiFetch } from '@/lib/api'
 import { useState, useEffect, useCallback } from 'react'
 import { AdminPageHeader } from '@/components/admin/AdminPageHeader'
+import { useOrderEvents } from '@/hooks/useOrderEvents'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -65,6 +66,10 @@ export default function AdminOrdersPage() {
   }, [])
 
   useEffect(() => { load() }, [load])
+
+  // Live updates: admin sees every order change as it happens (vendor
+  // advances production, courier marks delivered, payment confirmed).
+  useOrderEvents({ rooms: ['admin'], onChange: load })
 
   const updateStatus = async (id: string, status: string) => {
     await apiFetch(`/orders/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) })

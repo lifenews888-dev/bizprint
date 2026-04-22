@@ -277,6 +277,17 @@ export class CommissionService implements OnModuleInit {
     }));
 
     this.logger.log(`Sales commission ${commission}₮ created for agent ${salesUserId} on order ${orderId}`);
+
+    // Tell the agent right away — they should see the win the moment the
+    // customer pays, not 48 hours later when escrow releases. Estimated
+    // amount (status = pending) is shown so they know what's coming.
+    this.notificationService.create({
+      user_id: salesUserId,
+      type: 'order',
+      title: '🎉 Шинэ захиалга — таны тооцоонд',
+      message: `₮${orderTotal.toLocaleString()} захиалга төлөгдлөө. Шагнал ~₮${commission.toLocaleString()} (${rate}%) хүлээгдэж байна.`,
+      data: { order_id: orderId, commission_amount: commission, status: 'pending' },
+    }).catch(e => this.logger.warn(`Sales paid-notification failed for ${salesUserId}: ${e.message}`));
   }
 
   /**

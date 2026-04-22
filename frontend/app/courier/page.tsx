@@ -1,6 +1,7 @@
 'use client'
 import { apiFetch } from '@/lib/api'
 import { useEffect, useState } from 'react'
+import { useOrderEvents } from '@/hooks/useOrderEvents'
 import { useRouter } from 'next/navigation'
 import DashboardLayout from '@/components/layouts/DashboardLayout'
 import KpiCard from '@/components/dashboard/KpiCard'
@@ -52,6 +53,14 @@ export default function CourierDashboard() {
   useEffect(() => {
     if (!authLoading && user) fetchOrders()
   }, [authLoading, user])
+
+  // Live updates: refresh when a new delivery is assigned to this courier
+  // or any order they're carrying changes status.
+  useOrderEvents({
+    rooms: user?.id ? [`user:${user.id}`] : [],
+    onChange: () => fetchOrders(),
+    enabled: !!user?.id,
+  })
 
   async function fetchOrders() {
     setLoading(true)

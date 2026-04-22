@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import DashboardLayout from '@/components/layouts/DashboardLayout'
 import { useRoleGuard } from '@/lib/use-role-guard'
 import { VENDOR_MENU } from '@/config/sidebar-config'
+import { useOrderEvents } from '@/hooks/useOrderEvents'
 
 /* ═══════════════════════════════════════════════
  *  VENDOR ORDER PRODUCTION DASHBOARD
@@ -84,6 +85,14 @@ export default function VendorOrdersPage() {
     if (!user) { router.push('/login'); return }
     load()
   }, [authLoading, user, load])
+
+  // Live updates: refresh when a new order is paid/assigned to this vendor
+  // or when the customer cancels mid-flight.
+  useOrderEvents({
+    rooms: user?.id ? [`user:${user.id}`, `vendor:${user.id}`] : [],
+    onChange: load,
+    enabled: !!user?.id,
+  })
 
   const advance = async (orderId: string, toStatus: string) => {
     if (busy) return

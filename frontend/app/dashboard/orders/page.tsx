@@ -1,10 +1,11 @@
 'use client'
 import { apiFetch, apiUpload, API_URL, getToken } from '@/lib/api'
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import OrderCard from '@/components/order/OrderCard'
 import OrderStepper from '@/components/order/OrderStepper'
 import EmptyState from '@/components/ui/EmptyState'
+import { useOrderEvents } from '@/hooks/useOrderEvents'
 
 const F = "'DM Sans','Segoe UI',system-ui,sans-serif"
 const fmt = (n: number) => new Intl.NumberFormat('mn-MN').format(Math.round(n)) + '₮'
@@ -248,13 +249,27 @@ export default function OrdersPage() {
   const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState('all')
   const [expanded, setExpanded] = useState<string | null>(null)
+  const [userId, setUserId] = useState<string>('')
 
-  useEffect(() => {
+  const load = useCallback(() => {
     apiFetch<any[]>('/orders/my')
       .then(d => setOrders(Array.isArray(d) ? d : []))
       .catch(() => setOrders([]))
       .finally(() => setLoading(false))
   }, [])
+
+  useEffect(() => {
+    try { const u = JSON.parse(localStorage.getItem('user') || 'null'); if (u?.id) setUserId(u.id) } catch {}
+    load()
+  }, [load])
+
+  // Live updates: re-fetch the list whenever any of the user's orders
+  // changes status (vendor advanced, courier picked up, delivered, etc).
+  useOrderEvents({
+    rooms: userId ? [`user:${userId}`] : [],
+    onChange: load,
+    enabled: !!userId,
+  })
 
   const filtered = orders.filter(o => {
     if (tab === 'all') return true

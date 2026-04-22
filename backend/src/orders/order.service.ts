@@ -298,6 +298,19 @@ export class OrdersService {
       await this.autoAssignVendor(order as any);
     }
 
+    // Always broadcast the transition. Listeners include:
+    //   - DeliveryService → auto-create Delivery + assign courier on DISPATCHED
+    //   - Frontend dashboards subscribed to order:{id}, user:{customerId},
+    //     vendor:{vendorId} rooms (live status updates)
+    this.eventBus.emit(BizEvent.ORDER_STATUS_UPDATED, {
+      orderId: id,
+      status,
+      previousStatus: order.status,
+      userId: customerId,
+      vendorId: (order as any).factory_id || undefined,
+      data: { product_name: (order as any).product_name },
+    });
+
     return order;
   }
 
@@ -571,6 +584,18 @@ export class OrdersService {
           deadline: order.deadline ? new Date(order.deadline).toLocaleDateString('mn-MN') : undefined,
           notes: (order as any).notes || undefined,
         });
+      }
+
+      // In-app notification — vendor sees the new job in real time without
+      // having to dig through email.
+      if ((vendor as any).user_id) {
+        await this.notificationService.create({
+          user_id: (vendor as any).user_id,
+          type: 'order' as any,
+          title: '⚡ Шинэ захиалга оноогдлоо',
+          message: `${(order as any).product_name || 'Бүтээгдэхүүн'} · ${quantity} ширхэг · ${(order as any).customer_name || 'Хэрэглэгч'}`,
+          data: { order_id: order.id, vendor_id: vendor.id },
+        }).catch(e => this.logger.warn(`Vendor notification failed: ${e.message}`));
       }
 
       this.logger.log(`Order ${order.id.slice(-8)} → auto-assigned to ${vendor.company_name} (${result.reason})`);
