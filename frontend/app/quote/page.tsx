@@ -7,6 +7,7 @@ import dynamic from 'next/dynamic'
 const InstantQuote = dynamic(() => import('./InstantQuote'), { ssr: false, loading: () => <Loading /> })
 const DetailedQuote = dynamic(() => import('./DetailedQuote'), { ssr: false, loading: () => <Loading /> })
 const SmartQuote = dynamic(() => import('./SmartQuote'), { ssr: false, loading: () => <Loading /> })
+const OffsetQuote = dynamic(() => import('./OffsetQuote'), { ssr: false, loading: () => <Loading /> })
 
 function Loading() {
   return <div style={{ display: 'flex', justifyContent: 'center', padding: 60 }}><div style={{ width: 32, height: 32, border: '3px solid var(--border)', borderTopColor: '#FF6B00', borderRadius: '50%', animation: 'spin 1s linear infinite' }} /><style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style></div>
@@ -15,7 +16,8 @@ function Loading() {
 const TABS = [
   { key: 'quick', label: '⚡ Түргэн тооцоо', desc: 'Шууд үнэ авах' },
   { key: 'detailed', label: '🧩 Нарийвчилсан', desc: 'Бүх сонголттой' },
-  { key: 'ai', label: '🤖 AI тооцоо', desc: 'Хаяг, товгор үсэг' },
+  { key: 'offset', label: '🖨️ Офсет хэвлэл', desc: 'Флаер, нэрийн хуудас' },
+  { key: 'ai', label: '🤖 Хаяг реклам', desc: 'Товгор үсэг, самбар' },
 ]
 
 function QuotePageInner() {
@@ -70,6 +72,7 @@ function QuotePageInner() {
       <div>
         {tab === 'quick' && <InstantQuote />}
         {tab === 'detailed' && <DetailedQuote />}
+        {tab === 'offset' && <OffsetQuote />}
         {tab === 'ai' && <SmartQuote />}
       </div>
     </div>
