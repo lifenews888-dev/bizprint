@@ -70,7 +70,7 @@ export class CartController {
   @Post('quote/confirm')
   @UseGuards(JwtAuthGuard)
   @UseInterceptors(IdempotencyInterceptor)
-  confirmQuote(@Req() req: any, @Body() body: { quotation_id: string; payment_method?: string }) {
-    return this.cartService.confirmQuote(req.user.id, body.quotation_id, body.payment_method)
+  confirmQuote(@Req() req: any, @Body() body: { quotation_id: string; payment_method?: string; referral_code?: string }) {
+    return this.cartService.confirmQuote(req.user.id, body.quotation_id, body.payment_method, body.referral_code)
   }
 }

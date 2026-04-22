@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import ProductImage from './ProductImage'
 import { optimizeImage } from '@/lib/image'
+import { apiFetch } from '@/lib/api'
 
 const fmt = (n: number) => '₮' + n.toLocaleString('mn-MN')
 
@@ -21,7 +22,38 @@ export default function ProductCard({ product, categoryLabel, onAddToCart }: Pro
   const [activeImg, setActiveImg] = useState(0)
   const [hovered, setHovered] = useState(false)
   const [liked, setLiked] = useState(false)
+  const [adopted, setAdopted] = useState<boolean | null>(null) // null = unknown / not sales agent
+  const [adopting, setAdopting] = useState(false)
   const autoRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  // Sales-only: check whether this product is already in my storefront so we
+  // can render the right toggle state. Skips silently for any other role.
+  useEffect(() => {
+    let cancelled = false
+    try {
+      const u = JSON.parse(localStorage.getItem('user') || 'null')
+      if (!u || (u.role !== 'sales' && u.role !== 'admin')) return
+      apiFetch<{ adopted: boolean }>(`/products/${p.id}/adopt/me`)
+        .then(r => { if (!cancelled) setAdopted(!!r?.adopted) })
+        .catch(() => {})
+    } catch {}
+    return () => { cancelled = true }
+  }, [p.id])
+
+  const toggleAdopt = useCallback(async (e: React.MouseEvent) => {
+    e.preventDefault(); e.stopPropagation()
+    if (adopting) return
+    setAdopting(true)
+    try {
+      if (adopted) {
+        await apiFetch(`/products/${p.id}/adopt`, { method: 'DELETE' })
+        setAdopted(false)
+      } else {
+        await apiFetch(`/products/${p.id}/adopt`, { method: 'POST', body: {} })
+        setAdopted(true)
+      }
+    } catch {} finally { setAdopting(false) }
+  }, [adopted, adopting, p.id])
 
   const price = Number(p.sale_price ?? p.base_price ?? p.price ?? 0)
   const oldPrice = p.sale_price && p.base_price && Number(p.sale_price) < Number(p.base_price) ? Number(p.base_price) : null
@@ -110,6 +142,21 @@ export default function ProductCard({ product, categoryLabel, onAddToCart }: Pro
               : <span className="bg-emerald-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-md">📦 Шууд</span>
             }
           </div>
+
+          {/* Sales-only adopt toggle — top right, always visible when applicable */}
+          {adopted !== null && (
+            <button
+              onClick={toggleAdopt}
+              disabled={adopting}
+              title={adopted ? 'Дэлгүүрээс хасах' : 'Миний дэлгүүрт нэмэх'}
+              className="absolute top-2.5 right-2.5 z-10 px-3 h-8 rounded-full text-[11px] font-bold border-none cursor-pointer shadow-md transition-colors"
+              style={{
+                background: adopted ? '#10B981' : 'rgba(255,255,255,0.92)',
+                color: adopted ? '#fff' : '#FF6B00',
+              }}>
+              {adopting ? '…' : adopted ? '✓ Миний дэлгүүрт' : '💼 Би борлуулна'}
+            </button>
+          )}
 
           {/* Quick actions — reveal on hover */}
           <div className={`absolute bottom-3 right-3 flex gap-2 z-10 transition-all duration-300 ${hovered ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-2'}`}>

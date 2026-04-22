@@ -3,10 +3,13 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { In, LessThan, Repository } from 'typeorm';
 import { CommissionLog, CommissionStatus } from './commission.entity';
 import { SalesCommission } from './sales-commission.entity';
+import { DesignerRoyalty } from './designer-royalty.entity';
 import { Vendor } from '../vendors/vendor.entity';
 import { OrderVendorGroup } from '../orders/entities/order-vendor-group.entity';
+import { OrderItem } from '../orders/entities/order-item.entity';
 import { Order } from '../orders/entities/order.entity';
 import { Referral } from '../referral/referral.entity';
+import { Template } from '../templates/template.entity';
 import { MailService } from '../mail/mail.service';
 import { WalletService } from '../wallet/wallet.service';
 import { NotificationService } from '../notifications/notification.service';
@@ -31,14 +34,20 @@ export class CommissionService implements OnModuleInit {
     private repo: Repository<CommissionLog>,
     @InjectRepository(SalesCommission)
     private salesRepo: Repository<SalesCommission>,
+    @InjectRepository(DesignerRoyalty)
+    private royaltyRepo: Repository<DesignerRoyalty>,
     @InjectRepository(Vendor)
     private vendorRepo: Repository<Vendor>,
     @InjectRepository(OrderVendorGroup)
     private vendorGroupRepo: Repository<OrderVendorGroup>,
+    @InjectRepository(OrderItem)
+    private orderItemRepo: Repository<OrderItem>,
     @InjectRepository(Order)
     private orderRepo: Repository<Order>,
     @InjectRepository(Referral)
     private referralRepo: Repository<Referral>,
+    @InjectRepository(Template)
+    private templateRepo: Repository<Template>,
     private readonly walletService: WalletService,
     private readonly eventBus: EventBusService,
     private readonly notificationService: NotificationService,
@@ -55,6 +64,9 @@ export class CommissionService implements OnModuleInit {
       );
       this.createSalesCommissionForOrder(orderId).catch(e =>
         this.logger.error(`createSalesCommissionForOrder(${orderId}) failed: ${e.message}`),
+      );
+      this.createDesignerRoyaltiesForOrder(orderId).catch(e =>
+        this.logger.error(`createDesignerRoyaltiesForOrder(${orderId}) failed: ${e.message}`),
       );
     });
   }
@@ -400,6 +412,121 @@ export class CommissionService implements OnModuleInit {
       totalCommission: Number(r.totalCommission || 0),
       totalRevenue: Number(r.totalRevenue || 0),
     }));
+  }
+
+  /* ═══════════════════════════════════════════════════════════════════
+     DESIGNER ROYALTY — payout to the template designer whose asset was
+     used on an order. Scans order_items.specs for template_id and creates
+     one PENDING row per (order, designer).
+     ═══════════════════════════════════════════════════════════════════ */
+
+  async createDesignerRoyaltiesForOrder(orderId: string) {
+    if (!orderId) return;
+    const order = await this.orderRepo.findOne({ where: { id: orderId } });
+    if (!order) return;
+
+    // Collect template ids referenced by this order's items. Templates can
+    // live in OrderItem.specs.template_id (our canonical path) or the
+    // legacy Order.options.template_id (fallback).
+    const items = await this.orderItemRepo.find({ where: { order_id: orderId } });
+    const templateIds = new Set<string>();
+    for (const it of items) {
+      const tid = (it as any).specs?.template_id;
+      if (tid) templateIds.add(tid);
+    }
+    const legacyTid = (order as any).options?.template_id;
+    if (legacyTid) templateIds.add(legacyTid);
+
+    if (!templateIds.size) return;
+
+    for (const tid of templateIds) {
+      const tpl = await this.templateRepo.findOne({ where: { id: tid } }).catch(() => null);
+      if (!tpl || !tpl.designer_id) continue;
+      const existing = await this.royaltyRepo.findOne({
+        where: { order_id: orderId, designer_user_id: tpl.designer_id, template_id: tid },
+      });
+      if (existing) continue;
+
+      const rate = tpl.royalty_rate != null ? Number(tpl.royalty_rate) : 5;
+      const orderTotal = Number(order.total_price) || 0;
+      const royalty = Math.round((orderTotal * rate) / 100);
+
+      await this.royaltyRepo.save(this.royaltyRepo.create({
+        order_id: orderId,
+        designer_user_id: tpl.designer_id,
+        template_id: tid,
+        template_name: tpl.title_mn || tpl.title,
+        order_total: orderTotal,
+        royalty_rate: rate,
+        royalty_amount: royalty,
+        status: CommissionStatus.PENDING,
+      }));
+
+      this.notificationService.create({
+        user_id: tpl.designer_id,
+        type: 'order',
+        title: '🎨 Загвар ашиглалт — royalty',
+        message: `"${tpl.title_mn || tpl.title}" загвар ашигласан захиалгаас ~${royalty.toLocaleString()}₮ хүлээгдэж байна.`,
+        data: { order_id: orderId, template_id: tid, royalty_amount: royalty },
+      }).catch(() => {});
+    }
+  }
+
+  async approveDesignerPayout(ids: string[]) {
+    if (!Array.isArray(ids) || ids.length === 0) return { batchId: null, count: 0 };
+    const batchId = `DBATCH-${Date.now()}`;
+    await this.royaltyRepo.update({ id: In(ids) }, { status: CommissionStatus.APPROVED, payout_batch_id: batchId });
+
+    const rows = await this.royaltyRepo.find({ where: { payout_batch_id: batchId } });
+    const byDesigner = new Map<string, typeof rows>();
+    for (const r of rows) {
+      const list = byDesigner.get(r.designer_user_id) || [];
+      list.push(r); byDesigner.set(r.designer_user_id, list);
+    }
+    for (const [designerId, drows] of byDesigner) {
+      const total = drows.reduce((s, r) => s + Number(r.royalty_amount), 0);
+      try {
+        await this.walletService.credit(designerId, total, 'designer_royalty', batchId,
+          `Template royalty ${batchId} (${drows.length} orders)`);
+      } catch (e: any) {
+        this.logger.error(`Designer wallet credit failed for ${designerId}: ${e.message}`);
+      }
+      this.notificationService.create({
+        user_id: designerId,
+        type: 'wallet',
+        title: '💰 Designer royalty орлоо',
+        message: `${drows.length} захиалгын тооцоогоор ${total.toLocaleString()}₮ хэтэвчинд орлоо.`,
+        data: { batch_id: batchId, total, count: drows.length },
+      }).catch(() => {});
+    }
+    return { batchId, count: ids.length };
+  }
+
+  async autoApproveDelayedDesignerRoyalties(holdHours = 48) {
+    const cutoff = new Date(Date.now() - holdHours * 60 * 60 * 1000);
+    const eligible = await this.royaltyRepo.createQueryBuilder('d')
+      .innerJoin('orders', 'o', 'o.id = d.order_id::uuid')
+      .where('d.status = :status', { status: CommissionStatus.PENDING })
+      .andWhere('LOWER(o.status) = :delivered', { delivered: 'delivered' })
+      .andWhere('o.delivered_at IS NOT NULL')
+      .andWhere('o.delivered_at < :cutoff', { cutoff })
+      .select(['d.id'])
+      .getMany();
+    if (!eligible.length) return { count: 0, batchId: null };
+    return this.approveDesignerPayout(eligible.map(e => e.id));
+  }
+
+  findRoyaltiesByDesigner(designerId: string) {
+    return this.royaltyRepo.find({ where: { designer_user_id: designerId }, order: { created_at: 'DESC' } });
+  }
+
+  async getDesignerSummary(designerId: string) {
+    const rows = await this.royaltyRepo.find({ where: { designer_user_id: designerId } });
+    const pendingAmount = rows.filter(r => r.status === CommissionStatus.PENDING)
+      .reduce((s, r) => s + Number(r.royalty_amount), 0);
+    const paidAmount = rows.filter(r => r.status === CommissionStatus.APPROVED || r.status === CommissionStatus.PAID)
+      .reduce((s, r) => s + Number(r.royalty_amount), 0);
+    return { totalOrders: rows.length, pendingAmount, paidAmount };
   }
 
   async markPaid(batchId: string) {

@@ -191,7 +191,7 @@ export class CartService {
   }
 
   // ── POST /cart/quote/confirm ───────────────────────────────────────────────
-  async confirmQuote(customerId: string, quotationId: string, paymentMethod?: string) {
+  async confirmQuote(customerId: string, quotationId: string, paymentMethod?: string, referralCode?: string) {
     const quotation = await this.quotationRepo.findOne({
       where: { id: quotationId },
       relations: ['items'],
@@ -201,12 +201,37 @@ export class CartService {
       throw new BadRequestException(`Үнийн санал "${quotation.status}" төлөвтэй байна — зөвхөн "draft" батлах боломжтой`)
     }
 
-    // Sales attribution: copy the customer's referred_by_sales_id onto the
-    // order so the agent gets credited even if the user later edits their
-    // profile. This is the only place a customer order picks up its sales
-    // agent — keep it here so the rule lives in one location.
+    // Sales attribution: prefer the customer's referred_by_sales_id (set
+    // when they registered via /register?ref=CODE or visited an agent's
+    // storefront before signing up). Fall back to the referral code passed
+    // in the request — that handles the case where a logged-in customer
+    // followed an agent's link without re-registering. We persist the
+    // backfill onto the user too so subsequent orders inherit it.
     const customer = await this.userRepo.findOne({ where: { id: customerId } }).catch(() => null)
-    const salesAgentId = customer?.referred_by_sales_id || null
+    let salesAgentId = customer?.referred_by_sales_id || null
+    if (!salesAgentId && referralCode) {
+      const code = referralCode.trim().toUpperCase()
+      // Look up the referral by code via raw queryBuilder to avoid an
+      // import cycle through the referral module.
+      const ref = await this.userRepo.manager
+        .createQueryBuilder()
+        .select('r.sales_user_id', 'sales_user_id')
+        .from('referrals', 'r')
+        .where('r.code = :code AND r.is_active = true', { code })
+        .getRawOne().catch(() => null)
+      if (ref?.sales_user_id) {
+        salesAgentId = ref.sales_user_id
+        // Backfill onto the user so future orders are credited too —
+        // matches what /register would have done if the customer had used
+        // the link earlier.
+        if (customer) {
+          await this.userRepo.update(customer.id, {
+            referred_by_sales_id: salesAgentId as string,
+            referral_code_used: code,
+          }).catch(() => {})
+        }
+      }
+    }
 
     // Create Order
     const order = await this.orderRepo.save(
