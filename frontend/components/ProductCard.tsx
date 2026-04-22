@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import ProductImage from './ProductImage'
+import { optimizeImage } from '@/lib/image'
 
 const fmt = (n: number) => '₮' + n.toLocaleString('mn-MN')
 
@@ -56,13 +57,20 @@ export default function ProductCard({ product, categoryLabel, onAddToCart }: Pro
           onMouseLeave={() => { setHovered(false); setActiveImg(0) }}
           onMouseMove={handleMouseMove}
         >
-          {/* Images — crossfade */}
+          {/* Images — crossfade. Cloudinary URLs get auto-resized and served
+              in webp/avif via optimizeImage(); local /uploads pass through. */}
           {imgs.length > 0 ? (
             imgs.map((img, i) => (
-              <img key={i} src={img} alt={p.name_mn || p.name}
+              <img key={i}
+                src={optimizeImage(img, { w: 400, h: 400 })}
+                srcSet={`${optimizeImage(img, { w: 240, h: 240 })} 240w, ${optimizeImage(img, { w: 400, h: 400 })} 400w, ${optimizeImage(img, { w: 600, h: 600 })} 600w`}
+                sizes="(max-width: 480px) 50vw, (max-width: 1024px) 33vw, 240px"
+                alt={p.name_mn || p.name}
+                width={400} height={400}
                 className="absolute inset-0 w-full h-full object-cover transition-opacity duration-500"
                 style={{ opacity: i === activeImg ? 1 : 0 }}
-                loading="lazy"
+                loading={i === 0 ? 'eager' : 'lazy'}
+                decoding="async"
                 onError={e => { (e.target as HTMLImageElement).style.display = 'none' }} />
             ))
           ) : null}

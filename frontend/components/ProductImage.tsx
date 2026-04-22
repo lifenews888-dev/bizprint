@@ -1,11 +1,14 @@
 'use client'
 import { useState } from 'react'
+import { optimizeImage } from '@/lib/image'
 
 interface ProductImageProps {
   src?: string | null
   alt: string
   category?: string
   className?: string
+  /** Target render width in CSS pixels (used for Cloudinary downscale). */
+  size?: number
 }
 
 const CATEGORY_STYLES: Record<string, { bg: string; emoji: string }> = {
@@ -22,7 +25,7 @@ const CATEGORY_STYLES: Record<string, { bg: string; emoji: string }> = {
   'default':       { bg: 'from-gray-400 to-gray-600', emoji: '🖨️' },
 }
 
-export default function ProductImage({ src, alt, category, className = '' }: ProductImageProps) {
+export default function ProductImage({ src, alt, category, className = '', size = 400 }: ProductImageProps) {
   const [error, setError] = useState(false)
   const catKey = category?.toLowerCase().replace(/\s+/g, '-') || 'default'
   const style = CATEGORY_STYLES[catKey] || CATEGORY_STYLES.default
@@ -40,13 +43,18 @@ export default function ProductImage({ src, alt, category, className = '' }: Pro
     )
   }
 
+  const optimized = optimizeImage(src, { w: size, h: size })
   return (
     <img
-      src={src}
+      src={optimized}
+      srcSet={`${optimizeImage(src, { w: Math.round(size * 0.6), h: Math.round(size * 0.6) })} ${Math.round(size * 0.6)}w, ${optimized} ${size}w, ${optimizeImage(src, { w: size * 2, h: size * 2 })} ${size * 2}w`}
+      sizes={`${size}px`}
       alt={alt}
+      width={size} height={size}
       className={`object-cover ${className}`}
       onError={() => setError(true)}
       loading="lazy"
+      decoding="async"
     />
   )
 }
