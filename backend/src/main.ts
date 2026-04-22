@@ -26,25 +26,36 @@ import helmet from 'helmet';
 async function bootstrap() {
   try { mkdirSync(join(process.cwd(), 'logs'), { recursive: true }); } catch {}
 
-  // Production safety: refuse to start with insecure / sandbox credentials.
-  // Each fatal mistake in payment config can drain real customer money.
+  // Production safety: warn loudly about misconfigured payment / sandbox
+  // settings, but only HARD-EXIT on issues that would actively let attackers
+  // in. JWT_SECRET is enforced separately at module-import time. Missing
+  // payment credentials degrade the payment feature to "unavailable" — the
+  // rest of the storefront should keep serving customers.
   if (process.env.NODE_ENV === 'production') {
+    const warnings: string[] = []
     const fatal: string[] = []
 
     const bonumBase = process.env.BONUM_API_BASE || ''
-    if (!bonumBase) fatal.push('BONUM_API_BASE not set')
-    else if (bonumBase.includes('testapi')) fatal.push('BONUM_API_BASE points at sandbox (testapi.bonum.mn)')
-    if (!process.env.BONUM_APP_SECRET) fatal.push('BONUM_APP_SECRET not set')
-    if (!process.env.BONUM_TERMINAL_ID) fatal.push('BONUM_TERMINAL_ID not set')
-    if (!process.env.BONUM_CHECKSUM_KEY) fatal.push('BONUM_CHECKSUM_KEY not set (webhook would be unverified)')
+    if (bonumBase.includes('testapi')) {
+      // Pointing live customers at the sandbox would route real card data
+      // to a test merchant — that one we refuse outright.
+      fatal.push('BONUM_API_BASE points at sandbox (testapi.bonum.mn). Set the production URL.')
+    } else if (!bonumBase) warnings.push('BONUM_API_BASE not set — Bonum disabled')
+    if (!process.env.BONUM_APP_SECRET)    warnings.push('BONUM_APP_SECRET not set — Bonum disabled')
+    if (!process.env.BONUM_TERMINAL_ID)   warnings.push('BONUM_TERMINAL_ID not set — Bonum disabled')
+    if (!process.env.BONUM_CHECKSUM_KEY)  warnings.push('BONUM_CHECKSUM_KEY not set — Bonum webhooks will be rejected')
 
     const tdbOauth = process.env.TDB_OAUTH_URL || ''
     if (tdbOauth.includes('sandbox')) fatal.push('TDB_OAUTH_URL points at sandbox')
-    if (!process.env.TDB_CLIENT_ID) fatal.push('TDB_CLIENT_ID not set')
-    if (!process.env.TDB_CLIENT_SECRET) fatal.push('TDB_CLIENT_SECRET not set')
+    if (!process.env.TDB_CLIENT_ID)     warnings.push('TDB_CLIENT_ID not set — TDB QR disabled')
+    if (!process.env.TDB_CLIENT_SECRET) warnings.push('TDB_CLIENT_SECRET not set — TDB QR disabled')
 
-    if (!process.env.CORS_ORIGINS) fatal.push('CORS_ORIGINS not set (would default to localhost)')
+    if (!process.env.CORS_ORIGINS) warnings.push('CORS_ORIGINS not set — defaulting to localhost (frontend will be blocked)')
 
+    if (warnings.length) {
+      console.warn('⚠️  Production startup warnings:')
+      warnings.forEach(w => console.warn('   - ' + w))
+    }
     if (fatal.length) {
       console.error('❌ FATAL: refusing to start in production with insecure config:')
       fatal.forEach(m => console.error('   - ' + m))
