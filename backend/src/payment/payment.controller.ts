@@ -141,7 +141,7 @@ export class PaymentController {
   @Post('bonum/webhook')
   async bonumWebhook(
     @Body() body: any,
-    @Headers('x-checksum') checksum: string,
+    @Headers('x-checksum-v2') checksum: string,
     @Req() req: any,
   ) {
     this.logger.log(`Bonum webhook received: ${JSON.stringify(body)}`)
