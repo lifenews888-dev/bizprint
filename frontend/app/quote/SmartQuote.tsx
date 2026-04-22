@@ -34,6 +34,7 @@ export default function SmartQuote() {
   const [urgency, setUrgency] = useState('normal')
   const [lit, setLit] = useState(false)
   const [result, setResult] = useState<any>(null)
+  const [errorMsg, setErrorMsg] = useState('')
   const [loading, setLoading] = useState(false)
   const [showPreview, setShowPreview] = useState(false)
   const [user, setUser] = useState<any>(null)
@@ -65,10 +66,12 @@ export default function SmartQuote() {
   useEffect(() => {
     const t = setTimeout(() => {
       setLoading(true)
+      setErrorMsg('')
       // Multi-line тооцоолол: мөр бүрийн үсгийн тоо × тухайн хэмжээний үнэ
       apiFetch<any>('/smart-quote/calculate', {
         method: 'POST',
-        body: JSON.stringify({
+        auth: false,
+        body: {
           product_type: productType, sign_text: signText,
           width, height, quantity,
           // Олон мөр: мөр бүрийн үсэг + хэмжээ
@@ -79,8 +82,16 @@ export default function SmartQuote() {
           letter_size_cm: isTovgor ? maxLetterSize : undefined,
           letter_count: isTovgor ? totalLetters : undefined,
           material: lit ? `${productType}_on` : undefined, urgency,
-        }),
-      }).then(r => { if (r) setResult(r) }).catch(() => {}).finally(() => setLoading(false))
+        },
+      }).then(r => {
+        if (!r) { setErrorMsg('Сервер хариу буцаасангүй'); return }
+        if (r.error) { setErrorMsg(r.error); setResult(null); return }
+        if (!r.total_price && r.total_price !== 0) { setErrorMsg('Үнийн мэдээлэл дутуу ирлээ. Админ: /admin/pricing-catalog дээрээс үнэ тохируул.'); setResult(null); return }
+        setResult(r)
+      }).catch((e: any) => {
+        setErrorMsg(e?.message || 'Серверт холбогдож чадсангүй')
+        setResult(null)
+      }).finally(() => setLoading(false))
     }, 400)
     return () => clearTimeout(t)
   }, [productType, textLines, width, height, quantity, urgency, lit])
@@ -225,7 +236,14 @@ export default function SmartQuote() {
           {/* Price */}
           <div style={{ background: '#fff', borderRadius: 14, border: '1px solid #E5E7EB', padding: 20 }}>
             <h2 style={{ fontSize: 16, fontWeight: 700, marginBottom: 14 }}>Үнийн санал</h2>
-            {result ? (<>
+            {errorMsg ? (
+              <div style={{ padding: 16, background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)', borderRadius: 10, fontSize: 12, color: '#B91C1C' }}>
+                <div style={{ fontWeight: 700, marginBottom: 4 }}>⚠ Тооцоолол хийгдсэнгүй</div>
+                <div>{errorMsg}</div>
+              </div>
+            ) : loading ? (
+              <div style={{ padding: 16, textAlign: 'center', color: '#9CA3AF', fontSize: 12 }}>Тооцоолж байна...</div>
+            ) : result ? (<>
               {(() => {
                 const lp = logoPrice
                 const sub = (result.subtotal || 0) + lp
