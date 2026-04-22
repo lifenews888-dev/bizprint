@@ -26,10 +26,13 @@ function EditorContent() {
   const params = useSearchParams()
   const router = useRouter()
   const productType = params.get('type') || 'business-card'
+  const designRequestId = params.get('designRequestId')
 
   const canvasW = CARD_W * SCALE
   const canvasH = CARD_H * SCALE
   const canvasRef = useRef<HTMLDivElement>(null)
+  const [saving, setSaving] = useState(false)
+  const [saveMsg, setSaveMsg] = useState<{ text: string; ok: boolean } | null>(null)
 
   const [elements, setElements] = useState<CanvasElement[]>([
     { id: '1', type: 'text', content: 'Таны нэр', x: 24, y: 40, fontSize: 20, fontWeight: '700', color: '#1a1a1a' },
@@ -99,6 +102,53 @@ function EditorContent() {
 
   const handleMouseUp = useCallback(() => setDragging(null), [])
 
+  const renderToBlob = useCallback((): Promise<Blob | null> => {
+    return new Promise(resolve => {
+      const c = document.createElement('canvas')
+      c.width = canvasW
+      c.height = canvasH
+      const ctx = c.getContext('2d')
+      if (!ctx) return resolve(null)
+      ctx.fillStyle = bg
+      ctx.fillRect(0, 0, canvasW, canvasH)
+      for (const el of elements) {
+        ctx.fillStyle = el.color
+        ctx.font = `${el.fontWeight} ${el.fontSize}px DM Sans, system-ui, sans-serif`
+        ctx.textBaseline = 'top'
+        ctx.fillText(el.content, el.x, el.y)
+      }
+      c.toBlob(b => resolve(b), 'image/png', 0.95)
+    })
+  }, [bg, elements, canvasW, canvasH])
+
+  const saveToRequest = useCallback(async () => {
+    if (!designRequestId || saving) return
+    setSaving(true); setSaveMsg(null)
+    try {
+      const blob = await renderToBlob()
+      if (!blob) throw new Error('Зураг үүсгэж чадсангүй')
+      const fd = new FormData()
+      fd.append('file', new File([blob], `design-${Date.now()}.png`, { type: 'image/png' }))
+      const tok = (typeof window !== 'undefined') ? (localStorage.getItem('access_token') || localStorage.getItem('token')) : null
+      const upRes = await fetch(`${API_URL}/api/upload/file`, { method: 'POST', body: fd, headers: tok ? { Authorization: `Bearer ${tok}` } : {} })
+      if (!upRes.ok) throw new Error('Зураг хадгалж чадсангүй')
+      const upData = await upRes.json()
+      const rawUrl: string = upData.file_url || upData.url || ''
+      if (!rawUrl) throw new Error('Файлын URL ирсэнгүй')
+      const fileUrl = rawUrl.startsWith('http') ? rawUrl : `${API_URL}${rawUrl.startsWith('/') ? '' : '/'}${rawUrl}`
+      const verRes = await fetch(`${API_URL}/api/design-requests/${designRequestId}/versions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(tok ? { Authorization: `Bearer ${tok}` } : {}) },
+        body: JSON.stringify({ file_url: fileUrl, preview_url: fileUrl, version_note: 'Editor-оос хадгалсан' }),
+      })
+      if (!verRes.ok) throw new Error('Хувилбар хадгалж чадсангүй')
+      setSaveMsg({ text: '✅ Хувилбар хадгалагдлаа', ok: true })
+      setTimeout(() => router.push(`/dashboard/customer/design/${designRequestId}`), 800)
+    } catch (e: any) {
+      setSaveMsg({ text: e?.message || 'Алдаа гарлаа', ok: false })
+    } finally { setSaving(false) }
+  }, [designRequestId, saving, renderToBlob, router])
+
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg)' }}>
       {/* Toolbar */}
@@ -110,12 +160,26 @@ function EditorContent() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <a href="/templates" style={{ padding: '6px 14px', border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface)', color: 'var(--text2)', fontSize: 12, textDecoration: 'none' }}>📐 Загварууд</a>
           <button onClick={addText} style={{ padding: '6px 14px', border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface)', color: 'var(--text2)', fontSize: 12, cursor: 'pointer' }}>+ Текст</button>
-          <button onClick={() => router.push(`/orders/new?productType=${productType}&hasDesign=true`)}
-            style={{ padding: '6px 16px', border: 'none', borderRadius: 8, background: '#FF6B00', color: '#fff', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
-            Захиалах →
-          </button>
+          {designRequestId ? (
+            <button onClick={saveToRequest} disabled={saving}
+              style={{ padding: '6px 16px', border: 'none', borderRadius: 8, background: saving ? '#7A3500' : '#FF6B00', color: '#fff', fontSize: 12, fontWeight: 600, cursor: saving ? 'wait' : 'pointer' }}>
+              {saving ? 'Хадгалж байна...' : '💾 Захиалгад хадгалах'}
+            </button>
+          ) : (
+            <button onClick={() => router.push(`/orders/new?productType=${productType}&hasDesign=true`)}
+              style={{ padding: '6px 16px', border: 'none', borderRadius: 8, background: '#FF6B00', color: '#fff', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+              Захиалах →
+            </button>
+          )}
         </div>
       </div>
+
+      {designRequestId && (
+        <div style={{ background: 'rgba(255,107,0,0.08)', borderBottom: '1px solid rgba(255,107,0,0.25)', padding: '8px 16px', fontSize: 12, color: 'var(--text2)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <span>📎 Дизайн захиалга <strong style={{ color: '#FF6B00' }}>#{designRequestId.slice(0, 8)}</strong>-д ажиллаж байна</span>
+          {saveMsg && <span style={{ color: saveMsg.ok ? '#10B981' : '#EF4444', fontWeight: 600 }}>{saveMsg.text}</span>}
+        </div>
+      )}
 
       <div style={{ display: 'flex', height: 'calc(100vh - 48px)' }}>
         {/* Left panel — Properties */}

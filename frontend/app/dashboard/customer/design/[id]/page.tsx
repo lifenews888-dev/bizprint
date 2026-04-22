@@ -383,9 +383,14 @@ export default function CustomerDesignApproval() {
                     </a>
                   </div>
                 ) : (
-                  <div style={{ padding: 60, background: '#252525', borderRadius: 10, textAlign: 'center', color: '#4B5563' }}>
+                  <div style={{ padding: 40, background: '#252525', borderRadius: 10, textAlign: 'center', color: '#4B5563' }}>
                     <div style={{ fontSize: 40, marginBottom: 8 }}>⏳</div>
-                    <div>Дизайнер ажиллаж байна...</div>
+                    <div style={{ marginBottom: 16 }}>Дизайнер ажиллаж байна...</div>
+                    <button
+                      onClick={() => router.push(`/design/editor?designRequestId=${id}`)}
+                      style={{ background: '#FF6B00', color: '#fff', padding: '10px 18px', borderRadius: 8, fontSize: 13, fontWeight: 600, border: 'none', cursor: 'pointer' }}>
+                      ✏️ Өөрөө загвар санал болгох
+                    </button>
                   </div>
                 )}
               </div>

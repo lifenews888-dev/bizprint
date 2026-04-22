@@ -1,7 +1,8 @@
 'use client'
 import { apiFetch } from '@/lib/api'
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { AdminPageHeader } from '@/components/admin/AdminPageHeader'
+import { useRealtime } from '@/contexts/RealtimeContext'
 
 /* ═══════════════════════════════════════
  *  CREATIVE PRODUCTION PIPELINE
@@ -21,7 +22,7 @@ const STATUS_CFG: Record<string, { label: string; color: string; icon: string }>
   rejected:             { label: 'Татгалзсан',        color: '#EF4444', icon: '❌' },
 }
 
-const PIPELINE_STAGES = ['pending', 'assigned', 'in_progress', 'under_review', 'approved', 'in_production']
+const PIPELINE_STAGES = ['pending', 'assigned', 'in_progress', 'under_review', 'revision_requested', 'updated_version', 'zoom_scheduled', 'approved', 'in_production']
 
 export default function AdminDesignRequestsPage() {
   const [items, setItems] = useState<any[]>([])
@@ -35,6 +36,10 @@ export default function AdminDesignRequestsPage() {
   const [assignModal, setAssignModal] = useState<any>(null)
   const [assignForm, setAssignForm] = useState({ designer_id: '', designer_name: '', designer_phone: '', designer_zoom: '' })
   const [newComment, setNewComment] = useState('')
+  const [liveToast, setLiveToast] = useState<{ msg: string; color: string } | null>(null)
+  const detailIdRef = useRef<string | null>(null)
+  detailIdRef.current = detail?.id || null
+  const { subscribe, joinRoom, leaveRoom, connected } = useRealtime()
 
   const load = useCallback(async () => {
     try {
@@ -50,6 +55,31 @@ export default function AdminDesignRequestsPage() {
   }, [])
 
   useEffect(() => { load() }, [load])
+
+  // Real-time: listen to all design events broadcast to the `admin` room.
+  // When the open detail panel matches the event, also re-fetch its full data.
+  useEffect(() => {
+    joinRoom('admin')
+    const refresh = (label: string, color: string) => (data: any) => {
+      setLiveToast({ msg: label, color })
+      setTimeout(() => setLiveToast(null), 3000)
+      load()
+      if (detailIdRef.current && data?.designRequestId === detailIdRef.current) {
+        apiFetch(`/design-requests/${detailIdRef.current}`).then((full: any) => setDetail(full)).catch(() => {})
+      }
+    }
+    const unsubs = [
+      subscribe('DESIGN_FILE_UPLOADED',      refresh('🆕 Шинэ файл',         '#6366F1')),
+      subscribe('DESIGN_VERSION_UPDATED',    refresh('🆕 Шинэ хувилбар',     '#6366F1')),
+      subscribe('DESIGN_REVISION_REQUESTED', refresh('🔄 Засвар хүссэн',     '#F97316')),
+      subscribe('DESIGN_ZOOM_CREATED',       refresh('📹 Zoom үүссэн',        '#0EA5E9')),
+      subscribe('DESIGN_APPROVED',           refresh('✅ Дизайн батлагдлаа', '#10B981')),
+      subscribe('DESIGN_REJECTED',           refresh('❌ Татгалзлаа',         '#EF4444')),
+      subscribe('DESIGN_IN_PRODUCTION',      refresh('🏭 Үйлдвэрт орлоо',    '#059669')),
+      subscribe('DESIGN_COMMENT_ADDED',      refresh('💬 Шинэ сэтгэгдэл',    '#FF6B00')),
+    ]
+    return () => { unsubs.forEach(fn => fn()); leaveRoom('admin') }
+  }, [subscribe, joinRoom, leaveRoom, load])
 
   const designers = users.filter(u => u.role === 'designer')
 
@@ -116,7 +146,15 @@ export default function AdminDesignRequestsPage() {
         .dr-row{transition:background .15s}.dr-row:hover{background:var(--surface2)!important}
       `}</style>
 
+      {liveToast && (
+        <div style={{ position: 'fixed', top: 20, right: 20, zIndex: 9999, background: liveToast.color, color: '#fff', padding: '10px 18px', borderRadius: 10, fontSize: 13, fontWeight: 600, boxShadow: '0 8px 24px rgba(0,0,0,0.18)', animation: 'fadeIn .2s ease' }}>{liveToast.msg}</div>
+      )}
+
       <AdminPageHeader title="Дизайн хүсэлтүүд" description={`Creative Production Pipeline · ${items.length} хүсэлт`}>
+        <span title={connected ? 'Шууд холболт' : 'Холбогдоогүй'} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '6px 10px', borderRadius: 99, background: connected ? 'rgba(16,185,129,0.12)' : 'rgba(239,68,68,0.12)', color: connected ? '#10B981' : '#EF4444', fontSize: 11, fontWeight: 600 }}>
+          <span style={{ width: 6, height: 6, borderRadius: '50%', background: connected ? '#10B981' : '#EF4444' }} />
+          {connected ? 'Live' : 'Offline'}
+        </span>
         <button onClick={load} style={{ padding: '8px 16px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)', cursor: 'pointer', fontSize: 13 }}>🔄 Шинэчлэх</button>
       </AdminPageHeader>
 
