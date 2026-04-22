@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
-import { apiFetch, apiUpload } from '@/lib/api'
+import { useRouter } from 'next/navigation'
+import { apiFetch, apiUpload, API_URL } from '@/lib/api'
 import QuotePreview from '@/components/QuotePreview'
 
 /* ═══════════════════════════════════════
@@ -20,6 +21,9 @@ const PRODUCT_TYPES = [
 const LETTER_SIZES = [20, 30, 40, 50, 60, 70, 80, 100]
 
 export default function SmartQuote() {
+  const router = useRouter()
+  const [ordering, setOrdering] = useState(false)
+  const [orderError, setOrderError] = useState('')
   const [productType, setProductType] = useState('tovgor')
   // 3 tier text system: Том / Дунд / Жижиг
   const [textLines, setTextLines] = useState([
@@ -184,7 +188,7 @@ export default function SmartQuote() {
                     try {
                       const fd = new FormData(); fd.append('file', file)
                       const res = await apiUpload<any>('/upload/file', fd)
-                      if (res?.file_url) setLogoUrl(`http://localhost:4000${res.file_url}`)
+                      if (res?.file_url) setLogoUrl(res.file_url.startsWith('http') ? res.file_url : `${API_URL}${res.file_url}`)
                     } catch {}
                   }} />
                   {logoUrl ? (
@@ -278,7 +282,41 @@ export default function SmartQuote() {
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 14 }}>
                 <button onClick={() => setShowPreview(true)} style={{ width: '100%', padding: 12, borderRadius: 10, border: 'none', background: '#1C1917', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>📄 Үнийн санал харах</button>
-                <button style={{ width: '100%', padding: 12, borderRadius: 10, border: 'none', background: '#FF6B00', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>📧 Илгээх</button>
+                <button
+                  onClick={async () => {
+                    if (!user?.id) { router.push('/login?next=/quote'); return }
+                    if (ordering || !result) return
+                    setOrdering(true); setOrderError('')
+                    try {
+                      const saved: any = await apiFetch('/smart-quote', {
+                        method: 'POST',
+                        body: {
+                          product_type: productType, sign_text: signText,
+                          width, height, quantity,
+                          text_lines: isTovgor ? activeLines.map(l => ({
+                            text: l.text, size: l.size,
+                            letter_count: l.text.replace(/\s/g, '').length,
+                          })) : undefined,
+                          letter_size_cm: isTovgor ? maxLetterSize : undefined,
+                          letter_count: isTovgor ? totalLetters : undefined,
+                          material: lit ? `${productType}_on` : undefined, urgency,
+                          customer_id: user.id,
+                          logo_url: logoUrl,
+                        },
+                      })
+                      const quoteId = saved?.quote?.id || saved?.id
+                      if (!quoteId) throw new Error('Үнийн санал хадгалж чадсангүй')
+                      router.push(`/checkout?quote_id=${quoteId}`)
+                    } catch (e: any) {
+                      setOrderError(e?.message || 'Захиалга үүсгэж чадсангүй')
+                      setOrdering(false)
+                    }
+                  }}
+                  disabled={ordering || !result}
+                  style={{ width: '100%', padding: 12, borderRadius: 10, border: 'none', background: ordering ? '#7A3500' : '#FF6B00', color: '#fff', fontSize: 13, fontWeight: 700, cursor: ordering ? 'wait' : 'pointer' }}>
+                  {ordering ? 'Захиалга бэлдэж байна...' : '🛒 Захиалах'}
+                </button>
+                {orderError && <div style={{ fontSize: 11, color: '#EF4444', textAlign: 'center' }}>{orderError}</div>}
               </div>
             </>) : (
               <div style={{ textAlign: 'center', padding: 24, color: '#BBB', fontSize: 13 }}>{loading ? '⏳ Тооцоолж байна...' : 'Параметр оруулна уу'}</div>

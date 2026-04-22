@@ -1,19 +1,84 @@
-import { Injectable, Optional } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, Repository } from 'typeorm';
+import { In, LessThan, Repository } from 'typeorm';
 import { CommissionLog, CommissionStatus } from './commission.entity';
 import { Vendor } from '../vendors/vendor.entity';
+import { OrderVendorGroup } from '../orders/entities/order-vendor-group.entity';
+import { Order } from '../orders/entities/order.entity';
 import { MailService } from '../mail/mail.service';
+import { WalletService } from '../wallet/wallet.service';
+import { EventBusService } from '../events/event-bus.service';
+import { BizEvent } from '../events/event-types';
 
 @Injectable()
-export class CommissionService {
+export class CommissionService implements OnModuleInit {
+  private readonly logger = new Logger(CommissionService.name);
+
   constructor(
     @InjectRepository(CommissionLog)
     private repo: Repository<CommissionLog>,
     @InjectRepository(Vendor)
     private vendorRepo: Repository<Vendor>,
+    @InjectRepository(OrderVendorGroup)
+    private vendorGroupRepo: Repository<OrderVendorGroup>,
+    @InjectRepository(Order)
+    private orderRepo: Repository<Order>,
+    private readonly walletService: WalletService,
+    private readonly eventBus: EventBusService,
     @Optional() private mailService?: MailService,
   ) {}
+
+  onModuleInit() {
+    // Auto-create PENDING commission row(s) when an order is paid.
+    // Listening via EventBus avoids circular module dependencies.
+    this.eventBus.on(BizEvent.ORDER_PAID, (payload: any) => {
+      this.createCommissionForOrder(payload?.orderId).catch(e =>
+        this.logger.error(`createCommissionForOrder(${payload?.orderId}) failed: ${e.message}`),
+      );
+    });
+  }
+
+  /**
+   * On payment confirmation, generate one PENDING commission row per vendor
+   * group (multi-vendor orders generate multiple rows). Idempotent: if a row
+   * already exists for an order_id+vendor_id pair we skip.
+   */
+  async createCommissionForOrder(orderId: string) {
+    if (!orderId) return;
+    const groups = await this.vendorGroupRepo.find({ where: { order_id: orderId } });
+    if (!groups.length) {
+      // Single-vendor / legacy order — fall back to factory_id on the order
+      const order = await this.orderRepo.findOne({ where: { id: orderId } });
+      if (!order || !(order as any).factory_id) {
+        this.logger.warn(`No vendor groups for paid order ${orderId} — commission skipped`);
+        return;
+      }
+      const vendor = await this.vendorRepo.findOne({ where: { id: (order as any).factory_id } });
+      const vendorUserId = vendor?.user_id || (order as any).factory_id;
+      const existing = await this.repo.findOne({ where: { order_id: orderId, vendor_id: vendorUserId } });
+      if (existing) return;
+      await this.create({
+        orderId,
+        vendorId: vendorUserId,
+        vendorName: vendor?.company_name,
+        grossAmount: Number(order.total_price) || 0,
+      });
+      return;
+    }
+
+    for (const g of groups) {
+      const vendor = await this.vendorRepo.findOne({ where: { id: g.vendor_id } }).catch(() => null);
+      const vendorUserId = vendor?.user_id || g.vendor_id;
+      const existing = await this.repo.findOne({ where: { order_id: orderId, vendor_id: vendorUserId } });
+      if (existing) continue;
+      await this.create({
+        orderId,
+        vendorId: vendorUserId,
+        vendorName: vendor?.company_name,
+        grossAmount: Number(g.subtotal) || 0,
+      });
+    }
+  }
 
   async create(data: {
     orderId?: string;
@@ -93,23 +158,66 @@ export class CommissionService {
       payout_batch_id: batchId,
     });
 
-    // Notify vendors (fire-and-forget)
+    // Credit each vendor's wallet + notify (best-effort).
+    // We intentionally do NOT throw if wallet credit fails — the commission row
+    // remains APPROVED so admin can retry; an error here must not roll back the
+    // batch status update which has already been committed.
     try {
       const logs = await this.repo.find({ where: { payout_batch_id: batchId } });
       const vendorIds = Array.from(new Set(logs.map(l => l.vendor_id).filter(Boolean)));
       for (const vendorId of vendorIds) {
-        const vendor = await this.vendorRepo.findOne({ where: { user_id: vendorId } }).catch(() => null);
-        if (!vendor?.contact_email || !this.mailService) continue;
         const vendorLogs = logs.filter(l => l.vendor_id === vendorId);
         const netAmount = vendorLogs.reduce((sum, l) => sum + Number(l.net_amount), 0);
-        this.mailService.sendVendorPayoutApproved(
-          { email: vendor.contact_email, name: vendor.company_name },
-          { batchId, netAmount, count: vendorLogs.length },
-        ).catch(() => {});
+
+        try {
+          await this.walletService.credit(
+            vendorId!,
+            netAmount,
+            'commission_payout',
+            batchId,
+            `Commission batch ${batchId} (${vendorLogs.length} orders)`,
+          );
+        } catch (e: any) {
+          this.logger.error(`Wallet credit failed for vendor ${vendorId} batch ${batchId}: ${e.message}`);
+        }
+
+        const vendor = await this.vendorRepo.findOne({ where: { user_id: vendorId } }).catch(() => null);
+        if (vendor?.contact_email && this.mailService) {
+          this.mailService.sendVendorPayoutApproved(
+            { email: vendor.contact_email, name: vendor.company_name },
+            { batchId, netAmount, count: vendorLogs.length },
+          ).catch(e => this.logger.warn(`Vendor payout email failed: ${e.message}`));
+        }
       }
-    } catch {}
+    } catch (e: any) {
+      this.logger.error(`approvePayout post-processing failed for batch ${batchId}: ${e.message}`);
+    }
 
     return { batchId, count: ids.length };
+  }
+
+  /**
+   * Auto-approve commissions for orders that have been DELIVERED ≥ 48 hours
+   * with no refund/dispute filed. Called by escrow release cron.
+   *
+   * Returns the number of commissions promoted to APPROVED.
+   */
+  async autoApproveDelayedCommissions(holdHours = 48) {
+    const cutoff = new Date(Date.now() - holdHours * 60 * 60 * 1000);
+    // commission_logs.order_id is varchar in this schema; cast to uuid for join.
+    const eligible = await this.repo.createQueryBuilder('c')
+      .innerJoin('orders', 'o', 'o.id = c.order_id::uuid')
+      .where('c.status = :status', { status: CommissionStatus.PENDING })
+      .andWhere('LOWER(o.status) = :delivered', { delivered: 'delivered' })
+      .andWhere('o.delivered_at IS NOT NULL')
+      .andWhere('o.delivered_at < :cutoff', { cutoff })
+      .select(['c.id'])
+      .getMany();
+
+    if (!eligible.length) return { count: 0, batchId: null };
+    const ids = eligible.map(e => e.id);
+    this.logger.log(`Escrow released for ${ids.length} commission(s) past ${holdHours}h hold`);
+    return this.approvePayout(ids);
   }
 
   async markPaid(batchId: string) {

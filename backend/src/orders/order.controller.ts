@@ -81,10 +81,13 @@ export class OrdersController {
    *  CRUD — standard order endpoints
    * ═══════════════════════════════════════ */
 
+  // ADMIN-ONLY: direct order creation (manual entry, imports, recovery).
+  // Customer flow MUST go through /cart/quote/confirm or /orders/from-quote
+  // so pricing, vendor split, and audit trail run consistently.
   @Post()
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, AdminGuard)
   create(@Body() body: any, @Request() req: any) {
-    return this.ordersService.createOrder({ ...body, customer_id: req.user?.id });
+    return this.ordersService.createOrder({ ...body, customer_id: body.customer_id || req.user?.id });
   }
 
   @Post('from-quote')
@@ -112,6 +115,12 @@ export class OrdersController {
   @UseGuards(JwtAuthGuard)
   getMyOrders(@Request() req: any) {
     return this.ordersService.getOrdersByCustomer(req.user.id);
+  }
+
+  @Get('vendor/me')
+  @UseGuards(JwtAuthGuard)
+  getMyVendorOrders(@Request() req: any) {
+    return this.ordersService.getOrdersByVendor(req.user.id);
   }
 
   // ─── Public order tracking (no auth) ───

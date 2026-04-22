@@ -11,6 +11,7 @@ import { Order } from '../orders/entities/order.entity'
 import { MailModule } from '../mail/mail.module'
 import { ProductionJobsModule } from '../production-jobs/production-jobs.module'
 import { NotificationModule } from '../notifications/notification.module'
+import { WalletModule } from '../wallet/wallet.module'
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { NotificationModule } from '../notifications/notification.module'
     MailModule,
     ProductionJobsModule,
     NotificationModule,
+    WalletModule,
   ],
   controllers: [PaymentController],
   providers: [PaymentService, QPayService, BonumService],

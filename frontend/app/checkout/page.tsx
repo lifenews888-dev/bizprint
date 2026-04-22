@@ -141,37 +141,36 @@ function CheckoutInner() {
       }
 
       // ── Regular order / quote flow ──
-      let data
-      if (quoteId) {
-        data = await apiFetch<any>('/cart/quote/confirm', {
-          method: 'POST',
-          body: { quotation_id: quoteId, payment_method: payMethod },
-        })
-      } else {
-        // Include cart items and total
-        const cartItems = store.cart.map(c => ({
-          product_id: c.id,
-          product_name: c.name,
-          quantity: c.qty,
-          unit_price: c.price,
-          total_price: c.price * c.qty,
-          image: c.image,
-        }))
-        const cartTotal = store.cartTotal()
-        data = await apiFetch<any>('/orders', {
-          method: 'POST',
-          body: {
-            ...form,
-            payment_method: payMethod,
-            items: cartItems,
-            total_price: cartTotal,
-            quantity: store.cartCount(),
-            product_name: cartItems.length === 1
-              ? cartItems[0].product_name
-              : `${cartItems.length} бүтээгдэхүүн`,
-          },
-        })
+      // Idempotency: same key prevents double-orders if the user double-clicks
+      // or the network retries. Stored on the form for the lifetime of this view.
+      const idemKey = (typeof crypto !== 'undefined' && (crypto as any).randomUUID)
+        ? (crypto as any).randomUUID()
+        : `${Date.now()}-${Math.random().toString(36).slice(2)}`
+      const idemHeaders = { 'X-Idempotency-Key': idemKey }
+
+      // Canonical pipeline: must always go through cart → quote → confirm.
+      // If the user arrived without a quoteId (e.g. came directly from cart),
+      // we generate the quote here from their current cart, then confirm it.
+      let activeQuoteId = quoteId
+      if (!activeQuoteId) {
+        const quote = await apiFetch<any>('/cart/quote', { method: 'POST', headers: idemHeaders })
+        activeQuoteId = quote?.quotation_id || quote?.id
+        if (!activeQuoteId) {
+          throw new Error('Үнийн санал үүсгэж чадсангүй')
+        }
       }
+      const data = await apiFetch<any>('/cart/quote/confirm', {
+        method: 'POST',
+        headers: idemHeaders,
+        body: {
+          quotation_id: activeQuoteId,
+          payment_method: payMethod,
+          customer_name: form.customer_name,
+          customer_phone: form.customer_phone,
+          customer_email: form.customer_email,
+          shipping_address: form.delivery_address,
+        },
+      })
       const orderData = data?.data || data
       setOrder(orderData)
 

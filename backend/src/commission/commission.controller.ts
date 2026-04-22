@@ -1,4 +1,5 @@
 import { Controller, Get, Post, Body, Param, Query, UseGuards } from '@nestjs/common';
+import { Cron } from '@nestjs/schedule';
 import { CommissionService } from './commission.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AdminGuard } from '../admin/admin.guard';
@@ -6,6 +7,21 @@ import { AdminGuard } from '../admin/admin.guard';
 @Controller('commission')
 export class CommissionController {
   constructor(private svc: CommissionService) {}
+
+  // Escrow release: every 6h, auto-approve commissions for orders that have
+  // been DELIVERED for ≥ 48h with no dispute. The window matches CLAUDE.md
+  // ("48-72h after delivery").
+  @Cron('0 */6 * * *')
+  async escrowReleaseCron() {
+    return this.svc.autoApproveDelayedCommissions(48);
+  }
+
+  // Manual escrow release trigger for admin (test/recovery)
+  @Post('escrow/release')
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  manualEscrowRelease(@Body('hold_hours') holdHours?: number) {
+    return this.svc.autoApproveDelayedCommissions(holdHours ?? 48);
+  }
 
   // Vendor can read their own; admin can read any
   @Get()

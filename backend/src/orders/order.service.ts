@@ -363,6 +363,26 @@ export class OrdersService {
     });
   }
 
+  /**
+   * List orders assigned to a vendor (joined via vendor user_id → vendor.id → factory_id).
+   * Used by the vendor production dashboard to show their queue.
+   */
+  async getOrdersByVendor(vendorUserId: string) {
+    // Resolve vendor.id from user_id
+    const vendorRow = await this.ordersRepo.manager
+      .createQueryBuilder()
+      .select('v.id', 'id')
+      .from('vendors', 'v')
+      .where('v.user_id = :uid', { uid: vendorUserId })
+      .getRawOne();
+    const vendorId = vendorRow?.id || vendorUserId;
+    return this.ordersRepo.find({
+      where: { factory_id: vendorId },
+      relations: ['items'],
+      order: { created_at: 'DESC' },
+    });
+  }
+
   async getOrderById(id: string) {
     const order = await this.ordersRepo.findOne({ where: { id } });
     if (!order) throw new NotFoundException('Захиалга олдсонгүй');
@@ -396,15 +416,22 @@ export class OrdersService {
     }
   }
 
-  async cancelOrder(id: string) {
+  async cancelOrder(id: string, reason?: string) {
     const order = await this.getOrderById(id);
+    const previousStatus = order.status as OrderStatus;
+    const wasPaid = order.payment_status === 'paid';
     order.status = OrderStatus.CANCELLED;
     const saved = await this.ordersRepo.save(order);
-    // Emit ORDER_CANCELLED for real-time broadcast
+
+    // Emit ORDER_CANCELLED — payment.service listens to this and applies the
+    // refund policy (100% before production, 50% in production, 0% after dispatch).
     this.eventBus.emit(BizEvent.ORDER_CANCELLED, {
       orderId: id,
       userId: (order as any).customer_id || (order as any).user_id,
       status: OrderStatus.CANCELLED,
+      previousStatus,
+      wasPaid,
+      reason: reason || 'cancelled',
     });
     return saved;
   }

@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common'
+import { BadRequestException, Injectable, Logger, NotFoundException, OnModuleInit } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
 import { Repository } from 'typeorm'
 import axios from 'axios'
@@ -10,6 +10,7 @@ import { ProductionJobsService } from '../production-jobs/production-jobs.servic
 import { NotificationService } from '../notifications/notification.service'
 import { EventBusService } from '../events/event-bus.service'
 import { BizEvent } from '../events/event-types'
+import { WalletService } from '../wallet/wallet.service'
 
 const TDB_QR_BASE = process.env.TDB_QR_BASE || 'https://qrservice.tdbmlabs.mn'
 const TDB_QR_USER = process.env.TDB_QR_USER || 'tdbm'
@@ -23,7 +24,8 @@ const TDB_BIZPRINT_ACCOUNT = process.env.TDB_BIZPRINT_ACCOUNT || ''
 const TDB_BIZPRINT_ACCOUNT_NAME = process.env.TDB_BIZPRINT_ACCOUNT_NAME || 'ЮүЭмБи Верто ХХК'
 
 @Injectable()
-export class PaymentService {
+export class PaymentService implements OnModuleInit {
+  private readonly logger = new Logger(PaymentService.name)
   private cachedToken: { access_token: string; expires_at: number } | null = null
 
   constructor(
@@ -37,7 +39,98 @@ export class PaymentService {
     private productionJobsService: ProductionJobsService,
     private notificationService: NotificationService,
     private readonly eventBus: EventBusService,
+    private readonly walletService: WalletService,
   ) {}
+
+  onModuleInit() {
+    // Auto-refund when an order is cancelled, applying the policy below.
+    // We pass previousStatus so the refund percentage reflects the state
+    // *before* CANCELLED was set, not the cancelled state itself (which
+    // would always score 0%).
+    this.eventBus.on(BizEvent.ORDER_CANCELLED, (payload: any) => {
+      if (!payload?.wasPaid || !payload?.orderId) return
+      this.refundOrder(payload.orderId, payload.reason || 'cancelled', payload.previousStatus).catch(e =>
+        this.logger.error(`Auto-refund failed for ${payload.orderId}: ${e.message}`),
+      )
+    })
+  }
+
+  /**
+   * Compute refund percentage for a given order status, per CLAUDE.md policy:
+   *   Before production (DRAFT/QUOTATION_SENT/CONFIRMED/PENDING_FILE/FILE_REVIEW
+   *   /FILE_REJECTED/ON_HOLD): 100%
+   *   In production (IN_PRODUCTION/FINISHING): 50% (paper + setup costs already incurred)
+   *   After dispatch (PARTIALLY_DISPATCHED/DISPATCHED/DELIVERED/COMPLETED): 0%
+   *   Already CANCELLED: 0%
+   */
+  static refundPercentForStatus(status: OrderStatus): number {
+    switch (status) {
+      case OrderStatus.DRAFT:
+      case OrderStatus.QUOTATION_SENT:
+      case OrderStatus.CONFIRMED:
+      case OrderStatus.PENDING_FILE:
+      case OrderStatus.FILE_REVIEW:
+      case OrderStatus.FILE_REJECTED:
+      case OrderStatus.ON_HOLD:
+        return 100
+      case OrderStatus.IN_PRODUCTION:
+      case OrderStatus.FINISHING:
+        return 50
+      default:
+        return 0
+    }
+  }
+
+  /**
+   * Refund a paid order according to the policy above. Credits the customer's
+   * wallet (BizPrint internal balance — actual bank reversal happens via the
+   * customer's withdrawal request from the wallet).
+   *
+   * Idempotent: returns existing refund if already processed.
+   */
+  async refundOrder(orderId: string, reason: string, statusOverride?: OrderStatus) {
+    const order = await this.orderRepo.findOne({ where: { id: orderId } })
+    if (!order) throw new NotFoundException('Захиалга олдсонгүй')
+    if (order.payment_status !== 'paid') {
+      throw new BadRequestException('Зөвхөн төлбөр төлөгдсөн захиалгыг буцаах боломжтой')
+    }
+    if (order.payment_status === 'refunded' as any) {
+      return { ok: true, alreadyRefunded: true }
+    }
+
+    // Use the snapshot status from the cancellation event when available;
+    // falls back to the live status (e.g. when admin triggers refund directly).
+    const policyStatus = (statusOverride ?? (order.status as OrderStatus))
+    const percent = PaymentService.refundPercentForStatus(policyStatus)
+    const total = Number(order.total_price) || 0
+    const refundAmount = Math.round((total * percent) / 100)
+
+    if (refundAmount > 0 && order.customer_id) {
+      await this.walletService.credit(
+        order.customer_id,
+        refundAmount,
+        'order_refund',
+        order.id,
+        `Refund (${percent}%): ${reason || 'Customer cancellation'}`,
+      )
+    }
+
+    await this.orderRepo.update(order.id, { payment_status: 'refunded' as any })
+
+    this.logger.log(`Refunded order ${order.id}: ${refundAmount}₮ (${percent}%) — ${reason}`)
+
+    if (order.customer_id) {
+      await this.notificationService.create({
+        user_id: order.customer_id,
+        type: 'payment',
+        title: '💰 Төлбөр буцаагдлаа',
+        message: `Захиалга #${order.id.slice(-8).toUpperCase()} — ${refundAmount.toLocaleString()}₮ хэтэвчинд орлоо (${percent}%).`,
+        data: { order_id: order.id, refund_amount: refundAmount, refund_percent: percent },
+      }).catch(e => this.logger.warn(`Refund notification failed for ${order.id}: ${e.message}`))
+    }
+
+    return { ok: true, orderId: order.id, refundAmount, refundPercent: percent }
+  }
 
   // ─── Helpers ───────────────────────────────────────────
   private async fetchOAuthToken(): Promise<string> {
@@ -264,7 +357,7 @@ export class PaymentService {
           title: '📤 Файл илгээх эсвэл загвар захиалах',
           message: `Захиалга #${order.id.slice(-8).toUpperCase()} — төлбөр баталгаажлаа. Файлаа илгээнэ үү эсвэл загвар хийлгэх хүсэлт илгээнэ үү.`,
           data: { order_id: order.id, action: 'pending_file' },
-        }).catch(() => {})
+        }).catch(e => this.logger.warn(`Pending-file notification failed for ${order.id}: ${e.message}`))
       }
 
       if (order.customer_email) {
@@ -276,7 +369,7 @@ export class PaymentService {
           quantity: order.quantity,
           total: Number(order.total_price),
           invoiceCode: invoice_code,
-        }).catch(() => {})
+        }).catch(e => this.logger.warn(`Order confirmation email failed for ${order.id}: ${e.message}`))
       }
 
       // notify admin
