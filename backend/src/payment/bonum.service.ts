@@ -105,7 +105,8 @@ export class BonumService {
       callback: `${backendUrl}/api/payment/bonum/webhook`,
       transactionId: `BP-${params.orderId.slice(0, 8)}-${Date.now()}`,
       expiresIn: 3600,
-      providers: params.providers || ['QPAY', 'E_COMMERCE', 'WE_CHAT', 'SONO_SHOP'],
+      // Only providers enabled on this merchant — full 4-list caused DB column overflow
+      providers: params.providers || ['QPAY', 'E_COMMERCE'],
       items: (params.items || [
         {
           title: params.description || `BizPrint #${params.orderId.slice(0, 8)}`,
