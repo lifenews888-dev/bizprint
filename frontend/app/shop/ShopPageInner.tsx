@@ -152,7 +152,7 @@ export default function ShopPageInner() {
       {/* Products grid */}
       <div style={{ maxWidth: 1200, margin: '0 auto' }} className="shop-products">
         {loading ? (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 18 }} className="shop-grid">
+          <div className="shop-grid">
             {[1,2,3,4,5,6,7,8].map(i => <div key={i} style={{ aspectRatio: '3/4', background: 'var(--surface2)', borderRadius: 16 }} className="animate-pulse" />)}
           </div>
         ) : filtered.length === 0 ? (
@@ -162,7 +162,7 @@ export default function ShopPageInner() {
             <a href="/shop" style={{ color: '#FF6B00', fontSize: 13, fontWeight: 600 }}>Бүгдийг харах →</a>
           </div>
         ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 18 }} className="shop-grid">
+          <div className="shop-grid">
             {filtered.map(p => {
               const catInfo = { ...FALLBACK_LABELS, ...dbCategories }[p.category || '']
               return <ProductCard key={p.id} product={p} categoryLabel={catInfo?.label} onAddToCart={id => addToCart({ preventDefault: () => {}, stopPropagation: () => {} } as any, id)} />
@@ -172,18 +172,31 @@ export default function ShopPageInner() {
       </div>
 
       <style>{`
+        .shop-grid {
+          display: grid;
+          gap: 18px;
+          grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+        }
         .shop-hero { padding: 40px 20px; }
         .shop-title { font-size: 28px; }
         .shop-cats { padding: 20px 20px 0; }
         .shop-products { padding: 14px 20px 40px; }
+
+        /* Tablet */
         @media (max-width: 768px) {
-          .shop-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 12px !important; }
+          .shop-grid { grid-template-columns: repeat(2, 1fr); gap: 12px; }
           .shop-hero { padding: 24px 14px; }
           .shop-title { font-size: 22px; }
           .shop-quick-links { overflow-x: auto; flex-wrap: nowrap !important; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
           .shop-quick-links::-webkit-scrollbar { display: none; }
           .shop-cats { padding: 14px 14px 0 !important; }
           .shop-products { padding: 10px 14px 40px !important; }
+        }
+
+        /* Phones — keep 2 columns but tighten spacing so cards don't fall to one column */
+        @media (max-width: 480px) {
+          .shop-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+          .shop-products { padding: 10px 10px 40px !important; }
         }
       `}</style>
     </div>

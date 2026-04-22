@@ -52,7 +52,8 @@ export default function ProductCard({ product, categoryLabel, onAddToCart }: Pro
       <a href={`/product/${slug}`} className="block no-underline text-inherit">
         {/* ═══ IMAGE AREA ═══ */}
         <div
-          className="relative aspect-square rounded-2xl overflow-hidden bg-[var(--surface2)]"
+          className="relative rounded-2xl overflow-hidden bg-[var(--surface2)]"
+          style={{ aspectRatio: '1 / 1' }}
           onMouseEnter={() => setHovered(true)}
           onMouseLeave={() => { setHovered(false); setActiveImg(0) }}
           onMouseMove={handleMouseMove}
