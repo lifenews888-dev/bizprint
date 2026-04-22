@@ -34,6 +34,17 @@ const WORKFLOW_STAGES = [
   OrderStatus.CANCELLED,
 ];
 
+// Subset of transitions a vendor (factory operator) is allowed to perform
+// on orders assigned to them. Anything else requires admin. Mirrors the
+// buttons rendered in /dashboard/vendor/orders.
+const VENDOR_ALLOWED_TRANSITIONS: Record<string, OrderStatus[]> = {
+  [OrderStatus.CONFIRMED]:     [OrderStatus.IN_PRODUCTION],
+  [OrderStatus.FILE_REVIEW]:   [OrderStatus.CONFIRMED, OrderStatus.FILE_REJECTED],
+  [OrderStatus.IN_PRODUCTION]: [OrderStatus.FINISHING],
+  [OrderStatus.FINISHING]:     [OrderStatus.DISPATCHED, OrderStatus.PARTIALLY_DISPATCHED],
+  [OrderStatus.PARTIALLY_DISPATCHED]: [OrderStatus.DISPATCHED],
+};
+
 // Valid state transitions — defines which states each state can move to
 const VALID_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
   [OrderStatus.DRAFT]:                 [OrderStatus.QUOTATION_SENT, OrderStatus.CANCELLED],
@@ -290,17 +301,70 @@ export class OrdersService {
     return order;
   }
 
-  async updateOrder(id: string, data: any) {
+  async updateOrder(id: string, data: any, actor?: { id?: string; role?: string }) {
     const update: any = {};
     if (data.status) {
       const order = await this.getOrderById(id);
       this.validateTransition(order.status, data.status);
+
+      // Vendor RBAC: a vendor can only advance their own assigned orders
+      // through the production-floor transitions. Admin/superadmin bypass.
+      if (actor && actor.role && !['admin', 'superadmin'].includes(actor.role)) {
+        if (actor.role === 'vendor' || actor.role === 'factory') {
+          await this.assertVendorOwnsOrder(actor.id!, order);
+          const allowed = VENDOR_ALLOWED_TRANSITIONS[order.status as OrderStatus] || [];
+          if (!allowed.includes(data.status as OrderStatus)) {
+            throw new BadRequestException(
+              `Үйлдвэр ${order.status} статусаас ${data.status} статус руу шилжүүлэх эрхгүй`,
+            );
+          }
+        } else {
+          throw new BadRequestException('Та энэ захиалгын статусыг өөрчлөх эрхгүй');
+        }
+      }
       update.status = data.status;
     }
     if (data.assigned_to !== undefined) update.assigned_to = data.assigned_to;
     if (data.deadline !== undefined) update.deadline = data.deadline;
     await this.ordersRepo.update(id, update);
+
+    // Trigger the same downstream side-effects updateStatus does (notification,
+    // emails, vendor auto-assign). Skipping these meant vendors clicking
+    // "Боловсруулалтад оруулах" left the customer with no notification.
+    if (data.status) {
+      await this.updateStatus(id, data.status as OrderStatus).catch(e =>
+        this.logger.warn(`updateStatus side-effects failed for ${id}: ${e.message}`),
+      );
+    }
+
     return this.getOrderById(id);
+  }
+
+  /**
+   * Throws if the caller (a vendor user) is not assigned to the given order.
+   * Resolves the vendor record from user_id → vendors.id and compares to
+   * order.factory_id (legacy column) and any OrderVendorGroup rows.
+   */
+  private async assertVendorOwnsOrder(vendorUserId: string, order: Order) {
+    const vendorRow = await this.ordersRepo.manager
+      .createQueryBuilder()
+      .select('v.id', 'id')
+      .from('vendors', 'v')
+      .where('v.user_id = :uid', { uid: vendorUserId })
+      .getRawOne();
+    const vendorId = vendorRow?.id;
+    if (!vendorId) {
+      throw new BadRequestException('Vendor бүртгэл олдсонгүй');
+    }
+
+    if ((order as any).factory_id === vendorId) return;
+
+    const group = await this.vendorGroupRepo.findOne({
+      where: { order_id: order.id, vendor_id: vendorId },
+    });
+    if (!group) {
+      throw new BadRequestException('Та энэ захиалгад оноогдоогүй');
+    }
   }
 
   /**
@@ -431,8 +495,19 @@ export class OrdersService {
     }
   }
 
-  async cancelOrder(id: string, reason?: string) {
+  async cancelOrder(id: string, reason?: string, actor?: { id?: string; role?: string }) {
     const order = await this.getOrderById(id);
+
+    // Only the owning customer or an admin/superadmin may cancel. Vendors
+    // get an explicit reject and can't unilaterally void a customer order.
+    if (actor && actor.role) {
+      const isAdmin = ['admin', 'superadmin'].includes(actor.role);
+      const isOwner = (order as any).customer_id === actor.id;
+      if (!isAdmin && !isOwner) {
+        throw new BadRequestException('Та энэ захиалгыг цуцлах эрхгүй');
+      }
+    }
+
     const previousStatus = order.status as OrderStatus;
     const wasPaid = order.payment_status === 'paid';
     order.status = OrderStatus.CANCELLED;

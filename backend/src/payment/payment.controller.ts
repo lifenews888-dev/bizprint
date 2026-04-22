@@ -73,9 +73,51 @@ export class PaymentController {
     })
   }
 
+  /**
+   * QPay callback — payment notification from QPay merchant gateway.
+   * QPay does not sign callback bodies, so the body itself is untrusted.
+   * We pull the object_id (invoice id) and re-query QPay's own status
+   * endpoint to verify the payment is real before confirming the order.
+   * This mirrors the Bonum webhook signature check: never trust a
+   * payment confirmation that didn't come from the gateway directly.
+   */
   @Post('qpay/callback')
   async qpayCallback(@Body() body: any) {
-    console.log('[QPay Callback]', JSON.stringify(body))
+    const invoiceId = body?.object_id || body?.payment_id || body?.invoice_id
+    if (!invoiceId) {
+      this.logger.warn('QPay callback missing invoice id — rejected')
+      return { status: 'ignored', reason: 'no_invoice_id' }
+    }
+
+    const status = await this.qpayService.checkPayment(invoiceId)
+    if (status?.error) {
+      this.logger.warn(`QPay status check failed for ${invoiceId}: ${status.error}`)
+      return { status: 'ignored', reason: 'check_failed' }
+    }
+
+    const isPaid = status?.count > 0 ||
+                   status?.payment_status === 'PAID' ||
+                   (Array.isArray(status?.rows) && status.rows.length > 0)
+
+    if (!isPaid) {
+      this.logger.warn(`QPay callback for ${invoiceId} but status is not PAID — ignored`)
+      return { status: 'pending' }
+    }
+
+    // Map invoice id back to our payment record. invoice_no on Order or
+    // invoice_code on Payment depending on flow.
+    const order = await this.orderRepo.findOne({ where: { invoice_no: invoiceId } })
+    if (!order) {
+      this.logger.warn(`QPay PAID for unknown invoice ${invoiceId}`)
+      return { status: 'ignored', reason: 'order_not_found' }
+    }
+    if (order.payment_status === 'paid') {
+      return { status: 'ok', already_paid: true }
+    }
+
+    await this.paymentService.confirmPayment(invoiceId).catch(e =>
+      this.logger.error(`QPay confirmPayment failed for ${invoiceId}: ${e.message}`),
+    )
     return { status: 'ok' }
   }
 

@@ -242,8 +242,8 @@ export class OrdersController {
 
   @Patch(':id/status')
   @UseGuards(JwtAuthGuard)
-  updateStatus(@Param('id') id: string, @Body() body: any) {
-    return this.ordersService.updateOrder(id, body);
+  updateStatus(@Param('id') id: string, @Body() body: any, @Request() req: any) {
+    return this.ordersService.updateOrder(id, body, { id: req.user?.id, role: req.user?.role });
   }
 
   @Patch(':id/revert')
@@ -259,8 +259,8 @@ export class OrdersController {
 
   @Patch(':id/cancel')
   @UseGuards(JwtAuthGuard)
-  cancel(@Param('id') id: string) {
-    return this.ordersService.cancelOrder(id);
+  cancel(@Param('id') id: string, @Request() req: any) {
+    return this.ordersService.cancelOrder(id, undefined, { id: req.user?.id, role: req.user?.role });
   }
 
   @Post(':id/reassign-vendor')
