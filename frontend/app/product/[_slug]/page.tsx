@@ -45,8 +45,8 @@ function Gallery({ product }: { product: any }) {
   return (
     <div>
       <div ref={ref}
-        className="relative rounded-2xl overflow-hidden bg-[var(--surface2)] aspect-[4/3.5] cursor-crosshair mb-3 backdrop-blur-sm"
-        style={{ boxShadow: '0 8px 32px rgba(0,0,0,0.06)' }}
+        className="product-hero relative rounded-2xl overflow-hidden bg-[var(--surface2)] cursor-crosshair mb-3 backdrop-blur-sm"
+        style={{ boxShadow: '0 8px 32px rgba(0,0,0,0.06)', aspectRatio: '4 / 3.5' }}
         onMouseEnter={() => { setHovered(true); setZoom(true) }}
         onMouseLeave={() => { setHovered(false); setZoom(false) }}
         onMouseMove={onMove}>
@@ -264,6 +264,15 @@ export default function ProductPage() {
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="min-h-screen bg-[var(--bg)] text-[var(--text)]">
+      {/* Hero image height clamp — mobile devices were getting a >1000px tall
+          hero because aspect-[4/3.5] is a Tailwind arbitrary class and didn't
+          always survive the production build. We hard-cap the hero on phones
+          so the image never pushes the page below the fold. */}
+      <style>{`
+        @media (max-width: 640px) {
+          .product-hero { aspect-ratio: 1 / 1 !important; max-height: 70vh; }
+        }
+      `}</style>
       {/* Breadcrumb */}
       <div className="max-w-[1200px] mx-auto px-4 pt-4">
         <nav className="flex items-center gap-1.5 text-[11px] text-[var(--text3)] flex-wrap">
