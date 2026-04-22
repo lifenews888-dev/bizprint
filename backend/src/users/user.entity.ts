@@ -161,6 +161,16 @@ export class User {
   @Column({ nullable: true })
   insurance_details: string;
 
+  // ─── Sales agent attribution ───
+  /** ID of the sales agent who referred this user (set at registration). */
+  @Column({ nullable: true })
+  referred_by_sales_id: string;
+
+  /** Referral code that was used to register (kept for audit even if the
+      referrer is later deleted). */
+  @Column({ nullable: true })
+  referral_code_used: string;
+
   @UpdateDateColumn()
   updated_at: Date;
 }

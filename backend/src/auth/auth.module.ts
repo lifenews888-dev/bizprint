@@ -9,11 +9,12 @@ import { User } from '../users/user.entity';
 import { RefreshToken } from './entities/refresh-token.entity';
 import { Role } from './entities/role.entity';
 import { PasswordReset } from './entities/password-reset.entity';
+import { Referral } from '../referral/referral.entity';
 import { MailModule } from '../mail/mail.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User, RefreshToken, Role, PasswordReset]),
+    TypeOrmModule.forFeature([User, RefreshToken, Role, PasswordReset, Referral]),
     PassportModule,
     MailModule,
     JwtModule.registerAsync({

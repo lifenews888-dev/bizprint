@@ -1,7 +1,7 @@
 'use client'
 import { apiFetch } from '@/lib/api'
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useEffect } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { fbPixel } from '@/components/FacebookPixel'
 import { Building2, Palette, Truck, User, ChevronRight, ChevronLeft, Loader2, ShieldCheck, CheckCircle } from 'lucide-react'
 
@@ -21,6 +21,20 @@ const inp = "w-full bg-[#1A1A1A] border border-[#2A2A2A] rounded-[10px] px-4 py-
 
 export default function RegisterPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  // Sales agent referral code: persisted across step navigation via state +
+  // localStorage so the user could browse around (or refresh) before
+  // signing up and we'd still credit the right agent.
+  const [referralCode, setReferralCode] = useState<string>('')
+  useEffect(() => {
+    const fromUrl = searchParams.get('ref')?.trim().toUpperCase()
+    const fromStorage = (typeof window !== 'undefined') ? localStorage.getItem('bp_referral_code') : null
+    const code = fromUrl || fromStorage || ''
+    if (code) {
+      setReferralCode(code)
+      try { localStorage.setItem('bp_referral_code', code) } catch {}
+    }
+  }, [searchParams])
   const [step, setStep] = useState(0) // 0=role, 1=basic, 2=role-specific, 3=done
   const [role, setRole] = useState('customer')
   const [form, setForm] = useState({
@@ -86,6 +100,7 @@ export default function RegisterPage() {
       const body: any = {
         email: form.email, password: form.password, full_name: form.full_name.trim(),
         phone: form.phone.trim() || undefined, role,
+        referral_code: referralCode || undefined,
       }
       if (BUSINESS_ROLES.includes(role)) {
         Object.assign(body, {
@@ -116,6 +131,7 @@ export default function RegisterPage() {
         localStorage.setItem('token', data.access_token)
         if (data.refresh_token) localStorage.setItem('refresh_token', data.refresh_token)
         localStorage.setItem('user', JSON.stringify(data.user))
+        try { localStorage.removeItem('bp_referral_code') } catch {}
         fbPixel.completeRegistration()
         setStep(totalSteps + 1) // success step
         setTimeout(() => {

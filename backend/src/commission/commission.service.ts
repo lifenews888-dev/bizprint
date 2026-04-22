@@ -2,13 +2,25 @@ import { Injectable, Logger, OnModuleInit, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, LessThan, Repository } from 'typeorm';
 import { CommissionLog, CommissionStatus } from './commission.entity';
+import { SalesCommission } from './sales-commission.entity';
 import { Vendor } from '../vendors/vendor.entity';
 import { OrderVendorGroup } from '../orders/entities/order-vendor-group.entity';
 import { Order } from '../orders/entities/order.entity';
+import { Referral } from '../referral/referral.entity';
 import { MailService } from '../mail/mail.service';
 import { WalletService } from '../wallet/wallet.service';
+import { NotificationService } from '../notifications/notification.service';
 import { EventBusService } from '../events/event-bus.service';
 import { BizEvent } from '../events/event-types';
+
+// Default sales commission rate when the agent's referral row has no
+// per-agent override. Same 10% the rest of the codebase assumes.
+const DEFAULT_SALES_RATE = 10;
+
+// Margin estimate when ProfitEngine has not produced an OrderProfit row.
+// We treat 40% of order total as platform margin — admin can edit the
+// commission_amount manually before payout for unusual jobs.
+const FALLBACK_MARGIN_RATE = 0.4;
 
 @Injectable()
 export class CommissionService implements OnModuleInit {
@@ -17,14 +29,19 @@ export class CommissionService implements OnModuleInit {
   constructor(
     @InjectRepository(CommissionLog)
     private repo: Repository<CommissionLog>,
+    @InjectRepository(SalesCommission)
+    private salesRepo: Repository<SalesCommission>,
     @InjectRepository(Vendor)
     private vendorRepo: Repository<Vendor>,
     @InjectRepository(OrderVendorGroup)
     private vendorGroupRepo: Repository<OrderVendorGroup>,
     @InjectRepository(Order)
     private orderRepo: Repository<Order>,
+    @InjectRepository(Referral)
+    private referralRepo: Repository<Referral>,
     private readonly walletService: WalletService,
     private readonly eventBus: EventBusService,
+    private readonly notificationService: NotificationService,
     @Optional() private mailService?: MailService,
   ) {}
 
@@ -32,8 +49,12 @@ export class CommissionService implements OnModuleInit {
     // Auto-create PENDING commission row(s) when an order is paid.
     // Listening via EventBus avoids circular module dependencies.
     this.eventBus.on(BizEvent.ORDER_PAID, (payload: any) => {
-      this.createCommissionForOrder(payload?.orderId).catch(e =>
-        this.logger.error(`createCommissionForOrder(${payload?.orderId}) failed: ${e.message}`),
+      const orderId = payload?.orderId;
+      this.createCommissionForOrder(orderId).catch(e =>
+        this.logger.error(`createCommissionForOrder(${orderId}) failed: ${e.message}`),
+      );
+      this.createSalesCommissionForOrder(orderId).catch(e =>
+        this.logger.error(`createSalesCommissionForOrder(${orderId}) failed: ${e.message}`),
       );
     });
   }
@@ -218,6 +239,156 @@ export class CommissionService implements OnModuleInit {
     const ids = eligible.map(e => e.id);
     this.logger.log(`Escrow released for ${ids.length} commission(s) past ${holdHours}h hold`);
     return this.approvePayout(ids);
+  }
+
+  /* ═══════════════════════════════════════════════════════════════════
+     SALES COMMISSION — payout to the sales agent who referred the order
+     ═══════════════════════════════════════════════════════════════════ */
+
+  /**
+   * On payment confirmation, generate a PENDING sales commission row when
+   * the order has a sales_agent_id. Idempotent.
+   */
+  async createSalesCommissionForOrder(orderId: string) {
+    if (!orderId) return;
+    const order = await this.orderRepo.findOne({ where: { id: orderId } });
+    if (!order || !(order as any).sales_agent_id) return;
+
+    const salesUserId = (order as any).sales_agent_id as string;
+    const existing = await this.salesRepo.findOne({ where: { order_id: orderId, sales_user_id: salesUserId } });
+    if (existing) return;
+
+    // Resolve the per-agent rate from the referral row, or fall back to default.
+    const ref = await this.referralRepo.findOne({ where: { sales_user_id: salesUserId } }).catch(() => null);
+    const rate = ref?.commission_rate ? Number(ref.commission_rate) : DEFAULT_SALES_RATE;
+
+    const orderTotal = Number(order.total_price) || 0;
+    const margin = Math.round(orderTotal * FALLBACK_MARGIN_RATE);
+    const commission = Math.round((margin * rate) / 100);
+
+    await this.salesRepo.save(this.salesRepo.create({
+      order_id: orderId,
+      sales_user_id: salesUserId,
+      order_total: orderTotal,
+      margin_amount: margin,
+      commission_rate: rate,
+      commission_amount: commission,
+      status: CommissionStatus.PENDING,
+    }));
+
+    this.logger.log(`Sales commission ${commission}₮ created for agent ${salesUserId} on order ${orderId}`);
+  }
+
+  /**
+   * Approve a batch of sales commissions, credit the agent's wallet, and
+   * notify them. Mirrors approvePayout() for vendors.
+   */
+  async approveSalesPayout(ids: string[]) {
+    if (!Array.isArray(ids) || ids.length === 0) return { batchId: null, count: 0 };
+    const batchId = `SBATCH-${Date.now()}`;
+    await this.salesRepo.update({ id: In(ids) }, {
+      status: CommissionStatus.APPROVED,
+      payout_batch_id: batchId,
+    });
+
+    try {
+      const rows = await this.salesRepo.find({ where: { payout_batch_id: batchId } });
+      const byAgent = new Map<string, typeof rows>();
+      for (const r of rows) {
+        const list = byAgent.get(r.sales_user_id) || [];
+        list.push(r);
+        byAgent.set(r.sales_user_id, list);
+      }
+      for (const [agentId, agentRows] of byAgent) {
+        const total = agentRows.reduce((s, r) => s + Number(r.commission_amount), 0);
+        try {
+          await this.walletService.credit(
+            agentId,
+            total,
+            'sales_commission_payout',
+            batchId,
+            `Sales commission ${batchId} (${agentRows.length} orders)`,
+          );
+        } catch (e: any) {
+          this.logger.error(`Sales wallet credit failed for ${agentId} batch ${batchId}: ${e.message}`);
+        }
+        // In-app notification — sales agent sees "🎉 ₮X commission earned"
+        this.notificationService.create({
+          user_id: agentId,
+          type: 'wallet',
+          title: '💰 Борлуулалтын шагнал орлоо',
+          message: `${agentRows.length} захиалгын тооцоогоор ${total.toLocaleString()}₮ хэтэвчинд орлоо.`,
+          data: { batch_id: batchId, total, count: agentRows.length },
+        }).catch(e => this.logger.warn(`Sales notification failed for ${agentId}: ${e.message}`));
+      }
+    } catch (e: any) {
+      this.logger.error(`approveSalesPayout post-processing failed for batch ${batchId}: ${e.message}`);
+    }
+
+    return { batchId, count: ids.length };
+  }
+
+  /**
+   * Cron-friendly: auto-approve sales commissions whose order has been
+   * DELIVERED for ≥ holdHours (mirrors vendor escrow).
+   */
+  async autoApproveDelayedSalesCommissions(holdHours = 48) {
+    const cutoff = new Date(Date.now() - holdHours * 60 * 60 * 1000);
+    const eligible = await this.salesRepo.createQueryBuilder('s')
+      .innerJoin('orders', 'o', 'o.id = s.order_id')
+      .where('s.status = :status', { status: CommissionStatus.PENDING })
+      .andWhere('LOWER(o.status) = :delivered', { delivered: 'delivered' })
+      .andWhere('o.delivered_at IS NOT NULL')
+      .andWhere('o.delivered_at < :cutoff', { cutoff })
+      .select(['s.id'])
+      .getMany();
+
+    if (!eligible.length) return { count: 0, batchId: null };
+    const ids = eligible.map(e => e.id);
+    this.logger.log(`Sales escrow released for ${ids.length} commission(s) past ${holdHours}h hold`);
+    return this.approveSalesPayout(ids);
+  }
+
+  /** List of sales commissions for a given agent (their dashboard). */
+  findSalesByAgent(agentId: string) {
+    return this.salesRepo.find({ where: { sales_user_id: agentId }, order: { created_at: 'DESC' } });
+  }
+
+  /** Summary stats for a given agent. */
+  async getSalesSummary(agentId: string) {
+    const rows = await this.salesRepo.find({ where: { sales_user_id: agentId } });
+    const totalOrders = rows.length;
+    const pendingAmount = rows
+      .filter(r => r.status === CommissionStatus.PENDING)
+      .reduce((s, r) => s + Number(r.commission_amount), 0);
+    const paidAmount = rows
+      .filter(r => r.status === CommissionStatus.APPROVED || r.status === CommissionStatus.PAID)
+      .reduce((s, r) => s + Number(r.commission_amount), 0);
+    const totalRevenue = rows.reduce((s, r) => s + Number(r.order_total), 0);
+    return { totalOrders, pendingAmount, paidAmount, totalRevenue };
+  }
+
+  /** Top-10 sales agents leaderboard by total commission earned. */
+  async getSalesLeaderboard(limit = 10) {
+    const rows = await this.salesRepo
+      .createQueryBuilder('s')
+      .select([
+        's.sales_user_id as "salesUserId"',
+        'COUNT(*) as "orderCount"',
+        'SUM(s.commission_amount) as "totalCommission"',
+        'SUM(s.order_total) as "totalRevenue"',
+      ])
+      .groupBy('s.sales_user_id')
+      .orderBy('"totalCommission"', 'DESC')
+      .limit(limit)
+      .getRawMany();
+    return rows.map((r, i) => ({
+      rank: i + 1,
+      salesUserId: r.salesUserId,
+      orderCount: Number(r.orderCount || 0),
+      totalCommission: Number(r.totalCommission || 0),
+      totalRevenue: Number(r.totalRevenue || 0),
+    }));
   }
 
   async markPaid(batchId: string) {

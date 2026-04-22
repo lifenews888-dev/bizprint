@@ -87,6 +87,11 @@ export class Order {
   @Column({ nullable: true })
   factory_id: string;
 
+  /** Sales agent (user.id with role='sales') credited for this order. Set at
+      cart→quote→confirm time from the customer's referred_by_sales_id. */
+  @Column({ nullable: true })
+  sales_agent_id: string;
+
   @Column({ type: 'decimal', precision: 14, scale: 2, nullable: true })
   unit_price: number;
 

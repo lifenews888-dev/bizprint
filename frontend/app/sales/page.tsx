@@ -32,6 +32,31 @@ interface User {
   role: string
 }
 
+interface SalesSummary {
+  totalOrders: number
+  pendingAmount: number
+  paidAmount: number
+  totalRevenue: number
+}
+
+interface LeaderboardRow {
+  rank: number
+  salesUserId: string
+  orderCount: number
+  totalCommission: number
+  totalRevenue: number
+}
+
+interface SalesCommissionRow {
+  id: string
+  order_id: string
+  order_total: number
+  commission_amount: number
+  commission_rate: number
+  status: string
+  created_at: string
+}
+
 const ST_MN: Record<string, string> = {
   pending: '\u0425\u04af\u043b\u044d\u044d\u0433\u0434\u044d\u0436 \u0431\u0430\u0439\u043d\u0430',
   paid: '\u0422\u04e9\u043b\u04e9\u0433\u0434\u0441\u04e9\u043d',
@@ -72,11 +97,14 @@ function QRCode({ code }: { code: string }) {
 export default function SalesDashboard() {
   const router = useRouter()
   const { user: guardUser, loading: authLoading } = useRoleGuard(['sales', 'admin'])
-  const [user, setUser]         = useState<User | null>(null)
-  const [referral, setReferral] = useState<ReferralData | null>(null)
-  const [orders, setOrders]     = useState<Order[]>([])
-  const [loading, setLoading]   = useState(true)
-  const [copied, setCopied]     = useState(false)
+  const [user, setUser]               = useState<User | null>(null)
+  const [referral, setReferral]       = useState<ReferralData | null>(null)
+  const [orders, setOrders]           = useState<Order[]>([])
+  const [commissions, setCommissions] = useState<SalesCommissionRow[]>([])
+  const [summary, setSummary]         = useState<SalesSummary | null>(null)
+  const [leaderboard, setLeaderboard] = useState<LeaderboardRow[]>([])
+  const [loading, setLoading]         = useState(true)
+  const [copied, setCopied]           = useState(false)
 
   useEffect(() => {
     if (authLoading) return
@@ -87,17 +115,31 @@ export default function SalesDashboard() {
     setUser(u)
     Promise.all([
       apiFetch<any>('/referral/my').catch(() => null),
-      apiFetch<any>('/orders/customer/' + u.id).catch(() => []),
-    ]).then(([ref, ord]) => {
+      apiFetch<any>('/commission/sales/me').catch(() => []),
+      apiFetch<any>('/commission/sales/me/summary').catch(() => null),
+      apiFetch<any>('/commission/sales/leaderboard').catch(() => []),
+    ]).then(([ref, comms, sum, board]) => {
       if (ref) setReferral(ref)
-      setOrders(Array.isArray(ord) ? ord : [])
+      setCommissions(Array.isArray(comms) ? comms : [])
+      if (sum) setSummary(sum)
+      setLeaderboard(Array.isArray(board) ? board : [])
+      // Derive an order preview from the commission rows so the orders list
+      // reflects real attributed orders instead of the signed-in user's own.
+      setOrders((Array.isArray(comms) ? comms : []).map((c: SalesCommissionRow) => ({
+        id: c.order_id,
+        quantity: 1,
+        total_price: c.order_total,
+        status: c.status,
+        created_at: c.created_at,
+      })))
       setLoading(false)
     })
   }, [])
 
   const refLink = referral ? BASE_URL + '/register?ref=' + referral.code : ''
-  const totalRev = orders.reduce((s, o) => s + Number(o.total_price), 0)
-  const commission = referral ? (totalRev * Number(referral.commission_rate)) / 100 : 0
+  const totalRev = summary?.totalRevenue ?? 0
+  const commission = summary ? (summary.pendingAmount + summary.paidAmount) : 0
+  const myRank = leaderboard.find(l => l.salesUserId === user?.id)?.rank
 
   function copyLink() {
     navigator.clipboard.writeText(refLink)
@@ -123,10 +165,10 @@ export default function SalesDashboard() {
         </div>
 
         <KpiCard items={[
-          { label: 'Нийт захиалга', value: orders.length, color: 'orange', icon: '📋' },
-          { label: 'Дууссан', value: orders.filter(o=>o.status==='completed').length, color: 'green', icon: '✅' },
-          { label: 'Нийт орлого', value: totalRev.toLocaleString()+'₮', color: 'blue', icon: '💰' },
-          { label: 'Комисс ('+(referral?.commission_rate||10)+'%)', value: commission.toLocaleString()+'₮', color: 'purple', icon: '🎯' },
+          { label: 'Миний захиалгууд', value: summary?.totalOrders ?? 0, color: 'orange', icon: '📋' },
+          { label: 'Нийт борлуулалт', value: totalRev.toLocaleString()+'₮', color: 'blue', icon: '💰' },
+          { label: 'Хүлээгдэж буй шагнал', value: (summary?.pendingAmount ?? 0).toLocaleString()+'₮', color: 'purple', icon: '⏳' },
+          { label: 'Нийт олсон шагнал', value: commission.toLocaleString()+'₮', color: 'green', icon: '🎯' },
         ]} />
 
         <div style={{ display:'grid', gridTemplateColumns:'1fr 300px', gap:20, marginBottom:24 }}>
@@ -207,6 +249,73 @@ export default function SalesDashboard() {
             )}
           </div>
         </div>
+
+        {/* Leaderboard */}
+        {leaderboard.length > 0 && (
+          <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:12, padding:20, marginBottom:24 }}>
+            <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:14 }}>
+              <span style={{ fontWeight:700, fontSize:15 }}>🏆 Тэргүүлэгчид</span>
+              {myRank && <span style={{ fontSize:12, color:'#FF6B00', fontWeight:600 }}>Таны байр: #{myRank}</span>}
+            </div>
+            <div style={{ display:'flex', flexDirection:'column', gap:8 }}>
+              {leaderboard.slice(0, 10).map(row => {
+                const isMe = row.salesUserId === user?.id
+                return (
+                  <div key={row.salesUserId} style={{
+                    display:'grid',
+                    gridTemplateColumns:'40px 1fr 100px 120px',
+                    gap:12,
+                    padding:'10px 14px',
+                    borderRadius:8,
+                    background: isMe ? 'rgba(255,107,0,0.08)' : 'var(--surface2)',
+                    border: isMe ? '1px solid #FF6B00' : '1px solid transparent',
+                    alignItems:'center',
+                    fontSize:13,
+                  }}>
+                    <span style={{ fontSize:16, fontWeight:700, color: row.rank === 1 ? '#FFD700' : row.rank === 2 ? '#C0C0C0' : row.rank === 3 ? '#CD7F32' : 'var(--text2)' }}>
+                      {row.rank <= 3 ? ['🥇','🥈','🥉'][row.rank - 1] : `#${row.rank}`}
+                    </span>
+                    <span style={{ fontFamily:'monospace', fontSize:12, color:'var(--text2)' }}>
+                      {isMe ? 'Та' : row.salesUserId.slice(0, 8) + '…'}
+                    </span>
+                    <span style={{ textAlign:'right' }}>{row.orderCount} захиалга</span>
+                    <span style={{ textAlign:'right', fontWeight:700, color:'#10B981' }}>
+                      {Number(row.totalCommission).toLocaleString()}₮
+                    </span>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Commissions detail */}
+        {commissions.length > 0 && (
+          <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:12, padding:20, marginBottom:24 }}>
+            <div style={{ fontWeight:700, fontSize:15, marginBottom:14 }}>💸 Шагналын дэлгэрэнгүй</div>
+            <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
+              {commissions.slice(0, 8).map(c => (
+                <div key={c.id} style={{
+                  display:'grid',
+                  gridTemplateColumns:'1fr 100px 80px 100px',
+                  gap:12,
+                  padding:'8px 12px',
+                  borderRadius:6,
+                  background:'var(--surface2)',
+                  fontSize:12,
+                  alignItems:'center',
+                }}>
+                  <code style={{ color:'var(--text2)' }}>#{c.order_id.slice(0, 8)}</code>
+                  <span style={{ textAlign:'right' }}>{Number(c.order_total).toLocaleString()}₮</span>
+                  <span style={{ textAlign:'right', color:'var(--text3)' }}>{c.commission_rate}%</span>
+                  <span style={{ textAlign:'right', fontWeight:600, color: c.status === 'approved' || c.status === 'paid' ? '#10B981' : '#F59E0B' }}>
+                    {Number(c.commission_amount).toLocaleString()}₮ {c.status === 'pending' ? '⏳' : '✓'}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Orders */}
         <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:12, overflow:'hidden' }}>

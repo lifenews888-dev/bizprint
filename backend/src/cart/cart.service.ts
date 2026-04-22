@@ -10,6 +10,7 @@ import { Order, OrderStatus } from '../orders/entities/order.entity'
 import { OrderItem } from '../orders/entities/order-item.entity'
 import { OrderVendorGroup } from '../orders/entities/order-vendor-group.entity'
 import { Product } from '../products/product.entity'
+import { User } from '../users/user.entity'
 import { PricingService } from '../quote/pricing.service'
 import { QuoteService } from '../quote/quote.service'
 import { EventsLogService } from '../events/events.service'
@@ -41,6 +42,9 @@ export class CartService {
 
     @InjectRepository(Product)
     private productRepo: Repository<Product>,
+
+    @InjectRepository(User)
+    private userRepo: Repository<User>,
 
     private pricingService: PricingService,
     private quoteService: QuoteService,
@@ -197,6 +201,13 @@ export class CartService {
       throw new BadRequestException(`Үнийн санал "${quotation.status}" төлөвтэй байна — зөвхөн "draft" батлах боломжтой`)
     }
 
+    // Sales attribution: copy the customer's referred_by_sales_id onto the
+    // order so the agent gets credited even if the user later edits their
+    // profile. This is the only place a customer order picks up its sales
+    // agent — keep it here so the rule lives in one location.
+    const customer = await this.userRepo.findOne({ where: { id: customerId } }).catch(() => null)
+    const salesAgentId = customer?.referred_by_sales_id || null
+
     // Create Order
     const order = await this.orderRepo.save(
       this.orderRepo.create({
@@ -209,6 +220,7 @@ export class CartService {
         payment_method: paymentMethod || 'pending',
         payment_status: 'pending',
         status: OrderStatus.DRAFT,
+        sales_agent_id: salesAgentId || undefined,
         notes: `Quote ${quotation.quote_number}-аас үүсгэгдсэн`,
       }),
     )

@@ -9,6 +9,7 @@ import { Order } from '../orders/entities/order.entity'
 import { OrderItem } from '../orders/entities/order-item.entity'
 import { OrderVendorGroup } from '../orders/entities/order-vendor-group.entity'
 import { Product } from '../products/product.entity'
+import { User } from '../users/user.entity'
 
 import { CartService } from './cart.service'
 import { CartController } from './cart.controller'
@@ -20,7 +21,7 @@ import { QuoteModule } from '../quote/quote.module'
       Cart, CartItem,
       Quotation, QuotationItem,
       Order, OrderItem, OrderVendorGroup,
-      Product,
+      Product, User,
     ]),
     QuoteModule,
   ],

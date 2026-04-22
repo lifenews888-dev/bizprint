@@ -66,6 +66,10 @@ export class RegisterDto {
   @IsOptional() @IsString()
   insurance_details?: string;
 
+  // ─── Sales agent referral (when registering via /register?ref=CODE) ───
+  @IsOptional() @IsString()
+  referral_code?: string;
+
   // ─── Device tracking ───
   @IsOptional() @IsString()
   device_id?: string;

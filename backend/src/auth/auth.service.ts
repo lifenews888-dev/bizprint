@@ -12,6 +12,7 @@ import { randomBytes, createHash } from 'crypto';
 import { User } from '../users/user.entity';
 import { RefreshToken } from './entities/refresh-token.entity';
 import { PasswordReset } from './entities/password-reset.entity';
+import { Referral } from '../referral/referral.entity';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { MailService } from '../mail/mail.service';
@@ -32,6 +33,8 @@ export class AuthService {
     private refreshTokenRepo: Repository<RefreshToken>,
     @InjectRepository(PasswordReset)
     private resetRepo: Repository<PasswordReset>,
+    @InjectRepository(Referral)
+    private referralRepo: Repository<Referral>,
     private jwtService: JwtService,
     private mailService: MailService,
   ) {}
@@ -69,6 +72,22 @@ export class AuthService {
     const password_hash = await bcrypt.hash(dto.password, 12);
     const needsVerification = AuthService.REQUIRES_VERIFICATION.includes(role);
 
+    // If a sales agent's referral code was passed (e.g. /register?ref=ABC123),
+    // resolve it to the agent's user_id so every order this user places
+    // later gets credited to the right agent. The raw code is kept too for
+    // audit (the agent could be deleted but we still want to know which
+    // code drove the signup).
+    let referredBySalesId: string | null = null
+    let referralCodeUsed: string | null = null
+    if (dto.referral_code) {
+      const code = dto.referral_code.trim().toUpperCase()
+      const ref = await this.referralRepo.findOne({ where: { code, is_active: true } }).catch(() => null)
+      if (ref) {
+        referredBySalesId = ref.sales_user_id
+        referralCodeUsed = code
+      }
+    }
+
     const user = this.userRepository.create({
       email: dto.email,
       password_hash,
@@ -95,9 +114,21 @@ export class AuthService {
       // Verification
       verification_status: needsVerification ? 'pending' : 'verified',
       is_active: !needsVerification, // Business roles start inactive until verified
+      // Sales attribution
+      referred_by_sales_id: referredBySalesId || undefined,
+      referral_code_used: referralCodeUsed || undefined,
     });
 
     await this.userRepository.save(user);
+
+    // Link the referral row so the agent's stats reflect the new signup.
+    if (referredBySalesId && referralCodeUsed) {
+      await this.referralRepo.update(
+        { code: referralCodeUsed, referred_user_id: undefined as any },
+        { referred_user_id: user.id },
+      ).catch(() => {})
+    }
+
     return this.generateTokens(user, dto.device_id, dto.device_name, dto.platform);
   }
 
