@@ -41,4 +41,25 @@ export class SalesProductsController {
   publicStorefront(@Param('code') code: string) {
     return this.svc.storefrontByCode(code)
   }
+
+  /** Agent's referred customers with lifetime-value aggregates. */
+  @Get('sales/me/customers')
+  @UseGuards(JwtAuthGuard)
+  myCustomers(@Req() req: any) {
+    return this.svc.myCustomers(req.user.id)
+  }
+
+  /** Quotes from customers this agent referred. */
+  @Get('sales/me/quotes')
+  @UseGuards(JwtAuthGuard)
+  myQuotes(@Req() req: any) {
+    return this.svc.myQuotes(req.user.id)
+  }
+
+  /** Orders attributed to this agent, enriched with commission status. */
+  @Get('sales/me/orders')
+  @UseGuards(JwtAuthGuard)
+  myOrders(@Req() req: any) {
+    return this.svc.myOrders(req.user.id)
+  }
 }
