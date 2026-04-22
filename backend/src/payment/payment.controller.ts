@@ -254,6 +254,51 @@ export class PaymentController {
     return this.bonum.getProviders()
   }
 
+  // One-off: creates a real 1₮ DB order + Bonum invoice end-to-end
+  // to verify the full flow works. Secret-protected to prevent abuse.
+  @Post('bonum/test-e2e')
+  async bonumTestE2E(@Body() body: { secret: string; amount?: number }) {
+    const expected = process.env.BOOTSTRAP_SECRET || 'bizprint-bootstrap-2026';
+    if (body.secret !== expected) return { error: 'Invalid secret' };
+    const amount = Math.max(1, Math.min(10, Math.round(body.amount || 1)));
+
+    // Create minimal test order
+    const order = this.orderRepo.create({
+      quantity: 1,
+      total_price: amount,
+      unit_price: amount,
+      customer_name: 'E2E test',
+      product_name: 'Bonum E2E smoke test',
+      status: 'draft',
+      payment_status: 'pending',
+    } as any);
+    const saved = (await this.orderRepo.save(order)) as any;
+    const orderId: string = Array.isArray(saved) ? saved[0].id : saved.id;
+
+    try {
+      const invoice = await this.bonum.createInvoice({
+        orderId,
+        amount,
+        description: 'BizPrint E2E test',
+        providers: ['QPAY'],
+      });
+      await this.orderRepo.update(orderId, {
+        payment_method: 'bonum',
+        invoice_no: invoice.invoiceId,
+      });
+      return {
+        ok: true,
+        orderId,
+        amount,
+        invoiceId: invoice.invoiceId,
+        followUpLink: invoice.followUpLink,
+        instructions: 'Open followUpLink, pay 1₮ via bank app QR, then check order.payment_status',
+      };
+    } catch (e: any) {
+      return { ok: false, orderId, error: e.message };
+    }
+  }
+
   @Get('bonum/test-token')
   async bonumTestToken() {
     if (process.env.NODE_ENV === 'production') {
