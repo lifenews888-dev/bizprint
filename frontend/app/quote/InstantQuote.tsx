@@ -119,7 +119,7 @@ export default function InstantQuote() {
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }} className="stack-mobile">
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 20 }}>
         {/* Left column */}
         <div>
           {/* Size */}

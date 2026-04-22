@@ -104,7 +104,16 @@ export default function OffsetQuote() {
 
   return (
     <div style={{ fontFamily: "'Segoe UI',system-ui,sans-serif", maxWidth: 1100, margin: '0 auto', padding: '20px 16px' }}>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 360px', gap: 20, alignItems: 'flex-start' }} className="offset-grid">
+      {/* Mobile: stack inputs above the price sidebar; desktop keeps the
+          1fr + 360px split. The CSS class ships the breakpoint so the inline
+          fallback stays as desktop. */}
+      <style>{`
+        .offset-grid { display: grid; grid-template-columns: 1fr 360px; gap: 20px; align-items: flex-start; }
+        @media (max-width: 900px) {
+          .offset-grid { grid-template-columns: 1fr; gap: 14px; }
+        }
+      `}</style>
+      <div className="offset-grid">
         {/* LEFT — inputs */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           {/* Pricing mode */}

@@ -124,7 +124,7 @@ export default function BusinessCardsPage() {
         </div>
 
         {loading && (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 24, paddingBottom: 48 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 18, paddingBottom: 48 }}>
             {[1,2,3,4,5,6].map(i => (
               <div key={i} style={{ background: '#fff', borderRadius: 16, overflow: 'hidden', border: '1px solid #E5E7EB' }}>
                 <div style={{ height: 220, background: '#f0f0f0' }} />
@@ -145,7 +145,7 @@ export default function BusinessCardsPage() {
         )}
 
         {!loading && filtered.length > 0 && (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 24, paddingBottom: 48 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 18, paddingBottom: 48 }}>
             {filtered.map(layout => {
               const card = layout._card
               const isHover = hoverId === layout.id

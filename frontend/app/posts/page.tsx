@@ -22,7 +22,7 @@ export default function PostsPage() {
 
       {posts.length === 0 && <p style={{ color: '#666' }}>Нийтлэл байхгүй байна</p>}
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 20 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(280px, 100%), 1fr))', gap: 20 }}>
         {posts.map(post => (
           <a key={post.id} href={`/posts/${post.slug}`} style={{ textDecoration: 'none', color: 'inherit' }}>
             <div style={{ background: '#111', borderRadius: 12, overflow: 'hidden', border: '1px solid #222' }}>

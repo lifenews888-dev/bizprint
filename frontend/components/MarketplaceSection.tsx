@@ -54,7 +54,7 @@ export default function MarketplaceSection() {
           <button onClick={() => router.push('/marketplace')} style={{ fontSize: 12, color: '#FF6B00', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600, fontFamily: F }}>Бүгд →</button>
         </div>
         {loading ? (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
             {[1,2,3].map(i => <div key={i} style={{ height: 140, background: 'var(--surface)', borderRadius: 14 }} className="animate-pulse" />)}
           </div>
         ) : creators.length === 0 ? (

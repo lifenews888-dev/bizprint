@@ -52,7 +52,7 @@ export default function GalleryPreview() {
               transition={{ delay: i * 0.08 }}
             >
               <Link href="/gallery" className="group block">
-                <div className="relative aspect-[4/3] rounded-xl overflow-hidden bg-[var(--surface2)]">
+                <div className="relative rounded-xl overflow-hidden bg-[var(--surface2)]" style={{ aspectRatio: '4 / 3' }}>
                   <img
                     src={img.url}
                     alt={img.alt || img.caption || ''}

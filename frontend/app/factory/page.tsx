@@ -46,7 +46,7 @@ export default async function FactoryPage() {
           <p style={{ fontSize: 14 }}>Үйлдвэр байхгүй байна</p>
         </div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 16 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(280px, 100%), 1fr))', gap: 16 }}>
           {vendors.map(vendor => (
             <Link
               key={vendor.id}

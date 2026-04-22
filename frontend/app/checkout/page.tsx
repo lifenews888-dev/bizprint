@@ -399,7 +399,7 @@ function CheckoutInner() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
           <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: 24 }}>
             <h3 style={{ margin: '0 0 20px', fontSize: 16, fontWeight: 700 }}>👤 Хэрэглэгчийн мэдээлэл</h3>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16 }}>
               <div>
                 <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text2)', display: 'block', marginBottom: 6 }}>НЭР *</label>
                 <input style={inp} placeholder="Овог нэр" value={form.customer_name} onChange={e => set('customer_name', e.target.value)} />
@@ -475,7 +475,7 @@ function CheckoutInner() {
             ) : (
               <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: 24 }}>
                 <h3 style={{ margin: '0 0 20px', fontSize: 16, fontWeight: 700 }}>🖨️ Захиалгын мэдээлэл</h3>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16 }}>
                   <div style={{ gridColumn: '1/-1' }}>
                     <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text2)', display: 'block', marginBottom: 6 }}>БҮТЭЭГДЭХҮҮН</label>
                     <input style={inp} placeholder="Визит карт, Флаер, Баннер..." value={form.product_name} onChange={e => set('product_name', e.target.value)} />
