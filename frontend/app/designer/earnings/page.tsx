@@ -13,6 +13,8 @@ export default function DesignerEarningsPage() {
   const { user, loading: authLoading } = useRoleGuard(['designer', 'admin'])
   const [balance, setBalance] = useState(0)
   const [transactions, setTransactions] = useState<WalletTx[]>([])
+  const [royalties, setRoyalties] = useState<any[]>([])
+  const [royaltySummary, setRoyaltySummary] = useState<{ pendingAmount: number; paidAmount: number; totalOrders: number } | null>(null)
   const [loading, setLoading] = useState(true)
   const [withdrawAmount, setWithdrawAmount] = useState('')
   const [bankAccount, setBankAccount] = useState('')
@@ -33,6 +35,12 @@ export default function DesignerEarningsPage() {
     try {
       const tData = await apiFetch<any>(`/wallet/transactions`)
       setTransactions(Array.isArray(tData) ? tData : [])
+    } catch {}
+    try {
+      const rData = await apiFetch<any>('/commission/designer/me').catch(() => [])
+      setRoyalties(Array.isArray(rData) ? rData : [])
+      const sum = await apiFetch<any>('/commission/designer/me/summary').catch(() => null)
+      if (sum) setRoyaltySummary(sum)
     } catch {}
     setLoading(false)
   }
@@ -83,6 +91,45 @@ export default function DesignerEarningsPage() {
         { label: 'Татан авсан', value: totalWithdrawn.toLocaleString() + '₮', color: 'blue', icon: '🏦' },
         { label: 'Татвар (10%)', value: Math.round(totalEarned * TAX_RATE).toLocaleString() + '₮', color: 'orange', icon: '📋' },
       ]} />
+
+      {/* Template royalty — separate from wallet balance so designers can
+          track earnings from template usage before they're released. */}
+      {(royalties.length > 0 || royaltySummary) && (
+        <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, padding: 20, marginTop: 18 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+            <h3 style={{ fontSize: 15, fontWeight: 700, margin: 0 }}>🎨 Загварын royalty</h3>
+            <span style={{ fontSize: 12, color: 'var(--text3)' }}>48 цагийн hold хугацаа</span>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12, marginBottom: 14 }}>
+            <div style={{ padding: 12, background: 'var(--surface2)', borderRadius: 8 }}>
+              <div style={{ fontSize: 11, color: 'var(--text3)' }}>Ашигласан захиалга</div>
+              <div style={{ fontSize: 18, fontWeight: 700, marginTop: 2 }}>{royaltySummary?.totalOrders ?? royalties.length}</div>
+            </div>
+            <div style={{ padding: 12, background: 'var(--surface2)', borderRadius: 8 }}>
+              <div style={{ fontSize: 11, color: 'var(--text3)' }}>Хүлээгдэж буй</div>
+              <div style={{ fontSize: 18, fontWeight: 700, color: '#F59E0B', marginTop: 2 }}>₮{(royaltySummary?.pendingAmount || 0).toLocaleString()}</div>
+            </div>
+            <div style={{ padding: 12, background: 'var(--surface2)', borderRadius: 8 }}>
+              <div style={{ fontSize: 11, color: 'var(--text3)' }}>Олсон royalty</div>
+              <div style={{ fontSize: 18, fontWeight: 700, color: '#10B981', marginTop: 2 }}>₮{(royaltySummary?.paidAmount || 0).toLocaleString()}</div>
+            </div>
+          </div>
+          {royalties.length > 0 && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 220, overflow: 'auto' }}>
+              {royalties.slice(0, 10).map((r: any) => (
+                <div key={r.id} style={{ display: 'grid', gridTemplateColumns: '1fr 120px 80px 100px', gap: 12, padding: '8px 12px', background: 'var(--surface2)', borderRadius: 6, fontSize: 12, alignItems: 'center' }}>
+                  <span style={{ color: 'var(--text2)' }}>{r.template_name || r.template_id?.slice(0, 8)}</span>
+                  <span style={{ textAlign: 'right' }}>₮{Number(r.order_total).toLocaleString()}</span>
+                  <span style={{ textAlign: 'right', color: 'var(--text3)' }}>{r.royalty_rate}%</span>
+                  <span style={{ textAlign: 'right', fontWeight: 600, color: r.status === 'approved' || r.status === 'paid' ? '#10B981' : '#F59E0B' }}>
+                    ₮{Number(r.royalty_amount).toLocaleString()} {r.status === 'pending' ? '⏳' : '✓'}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Withdraw form */}
       {showWithdraw && (

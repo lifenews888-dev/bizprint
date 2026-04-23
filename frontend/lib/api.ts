@@ -65,20 +65,35 @@ export async function apiFetch<T = unknown>(
     body: fetchBody,
   })
 
-  // 401 → auto logout + redirect (зөвхөн auth: true үед)
+  // Try to extract backend's readable error message from JSON body
+  const parseErrorMessage = (text: string, fallback: string): string => {
+    if (!text) return fallback
+    try {
+      const parsed = JSON.parse(text)
+      return parsed.message || parsed.error || fallback
+    } catch {
+      return text.length < 200 ? text : fallback
+    }
+  }
+
+  // 401 handling
   if (res.status === 401) {
+    const errText = await res.text().catch(() => '')
+    // auth: true (authenticated request) → token expired, logout + redirect
     if (auth && typeof window !== 'undefined') {
       localStorage.removeItem('access_token')
       localStorage.removeItem('token')
       localStorage.removeItem('user')
       window.location.href = '/login'
+      throw new Error('Нэвтрэлт дууссан байна')
     }
-    throw new Error('Нэвтрэлт дууссан байна')
+    // auth: false (public/login call) → surface backend's real error
+    throw new Error(parseErrorMessage(errText, 'Имэйл эсвэл нууц үг буруу байна'))
   }
 
   if (!res.ok) {
     const text = await res.text().catch(() => '')
-    throw new Error(text || `API алдаа: ${res.status}`)
+    throw new Error(parseErrorMessage(text, `API алдаа: ${res.status}`))
   }
 
   // 204 No Content

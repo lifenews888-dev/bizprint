@@ -358,10 +358,14 @@ export default function HomePage() {
             <Link href="/quote" className="no-underline px-7 py-3 bg-[#FF6B00] text-white rounded-xl text-sm font-bold hover:bg-[#E55D00] transition-colors">
               Үнийн санал авах
             </Link>
+            <Link href="/campaign/request" className="no-underline px-7 py-3 bg-purple-600 text-white rounded-xl text-sm font-bold hover:bg-purple-700 transition-colors">
+              🎯 Бөөн захиалга / Кампани
+            </Link>
             <Link href="/start" className="no-underline px-7 py-3 bg-white/5 border border-white/10 text-white rounded-xl text-sm font-medium hover:bg-white/10 transition-colors">
               Бүх үйлчилгээ
             </Link>
           </div>
+          <p className="text-xs text-white/30 mt-3 relative">B2B 200+ ширхэгтэй захиалга, олон төрлийн бүтээгдэхүүн нэг кампанит ажилд</p>
         </div>
       </section>
 
