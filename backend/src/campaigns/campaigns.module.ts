@@ -7,11 +7,12 @@ import { CampaignMilestone } from './campaign-milestone.entity'
 import { CampaignsService } from './campaigns.service'
 import { CampaignsController } from './campaigns.controller'
 import { User } from '../users/user.entity'
+import { Order } from '../orders/entities/order.entity'
 import { NotificationModule } from '../notifications/notification.module'
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Campaign, CampaignOrder, CampaignRecipient, CampaignMilestone, User]),
+    TypeOrmModule.forFeature([Campaign, CampaignOrder, CampaignRecipient, CampaignMilestone, User, Order]),
     NotificationModule,
   ],
   controllers: [CampaignsController],
