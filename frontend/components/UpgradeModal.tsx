@@ -39,6 +39,7 @@ export default function UpgradeModal({ isOpen, onClose, featureKey, current, max
         method: 'POST',
         body: { plan_id: planId, billing_cycle: 'monthly' },
       })
+      try { const u = await apiFetch('/auth/me'); if (u) localStorage.setItem('user', JSON.stringify(u)) } catch {}
       window.location.reload()
     } catch {
       alert('Алдаа гарлаа')
@@ -54,6 +55,7 @@ export default function UpgradeModal({ isOpen, onClose, featureKey, current, max
         method: 'POST',
         body: { addon_id: addonId },
       })
+      try { const u = await apiFetch('/auth/me'); if (u) localStorage.setItem('user', JSON.stringify(u)) } catch {}
       window.location.reload()
     } catch {
       alert('Алдаа гарлаа')
