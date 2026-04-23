@@ -16,6 +16,7 @@ import { ReferralModule } from './referral/referral.module'
 import { SalesModule } from './sales/sales.module'
 import { CampaignsModule } from './campaigns/campaigns.module'
 import { MigrationsRunnerModule } from './migrations-runner/migrations-runner.module'
+
 import { ProductsModule } from './products/products.module'
 import { ProductAttributesModule } from './product-attributes/product-attributes.module'
 import { VariantsModule } from './variants/variants.module'

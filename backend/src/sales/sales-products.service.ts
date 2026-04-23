@@ -9,6 +9,7 @@ import { Order } from '../orders/entities/order.entity'
 import { Quotation } from '../quote/entities/quotation.entity'
 import { SalesCommission } from '../commission/sales-commission.entity'
 
+
 @Injectable()
 export class SalesProductsService {
   constructor(
@@ -19,6 +20,7 @@ export class SalesProductsService {
     @InjectRepository(Order) private orderRepo: Repository<Order>,
     @InjectRepository(Quotation) private quoteRepo: Repository<Quotation>,
     @InjectRepository(SalesCommission) private commissionRepo: Repository<SalesCommission>,
+
   ) {}
 
   /**
@@ -215,4 +217,5 @@ export class SalesProductsService {
       }
     })
   }
+
 }
