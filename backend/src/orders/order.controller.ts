@@ -5,12 +5,15 @@ import {
   Get,
   Param,
   Patch,
+  Query,
+  Res,
   UseGuards,
   Request,
   UseInterceptors,
   UploadedFile,
   BadRequestException,
 } from '@nestjs/common';
+import { Response } from 'express';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
 import { OrdersService } from './order.service';
@@ -31,9 +34,9 @@ export class OrdersController {
     private uploadService: UploadService,
   ) {}
 
-  /* ═══════════════════════════════════════
-   *  OPS — KPI, Alerts, Bulk (BEFORE :id routes!)
-   * ═══════════════════════════════════════ */
+  /* âââââââââââââââââââââââââââââââââââââââ
+   *  OPS â KPI, Alerts, Bulk (BEFORE :id routes!)
+   * âââââââââââââââââââââââââââââââââââââââ */
 
   @Get('ops/summary')
   @UseGuards(JwtAuthGuard)
@@ -77,9 +80,9 @@ export class OrdersController {
     return this.ops.bulkCancel(body.order_ids);
   }
 
-  /* ═══════════════════════════════════════
-   *  CRUD — standard order endpoints
-   * ═══════════════════════════════════════ */
+  /* âââââââââââââââââââââââââââââââââââââââ
+   *  CRUD â standard order endpoints
+   * âââââââââââââââââââââââââââââââââââââââ */
 
   // ADMIN-ONLY: direct order creation (manual entry, imports, recovery).
   // Customer flow MUST go through /cart/quote/confirm or /orders/from-quote
@@ -123,15 +126,15 @@ export class OrdersController {
     return this.ordersService.getOrdersByVendor(req.user.id);
   }
 
-  // ─── Public order tracking (no auth) ───
+  // âââ Public order tracking (no auth) âââ
   @Get('track/:orderNumber')
   async trackOrder(@Param('orderNumber') orderNumber: string) {
     return this.ordersService.getPublicTracking(orderNumber);
   }
 
-  /* ═══════════════════════════════════════
+  /* âââââââââââââââââââââââââââââââââââââââ
    *  :id routes (AFTER static routes)
-   * ═══════════════════════════════════════ */
+   * âââââââââââââââââââââââââââââââââââââââ */
 
   @Get(':id')
   @UseGuards(JwtAuthGuard)
@@ -179,13 +182,13 @@ export class OrdersController {
     @UploadedFile() file: Express.Multer.File,
     @Request() req: any,
   ) {
-    if (!file) throw new BadRequestException('Файл байхгүй байна');
+    if (!file) throw new BadRequestException('Ð¤Ð°Ð¹Ð» Ð±Ð°Ð¹ÑÐ³Ò¯Ð¹ Ð±Ð°Ð¹Ð½Ð°');
 
     const order = await this.ordersService.getOrderById(orderId);
     const allowedStatuses = ['pending_file', 'file_rejected'];
     if (!allowedStatuses.includes(order.status)) {
       throw new BadRequestException(
-        `Файл оруулах боломжгүй. Захиалгын төлөв: "${order.status}". Зөвхөн "pending_file" эсвэл "file_rejected" үед файл оруулна.`,
+        `Ð¤Ð°Ð¹Ð» Ð¾ÑÑÑÐ»Ð°Ñ Ð±Ð¾Ð»Ð¾Ð¼Ð¶Ð³Ò¯Ð¹. ÐÐ°ÑÐ¸Ð°Ð»Ð³ÑÐ½ ÑÓ©Ð»Ó©Ð²: "${order.status}". ÐÓ©Ð²ÑÓ©Ð½ "pending_file" ÑÑÐ²ÑÐ» "file_rejected" Ò¯ÐµÐ´ ÑÐ°Ð¹Ð» Ð¾ÑÑÑÐ»Ð½Ð°.`,
       );
     }
 
@@ -235,8 +238,8 @@ export class OrdersController {
       analysis,
       order_status: 'file_review',
       message: isPdf
-        ? `Файл амжилттай оруулж, PDF шинжилгээ хийгдлээ. Оноо: ${analysis?.score ?? '-'}/100`
-        : 'Файл амжилттай оруулагдлаа. Шалгалтад орлоо.',
+        ? `Ð¤Ð°Ð¹Ð» Ð°Ð¼Ð¶Ð¸Ð»ÑÑÐ°Ð¹ Ð¾ÑÑÑÐ»Ð¶, PDF ÑÐ¸Ð½Ð¶Ð¸Ð»Ð³ÑÑ ÑÐ¸Ð¹Ð³Ð´Ð»ÑÑ. ÐÐ½Ð¾Ð¾: ${analysis?.score ?? '-'}/100`
+        : 'Ð¤Ð°Ð¹Ð» Ð°Ð¼Ð¶Ð¸Ð»ÑÑÐ°Ð¹ Ð¾ÑÑÑÐ»Ð°Ð³Ð´Ð»Ð°Ð°. Ð¨Ð°Ð»Ð³Ð°Ð»ÑÐ°Ð´ Ð¾ÑÐ»Ð¾Ð¾.',
     };
   }
 
@@ -268,4 +271,22 @@ export class OrdersController {
   reassignVendor(@Param('id') id: string, @Body() body: { vendor_id: string }) {
     return this.ordersService.reassignVendor(id, body.vendor_id);
   }
+
+  // ─── CSV / Excel export ───────────────────────────────────────────────
+  @Get('export')
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  async exportOrders(
+    @Query('format') format: string = 'csv',
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+    @Query('status') status?: string,
+    @Res() res?: Response,
+  ) {
+    const csv = await this.ordersService.exportOrders({ startDate, endDate, status });
+    const filename = format === 'excel' ? 'orders.csv' : 'orders.csv';
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    return res.send(csv);
+  }
+
 }
