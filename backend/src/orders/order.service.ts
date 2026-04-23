@@ -882,4 +882,22 @@ export class OrdersService {
     return [header, ...rows].join('\n');
   }
 
+
+  async exportOrdersCsv(): Promise<string> {
+    const repo = (this as any).orderRepository ?? (this as any).ordersRepository ?? (this as any).repository;
+    const orders = repo ? await repo.find({ relations: ['user'], order: { createdAt: 'DESC' }, take: 10000 }).catch(() => []) : [];
+    const rows = [
+      ['ID', 'Order Number', 'Customer', 'Email', 'Total', 'Status', 'Created'].join(','),
+      ...orders.map((o: any) => [
+        o.id ?? '',
+        o.orderNumber ?? o.order_number ?? '',
+        o.user ? (o.user.name ?? o.user.fullName ?? '').toString().replace(/,/g, ' ') : '',
+        o.user ? (o.user.email ?? '') : '',
+        o.totalAmount ?? o.total ?? o.totalPrice ?? 0,
+        o.status ?? '',
+        o.createdAt ? new Date(o.createdAt).toISOString().split('T')[0] : '',
+      ].join(',')),
+    ];
+    return rows.join('\n');
+  }
 }
