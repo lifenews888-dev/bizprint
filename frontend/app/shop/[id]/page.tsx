@@ -23,6 +23,82 @@ function Stars({ rating }: { rating: number }) {
   )
 }
 
+
+function VariantSelector({ productId, onSelect }: { productId: string; onSelect?: (v: any) => void }) {
+  const [variants, setVariants] = React.useState<any[]>([]);
+  const [selected, setSelected] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    if (!productId) return;
+    fetch('/api/products/' + productId + '/variants')
+      .then(r => r.json())
+      .then(d => { if (Array.isArray(d) && d.length) setVariants(d); })
+      .catch(() => {});
+  }, [productId]);
+
+  if (!variants.length) return null;
+
+  const colors = variants.filter(v => v.type === 'color' || v.attribute === 'color');
+  const sizes = variants.filter(v => v.type === 'size' || v.attribute === 'size');
+  const others = variants.filter(v => v.type !== 'color' && v.type !== 'size' && v.attribute !== 'color' && v.attribute !== 'size');
+
+  const handleSelect = (v: any) => {
+    setSelected(v.id);
+    onSelect?.(v);
+  };
+
+  const btnStyle = (id: string) => ({
+    padding: '6px 14px', borderRadius: 6, border: '1px solid',
+    borderColor: selected === id ? '#FF6B00' : '#444',
+    background: selected === id ? '#FF6B00' : 'transparent',
+    color: selected === id ? '#fff' : '#ccc',
+    cursor: 'pointer', fontSize: 13, margin: '0 6px 6px 0',
+  });
+
+  return (
+    <div style={{ marginTop: 16 }}>
+      {colors.length > 0 && (
+        <div style={{ marginBottom: 12 }}>
+          <div style={{ color: '#aaa', fontSize: 12, marginBottom: 6 }}>Color</div>
+          <div style={{ display: 'flex', flexWrap: 'wrap' }}>
+            {colors.map((v: any) => (
+              <button key={v.id} onClick={() => handleSelect(v)} style={{
+                ...btnStyle(v.id),
+                width: 28, height: 28, padding: 0, borderRadius: '50%',
+                background: v.value ?? btnStyle(v.id).background,
+                borderColor: selected === v.id ? '#FF6B00' : '#555',
+              }} title={v.label ?? v.value} />
+            ))}
+          </div>
+        </div>
+      )}
+      {sizes.length > 0 && (
+        <div style={{ marginBottom: 12 }}>
+          <div style={{ color: '#aaa', fontSize: 12, marginBottom: 6 }}>Size</div>
+          <div style={{ display: 'flex', flexWrap: 'wrap' }}>
+            {sizes.map((v: any) => (
+              <button key={v.id} onClick={() => handleSelect(v)} style={btnStyle(v.id)}>
+                {v.label ?? v.value}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+      {others.length > 0 && (
+        <div style={{ marginBottom: 12 }}>
+          <div style={{ color: '#aaa', fontSize: 12, marginBottom: 6 }}>Options</div>
+          <div style={{ display: 'flex', flexWrap: 'wrap' }}>
+            {others.map((v: any) => (
+              <button key={v.id} onClick={() => handleSelect(v)} style={btnStyle(v.id)}>
+                {v.label ?? v.value ?? v.name}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 export default function ProductConfiguratorPage() {
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
@@ -122,7 +198,8 @@ export default function ProductConfiguratorPage() {
       const fd = new FormData()
       fd.append('file', file)
       fd.append('quantity', String(quantity))
-      const res = await apiFetch<any>('/ai/smart-quote/from-pdf', { method: 'POST', body: fd })
+      const res = await apiFetch      <VariantSelector productId={product?.id ?? ''} onSelect={(v) => console.log("variant selected", v)} />
+      <any>('/ai/smart-quote/from-pdf', { method: 'POST', body: fd })
       setUploadResult(res)
     } catch {}
     setUploading(false)
