@@ -900,4 +900,86 @@ export class OrdersService {
     ];
     return rows.join('\n');
   }
+
+  async generateInvoicePdf(orderId: string): Promise<Buffer> {
+    const order = await (this as any).orderRepository?.findOne({
+      where: { id: orderId },
+      relations: ['user', 'items', 'items.product'],
+    }) ?? null;
+
+    const { PDFDocument, rgb, StandardFonts } = require('pdf-lib');
+    const pdfDoc = await PDFDocument.create();
+    const page = pdfDoc.addPage([595, 842]); // A4
+    const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+    const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+
+    const orange = rgb(1, 0.42, 0);
+    const black = rgb(0, 0, 0);
+    const gray = rgb(0.5, 0.5, 0.5);
+
+    // Header
+    page.drawText('BIZPRINT.MN', { x: 50, y: 790, size: 22, font: boldFont, color: orange });
+    page.drawText('INVOICE', { x: 430, y: 790, size: 18, font: boldFont, color: black });
+
+    // Order info
+    const orderNum = order?.orderNumber ?? orderId.slice(0, 8).toUpperCase();
+    const createdAt = order?.createdAt ? new Date(order.createdAt).toLocaleDateString() : new Date().toLocaleDateString();
+    page.drawText('Order #: ' + orderNum, { x: 50, y: 755, size: 11, font: boldFont, color: black });
+    page.drawText('Date: ' + createdAt, { x: 50, y: 738, size: 10, font, color: gray });
+
+    // Customer
+    const customerName = order?.user?.name ?? order?.user?.fullName ?? 'Customer';
+    const customerEmail = order?.user?.email ?? '';
+    page.drawText('Bill To:', { x: 50, y: 710, size: 11, font: boldFont, color: black });
+    page.drawText(customerName, { x: 50, y: 694, size: 10, font, color: black });
+    if (customerEmail) page.drawText(customerEmail, { x: 50, y: 679, size: 10, font, color: gray });
+
+    // Divider
+    page.drawLine({ start: { x: 50, y: 665 }, end: { x: 545, y: 665 }, thickness: 1, color: orange });
+
+    // Table header
+    page.drawText('Item', { x: 50, y: 648, size: 10, font: boldFont, color: black });
+    page.drawText('Qty', { x: 360, y: 648, size: 10, font: boldFont, color: black });
+    page.drawText('Unit Price', { x: 410, y: 648, size: 10, font: boldFont, color: black });
+    page.drawText('Total', { x: 490, y: 648, size: 10, font: boldFont, color: black });
+    page.drawLine({ start: { x: 50, y: 640 }, end: { x: 545, y: 640 }, thickness: 0.5, color: gray });
+
+    // Items
+    const items = order?.items ?? [];
+    let y = 622;
+    let subtotal = 0;
+    for (const item of items.slice(0, 20)) {
+      const name = (item.product?.name ?? item.productName ?? 'Product').slice(0, 45);
+      const qty = item.quantity ?? 1;
+      const price = item.unitPrice ?? item.price ?? 0;
+      const lineTotal = qty * price;
+      subtotal += lineTotal;
+      page.drawText(name, { x: 50, y, size: 9, font, color: black });
+      page.drawText(String(qty), { x: 365, y, size: 9, font, color: black });
+      page.drawText(Number(price).toLocaleString(), { x: 410, y, size: 9, font, color: black });
+      page.drawText(Number(lineTotal).toLocaleString(), { x: 490, y, size: 9, font, color: black });
+      y -= 16;
+      if (y < 200) break;
+    }
+
+    if (!items.length) {
+      const total = order?.totalAmount ?? order?.total ?? 0;
+      page.drawText('See order details', { x: 50, y, size: 9, font, color: gray });
+      subtotal = Number(total);
+      y -= 16;
+    }
+
+    // Total
+    page.drawLine({ start: { x: 350, y: y - 4 }, end: { x: 545, y: y - 4 }, thickness: 0.5, color: gray });
+    const finalTotal = order?.totalAmount ?? order?.total ?? subtotal;
+    page.drawText('TOTAL:', { x: 390, y: y - 20, size: 12, font: boldFont, color: black });
+    page.drawText(Number(finalTotal).toLocaleString() + ' MNT', { x: 460, y: y - 20, size: 12, font: boldFont, color: orange });
+
+    // Footer
+    page.drawLine({ start: { x: 50, y: 60 }, end: { x: 545, y: 60 }, thickness: 0.5, color: gray });
+    page.drawText('Bizprint.mn | info@bizprint.mn | +976 XXXX XXXX', { x: 50, y: 44, size: 8, font, color: gray });
+
+    const pdfBytes = await pdfDoc.save();
+    return Buffer.from(pdfBytes);
+  }
 }
