@@ -13,7 +13,46 @@ const STATUS_MAP: Record<string, { label: string; color: string; bg: string }> =
   cancelled: { label: 'Ð¦ÑÑÐ»Ð°Ð³Ð´ÑÐ°Ð½', color: '#6B7280', bg: '#F3F4F6' },
 }
 
+
+function PaymentTimeline({ payments }: { payments: any[] }) {
+  if (!payments || !payments.length) return null;
+  return (
+    <div style={{ marginTop: 32 }}>
+      <h3 style={{ color: '#fff', marginBottom: 16, fontSize: 18 }}>Escrow History</h3>
+      {payments.map((p: any) => (
+        <div key={p.id} style={{ background: '#1a1a1a', border: '1px solid #333', borderRadius: 8, padding: 16, marginBottom: 12 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+            <span style={{ color: '#FF6B00', fontWeight: 600 }}>#{p.orderNumber || (p.orderId || '').slice(0, 8)}</span>
+            <span style={{ color: '#fff', fontWeight: 700 }}>{Number(p.amount).toLocaleString()} {p.currency || 'MNT'}</span>
+          </div>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              <div style={{ width: 12, height: 12, borderRadius: '50%', background: p.paidAt ? '#28a745' : '#444' }} />
+              <span style={{ color: p.paidAt ? '#fff' : '#666', fontSize: 13 }}>Paid{p.paidAt ? ' (' + new Date(p.paidAt).toLocaleDateString() + ')' : ''}</span>
+            </div>
+            <div style={{ width: 20, height: 2, background: '#333' }} />
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              <div style={{ width: 12, height: 12, borderRadius: '50%', background: p.heldAt ? '#FF6B00' : '#444' }} />
+              <span style={{ color: p.heldAt ? '#fff' : '#666', fontSize: 13 }}>Held{p.heldAt ? ' (' + new Date(p.heldAt).toLocaleDateString() + ')' : ''}</span>
+            </div>
+            <div style={{ width: 20, height: 2, background: '#333' }} />
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              <div style={{ width: 12, height: 12, borderRadius: '50%', background: p.releasedAt ? '#007bff' : '#444' }} />
+              <span style={{ color: p.releasedAt ? '#fff' : '#666', fontSize: 13 }}>Released{p.releasedAt ? ' (' + new Date(p.releasedAt).toLocaleDateString() + ')' : ''}</span>
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
 export default function InvoicesPage() {
+  const [payHistory, setPayHistory] = React.useState<any[]>([]);
+  React.useEffect(() => {
+    const token = localStorage.getItem('token') || '';
+    fetch('/api/payment/history', { headers: { Authorization: 'Bearer ' + token } })
+      .then(r => r.json()).then(d => setPayHistory(Array.isArray(d) ? d : [])).catch(() => {});
+  }, []);
   const [invoices, setInvoices] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [selected, setSelected] = useState<any>(null)
@@ -212,6 +251,7 @@ export default function InvoicesPage() {
           })}
         </div>
       )}
-    </div>
+          <PaymentTimeline payments={payHistory} />
+      </div>
   )
 }
