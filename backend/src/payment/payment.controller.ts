@@ -43,7 +43,7 @@ export class PaymentController {
     return this.paymentService.confirmPayment(invoiceCode)
   }
 
-  // ── Invoice endpoints ──
+  // ââ Invoice endpoints ââ
   @UseGuards(JwtAuthGuard)
   @Get('invoices/my')
   async myInvoices(@Req() req: any) {
@@ -61,20 +61,20 @@ export class PaymentController {
     return this.paymentService.getInvoiceByNumber(number)
   }
 
-  // ── QPay endpoints ──
+  // ââ QPay endpoints ââ
   @Post('qpay/create')
   async qpayCreate(@Body() body: { orderId: string; amount: number; description?: string }) {
     const callbackUrl = `${process.env.BACKEND_URL || 'https://bizprint-production.up.railway.app'}/api/payment/qpay/callback`
     return this.qpayService.createInvoice({
       orderId: body.orderId,
       amount: body.amount,
-      description: body.description || `BizPrint захиалга #${body.orderId}`,
+      description: body.description || `BizPrint Ð·Ð°ÑÐ¸Ð°Ð»Ð³Ð° #${body.orderId}`,
       callbackUrl,
     })
   }
 
   /**
-   * QPay callback — payment notification from QPay merchant gateway.
+   * QPay callback â payment notification from QPay merchant gateway.
    * QPay does not sign callback bodies, so the body itself is untrusted.
    * We pull the object_id (invoice id) and re-query QPay's own status
    * endpoint to verify the payment is real before confirming the order.
@@ -85,7 +85,7 @@ export class PaymentController {
   async qpayCallback(@Body() body: any) {
     const invoiceId = body?.object_id || body?.payment_id || body?.invoice_id
     if (!invoiceId) {
-      this.logger.warn('QPay callback missing invoice id — rejected')
+      this.logger.warn('QPay callback missing invoice id â rejected')
       return { status: 'ignored', reason: 'no_invoice_id' }
     }
 
@@ -100,7 +100,7 @@ export class PaymentController {
                    (Array.isArray(status?.rows) && status.rows.length > 0)
 
     if (!isPaid) {
-      this.logger.warn(`QPay callback for ${invoiceId} but status is not PAID — ignored`)
+      this.logger.warn(`QPay callback for ${invoiceId} but status is not PAID â ignored`)
       return { status: 'pending' }
     }
 
@@ -126,15 +126,15 @@ export class PaymentController {
     return this.qpayService.checkPayment(invoiceId)
   }
 
-  // ═══════════════════════════════════════════
+  // âââââââââââââââââââââââââââââââââââââââââââ
   //  BONUM PAYMENT GATEWAY
-  // ═══════════════════════════════════════════
+  // âââââââââââââââââââââââââââââââââââââââââââ
 
   @Post('bonum/create')
   @Throttle({ default: { limit: 5, ttl: 60000 } })
   async bonumCreate(@Body() body: { orderId: string; amount: number; description?: string; providers?: string[] }) {
     if (!body.orderId || !body.amount) {
-      return { error: 'orderId болон amount шаардлагатай' }
+      return { error: 'orderId Ð±Ð¾Ð»Ð¾Ð½ amount ÑÐ°Ð°ÑÐ´Ð»Ð°Ð³Ð°ÑÐ°Ð¹' }
     }
 
     // SECURITY: Validate amount against DB order
@@ -144,7 +144,7 @@ export class PaymentController {
       const requestedAmount = Math.round(body.amount)
       if (Math.abs(dbAmount - requestedAmount) > 1) {
         this.logger.warn(`Amount mismatch for order ${body.orderId}: DB=${dbAmount}, Requested=${requestedAmount}`)
-        return { error: 'Төлбөрийн дүн буруу байна' }
+        return { error: 'Ð¢Ó©Ð»Ð±Ó©ÑÐ¸Ð¹Ð½ Ð´Ò¯Ð½ Ð±ÑÑÑÑ Ð±Ð°Ð¹Ð½Ð°' }
       }
     }
 
@@ -176,7 +176,7 @@ export class PaymentController {
       return invoice
     } catch (e: any) {
       this.logger.error(`Bonum create error: ${e.message}`)
-      return { error: e.message || 'Төлбөрийн систем алдаа гарлаа' }
+      return { error: e.message || 'Ð¢Ó©Ð»Ð±Ó©ÑÐ¸Ð¹Ð½ ÑÐ¸ÑÑÐµÐ¼ Ð°Ð»Ð´Ð°Ð° Ð³Ð°ÑÐ»Ð°Ð°' }
     }
   }
 
@@ -244,7 +244,7 @@ export class PaymentController {
 
     if (!invoiceId) return { ok: false, error: 'No invoiceId' }
 
-    // SECURITY FIX 2: Idempotency check — prevent double processing
+    // SECURITY FIX 2: Idempotency check â prevent double processing
     const alreadyPaid = await this.orderRepo.findOne({
       where: { invoice_no: invoiceId, payment_status: 'paid' },
     })
@@ -256,7 +256,7 @@ export class PaymentController {
     if (status === 'SUCCESS' || status === 'PAID') {
       const order = await this.orderRepo.findOne({ where: { invoice_no: invoiceId } })
       if (order) {
-        // NOTE: Only updating payment_status — order status transitions go through
+        // NOTE: Only updating payment_status â order status transitions go through
         // the FROZEN state machine via OrdersService.updateOrder() elsewhere.
         await this.orderRepo.update(order.id, { payment_status: 'paid' })
         this.logger.log(`Order ${order.id} PAID via Bonum. Invoice: ${invoiceId}, Amount: ${body?.body?.amount}`)
@@ -274,7 +274,7 @@ export class PaymentController {
     return { ok: true }
   }
 
-  // ─── Cron: expire pending invoices older than 1h ───
+  // âââ Cron: expire pending invoices older than 1h âââ
   @Cron('0 * * * *')
   async expirePendingInvoices() {
     const oneHourAgo = new Date(Date.now() - 3600 * 1000)
@@ -294,7 +294,7 @@ export class PaymentController {
     }
   }
 
-  // ─── Refund endpoint (admin only triggers, customer-side via cancel flow) ──
+  // âââ Refund endpoint (admin only triggers, customer-side via cancel flow) ââ
   @Post('refund/:orderId')
   @UseGuards(JwtAuthGuard)
   async refund(
@@ -306,7 +306,7 @@ export class PaymentController {
     // calls this server-side via OrdersService.cancelOrder().
     const role = req?.user?.role
     if (!['admin', 'superadmin'].includes(role)) {
-      throw new UnauthorizedException('Refund-ийг зөвхөн админ хийнэ')
+      throw new UnauthorizedException('Refund-Ð¸Ð¹Ð³ Ð·Ó©Ð²ÑÓ©Ð½ Ð°Ð´Ð¼Ð¸Ð½ ÑÐ¸Ð¹Ð½Ñ')
     }
     return this.paymentService.refundOrder(orderId, body?.reason || 'admin_refund')
   }
@@ -327,7 +327,7 @@ export class PaymentController {
     return this.bonum.getProviders()
   }
 
-  // One-off: creates a real 1₮ DB order + Bonum invoice end-to-end
+  // One-off: creates a real 1â® DB order + Bonum invoice end-to-end
   // to verify the full flow works. Secret-protected to prevent abuse.
   @Post('bonum/test-e2e')
   async bonumTestE2E(@Body() body: { secret: string; amount?: number }) {
@@ -365,7 +365,7 @@ export class PaymentController {
         amount,
         invoiceId: invoice.invoiceId,
         followUpLink: invoice.followUpLink,
-        instructions: 'Open followUpLink, pay 1₮ via bank app QR, then check order.payment_status',
+        instructions: 'Open followUpLink, pay 1â® via bank app QR, then check order.payment_status',
       };
     } catch (e: any) {
       return { ok: false, orderId, error: e.message };
@@ -384,4 +384,44 @@ export class PaymentController {
       return { error: e.message }
     }
   }
+
+  // —— Escrow payment history: status log per invoice ——————————————
+  @UseGuards(JwtAuthGuard)
+  @Get('history')
+  async paymentHistory(@Req() req: any) {
+    const customerId: string = req.user.id
+    const invoices: any[] = await this.paymentService.getInvoicesByCustomer(customerId)
+    const list = Array.isArray(invoices) ? invoices : []
+    const result = await Promise.all(
+      list.map(async (inv: any) => {
+        const logs = await this.logRepo.find({
+          where: { invoice_id: inv.id },
+          order: { created_at: 'ASC' } as any,
+        })
+        // Derive escrow timeline: paid -> held (in_production) -> released
+        const statusSteps = [
+          { step: 'paid',     label: 'Төлөгдсөн',  at: inv.paid_at },
+          { step: 'held',     label: 'Escrow',      at: logs.find((l: any) => l.event_type === 'escrow_hold')?.created_at ?? null },
+          { step: 'released', label: 'Суллагдсан', at: logs.find((l: any) => l.event_type === 'escrow_release')?.created_at ?? null },
+        ]
+        return {
+          invoice_id: inv.id,
+          invoice_number: inv.invoice_number,
+          order_id: inv.order_id,
+          total_amount: inv.total_amount,
+          status: inv.status,
+          paid_at: inv.paid_at,
+          status_steps: statusSteps,
+          status_log: logs.map((l: any) => ({
+            status: l.status,
+            event_type: l.event_type,
+            amount: l.amount,
+            created_at: l.created_at,
+          })),
+        }
+      }),
+    )
+    return result
+  }
+
 }
