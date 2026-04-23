@@ -79,6 +79,26 @@ export default function OrdersPage() {
     </div>
   )
 
+
+  const downloadInvoice = async (orderId: string) => {
+    try {
+      const token = localStorage.getItem('token') || '';
+      const res = await fetch('/api/orders/' + orderId + '/invoice', {
+        headers: { Authorization: 'Bearer ' + token },
+      });
+      if (!res.ok) throw new Error('Failed');
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'invoice-' + orderId.slice(0, 8) + '.pdf';
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      alert('Invoice PDF tatahad aldaa garlaa');
+    }
+  };
+
   return (
     <div style={{ padding: '24px 28px', fontFamily: F, maxWidth: 960, margin: '0 auto' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
@@ -155,7 +175,7 @@ export default function OrdersPage() {
                 {isExpanded && o.status !== 'cancelled' && (
                   <div style={{ padding: '0 22px 20px', borderTop: '1px solid var(--border)' }}>
                     <div style={{ padding: '18px 0 10px' }}>
-                      <OrderStepper status={o.status} />
+                      <OrderStepper status={o.status} <button onClick={() => downloadInvoice(o.id)} style={{ background: "none", border: "1px solid #FF6B00", color: "#FF6B00", padding: "3px 10px", borderRadius: 4, cursor: "pointer", fontSize: 12, marginLeft: 8 }}>PDF</button> />
                     </div>
 
                     {/* Order items */}
@@ -179,7 +199,7 @@ export default function OrdersPage() {
                     {/* Actions */}
                     <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
                       {o.status === 'pending_file' && (
-                        <ActionButton label="📁 Файл оруулах" color="#D97706" onClick={() => {}} />
+                        <ActionButton label="📁 Файл оруулах" color="#D97706" onClick={() => {} <button onClick={() => downloadInvoice(o.id)} style={{ background: "none", border: "1px solid #FF6B00", color: "#FF6B00", padding: "3px 10px", borderRadius: 4, cursor: "pointer", fontSize: 12, marginLeft: 8 }}>PDF</button>} />
                       )}
                       <ActionButton label="💬 Чат" color="#3B82F6" onClick={() => router.push('/dashboard/customer/chat')} />
                       {(o.status === 'delivered' || o.status === 'completed') && (
