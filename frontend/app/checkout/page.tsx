@@ -159,6 +159,11 @@ function CheckoutInner() {
           throw new Error('Үнийн санал үүсгэж чадсангүй')
         }
       }
+      // Pull the agent referral code captured by /s/{code} or /register?ref=
+      // so guest-style checkouts (logged in without registration via ref)
+      // still credit the agent.
+      const refCode = (typeof window !== 'undefined') ? (localStorage.getItem('bp_referral_code') || undefined) : undefined
+
       const data = await apiFetch<any>('/cart/quote/confirm', {
         method: 'POST',
         headers: idemHeaders,
@@ -169,6 +174,7 @@ function CheckoutInner() {
           customer_phone: form.customer_phone,
           customer_email: form.customer_email,
           shipping_address: form.delivery_address,
+          referral_code: refCode,
         },
       })
       const orderData = data?.data || data
