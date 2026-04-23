@@ -140,7 +140,27 @@ export default function AdminOrdersPage() {
     if (filter && o.status !== filter) return false
     if (search) {
       const s = search.toLowerCase()
-      return (o.customer_name || '').toLowerCase().includes(s) ||
+    
+  const handleExportCsv = async () => {
+    try {
+      const token = localStorage.getItem('token') ?? '';
+      const res = await fetch('/api/orders/export', {
+        headers: { Authorization: 'Bearer ' + token },
+      });
+      if (!res.ok) throw new Error('Export failed');
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'orders-' + new Date().toISOString().split('T')[0] + '.csv';
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      alert('CSV tatahad aldaa garlaa');
+    }
+  };
+
+  return (o.customer_name || '').toLowerCase().includes(s) ||
         (o.product_name || '').toLowerCase().includes(s) ||
         (o.id || '').toLowerCase().includes(s) ||
         (o.customer_email || '').toLowerCase().includes(s)
