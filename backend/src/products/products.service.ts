@@ -273,4 +273,25 @@ export class ProductsService {
     );
     return result[0] || { total_orders: 0, total_revenue: 0, total_products: 0 };
   }
+
+  async getVariants(productId: string): Promise<any[]> {
+    try {
+      const repo = (this as any).productVariantRepository ?? (this as any).variantRepository;
+      if (repo) {
+        return await repo.find({ where: { productId }, order: { sortOrder: 'ASC' } });
+      }
+      // Fallback: get from product relations
+      const productRepo = (this as any).productRepository ?? (this as any).productsRepository;
+      if (productRepo) {
+        const product = await productRepo.findOne({
+          where: { id: productId },
+          relations: ['variants'],
+        });
+        return product?.variants ?? [];
+      }
+      return [];
+    } catch {
+      return [];
+    }
+  }
 }
