@@ -15,6 +15,7 @@ export class CommissionController {
   async escrowReleaseCron() {
     await this.svc.autoApproveDelayedCommissions(48);
     await this.svc.autoApproveDelayedSalesCommissions(48);
+    await this.svc.autoApproveDelayedDesignerRoyalties(48);
     return { ok: true };
   }
 
@@ -24,7 +25,28 @@ export class CommissionController {
   async manualEscrowRelease(@Body('hold_hours') holdHours?: number) {
     const vendor = await this.svc.autoApproveDelayedCommissions(holdHours ?? 48);
     const sales = await this.svc.autoApproveDelayedSalesCommissions(holdHours ?? 48);
-    return { vendor, sales };
+    const designer = await this.svc.autoApproveDelayedDesignerRoyalties(holdHours ?? 48);
+    return { vendor, sales, designer };
+  }
+
+  // ── Designer royalty endpoints ─────────────────────────────────────────
+
+  @Get('designer/me')
+  @UseGuards(JwtAuthGuard)
+  myRoyalties(@Req() req: any) {
+    return this.svc.findRoyaltiesByDesigner(req.user.id);
+  }
+
+  @Get('designer/me/summary')
+  @UseGuards(JwtAuthGuard)
+  myRoyaltySummary(@Req() req: any) {
+    return this.svc.getDesignerSummary(req.user.id);
+  }
+
+  @Post('designer/approve-payout')
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  approveDesignerPayout(@Body('ids') ids: string[]) {
+    return this.svc.approveDesignerPayout(ids);
   }
 
   // ── Sales agent endpoints ────────────────────────────────────────────────
