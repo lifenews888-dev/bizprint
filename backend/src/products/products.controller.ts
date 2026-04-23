@@ -140,4 +140,9 @@ export class VendorStoreController {
   getStats(@Request() req: any) {
     return this.productsService.getVendorOrderStats(req.user.id);
   }
+
+  @Get(':id/variants')
+  async getProductVariants(@Param('id') id: string) {
+    return this.productsService.getVariants(id);
+  }
 }
