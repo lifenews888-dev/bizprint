@@ -13,6 +13,7 @@ import { CommissionModule } from './commission/commission.module'
 import { CategoriesModule } from './categories/categories.module'
 import { WalletModule } from './wallet/wallet.module'
 import { ReferralModule } from './referral/referral.module'
+import { SalesModule } from './sales/sales.module'
 import { ProductsModule } from './products/products.module'
 import { ProductAttributesModule } from './product-attributes/product-attributes.module'
 import { VariantsModule } from './variants/variants.module'
@@ -129,6 +130,7 @@ import { CloudinaryModule } from './cloudinary/cloudinary.module'
     CategoriesModule,
     WalletModule,
     ReferralModule,
+    SalesModule,
     ProductsModule,
     ProductAttributesModule,
     VariantsModule,
