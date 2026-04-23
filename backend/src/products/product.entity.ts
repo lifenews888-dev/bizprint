@@ -67,6 +67,13 @@ export class Product {
   @Column({ nullable: true })
   stock_quantity: number;
 
+  /** ID of the user who originally added this product to the catalog —
+      vendor, designer, or sales agent. Used for attribution and "owned by"
+      filters on the storefront. Distinct from vendor_id, which is the
+      production vendor that fulfils the order. */
+  @Column({ nullable: true })
+  created_by_user_id: string;
+
   @Column({ nullable: true })
   sku: string;
 
