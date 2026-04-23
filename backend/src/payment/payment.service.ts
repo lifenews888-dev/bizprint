@@ -478,4 +478,26 @@ export class PaymentService implements OnModuleInit {
       provider: payment.provider,
     }
   }
+
+  async getHistory(userId: string) {
+    const payments = await this.paymentRepository.find({
+      where: { userId },
+      relations: ['order'],
+      order: { createdAt: 'DESC' },
+      take: 50,
+    });
+    return payments.map(p => ({
+      id: p.id,
+      orderId: p.orderId ?? p.order?.id,
+      orderNumber: p.order?.orderNumber,
+      amount: p.amount,
+      currency: p.currency ?? 'MNT',
+      status: p.status,
+      escrowStatus: p.escrowStatus ?? p.status,
+      paidAt: p.paidAt ?? p.createdAt,
+      heldAt: p.heldAt,
+      releasedAt: p.releasedAt ?? p.updatedAt,
+      createdAt: p.createdAt,
+    }));
+  }
 }
