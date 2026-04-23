@@ -48,7 +48,7 @@ export class DesignRequestsService {
     this.webhookService.trigger(event, data).catch(() => {})
   }
 
-  // ── Basic queries ──────────────────────────────────────────────────────────
+  // ââ Basic queries ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
   findAll()                  { return this.repo.find({ order: { created_at: 'DESC' } }) }
   findByOrder(order_id: string) { return this.repo.find({ where: { order_id } }) }
@@ -57,7 +57,7 @@ export class DesignRequestsService {
   findPending()              { return this.repo.find({ where: { status: DesignStatus.PENDING }, order: { created_at: 'ASC' } }) }
   findOne(id: string)        { return this.repo.findOne({ where: { id } }) }
 
-  // ── KPI Stats ─────────────────────────────────────────────────────────────
+  // ââ KPI Stats âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
   async getStats() {
     const all = await this.repo.find()
@@ -70,7 +70,7 @@ export class DesignRequestsService {
       ? Math.round(completed.reduce((s, d) => s + (d.current_version || 1), 0) / completed.length * 10) / 10
       : 0
 
-    // Avg design time (created_at → updated_at for approved)
+    // Avg design time (created_at â updated_at for approved)
     let avgDesignHours = 0
     if (completed.length > 0) {
       const totalMs = completed.reduce((s, d) => {
@@ -89,7 +89,7 @@ export class DesignRequestsService {
     const designerLoad: Record<string, { name: string; active: number; total: number }> = {}
     all.forEach(d => {
       if (!d.designer_id) return
-      if (!designerLoad[d.designer_id]) designerLoad[d.designer_id] = { name: d.designer_name || '—', active: 0, total: 0 }
+      if (!designerLoad[d.designer_id]) designerLoad[d.designer_id] = { name: d.designer_name || 'â', active: 0, total: 0 }
       designerLoad[d.designer_id].total++
       if (!['approved', 'in_production', 'rejected'].includes(d.status)) {
         designerLoad[d.designer_id].active++
@@ -113,7 +113,7 @@ export class DesignRequestsService {
     }
   }
 
-  // ── Versions & Comments ────────────────────────────────────────────────────
+  // ââ Versions & Comments ââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
   getVersions(design_request_id: string) {
     return this.versionRepo.find({
@@ -136,11 +136,11 @@ export class DesignRequestsService {
     })
   }
 
-  // ── Full detail (request + versions + comments + zoom sessions) ────────────
+  // ââ Full detail (request + versions + comments + zoom sessions) ââââââââââââ
 
   async getFullDetail(id: string) {
     const dr = await this.findOne(id)
-    if (!dr) throw new NotFoundException('Design request олдсонгүй')
+    if (!dr) throw new NotFoundException('Design request Ð¾Ð»Ð´ÑÐ¾Ð½Ð³Ò¯Ð¹')
     const [versions, comments, zoomSessions] = await Promise.all([
       this.getVersions(id),
       this.getComments(id),
@@ -149,7 +149,7 @@ export class DesignRequestsService {
     return { ...dr, versions, comments, zoomSessions }
   }
 
-  // ── Create ─────────────────────────────────────────────────────────────────
+  // ââ Create âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
   async create(data: Partial<DesignRequest>) {
     const saved = await this.repo.save(this.repo.create({ ...data, status: DesignStatus.PENDING }))
@@ -157,7 +157,7 @@ export class DesignRequestsService {
     return saved
   }
 
-  // ── Assign designer ────────────────────────────────────────────────────────
+  // ââ Assign designer ââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
   async assign(id: string, designerId: string, designerName: string, designerPhone?: string, designerZoom?: string) {
     await this.repo.update(id, {
@@ -182,7 +182,7 @@ export class DesignRequestsService {
     return dr
   }
 
-  // ── Submit file (designer → creates new version) ──────────────────────────
+  // ââ Submit file (designer â creates new version) ââââââââââââââââââââââââââ
 
   async submitVersion(
     id: string,
@@ -194,8 +194,8 @@ export class DesignRequestsService {
     issues?: any,
   ) {
     const dr = await this.findOne(id)
-    if (!dr) throw new NotFoundException('Design request олдсонгүй')
-    if (dr.approval_locked) throw new BadRequestException('Загвар батлагдсан. Өөрчлөх боломжгүй.')
+    if (!dr) throw new NotFoundException('Design request Ð¾Ð»Ð´ÑÐ¾Ð½Ð³Ò¯Ð¹')
+    if (dr.approval_locked) throw new BadRequestException('ÐÐ°Ð³Ð²Ð°Ñ Ð±Ð°ÑÐ»Ð°Ð³Ð´ÑÐ°Ð½. Ó¨Ó©ÑÑÐ»Ó©Ñ Ð±Ð¾Ð»Ð¾Ð¼Ð¶Ð³Ò¯Ð¹.')
 
     // Calculate next version number
     const nextVersion = dr.current_version + 1
@@ -236,7 +236,7 @@ export class DesignRequestsService {
       author_id: uploadedById,
       author_name: uploaderName,
       author_role: 'designer',
-      content: `v${nextVersion} загвар байршуулагдлаа.${versionNote ? ` Тайлбар: ${versionNote}` : ''}`,
+      content: `v${nextVersion} Ð·Ð°Ð³Ð²Ð°Ñ Ð±Ð°Ð¹ÑÑÑÑÐ»Ð°Ð³Ð´Ð»Ð°Ð°.${versionNote ? ` Ð¢Ð°Ð¹Ð»Ð±Ð°Ñ: ${versionNote}` : ''}`,
       type: 'system',
       version_id: version.id,
       version_number: nextVersion,
@@ -254,20 +254,20 @@ export class DesignRequestsService {
     return this.getFullDetail(id)
   }
 
-  // ── Submit for customer review ─────────────────────────────────────────────
+  // ââ Submit for customer review âââââââââââââââââââââââââââââââââââââââââââââ
 
   async submitForReview(id: string, designerId: string) {
     const dr = await this.findOne(id)
     if (!dr) throw new NotFoundException()
-    if (dr.approval_locked) throw new BadRequestException('Загвар батлагдсан.')
+    if (dr.approval_locked) throw new BadRequestException('ÐÐ°Ð³Ð²Ð°Ñ Ð±Ð°ÑÐ»Ð°Ð³Ð´ÑÐ°Ð½.')
 
     await this.repo.update(id, { status: DesignStatus.UNDER_REVIEW })
 
     await this.addComment(id, {
       author_id: designerId,
-      author_name: dr.designer_name || 'Дизайнер',
+      author_name: dr.designer_name || 'ÐÐ¸Ð·Ð°Ð¹Ð½ÐµÑ',
       author_role: 'designer',
-      content: `v${dr.current_version} загварыг хянуулахаар илгээлээ. Та хянаад батлах эсвэл засах хүсэлт явуулна уу.`,
+      content: `v${dr.current_version} Ð·Ð°Ð³Ð²Ð°ÑÑÐ³ ÑÑÐ½ÑÑÐ»Ð°ÑÐ°Ð°Ñ Ð¸Ð»Ð³ÑÑÐ»ÑÑ. Ð¢Ð° ÑÑÐ½Ð°Ð°Ð´ Ð±Ð°ÑÐ»Ð°Ñ ÑÑÐ²ÑÐ» Ð·Ð°ÑÐ°Ñ ÑÒ¯ÑÑÐ»Ñ ÑÐ²ÑÑÐ»Ð½Ð° ÑÑ.`,
       type: 'system',
     })
 
@@ -283,21 +283,21 @@ export class DesignRequestsService {
     return this.findOne(id)
   }
 
-  // ── Revision requested (by customer) ──────────────────────────────────────
+  // ââ Revision requested (by customer) ââââââââââââââââââââââââââââââââââââââ
 
   async requestRevision(id: string, customerId: string, reason: string) {
     const dr = await this.findOne(id)
     if (!dr) throw new NotFoundException()
-    if (dr.approval_locked) throw new BadRequestException('Загвар батлагдсан. Засах боломжгүй.')
+    if (dr.approval_locked) throw new BadRequestException('ÐÐ°Ð³Ð²Ð°Ñ Ð±Ð°ÑÐ»Ð°Ð³Ð´ÑÐ°Ð½. ÐÐ°ÑÐ°Ñ Ð±Ð¾Ð»Ð¾Ð¼Ð¶Ð³Ò¯Ð¹.')
     if (dr.status !== DesignStatus.UNDER_REVIEW && dr.status !== DesignStatus.UPDATED_VERSION) {
-      throw new BadRequestException('Хянах горимд байхгүй байна.')
+      throw new BadRequestException('Ð¥ÑÐ½Ð°Ñ Ð³Ð¾ÑÐ¸Ð¼Ð´ Ð±Ð°Ð¹ÑÐ³Ò¯Ð¹ Ð±Ð°Ð¹Ð½Ð°.')
     }
 
     await this.repo.update(id, { status: DesignStatus.REVISION_REQUESTED })
 
     await this.addComment(id, {
       author_id: customerId,
-      author_name: dr.customer_name || 'Хэрэглэгч',
+      author_name: dr.customer_name || 'Ð¥ÑÑÑÐ³Ð»ÑÐ³Ñ',
       author_role: 'customer',
       content: reason,
       type: 'comment',
@@ -314,7 +314,7 @@ export class DesignRequestsService {
     return this.findOne(id)
   }
 
-  // ── Add comment ────────────────────────────────────────────────────────────
+  // ââ Add comment ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
   async addComment(
     designRequestId: string,
@@ -355,19 +355,19 @@ export class DesignRequestsService {
     return comment
   }
 
-  // ── Resolve comment ────────────────────────────────────────────────────────
+  // ââ Resolve comment ââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
   async resolveComment(commentId: string) {
     await this.commentRepo.update(commentId, { resolved: true })
     return this.commentRepo.findOne({ where: { id: commentId } })
   }
 
-  // ── Customer: request Zoom (notifies designer, who then creates actual meeting) ─
+  // ââ Customer: request Zoom (notifies designer, who then creates actual meeting) â
 
   async requestZoom(id: string, customerId: string, preferredAt?: Date) {
     const dr = await this.findOne(id)
     if (!dr) throw new NotFoundException()
-    if (dr.approval_locked) throw new BadRequestException('Загвар батлагдсан.')
+    if (dr.approval_locked) throw new BadRequestException('ÐÐ°Ð³Ð²Ð°Ñ Ð±Ð°ÑÐ»Ð°Ð³Ð´ÑÐ°Ð½.')
 
     // Store preferred meeting time
     if (preferredAt) {
@@ -375,14 +375,14 @@ export class DesignRequestsService {
     }
 
     const timeNote = preferredAt
-      ? ` Хүссэн цаг: ${new Date(preferredAt).toLocaleString('mn-MN', { timeZone: 'Asia/Ulaanbaatar' })}.`
+      ? ` Ð¥Ò¯ÑÑÑÐ½ ÑÐ°Ð³: ${new Date(preferredAt).toLocaleString('mn-MN', { timeZone: 'Asia/Ulaanbaatar' })}.`
       : ''
 
     await this.addComment(id, {
       author_id: customerId,
-      author_name: dr.customer_name || 'Хэрэглэгч',
+      author_name: dr.customer_name || 'Ð¥ÑÑÑÐ³Ð»ÑÐ³Ñ',
       author_role: 'customer',
-      content: `📹 Хэрэглэгч Zoom уулзалт хүсэж байна.${timeNote} Та уулзалт үүсгэнэ үү.`,
+      content: `ð¹ Ð¥ÑÑÑÐ³Ð»ÑÐ³Ñ Zoom ÑÑÐ»Ð·Ð°Ð»Ñ ÑÒ¯ÑÑÐ¶ Ð±Ð°Ð¹Ð½Ð°.${timeNote} Ð¢Ð° ÑÑÐ»Ð·Ð°Ð»Ñ Ò¯Ò¯ÑÐ³ÑÐ½Ñ Ò¯Ò¯.`,
       type: 'system',
     })
 
@@ -393,9 +393,9 @@ export class DesignRequestsService {
           if (designer?.email) {
             return this.mailService.sendZoomRequested({
               to: designer.email,
-              designerName: dr.designer_name || 'Дизайнер',
-              customerName: dr.customer_name || 'Хэрэглэгч',
-              productName: dr.product_name || 'Бүтээгдэхүүн',
+              designerName: dr.designer_name || 'ÐÐ¸Ð·Ð°Ð¹Ð½ÐµÑ',
+              customerName: dr.customer_name || 'Ð¥ÑÑÑÐ³Ð»ÑÐ³Ñ',
+              productName: dr.product_name || 'ÐÒ¯ÑÑÑÐ³Ð´ÑÑÒ¯Ò¯Ð½',
               preferredAt,
               orderId: dr.order_id,
             })
@@ -411,10 +411,10 @@ export class DesignRequestsService {
       customerId: dr.customer_id,
     })
 
-    return { success: true, message: 'Zoom хүсэлт дизайнерт илгээгдлээ' }
+    return { success: true, message: 'Zoom ÑÒ¯ÑÑÐ»Ñ Ð´Ð¸Ð·Ð°Ð¹Ð½ÐµÑÑ Ð¸Ð»Ð³ÑÑÐ³Ð´Ð»ÑÑ' }
   }
 
-  // ── Designer: create Zoom session (becomes HOST, can share screen) ─────────
+  // ââ Designer: create Zoom session (becomes HOST, can share screen) âââââââââ
 
   async createZoomSession(id: string, requestedBy: string, scheduledAt?: Date) {
     const dr = await this.findOne(id)
@@ -473,9 +473,9 @@ export class DesignRequestsService {
     // System comment
     await this.addComment(id, {
       author_id: requestedBy,
-      author_name: requestedBy === dr.customer_id ? (dr.customer_name || 'Хэрэглэгч') : (dr.designer_name || 'Дизайнер'),
+      author_name: requestedBy === dr.customer_id ? (dr.customer_name || 'Ð¥ÑÑÑÐ³Ð»ÑÐ³Ñ') : (dr.designer_name || 'ÐÐ¸Ð·Ð°Ð¹Ð½ÐµÑ'),
       author_role: requestedBy === dr.customer_id ? 'customer' : 'designer',
-      content: `Zoom уулзалт товлогдлоо.${scheduledAt ? ` Цаг: ${scheduledAt.toLocaleString('mn-MN')}` : ''} Холбоос: ${joinUrl}`,
+      content: `Zoom ÑÑÐ»Ð·Ð°Ð»Ñ ÑÐ¾Ð²Ð»Ð¾Ð³Ð´Ð»Ð¾Ð¾.${scheduledAt ? ` Ð¦Ð°Ð³: ${scheduledAt.toLocaleString('mn-MN')}` : ''} Ð¥Ð¾Ð»Ð±Ð¾Ð¾Ñ: ${joinUrl}`,
       type: 'system',
     })
 
@@ -492,9 +492,9 @@ export class DesignRequestsService {
     const attendeeEmails = [dr.customer_email, designerEmail].filter(Boolean) as string[]
 
     const zoomEmailPayload = {
-      customerName: dr.customer_name || 'Хэрэглэгч',
-      designerName: dr.designer_name || 'Дизайнер',
-      productName: dr.product_name || 'Бүтээгдэхүүн',
+      customerName: dr.customer_name || 'Ð¥ÑÑÑÐ³Ð»ÑÐ³Ñ',
+      designerName: dr.designer_name || 'ÐÐ¸Ð·Ð°Ð¹Ð½ÐµÑ',
+      productName: dr.product_name || 'ÐÒ¯ÑÑÑÐ³Ð´ÑÑÒ¯Ò¯Ð½',
       joinUrl,
       password: password || undefined,
       scheduledAt,
@@ -510,7 +510,7 @@ export class DesignRequestsService {
       }).catch(e => console.log('Zoom created email (customer) error:', e.message))
     }
 
-    // Email designer too — they also get the calendar invite
+    // Email designer too â they also get the calendar invite
     if (designerEmail) {
       this.mailService.sendZoomCreated({
         to: designerEmail,
@@ -518,12 +518,12 @@ export class DesignRequestsService {
       }).catch(e => console.log('Zoom created email (designer) error:', e.message))
     }
 
-    // ── Google Calendar sync (if configured) ─────────────────────────────
+    // ââ Google Calendar sync (if configured) âââââââââââââââââââââââââââââ
     if (scheduledAt) {
       try {
         const gcEvent = await this.googleCalendar.createEvent({
-          summary: `BizPrint Design Review - ${dr.product_name || 'Загвар'}`,
-          description: `Захиалга: ${dr.order_id || '-'}\nХэрэглэгч: ${dr.customer_name}\nДизайнер: ${dr.designer_name}`,
+          summary: `BizPrint Design Review - ${dr.product_name || 'ÐÐ°Ð³Ð²Ð°Ñ'}`,
+          description: `ÐÐ°ÑÐ¸Ð°Ð»Ð³Ð°: ${dr.order_id || '-'}\nÐ¥ÑÑÑÐ³Ð»ÑÐ³Ñ: ${dr.customer_name}\nÐÐ¸Ð·Ð°Ð¹Ð½ÐµÑ: ${dr.designer_name}`,
           startTime: scheduledAt,
           location: joinUrl,
           attendees: attendeeEmails,
@@ -553,7 +553,7 @@ export class DesignRequestsService {
     return { ...session, join_url: joinUrl, start_url: startUrl }
   }
 
-  // ── Customer approves design ───────────────────────────────────────────────
+  // ââ Customer approves design âââââââââââââââââââââââââââââââââââââââââââââââ
 
   async approve(id: string) {
     const dr = await this.findOne(id)
@@ -569,9 +569,9 @@ export class DesignRequestsService {
     // System comment
     await this.addComment(id, {
       author_id: dr.customer_id || 'system',
-      author_name: dr.customer_name || 'Хэрэглэгч',
+      author_name: dr.customer_name || 'Ð¥ÑÑÑÐ³Ð»ÑÐ³Ñ',
       author_role: 'customer',
-      content: `✅ Загвар батлагдлаа (v${dr.current_version}). Үйлдвэрлэл эхэлж байна.`,
+      content: `â ÐÐ°Ð³Ð²Ð°Ñ Ð±Ð°ÑÐ»Ð°Ð³Ð´Ð»Ð°Ð° (v${dr.current_version}). Ò®Ð¹Ð»Ð´Ð²ÑÑÐ»ÑÐ» ÑÑÑÐ»Ð¶ Ð±Ð°Ð¹Ð½Ð°.`,
       type: 'system',
     })
 
@@ -590,7 +590,7 @@ export class DesignRequestsService {
       }).catch(() => {})
     }
 
-    // ── Auto-advance order to PREPRESS + notify factory ─────────────────────
+    // ââ Auto-advance order to PREPRESS + notify factory âââââââââââââââââââââ
     if (dr.order_id) {
       try {
         // 1. Move order to prepress, store approved design file URL
@@ -609,20 +609,20 @@ export class DesignRequestsService {
         // Also check settings fallback email (in case no factory users registered yet)
         const fallbackEmail = await this.settingsService.get('factory_order_email').catch(() => null)
         const extraEmails: Array<{ email: string; name?: string }> =
-          fallbackEmail ? [{ email: fallbackEmail, name: 'Үйлдвэр' }] : []
+          fallbackEmail ? [{ email: fallbackEmail, name: 'Ò®Ð¹Ð»Ð´Ð²ÑÑ' }] : []
 
         const recipients = [
-          ...factoryUsers.map(u => ({ email: u.email, name: u.company_name || u.full_name || 'Үйлдвэр' })),
+          ...factoryUsers.map(u => ({ email: u.email, name: u.company_name || u.full_name || 'Ò®Ð¹Ð»Ð´Ð²ÑÑ' })),
           ...extraEmails.filter(e => !factoryUsers.some(u => u.email === e.email)),
         ]
 
         if (recipients.length > 0) {
           const emailPayload = {
             orderId: dr.order_id,
-            productName: dr.product_name || (order as any)?.product_name || 'Бүтээгдэхүүн',
+            productName: dr.product_name || (order as any)?.product_name || 'ÐÒ¯ÑÑÑÐ³Ð´ÑÑÒ¯Ò¯Ð½',
             quantity: (order as any)?.quantity || 0,
             fileUrl: dr.file_url,
-            customerName: dr.customer_name || 'Хэрэглэгч',
+            customerName: dr.customer_name || 'Ð¥ÑÑÑÐ³Ð»ÑÐ³Ñ',
             notes: (order as any)?.notes,
           }
           console.log(`[DesignApproval] Sending production email to ${recipients.length} factory recipient(s)`)
@@ -634,7 +634,7 @@ export class DesignRequestsService {
             }).catch(e => console.log(`Factory email error (${r.email}):`, e.message))
           }
         } else {
-          console.log('[DesignApproval] No factory users or fallback email configured — skipping factory notification')
+          console.log('[DesignApproval] No factory users or fallback email configured â skipping factory notification')
         }
 
         // 3. Emit order status changed event
@@ -648,7 +648,7 @@ export class DesignRequestsService {
       }
     }
 
-    // Emit DESIGN_APPROVED → production can start
+    // Emit DESIGN_APPROVED â production can start
     this.eventBus.emit(BizEvent.DESIGN_APPROVED, {
       designRequestId: id,
       orderId: dr.order_id,
@@ -662,7 +662,7 @@ export class DesignRequestsService {
     return this.getFullDetail(id)
   }
 
-  // ── Reject ─────────────────────────────────────────────────────────────────
+  // ââ Reject âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
   async reject(id: string, reason: string) {
     await this.repo.update(id, { status: DesignStatus.REJECTED, reject_reason: reason })
@@ -677,7 +677,7 @@ export class DesignRequestsService {
     return dr
   }
 
-  // ── Mark as in production (called after production job created) ────────────
+  // ââ Mark as in production (called after production job created) ââââââââââââ
 
   async markInProduction(id: string) {
     await this.repo.update(id, { status: DesignStatus.IN_PRODUCTION, approval_locked: true })
@@ -685,7 +685,7 @@ export class DesignRequestsService {
     return this.findOne(id)
   }
 
-  // ── Update ─────────────────────────────────────────────────────────────────
+  // ââ Update âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
 
   async update(id: string, data: Partial<DesignRequest>) {
     await this.repo.update(id, data)
@@ -697,7 +697,7 @@ export class DesignRequestsService {
     return { deleted: true }
   }
 
-  // ── Legacy: submitFile (kept for backwards compat) ─────────────────────────
+  // ââ Legacy: submitFile (kept for backwards compat) âââââââââââââââââââââââââ
 
   async submitFile(id: string, fileUrl: string, previewUrl?: string) {
     await this.repo.update(id, {
@@ -708,7 +708,16 @@ export class DesignRequestsService {
     return this.findOne(id)
   }
 
-  // ── Private: Designer payment ──────────────────────────────────────────────
+  // —— Customer: restore a specific version as current ——————————————————————
+  async restoreVersion(designId: string, versionId: string) {
+    const dr = await this.repo.findOne({ where: { id: designId } })
+    if (!dr) throw new Error('Design request not found')
+    await this.versionRepo.update({ design_request_id: designId }, { is_current: false })
+    await this.versionRepo.update({ id: versionId, design_request_id: designId }, { is_current: true })
+    return { ok: true, version_id: versionId }
+  }
+
+  // ââ Private: Designer payment ââââââââââââââââââââââââââââââââââââââââââââââ
 
   private async processDesignerPayment(dr: DesignRequest) {
     try {
