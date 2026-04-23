@@ -84,7 +84,7 @@ export async function apiFetch<T = unknown>(
       localStorage.removeItem('access_token')
       localStorage.removeItem('token')
       localStorage.removeItem('user')
-      window.location.href = '/login'
+      window.location.href = `/login?next=${encodeURIComponent(window.location.pathname + window.location.search)}`
       throw new Error('Нэвтрэлт дууссан байна')
     }
     // auth: false (public/login call) → surface backend's real error
