@@ -45,7 +45,7 @@ const VENDOR_ALLOWED_TRANSITIONS: Record<string, OrderStatus[]> = {
   [OrderStatus.PARTIALLY_DISPATCHED]: [OrderStatus.DISPATCHED],
 };
 
-// Valid state transitions — defines which states each state can move to
+// Valid state transitions â defines which states each state can move to
 const VALID_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
   [OrderStatus.DRAFT]:                 [OrderStatus.QUOTATION_SENT, OrderStatus.CANCELLED],
   [OrderStatus.QUOTATION_SENT]:        [OrderStatus.CONFIRMED, OrderStatus.CANCELLED],
@@ -53,7 +53,7 @@ const VALID_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
   [OrderStatus.PENDING_FILE]:          [OrderStatus.FILE_REVIEW, OrderStatus.CANCELLED],
   [OrderStatus.FILE_REVIEW]:           [OrderStatus.CONFIRMED, OrderStatus.FILE_REJECTED],
   [OrderStatus.FILE_REJECTED]:         [OrderStatus.PENDING_FILE, OrderStatus.CANCELLED],
-  [OrderStatus.ON_HOLD]:               [], // resolved dynamically — can return to any state that led to ON_HOLD
+  [OrderStatus.ON_HOLD]:               [], // resolved dynamically â can return to any state that led to ON_HOLD
   [OrderStatus.IN_PRODUCTION]:         [OrderStatus.FINISHING, OrderStatus.ON_HOLD, OrderStatus.CANCELLED],
   [OrderStatus.FINISHING]:             [OrderStatus.PARTIALLY_DISPATCHED, OrderStatus.DISPATCHED],
   [OrderStatus.PARTIALLY_DISPATCHED]:  [OrderStatus.DISPATCHED],
@@ -111,9 +111,9 @@ export class OrdersService {
       try {
         await this.mailService.sendOrderConfirmation({
           to: data.customer_email,
-          name: data.customer_name || 'Хэрэглэгч',
+          name: data.customer_name || 'Ð¥ÑÑÑÐ³Ð»ÑÐ³Ñ',
           orderId: saved.id,
-          productName: data.product_name || 'Бүтээгдэхүүн',
+          productName: data.product_name || 'ÐÒ¯ÑÑÑÐ³Ð´ÑÑÒ¯Ò¯Ð½',
           quantity: saved.quantity,
           total: saved.total_price,
           invoiceCode: data.invoice_code || '',
@@ -137,8 +137,8 @@ export class OrdersService {
         await this.notificationService.create({
           user_id: (admin as any).id,
           type: 'ORDER' as any,
-          title: 'Шинэ захиалга',
-          message: `${data.customer_name || 'Хэрэглэгч'} — ${data.product_name || 'Бүтээгдэхүүн'} × ${saved.quantity}ш`,
+          title: 'Ð¨Ð¸Ð½Ñ Ð·Ð°ÑÐ¸Ð°Ð»Ð³Ð°',
+          message: `${data.customer_name || 'Ð¥ÑÑÑÐ³Ð»ÑÐ³Ñ'} â ${data.product_name || 'ÐÒ¯ÑÑÑÐ³Ð´ÑÑÒ¯Ò¯Ð½'} Ã ${saved.quantity}Ñ`,
           data: { order_id: saved.id },
         });
       }
@@ -163,7 +163,7 @@ export class OrdersService {
   async createFromQuote(quoteId: string, userId: string, paymentMethod?: string) {
     const quoteRepo = this.ordersRepo.manager.connection.getRepository('Quotation');
     const quote = await quoteRepo.findOne({ where: { id: quoteId } });
-    if (!quote) throw new NotFoundException('Quote олдсонгүй');
+    if (!quote) throw new NotFoundException('Quote Ð¾Ð»Ð´ÑÐ¾Ð½Ð³Ò¯Ð¹');
 
     const order = this.ordersRepo.create({
       customer_id: userId,
@@ -183,7 +183,7 @@ export class OrdersService {
       payment_method: paymentMethod || 'pending',
       payment_status: 'pending',
       status: OrderStatus.DRAFT,
-      notes: `Quote ${(quote as any).quote_number}-аас үүсгэгдсэн`,
+      notes: `Quote ${(quote as any).quote_number}-Ð°Ð°Ñ Ò¯Ò¯ÑÐ³ÑÐ³Ð´ÑÑÐ½`,
     });
     const saved: Order = await this.ordersRepo.save(order as any);
 
@@ -193,9 +193,9 @@ export class OrdersService {
       try {
         await this.mailService.sendOrderConfirmation({
           to: (quote as any).customer_email,
-          name: (quote as any).customer_name || 'Хэрэглэгч',
+          name: (quote as any).customer_name || 'Ð¥ÑÑÑÐ³Ð»ÑÐ³Ñ',
           orderId: saved.id,
-          productName: (quote as any).product_name || 'Хэвлэл',
+          productName: (quote as any).product_name || 'Ð¥ÑÐ²Ð»ÑÐ»',
           quantity: (quote as any).quantity,
           total: (quote as any).total_price,
           invoiceCode: saved.id.slice(0, 8).toUpperCase(),
@@ -219,22 +219,22 @@ export class OrdersService {
     const customerId = (order as any).customer_id || (order as any).user_id;
     if (customerId) {
       const statusMessages: Record<string, string> = {
-        [OrderStatus.CONFIRMED]:            'Таны захиалга баталгаажлаа ✅',
-        [OrderStatus.PENDING_FILE]:         'Хэвлэх файлаа оруулна уу 📁',
-        [OrderStatus.FILE_REVIEW]:          'Файл хүлээн авлаа, шалгаж байна 🔍',
-        [OrderStatus.FILE_REJECTED]:        'Файл буцаагдлаа. Засаад дахин оруулна уу ❌',
-        [OrderStatus.IN_PRODUCTION]:        'Захиалга үйлдвэрлэлд орлоо 🏭',
-        [OrderStatus.FINISHING]:            'Захиалга боловсруулалтад орлоо 🔧',
-        [OrderStatus.DISPATCHED]:           'Таны захиалга илгээгдлээ 📦',
-        [OrderStatus.DELIVERED]:            'Захиалга хүргэгдлээ. Үнэлгээ өгнө үү ⭐',
-        [OrderStatus.COMPLETED]:            'Захиалга амжилттай дууслаа ✅',
+        [OrderStatus.CONFIRMED]:            'Ð¢Ð°Ð½Ñ Ð·Ð°ÑÐ¸Ð°Ð»Ð³Ð° Ð±Ð°ÑÐ°Ð»Ð³Ð°Ð°Ð¶Ð»Ð°Ð° â',
+        [OrderStatus.PENDING_FILE]:         'Ð¥ÑÐ²Ð»ÑÑ ÑÐ°Ð¹Ð»Ð°Ð° Ð¾ÑÑÑÐ»Ð½Ð° ÑÑ ð',
+        [OrderStatus.FILE_REVIEW]:          'Ð¤Ð°Ð¹Ð» ÑÒ¯Ð»ÑÑÐ½ Ð°Ð²Ð»Ð°Ð°, ÑÐ°Ð»Ð³Ð°Ð¶ Ð±Ð°Ð¹Ð½Ð° ð',
+        [OrderStatus.FILE_REJECTED]:        'Ð¤Ð°Ð¹Ð» Ð±ÑÑÐ°Ð°Ð³Ð´Ð»Ð°Ð°. ÐÐ°ÑÐ°Ð°Ð´ Ð´Ð°ÑÐ¸Ð½ Ð¾ÑÑÑÐ»Ð½Ð° ÑÑ â',
+        [OrderStatus.IN_PRODUCTION]:        'ÐÐ°ÑÐ¸Ð°Ð»Ð³Ð° Ò¯Ð¹Ð»Ð´Ð²ÑÑÐ»ÑÐ»Ð´ Ð¾ÑÐ»Ð¾Ð¾ ð­',
+        [OrderStatus.FINISHING]:            'ÐÐ°ÑÐ¸Ð°Ð»Ð³Ð° Ð±Ð¾Ð»Ð¾Ð²ÑÑÑÑÐ»Ð°Ð»ÑÐ°Ð´ Ð¾ÑÐ»Ð¾Ð¾ ð§',
+        [OrderStatus.DISPATCHED]:           'Ð¢Ð°Ð½Ñ Ð·Ð°ÑÐ¸Ð°Ð»Ð³Ð° Ð¸Ð»Ð³ÑÑÐ³Ð´Ð»ÑÑ ð¦',
+        [OrderStatus.DELIVERED]:            'ÐÐ°ÑÐ¸Ð°Ð»Ð³Ð° ÑÒ¯ÑÐ³ÑÐ³Ð´Ð»ÑÑ. Ò®Ð½ÑÐ»Ð³ÑÑ Ó©Ð³Ð½Ó© Ò¯Ò¯ â­',
+        [OrderStatus.COMPLETED]:            'ÐÐ°ÑÐ¸Ð°Ð»Ð³Ð° Ð°Ð¼Ð¶Ð¸Ð»ÑÑÐ°Ð¹ Ð´ÑÑÑÐ»Ð°Ð° â',
       };
       if (statusMessages[status]) {
         try {
           await this.notificationService.create({
             user_id: customerId,
             type: 'ORDER' as any,
-            title: 'Захиалгын мэдэгдэл',
+            title: 'ÐÐ°ÑÐ¸Ð°Ð»Ð³ÑÐ½ Ð¼ÑÐ´ÑÐ³Ð´ÑÐ»',
             message: statusMessages[status],
             data: { order_id: id, status },
           });
@@ -244,8 +244,8 @@ export class OrdersService {
 
     // Send file-related emails
     const email = (order as any).customer_email;
-    const customerName = (order as any).customer_name || 'Хэрэглэгч';
-    const productName = (order as any).product_name || 'Хэвлэл';
+    const customerName = (order as any).customer_name || 'Ð¥ÑÑÑÐ³Ð»ÑÐ³Ñ';
+    const productName = (order as any).product_name || 'Ð¥ÑÐ²Ð»ÑÐ»';
 
     if (email) {
       try {
@@ -264,7 +264,7 @@ export class OrdersService {
             to: email,
             customerName,
             productName,
-            courierName: (order as any).courier_name || 'Хүргэлтийн ажилтан',
+            courierName: (order as any).courier_name || 'Ð¥Ò¯ÑÐ³ÑÐ»ÑÐ¸Ð¹Ð½ Ð°Ð¶Ð¸Ð»ÑÐ°Ð½',
             courierPhone: (order as any).courier_phone || '',
             address: (order as any).shipping_address || (order as any).delivery_address || '',
           });
@@ -280,26 +280,26 @@ export class OrdersService {
       }
     }
 
-    // ═══ PRODUCTION GATE — validate file before production ═══
+    // âââ PRODUCTION GATE â validate file before production âââ
     if (status === OrderStatus.IN_PRODUCTION) {
       try {
         const gate = await this.productionGate.isProductionReady(id);
         if (!gate.ready) {
           this.logger.warn(`Production gate failed for order ${id}: ${gate.reason}`);
-          // Don't block — log warning, admin can override
+          // Don't block â log warning, admin can override
         }
       } catch (e) {
         this.logger.warn(`Production gate check error: ${e.message}`);
       }
     }
 
-    // ═══ AUTO-ASSIGN VENDOR when order is CONFIRMED ═══
+    // âââ AUTO-ASSIGN VENDOR when order is CONFIRMED âââ
     if (status === OrderStatus.CONFIRMED && (order as any).product_id) {
       await this.autoAssignVendor(order as any);
     }
 
     // Always broadcast the transition. Listeners include:
-    //   - DeliveryService → auto-create Delivery + assign courier on DISPATCHED
+    //   - DeliveryService â auto-create Delivery + assign courier on DISPATCHED
     //   - Frontend dashboards subscribed to order:{id}, user:{customerId},
     //     vendor:{vendorId} rooms (live status updates)
     this.eventBus.emit(BizEvent.ORDER_STATUS_UPDATED, {
@@ -328,11 +328,11 @@ export class OrdersService {
           const allowed = VENDOR_ALLOWED_TRANSITIONS[order.status as OrderStatus] || [];
           if (!allowed.includes(data.status as OrderStatus)) {
             throw new BadRequestException(
-              `Үйлдвэр ${order.status} статусаас ${data.status} статус руу шилжүүлэх эрхгүй`,
+              `Ò®Ð¹Ð»Ð´Ð²ÑÑ ${order.status} ÑÑÐ°ÑÑÑÐ°Ð°Ñ ${data.status} ÑÑÐ°ÑÑÑ ÑÑÑ ÑÐ¸Ð»Ð¶Ò¯Ò¯Ð»ÑÑ ÑÑÑÐ³Ò¯Ð¹`,
             );
           }
         } else {
-          throw new BadRequestException('Та энэ захиалгын статусыг өөрчлөх эрхгүй');
+          throw new BadRequestException('Ð¢Ð° ÑÐ½Ñ Ð·Ð°ÑÐ¸Ð°Ð»Ð³ÑÐ½ ÑÑÐ°ÑÑÑÑÐ³ Ó©Ó©ÑÑÐ»Ó©Ñ ÑÑÑÐ³Ò¯Ð¹');
         }
       }
       update.status = data.status;
@@ -343,7 +343,7 @@ export class OrdersService {
 
     // Trigger the same downstream side-effects updateStatus does (notification,
     // emails, vendor auto-assign). Skipping these meant vendors clicking
-    // "Боловсруулалтад оруулах" left the customer with no notification.
+    // "ÐÐ¾Ð»Ð¾Ð²ÑÑÑÑÐ»Ð°Ð»ÑÐ°Ð´ Ð¾ÑÑÑÐ»Ð°Ñ" left the customer with no notification.
     if (data.status) {
       await this.updateStatus(id, data.status as OrderStatus).catch(e =>
         this.logger.warn(`updateStatus side-effects failed for ${id}: ${e.message}`),
@@ -355,7 +355,7 @@ export class OrdersService {
 
   /**
    * Throws if the caller (a vendor user) is not assigned to the given order.
-   * Resolves the vendor record from user_id → vendors.id and compares to
+   * Resolves the vendor record from user_id â vendors.id and compares to
    * order.factory_id (legacy column) and any OrderVendorGroup rows.
    */
   private async assertVendorOwnsOrder(vendorUserId: string, order: Order) {
@@ -367,7 +367,7 @@ export class OrdersService {
       .getRawOne();
     const vendorId = vendorRow?.id;
     if (!vendorId) {
-      throw new BadRequestException('Vendor бүртгэл олдсонгүй');
+      throw new BadRequestException('Vendor Ð±Ò¯ÑÑÐ³ÑÐ» Ð¾Ð»Ð´ÑÐ¾Ð½Ð³Ò¯Ð¹');
     }
 
     if ((order as any).factory_id === vendorId) return;
@@ -376,16 +376,16 @@ export class OrdersService {
       where: { order_id: order.id, vendor_id: vendorId },
     });
     if (!group) {
-      throw new BadRequestException('Та энэ захиалгад оноогдоогүй');
+      throw new BadRequestException('Ð¢Ð° ÑÐ½Ñ Ð·Ð°ÑÐ¸Ð°Ð»Ð³Ð°Ð´ Ð¾Ð½Ð¾Ð¾Ð³Ð´Ð¾Ð¾Ð³Ò¯Ð¹');
     }
   }
 
   /**
-   * QC fail буцаах — одоогийн stage-аас өмнөх stage руу буцаана
+   * QC fail Ð±ÑÑÐ°Ð°Ñ â Ð¾Ð´Ð¾Ð¾Ð³Ð¸Ð¹Ð½ stage-Ð°Ð°Ñ Ó©Ð¼Ð½Ó©Ñ stage ÑÑÑ Ð±ÑÑÐ°Ð°Ð½Ð°
    * @param id - Order ID
-   * @param reason - Буцаах шалтгаан
-   * @param targetStage - Аль stage руу буцаах (optional, default = өмнөх stage)
-   * @param user - Хэн буцаасан
+   * @param reason - ÐÑÑÐ°Ð°Ñ ÑÐ°Ð»ÑÐ³Ð°Ð°Ð½
+   * @param targetStage - ÐÐ»Ñ stage ÑÑÑ Ð±ÑÑÐ°Ð°Ñ (optional, default = Ó©Ð¼Ð½Ó©Ñ stage)
+   * @param user - Ð¥ÑÐ½ Ð±ÑÑÐ°Ð°ÑÐ°Ð½
    */
   async revertStatus(
     id: string,
@@ -396,47 +396,47 @@ export class OrdersService {
     const order = await this.getOrderById(id);
     const currentStatus = order.status;
 
-    // Одоогийн stage-ийн index олох
+    // ÐÐ´Ð¾Ð¾Ð³Ð¸Ð¹Ð½ stage-Ð¸Ð¹Ð½ index Ð¾Ð»Ð¾Ñ
     const currentIndex = WORKFLOW_STAGES.indexOf(currentStatus as OrderStatus);
 
-    // completed, delivered, shipped, cancelled, pending бол буцаах боломжгүй
+    // completed, delivered, shipped, cancelled, pending Ð±Ð¾Ð» Ð±ÑÑÐ°Ð°Ñ Ð±Ð¾Ð»Ð¾Ð¼Ð¶Ð³Ò¯Ð¹
     const NON_REVERTABLE = [OrderStatus.COMPLETED, OrderStatus.DELIVERED, OrderStatus.DISPATCHED, OrderStatus.CANCELLED];
     if (NON_REVERTABLE.includes(currentStatus as OrderStatus)) {
       throw new BadRequestException(
-        `"${currentStatus}" төлөвөөс буцаах боломжгүй`,
+        `"${currentStatus}" ÑÓ©Ð»Ó©Ð²Ó©Ó©Ñ Ð±ÑÑÐ°Ð°Ñ Ð±Ð¾Ð»Ð¾Ð¼Ð¶Ð³Ò¯Ð¹`,
       );
     }
     if (currentIndex <= 0) {
       throw new BadRequestException(
-        `"${currentStatus}" төлөвөөс буцаах боломжгүй (анхны төлөв)`,
+        `"${currentStatus}" ÑÓ©Ð»Ó©Ð²Ó©Ó©Ñ Ð±ÑÑÐ°Ð°Ñ Ð±Ð¾Ð»Ð¾Ð¼Ð¶Ð³Ò¯Ð¹ (Ð°Ð½ÑÐ½Ñ ÑÓ©Ð»Ó©Ð²)`,
       );
     }
 
     let revertToIndex: number;
 
     if (targetStage) {
-      // Тодорхой stage руу буцаах
+      // Ð¢Ð¾Ð´Ð¾ÑÑÐ¾Ð¹ stage ÑÑÑ Ð±ÑÑÐ°Ð°Ñ
       revertToIndex = WORKFLOW_STAGES.indexOf(targetStage as OrderStatus);
       if (revertToIndex < 0 || revertToIndex >= currentIndex) {
         throw new BadRequestException(
-          `"${targetStage}" руу буцаах боломжгүй (одоогийн: ${currentStatus})`,
+          `"${targetStage}" ÑÑÑ Ð±ÑÑÐ°Ð°Ñ Ð±Ð¾Ð»Ð¾Ð¼Ð¶Ð³Ò¯Ð¹ (Ð¾Ð´Ð¾Ð¾Ð³Ð¸Ð¹Ð½: ${currentStatus})`,
         );
       }
     } else {
-      // Default: өмнөх stage руу
+      // Default: Ó©Ð¼Ð½Ó©Ñ stage ÑÑÑ
       revertToIndex = currentIndex - 1;
     }
 
     const revertTo = WORKFLOW_STAGES[revertToIndex];
 
-    // Статус шинэчлэх
+    // Ð¡ÑÐ°ÑÑÑ ÑÐ¸Ð½ÑÑÐ»ÑÑ
     await this.ordersRepo.update(id, { status: revertTo });
 
-    // Audit trail бичих
+    // Audit trail Ð±Ð¸ÑÐ¸Ñ
     const auditEntry = this.auditRepo.create({
       order_id: id,
       user: user,
-      action: `БУЦААГДСАН: "${currentStatus}" → "${revertTo}" | Шалтгаан: ${reason}`,
+      action: `ÐÐ£Ð¦ÐÐÐÐÐ¡ÐÐ: "${currentStatus}" â "${revertTo}" | Ð¨Ð°Ð»ÑÐ³Ð°Ð°Ð½: ${reason}`,
     });
     await this.auditRepo.save(auditEntry);
 
@@ -456,7 +456,7 @@ export class OrdersService {
   }
 
   /**
-   * List orders assigned to a vendor (joined via vendor user_id → vendor.id → factory_id).
+   * List orders assigned to a vendor (joined via vendor user_id â vendor.id â factory_id).
    * Used by the vendor production dashboard to show their queue.
    */
   async getOrdersByVendor(vendorUserId: string) {
@@ -477,7 +477,7 @@ export class OrdersService {
 
   async getOrderById(id: string) {
     const order = await this.ordersRepo.findOne({ where: { id } });
-    if (!order) throw new NotFoundException('Захиалга олдсонгүй');
+    if (!order) throw new NotFoundException('ÐÐ°ÑÐ¸Ð°Ð»Ð³Ð° Ð¾Ð»Ð´ÑÐ¾Ð½Ð³Ò¯Ð¹');
     return order;
   }
 
@@ -486,24 +486,24 @@ export class OrdersService {
     const next = newStatus as OrderStatus;
 
     if (!Object.values(OrderStatus).includes(next)) {
-      throw new BadRequestException(`"${newStatus}" нь зөвшөөрөгдсөн төлөв биш`);
+      throw new BadRequestException(`"${newStatus}" Ð½Ñ Ð·Ó©Ð²ÑÓ©Ó©ÑÓ©Ð³Ð´ÑÓ©Ð½ ÑÓ©Ð»Ó©Ð² Ð±Ð¸Ñ`);
     }
 
     const allowed = VALID_TRANSITIONS[current];
     if (!allowed) {
-      throw new BadRequestException(`"${currentStatus}" төлөвөөс шилжих боломжгүй`);
+      throw new BadRequestException(`"${currentStatus}" ÑÓ©Ð»Ó©Ð²Ó©Ó©Ñ ÑÐ¸Ð»Ð¶Ð¸Ñ Ð±Ð¾Ð»Ð¾Ð¼Ð¶Ð³Ò¯Ð¹`);
     }
 
     // ON_HOLD is resolved dynamically via revertStatus, not updateStatus
     if (current === OrderStatus.ON_HOLD) {
       throw new BadRequestException(
-        `ON_HOLD төлөвөөс гарахын тулд revertStatus ашиглана уу`,
+        `ON_HOLD ÑÓ©Ð»Ó©Ð²Ó©Ó©Ñ Ð³Ð°ÑÐ°ÑÑÐ½ ÑÑÐ»Ð´ revertStatus Ð°ÑÐ¸Ð³Ð»Ð°Ð½Ð° ÑÑ`,
       );
     }
 
     if (!allowed.includes(next)) {
       throw new BadRequestException(
-        `"${currentStatus}" → "${newStatus}" шилжилт зөвшөөрөгдөөгүй. Зөвшөөрөгдсөн: ${allowed.join(', ')}`,
+        `"${currentStatus}" â "${newStatus}" ÑÐ¸Ð»Ð¶Ð¸Ð»Ñ Ð·Ó©Ð²ÑÓ©Ó©ÑÓ©Ð³Ð´Ó©Ó©Ð³Ò¯Ð¹. ÐÓ©Ð²ÑÓ©Ó©ÑÓ©Ð³Ð´ÑÓ©Ð½: ${allowed.join(', ')}`,
       );
     }
   }
@@ -517,7 +517,7 @@ export class OrdersService {
       const isAdmin = ['admin', 'superadmin'].includes(actor.role);
       const isOwner = (order as any).customer_id === actor.id;
       if (!isAdmin && !isOwner) {
-        throw new BadRequestException('Та энэ захиалгыг цуцлах эрхгүй');
+        throw new BadRequestException('Ð¢Ð° ÑÐ½Ñ Ð·Ð°ÑÐ¸Ð°Ð»Ð³ÑÐ³ ÑÑÑÐ»Ð°Ñ ÑÑÑÐ³Ò¯Ð¹');
       }
     }
 
@@ -526,7 +526,7 @@ export class OrdersService {
     order.status = OrderStatus.CANCELLED;
     const saved = await this.ordersRepo.save(order);
 
-    // Emit ORDER_CANCELLED — payment.service listens to this and applies the
+    // Emit ORDER_CANCELLED â payment.service listens to this and applies the
     // refund policy (100% before production, 50% in production, 0% after dispatch).
     this.eventBus.emit(BizEvent.ORDER_CANCELLED, {
       orderId: id,
@@ -539,9 +539,9 @@ export class OrdersService {
     return saved;
   }
 
-  /* ═══════════════════════════════════════════════════
-     AUTO-ASSIGN VENDOR — захиалга CONFIRMED болоход
-     ═══════════════════════════════════════════════════ */
+  /* âââââââââââââââââââââââââââââââââââââââââââââââââââ
+     AUTO-ASSIGN VENDOR â Ð·Ð°ÑÐ¸Ð°Ð»Ð³Ð° CONFIRMED Ð±Ð¾Ð»Ð¾ÑÐ¾Ð´
+     âââââââââââââââââââââââââââââââââââââââââââââââââââ */
   private async autoAssignVendor(order: Order) {
     try {
       const productId = (order as any).product_id;
@@ -577,37 +577,37 @@ export class OrdersService {
           to: vendor.contact_email,
           vendorName: vendor.company_name,
           orderId: order.id,
-          productName: (order as any).product_name || 'Бүтээгдэхүүн',
+          productName: (order as any).product_name || 'ÐÒ¯ÑÑÑÐ³Ð´ÑÑÒ¯Ò¯Ð½',
           quantity,
-          customerName: (order as any).customer_name || 'Хэрэглэгч',
+          customerName: (order as any).customer_name || 'Ð¥ÑÑÑÐ³Ð»ÑÐ³Ñ',
           fileUrl: (order as any).file_url || undefined,
           deadline: order.deadline ? new Date(order.deadline).toLocaleDateString('mn-MN') : undefined,
           notes: (order as any).notes || undefined,
         });
       }
 
-      // In-app notification — vendor sees the new job in real time without
+      // In-app notification â vendor sees the new job in real time without
       // having to dig through email.
       if ((vendor as any).user_id) {
         await this.notificationService.create({
           user_id: (vendor as any).user_id,
           type: 'order' as any,
-          title: '⚡ Шинэ захиалга оноогдлоо',
-          message: `${(order as any).product_name || 'Бүтээгдэхүүн'} · ${quantity} ширхэг · ${(order as any).customer_name || 'Хэрэглэгч'}`,
+          title: 'â¡ Ð¨Ð¸Ð½Ñ Ð·Ð°ÑÐ¸Ð°Ð»Ð³Ð° Ð¾Ð½Ð¾Ð¾Ð³Ð´Ð»Ð¾Ð¾',
+          message: `${(order as any).product_name || 'ÐÒ¯ÑÑÑÐ³Ð´ÑÑÒ¯Ò¯Ð½'} Â· ${quantity} ÑÐ¸ÑÑÑÐ³ Â· ${(order as any).customer_name || 'Ð¥ÑÑÑÐ³Ð»ÑÐ³Ñ'}`,
           data: { order_id: order.id, vendor_id: vendor.id },
         }).catch(e => this.logger.warn(`Vendor notification failed: ${e.message}`));
       }
 
-      this.logger.log(`Order ${order.id.slice(-8)} → auto-assigned to ${vendor.company_name} (${result.reason})`);
+      this.logger.log(`Order ${order.id.slice(-8)} â auto-assigned to ${vendor.company_name} (${result.reason})`);
     } catch (e) {
       this.logger.warn(`Auto-assign failed for order ${order.id}: ${e.message}`);
-      // Order proceeds without vendor — admin can manually assign
+      // Order proceeds without vendor â admin can manually assign
     }
   }
 
-  /* ═══════════════════════════════════════════════════
-     MANUAL RE-ASSIGN VENDOR — админ гараар vendor солих
-     ═══════════════════════════════════════════════════ */
+  /* âââââââââââââââââââââââââââââââââââââââââââââââââââ
+     MANUAL RE-ASSIGN VENDOR â Ð°Ð´Ð¼Ð¸Ð½ Ð³Ð°ÑÐ°Ð°Ñ vendor ÑÐ¾Ð»Ð¸Ñ
+     âââââââââââââââââââââââââââââââââââââââââââââââââââ */
   async reassignVendor(orderId: string, vendorId: string) {
     const order = await this.getOrderById(orderId);
 
@@ -644,30 +644,30 @@ export class OrdersService {
         to: vendor.contact_email,
         vendorName: vendor.company_name,
         orderId,
-        productName: (order as any).product_name || 'Бүтээгдэхүүн',
+        productName: (order as any).product_name || 'ÐÒ¯ÑÑÑÐ³Ð´ÑÑÒ¯Ò¯Ð½',
         quantity: order.quantity || 1,
-        customerName: (order as any).customer_name || 'Хэрэглэгч',
+        customerName: (order as any).customer_name || 'Ð¥ÑÑÑÐ³Ð»ÑÐ³Ñ',
         fileUrl: (order as any).file_url || undefined,
       });
     }
 
-    this.logger.log(`Order ${orderId.slice(-8)} → manually re-assigned to ${vendor.company_name}`);
+    this.logger.log(`Order ${orderId.slice(-8)} â manually re-assigned to ${vendor.company_name}`);
     return { order_id: orderId, vendor_id: vendorId, vendor_name: vendor.company_name };
   }
 
-  // ── Zoom meeting for order ──────────────────────────────────
+  // ââ Zoom meeting for order ââââââââââââââââââââââââââââââââââ
   async scheduleZoom(orderId: string, userId: string, scheduledAt?: string, notes?: string) {
     const order = await this.ordersRepo.findOne({ where: { id: orderId } });
-    if (!order) throw new NotFoundException('Захиалга олдсонгүй');
-    if (order.customer_id !== userId) throw new BadRequestException('Зөвхөн өөрийн захиалга дээр Zoom товлох боломжтой');
+    if (!order) throw new NotFoundException('ÐÐ°ÑÐ¸Ð°Ð»Ð³Ð° Ð¾Ð»Ð´ÑÐ¾Ð½Ð³Ò¯Ð¹');
+    if (order.customer_id !== userId) throw new BadRequestException('ÐÓ©Ð²ÑÓ©Ð½ Ó©Ó©ÑÐ¸Ð¹Ð½ Ð·Ð°ÑÐ¸Ð°Ð»Ð³Ð° Ð´ÑÑÑ Zoom ÑÐ¾Ð²Ð»Ð¾Ñ Ð±Ð¾Ð»Ð¾Ð¼Ð¶ÑÐ¾Ð¹');
 
     // Only allow for design/signage orders in relevant statuses
     const allowedStatuses = ['confirmed', 'pending_file', 'file_review', 'file_rejected'];
     if (!allowedStatuses.includes(order.status)) {
-      throw new BadRequestException('Энэ төлөвт Zoom уулзалт товлох боломжгүй');
+      throw new BadRequestException('Ð­Ð½Ñ ÑÓ©Ð»Ó©Ð²Ñ Zoom ÑÑÐ»Ð·Ð°Ð»Ñ ÑÐ¾Ð²Ð»Ð¾Ñ Ð±Ð¾Ð»Ð¾Ð¼Ð¶Ð³Ò¯Ð¹');
     }
 
-    const topic = `BizPrint — ${order.product_name || 'Захиалга'} #${orderId.slice(-8).toUpperCase()}`;
+    const topic = `BizPrint â ${order.product_name || 'ÐÐ°ÑÐ¸Ð°Ð»Ð³Ð°'} #${orderId.slice(-8).toUpperCase()}`;
     const meetingDate = scheduledAt ? new Date(scheduledAt) : undefined;
 
     const meeting = await this.zoomService.createMeeting({
@@ -685,7 +685,7 @@ export class OrdersService {
       order.zoom_status = 'scheduled';
       order.zoom_reminder_sent = false;
     } else {
-      // Fallback — save a placeholder for manual link
+      // Fallback â save a placeholder for manual link
       order.zoom_join_url = 'https://zoom.us';
       order.zoom_scheduled_at = meetingDate || new Date();
       order.zoom_status = 'scheduled';
@@ -698,9 +698,9 @@ export class OrdersService {
       try {
         await this.mailService.sendZoomCreated({
           to: order.customer_email,
-          customerName: order.customer_name || 'Хэрэглэгч',
-          designerName: 'BizPrint баг',
-          productName: order.product_name || 'Захиалга',
+          customerName: order.customer_name || 'Ð¥ÑÑÑÐ³Ð»ÑÐ³Ñ',
+          designerName: 'BizPrint Ð±Ð°Ð³',
+          productName: order.product_name || 'ÐÐ°ÑÐ¸Ð°Ð»Ð³Ð°',
           joinUrl: meeting?.join_url || 'https://zoom.us',
           password: meeting?.password,
           scheduledAt: meetingDate,
@@ -716,10 +716,10 @@ export class OrdersService {
       await this.notificationService.create({
         user_id: order.customer_id,
         type: 'order',
-        title: '📹 Zoom уулзалт товлогдлоо',
+        title: 'ð¹ Zoom ÑÑÐ»Ð·Ð°Ð»Ñ ÑÐ¾Ð²Ð»Ð¾Ð³Ð´Ð»Ð¾Ð¾',
         message: meetingDate
-          ? `${order.product_name} — ${meetingDate.toLocaleString('mn-MN', { timeZone: 'Asia/Ulaanbaatar' })}`
-          : `${order.product_name} — Шуурхай уулзалт`,
+          ? `${order.product_name} â ${meetingDate.toLocaleString('mn-MN', { timeZone: 'Asia/Ulaanbaatar' })}`
+          : `${order.product_name} â Ð¨ÑÑÑÑÐ°Ð¹ ÑÑÐ»Ð·Ð°Ð»Ñ`,
         data: {
           order_id: orderId,
           join_url: meeting?.join_url,
@@ -737,7 +737,7 @@ export class OrdersService {
     };
   }
 
-  // ── Get orders with upcoming Zoom meetings (for reminder cron) ──
+  // ââ Get orders with upcoming Zoom meetings (for reminder cron) ââ
   async getOrdersWithUpcomingZoom(minutesBefore: number) {
     const now = new Date();
     const targetTime = new Date(now.getTime() + minutesBefore * 60000);
@@ -763,7 +763,7 @@ export class OrdersService {
     if (!order) return null;
     order.zoom_status = status;
     if (status === 'completed') {
-      // Auto-transition to file upload step (Алхам 4: Батлах → файл оруулах)
+      // Auto-transition to file upload step (ÐÐ»ÑÐ°Ð¼ 4: ÐÐ°ÑÐ»Ð°Ñ â ÑÐ°Ð¹Ð» Ð¾ÑÑÑÐ»Ð°Ñ)
       if (['confirmed', 'pending_file', 'file_review'].includes(order.status)) {
         order.status = OrderStatus.PENDING_FILE;
       }
@@ -771,23 +771,23 @@ export class OrdersService {
     return this.ordersRepo.save(order);
   }
 
-  // ─── Public order tracking (no auth, limited info) ───
+  // âââ Public order tracking (no auth, limited info) âââ
 
   private readonly STATUS_INFO: Record<string, { mn: string; icon: string; desc: string }> = {
-    draft:                  { mn: 'Ноорог',                  icon: '📝', desc: 'Захиалга үүсгэгдсэн' },
-    quotation_sent:         { mn: 'Үнэ илгээсэн',            icon: '💰', desc: 'Үнийн санал илгээгдсэн' },
-    confirmed:              { mn: 'Батлагдсан',               icon: '✅', desc: 'Захиалга батлагдлаа' },
-    pending_file:           { mn: 'Файл хүлээж байна',        icon: '📁', desc: 'Эх файл хүлээгдэж байна' },
-    file_review:            { mn: 'Файл шалгаж байна',        icon: '🔍', desc: 'Дизайн файлыг шалгаж байна' },
-    file_rejected:          { mn: 'Файл буцаагдсан',          icon: '❌', desc: 'Файлд засвар хийх шаардлагатай' },
-    on_hold:                { mn: 'Хүлээлтэд',                icon: '⏸️', desc: 'Түр хүлээлтэд байна' },
-    in_production:          { mn: 'Хэвлэж байна',             icon: '🖨️', desc: 'Хэвлэлийн үйл явц эхэлсэн' },
-    finishing:              { mn: 'Боловсруулалт',             icon: '✂️', desc: 'Эцсийн боловсруулалт хийж байна' },
-    partially_dispatched:   { mn: 'Хэсэгчлэн хүргэгдсэн',    icon: '📦', desc: 'Нэг хэсэг хүргэгдсэн' },
-    dispatched:             { mn: 'Хүргэлтэд гарсан',         icon: '🚚', desc: 'Хүргэлтэд гарсан' },
-    delivered:              { mn: 'Хүргэгдсэн',               icon: '📬', desc: 'Таны хаягт хүргэгдсэн' },
-    completed:              { mn: 'Дууссан',                   icon: '🎉', desc: 'Захиалга амжилттай дууслаа' },
-    cancelled:              { mn: 'Цуцлагдсан',               icon: '🚫', desc: 'Захиалга цуцлагдсан' },
+    draft:                  { mn: 'ÐÐ¾Ð¾ÑÐ¾Ð³',                  icon: 'ð', desc: 'ÐÐ°ÑÐ¸Ð°Ð»Ð³Ð° Ò¯Ò¯ÑÐ³ÑÐ³Ð´ÑÑÐ½' },
+    quotation_sent:         { mn: 'Ò®Ð½Ñ Ð¸Ð»Ð³ÑÑÑÑÐ½',            icon: 'ð°', desc: 'Ò®Ð½Ð¸Ð¹Ð½ ÑÐ°Ð½Ð°Ð» Ð¸Ð»Ð³ÑÑÐ³Ð´ÑÑÐ½' },
+    confirmed:              { mn: 'ÐÐ°ÑÐ»Ð°Ð³Ð´ÑÐ°Ð½',               icon: 'â', desc: 'ÐÐ°ÑÐ¸Ð°Ð»Ð³Ð° Ð±Ð°ÑÐ»Ð°Ð³Ð´Ð»Ð°Ð°' },
+    pending_file:           { mn: 'Ð¤Ð°Ð¹Ð» ÑÒ¯Ð»ÑÑÐ¶ Ð±Ð°Ð¹Ð½Ð°',        icon: 'ð', desc: 'Ð­Ñ ÑÐ°Ð¹Ð» ÑÒ¯Ð»ÑÑÐ³Ð´ÑÐ¶ Ð±Ð°Ð¹Ð½Ð°' },
+    file_review:            { mn: 'Ð¤Ð°Ð¹Ð» ÑÐ°Ð»Ð³Ð°Ð¶ Ð±Ð°Ð¹Ð½Ð°',        icon: 'ð', desc: 'ÐÐ¸Ð·Ð°Ð¹Ð½ ÑÐ°Ð¹Ð»ÑÐ³ ÑÐ°Ð»Ð³Ð°Ð¶ Ð±Ð°Ð¹Ð½Ð°' },
+    file_rejected:          { mn: 'Ð¤Ð°Ð¹Ð» Ð±ÑÑÐ°Ð°Ð³Ð´ÑÐ°Ð½',          icon: 'â', desc: 'Ð¤Ð°Ð¹Ð»Ð´ Ð·Ð°ÑÐ²Ð°Ñ ÑÐ¸Ð¹Ñ ÑÐ°Ð°ÑÐ´Ð»Ð°Ð³Ð°ÑÐ°Ð¹' },
+    on_hold:                { mn: 'Ð¥Ò¯Ð»ÑÑÐ»ÑÑÐ´',                icon: 'â¸ï¸', desc: 'Ð¢Ò¯Ñ ÑÒ¯Ð»ÑÑÐ»ÑÑÐ´ Ð±Ð°Ð¹Ð½Ð°' },
+    in_production:          { mn: 'Ð¥ÑÐ²Ð»ÑÐ¶ Ð±Ð°Ð¹Ð½Ð°',             icon: 'ð¨ï¸', desc: 'Ð¥ÑÐ²Ð»ÑÐ»Ð¸Ð¹Ð½ Ò¯Ð¹Ð» ÑÐ²Ñ ÑÑÑÐ»ÑÑÐ½' },
+    finishing:              { mn: 'ÐÐ¾Ð»Ð¾Ð²ÑÑÑÑÐ»Ð°Ð»Ñ',             icon: 'âï¸', desc: 'Ð­ÑÑÐ¸Ð¹Ð½ Ð±Ð¾Ð»Ð¾Ð²ÑÑÑÑÐ»Ð°Ð»Ñ ÑÐ¸Ð¹Ð¶ Ð±Ð°Ð¹Ð½Ð°' },
+    partially_dispatched:   { mn: 'Ð¥ÑÑÑÐ³ÑÐ»ÑÐ½ ÑÒ¯ÑÐ³ÑÐ³Ð´ÑÑÐ½',    icon: 'ð¦', desc: 'ÐÑÐ³ ÑÑÑÑÐ³ ÑÒ¯ÑÐ³ÑÐ³Ð´ÑÑÐ½' },
+    dispatched:             { mn: 'Ð¥Ò¯ÑÐ³ÑÐ»ÑÑÐ´ Ð³Ð°ÑÑÐ°Ð½',         icon: 'ð', desc: 'Ð¥Ò¯ÑÐ³ÑÐ»ÑÑÐ´ Ð³Ð°ÑÑÐ°Ð½' },
+    delivered:              { mn: 'Ð¥Ò¯ÑÐ³ÑÐ³Ð´ÑÑÐ½',               icon: 'ð¬', desc: 'Ð¢Ð°Ð½Ñ ÑÐ°ÑÐ³Ñ ÑÒ¯ÑÐ³ÑÐ³Ð´ÑÑÐ½' },
+    completed:              { mn: 'ÐÑÑÑÑÐ°Ð½',                   icon: 'ð', desc: 'ÐÐ°ÑÐ¸Ð°Ð»Ð³Ð° Ð°Ð¼Ð¶Ð¸Ð»ÑÑÐ°Ð¹ Ð´ÑÑÑÐ»Ð°Ð°' },
+    cancelled:              { mn: 'Ð¦ÑÑÐ»Ð°Ð³Ð´ÑÐ°Ð½',               icon: 'ð«', desc: 'ÐÐ°ÑÐ¸Ð°Ð»Ð³Ð° ÑÑÑÐ»Ð°Ð³Ð´ÑÐ°Ð½' },
   };
 
   async getPublicTracking(orderNumber: string) {
@@ -798,7 +798,7 @@ export class OrdersService {
     }
     if (!order) return { found: false };
 
-    const info = this.STATUS_INFO[order.status] || { mn: order.status, icon: '📦', desc: '' };
+    const info = this.STATUS_INFO[order.status] || { mn: order.status, icon: 'ð¦', desc: '' };
 
     // Public timeline stages
     const stages = ['confirmed', 'pending_file', 'file_review', 'in_production', 'finishing', 'dispatched', 'delivered', 'completed'];
@@ -827,7 +827,7 @@ export class OrdersService {
         return {
           status: s,
           label: this.STATUS_INFO[s]?.mn || s,
-          icon: this.STATUS_INFO[s]?.icon || '●',
+          icon: this.STATUS_INFO[s]?.icon || 'â',
           completed: i < currentIdx,
           active: i === currentIdx,
           pending: i > currentIdx,
@@ -836,4 +836,50 @@ export class OrdersService {
       }),
     };
   }
+
+  // ─── CSV Export ──────────────────────────────────────────────────────
+  async exportOrders(filters: {
+    startDate?: string;
+    endDate?: string;
+    status?: string;
+  }): Promise<string> {
+    const qb = this.orderRepo.createQueryBuilder('order')
+      .leftJoinAndSelect('order.user', 'user')
+      .leftJoinAndSelect('order.items', 'items')
+      .leftJoinAndSelect('items.product', 'product')
+      .orderBy('order.createdAt', 'DESC');
+
+    if (filters.startDate) {
+      qb.andWhere('order.createdAt >= :startDate', { startDate: new Date(filters.startDate) });
+    }
+    if (filters.endDate) {
+      qb.andWhere('order.createdAt <= :endDate', { endDate: new Date(filters.endDate) });
+    }
+    if (filters.status) {
+      qb.andWhere('order.status = :status', { status: filters.status });
+    }
+
+    const orders = await qb.getMany();
+
+    const header = 'id,status,totalPrice,createdAt,customerEmail,productNames';
+    const rows = orders.map((o) => {
+      const productNames = (o.items || [])
+        .map((item: any) => item.product?.name || item.productName || '')
+        .filter(Boolean)
+        .join(' | ');
+      const email = (o as any).user?.email || '';
+      const price = (o as any).totalPrice ?? (o as any).total_price ?? '';
+      return [
+        o.id,
+        o.status,
+        price,
+        o.createdAt ? new Date(o.createdAt).toISOString() : '',
+        email,
+        `"${productNames.replace(/"/g, '""')}"`,
+      ].join(',');
+    });
+
+    return [header, ...rows].join('\n');
+  }
+
 }
