@@ -578,10 +578,10 @@ export default function CustomerDesignApproval() {
                                 if (!window.confirm('Энэ хувилбарыг одоогийн болгох уу?')) return
                                 try {
                                   await apiFetch(`/design-requests/${id}/versions/${v.id}/restore`, { method: 'PATCH' })
-                                  showToast({ msg: 'Хувилбар амжилттай сэргээгдлээ ✓', type: 'success' })
+                                  showToast('Хувилбар амжилттай сэргээгдлээ ✓', 'success')
                                   loadDesign()
                                 } catch {
-                                  showToast({ msg: 'Алдаа гарлаа', type: 'error' })
+                                  showToast('Алдаа гарлаа', 'error')
                                 }
                               }}
                               style={{ padding: '7px 18px', fontSize: 13, fontWeight: 600, background: '#FF6B00', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer' }}

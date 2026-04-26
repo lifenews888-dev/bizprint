@@ -176,7 +176,6 @@ export default function AdminOrdersPage() {
     try {
       const params = new URLSearchParams({ format })
       if (search) params.set('search', search)
-      if (filterStatus) params.set('status', filterStatus)
       const res = await fetch(`/api/orders/export?${params.toString()}`, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token') || ''}` },
       })

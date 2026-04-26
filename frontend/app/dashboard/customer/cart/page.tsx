@@ -24,7 +24,7 @@ interface CartResponse {
 }
 
 export default function CartPage() {
-  useRoleGuard('customer')
+  useRoleGuard(['customer'])
   const router = useRouter()
   const [items, setItems] = useState<CartItem[]>([])
   const [loading, setLoading] = useState(true)

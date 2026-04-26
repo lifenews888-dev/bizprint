@@ -25,10 +25,10 @@ function Stars({ rating }: { rating: number }) {
 
 
 function VariantSelector({ productId, onSelect }: { productId: string; onSelect?: (v: any) => void }) {
-  const [variants, setVariants] = React.useState<any[]>([]);
-  const [selected, setSelected] = React.useState<string | null>(null);
+  const [variants, setVariants] = useState<any[]>([]);
+  const [selected, setSelected] = useState<string | null>(null);
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (!productId) return;
     fetch('/api/products/' + productId + '/variants')
       .then(r => r.json())
@@ -198,8 +198,7 @@ export default function ProductConfiguratorPage() {
       const fd = new FormData()
       fd.append('file', file)
       fd.append('quantity', String(quantity))
-      const res = await apiFetch      <VariantSelector productId={product?.id ?? ''} onSelect={(v) => console.log("variant selected", v)} />
-      <any>('/ai/smart-quote/from-pdf', { method: 'POST', body: fd })
+      const res = await apiFetch<any>('/ai/smart-quote/from-pdf', { method: 'POST', body: fd })
       setUploadResult(res)
     } catch {}
     setUploading(false)
