@@ -5,6 +5,7 @@ import Link from 'next/link'
 import GlobalProductCard from '@/components/ProductCard'
 import InstantQuoteWidget from '@/components/InstantQuoteWidget'
 import { useSiteSettings } from '@/contexts/SiteSettingsContext'
+import { trackEvent } from '@/lib/analytics'
 
 /* ── Carousel helper ── */
 function ProductCarousel({ items }: { items: any[] }) {
@@ -209,8 +210,40 @@ export default function HomePage() {
               </div>
 
               {/* Trust mini-line */}
-              <div className="mb-6 text-xs md:text-sm text-white/60 leading-relaxed max-w-xl">
-                <span className="text-[#FF6B00] font-semibold">Дизайн + Хэвлэл + Хүргэлт</span> — Улаанбаатарын хэвлэлийн үйлчилгээг нэг дороос. Байгууллагын болон бөөн захиалга авна.
+              <div className="mb-5 text-xs md:text-sm text-white/70 leading-relaxed max-w-xl">
+                <span className="text-[#FF6B00] font-semibold">24-48 цагийн гүйцэтгэл</span>
+                <span className="text-white/40 mx-1.5">·</span>
+                Дизайн + хэвлэл + хүргэлт
+                <span className="text-white/40 mx-1.5">·</span>
+                Байгууллагын захиалга
+              </div>
+
+              {/* 3 Quick paths */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-6 max-w-xl">
+                <Link
+                  href="/quick-order"
+                  onClick={() => trackEvent('hero_quickpath_with_file', { pathname: '/' })}
+                  className="flex items-center gap-2 px-3 py-2.5 rounded-lg bg-white/[0.06] hover:bg-white/[0.1] backdrop-blur-sm border border-white/10 text-white text-xs md:text-sm font-medium no-underline transition-colors"
+                >
+                  <span className="text-base shrink-0">📁</span>
+                  <span>Файлтай бол → <span className="text-[#FF6B00]">Шууд захиалах</span></span>
+                </Link>
+                <Link
+                  href="/quote"
+                  onClick={() => trackEvent('hero_quickpath_no_file', { pathname: '/' })}
+                  className="flex items-center gap-2 px-3 py-2.5 rounded-lg bg-white/[0.06] hover:bg-white/[0.1] backdrop-blur-sm border border-white/10 text-white text-xs md:text-sm font-medium no-underline transition-colors"
+                >
+                  <span className="text-base shrink-0">🎨</span>
+                  <span>Файлгүй бол → <span className="text-[#FF6B00]">Дизайн / Үнэ</span></span>
+                </Link>
+                <a
+                  href="tel:72000444"
+                  onClick={() => trackEvent('hero_quickpath_urgent', { pathname: '/' })}
+                  className="flex items-center gap-2 px-3 py-2.5 rounded-lg bg-white/[0.06] hover:bg-white/[0.1] backdrop-blur-sm border border-white/10 text-white text-xs md:text-sm font-medium no-underline transition-colors"
+                >
+                  <span className="text-base shrink-0">⚡</span>
+                  <span>Яаралтай бол → <span className="text-[#FF6B00]">72000444</span></span>
+                </a>
               </div>
 
               {/* Process: 4 simple steps (no AI overload) */}

@@ -174,9 +174,11 @@ export default function ProductCard({ product, categoryLabel, onAddToCart }: Pro
             {/* Add to cart */}
             <button
               onClick={e => { e.preventDefault(); e.stopPropagation(); onAddToCart?.(p.id) }}
+              aria-label="Захиалах"
+              title="Захиалах"
               className="w-9 h-9 rounded-full bg-[#FF6B00] text-white flex items-center justify-center border-none cursor-pointer shadow-lg shadow-[#FF6B00]/30 hover:bg-[#E55D00] transition-all"
             >
-              <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" /></svg>
+              <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
             </button>
           </div>
         </div>

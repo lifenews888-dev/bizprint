@@ -1,6 +1,7 @@
 'use client'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { trackEvent } from '@/lib/analytics'
 
 /**
  * Mobile-only sticky bottom CTA bar.
@@ -17,6 +18,10 @@ export default function MobileStickyCTA() {
   const hide = HIDE_ON.some(p => pathname === p || pathname.startsWith(p + '/'))
   if (hide) return null
 
+  const onCallClick = () => trackEvent('cta_call_click', { location: 'mobile_sticky', pathname })
+  const onChatClick = () => trackEvent('cta_chat_click', { location: 'mobile_sticky', pathname })
+  const onQuoteClick = () => trackEvent('cta_quote_click', { location: 'mobile_sticky', pathname })
+
   return (
     <div
       aria-label="Хурдан холбоо барих"
@@ -31,6 +36,7 @@ export default function MobileStickyCTA() {
       <div className="grid grid-cols-3 gap-1 p-2">
         <a
           href="tel:72000444"
+          onClick={onCallClick}
           aria-label="72000444 руу залгах"
           className="flex flex-col items-center justify-center gap-0.5 py-2.5 rounded-lg bg-[#FF6B00] text-white text-[11px] font-bold no-underline active:scale-95 transition-transform"
         >
@@ -41,6 +47,7 @@ export default function MobileStickyCTA() {
         </a>
         <Link
           href="/quick-order"
+          onClick={onChatClick}
           aria-label="Чатаар захиалга өгөх"
           className="flex flex-col items-center justify-center gap-0.5 py-2.5 rounded-lg bg-white/10 border border-white/10 text-white text-[11px] font-semibold no-underline active:scale-95 transition-transform"
         >
@@ -51,6 +58,7 @@ export default function MobileStickyCTA() {
         </Link>
         <Link
           href="/quote"
+          onClick={onQuoteClick}
           aria-label="Үнийн санал авах"
           className="flex flex-col items-center justify-center gap-0.5 py-2.5 rounded-lg bg-white/10 border border-white/10 text-white text-[11px] font-semibold no-underline active:scale-95 transition-transform"
         >
