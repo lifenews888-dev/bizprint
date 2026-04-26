@@ -13,8 +13,21 @@
  *   - auth: false → token илгээхгүй (public endpoint)
  */
 
-export const API_URL =
-  process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'
+function resolveApiUrl(): string {
+  const envUrl = process.env.NEXT_PUBLIC_API_URL
+  if (envUrl) return envUrl
+  // In production, log a clear warning at runtime — do NOT crash the build.
+  if (typeof window !== 'undefined' && process.env.NODE_ENV === 'production') {
+    console.error(
+      '[BizPrint] NEXT_PUBLIC_API_URL is required in production. ' +
+      'Falling back to current origin to avoid silent localhost calls.'
+    )
+    return window.location.origin
+  }
+  return 'http://localhost:4000'
+}
+
+export const API_URL = resolveApiUrl()
 
 type ApiFetchOptions = Omit<RequestInit, 'body'> & {
   auth?: boolean

@@ -1,4 +1,4 @@
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import './globals.css'
 import { SiteSettingsProvider } from '@/contexts/SiteSettingsContext'
 import { RealtimeProvider } from '@/contexts/RealtimeContext'
@@ -8,10 +8,25 @@ import { Toaster } from '@/components/ui/sonner'
 import FacebookPixel from '@/components/FacebookPixel'
 import FacebookMessengerChat from '@/components/FacebookMessengerChat'
 import { UTMTracker } from '@/components/UTMTracker'
+import MobileStickyCTA from '@/components/MobileStickyCTA'
 
 const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'
 
+const FALLBACK_TITLE = 'Bizprint.mn — Хэвлэлийн үйлчилгээ, нэрийн хуудас, баннер, постер хэвлэх'
+const FALLBACK_DESC = 'Bizprint.mn дээр нэрийн хуудас, постер, баннер, меню, стикер, ширээний туг болон бүх төрлийн хэвлэлийн захиалгаа өгнө. Дизайн, хэвлэл, хүргэлт нэг дор.'
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  viewportFit: 'cover',
+}
+
 export async function generateMetadata(): Promise<Metadata> {
+  let title = FALLBACK_TITLE
+  let description = FALLBACK_DESC
+  let ogImage: string | undefined
+  let favicon: string | undefined
+
   try {
     const controller = new AbortController()
     const timeout = setTimeout(() => controller.abort(), 3000)
@@ -19,17 +34,31 @@ export async function generateMetadata(): Promise<Metadata> {
     clearTimeout(timeout)
     if (res.ok) {
       const s = await res.json()
-      return {
-        title: s.seo_meta_title || s.site_name || 'BizPrint — Хэвлэл, Дизайн, Бизнес Платформ',
-        description: s.seo_meta_description || 'AI-д суурилсан хэвлэлийн үнийн тооцоо, автомат үйлдвэр сонголт',
-        openGraph: s.seo_og_image ? { images: [{ url: s.seo_og_image }] } : undefined,
-        icons: s.site_favicon ? { icon: s.site_favicon } : undefined,
-      }
+      title = s.seo_meta_title || s.site_name || FALLBACK_TITLE
+      description = s.seo_meta_description || FALLBACK_DESC
+      ogImage = s.seo_og_image || undefined
+      favicon = s.site_favicon || undefined
     }
   } catch {}
+
   return {
-    title: 'BizPrint — Хэвлэл, Дизайн, Бизнес Платформ',
-    description: 'AI-д суурилсан хэвлэлийн үнийн тооцоо, автомат үйлдвэр сонголт, бодит цагийн хүргэлт',
+    title,
+    description,
+    icons: favicon ? { icon: favicon } : undefined,
+    openGraph: {
+      type: 'website',
+      locale: 'mn_MN',
+      siteName: 'Bizprint.mn',
+      title,
+      description,
+      images: ogImage ? [{ url: ogImage }] : undefined,
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title,
+      description,
+      images: ogImage ? [ogImage] : undefined,
+    },
   }
 }
 
@@ -37,7 +66,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="mn" data-theme="light">
       <head>
-        <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
         <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
@@ -53,6 +81,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <RealtimeProvider>
           <SiteSettingsProvider>
             <LayoutShell>{children}</LayoutShell>
+            <MobileStickyCTA />
             <Toaster richColors position="bottom-right" />
             <FacebookPixel />
             <FacebookMessengerChat />

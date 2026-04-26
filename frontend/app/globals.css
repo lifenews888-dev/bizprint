@@ -3,6 +3,11 @@
 html { scroll-behavior: smooth; }
 :focus-visible { outline: 2px solid #FF6B00; outline-offset: 2px; }
 
+/* Reserve space for mobile sticky CTA bar so content isn't covered */
+@media (max-width: 767px) {
+  body { padding-bottom: calc(64px + env(safe-area-inset-bottom, 0px)); }
+}
+
 @custom-variant dark (&:is(.dark *));
 @source "../components/**/*.tsx";
 @source "../app/**/*.tsx";

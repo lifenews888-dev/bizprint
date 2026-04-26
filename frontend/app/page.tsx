@@ -43,10 +43,7 @@ export default function HomePage() {
 
   useEffect(() => {
     apiFetch<any>('/cms/hero-slides/public', { auth: false }).then(d => {
-      if (Array.isArray(d)) {
-        setHeroSlides(d)
-        if (typeof window !== 'undefined') console.log('[Hero] Loaded', d.length, 'slides', d.map((s: any) => ({ id: s.id?.slice(0, 8), video: !!s.video_url, img: !!s.image_url })))
-      }
+      if (Array.isArray(d)) setHeroSlides(d)
     }).catch(() => {})
   }, [])
 
@@ -183,54 +180,55 @@ export default function HomePage() {
             <div className="max-w-2xl">
               <h1 className="text-3xl md:text-6xl lg:text-7xl font-black text-white leading-[1.1] tracking-tight mb-4">
                 {settings.hero_title || (
-                  <>Хэвлэлээ захиалахад <span className="text-[#FF6B00]">бэлэн үү.</span></>
+                  <>Хэвлэлийн бүх төрлийн захиалгыг <span className="text-[#FF6B00]">нэг дороос</span></>
                 )}
               </h1>
-              <p className="text-sm md:text-lg text-white/60 leading-relaxed mb-8 max-w-lg">
-                {settings.hero_subtitle || 'Файлаа оруулаад AI секундэд үнэ тооцоолно. Монголын хамгийн хурдан хэвлэлийн платформ.'}
+              <p className="text-sm md:text-lg text-white/70 leading-relaxed mb-8 max-w-xl">
+                {settings.hero_subtitle || 'Нэрийн хуудас, постер, баннер, меню, стикер, ширээний туг, урилга, сертификат, байгууллагын брэндинг — дизайн, хэвлэл, хүргэлтийг Bizprint хурдан, чанартай, найдвартай гүйцэтгэнэ.'}
               </p>
 
               {/* CTA buttons */}
-              <div className="flex flex-wrap gap-3 mb-10">
+              <div className="flex flex-wrap gap-3 mb-6">
                 <Link href={settings.hero_cta_primary_url || '/quote'} className="no-underline group">
                   <span className="inline-flex items-center gap-2 px-7 py-3.5 bg-[#FF6B00] hover:bg-[#E55D00] text-white rounded-xl text-sm md:text-base font-bold transition-all hover:shadow-lg hover:shadow-[#FF6B00]/25">
-                    {settings.hero_cta_primary_text || 'Үнэ авах'}
+                    {settings.hero_cta_primary_text || 'Захиалга өгөх'}
                     <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24" className="group-hover:translate-x-0.5 transition-transform"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
                   </span>
                 </Link>
-                <Link href={settings.hero_cta_secondary_url || '/shop'} className="no-underline">
-                  <span className="inline-flex items-center px-7 py-3.5 bg-white/10 hover:bg-white/15 backdrop-blur-sm border border-white/15 text-white rounded-xl text-sm md:text-base font-medium transition-all">
-                    {settings.hero_cta_secondary_text || 'Дэлгүүр үзэх'}
+                <a href="tel:72000444" className="no-underline">
+                  <span className="inline-flex items-center gap-2 px-7 py-3.5 bg-white/10 hover:bg-white/15 backdrop-blur-sm border border-white/15 text-white rounded-xl text-sm md:text-base font-semibold transition-all">
+                    <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72 12.84 12.84 0 00.7 2.81 2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45 12.84 12.84 0 002.81.7A2 2 0 0122 16.92z"/></svg>
+                    {settings.hero_cta_secondary_text || '72000444 руу залгах'}
+                  </span>
+                </a>
+                <Link href="/quick-order" className="no-underline">
+                  <span className="inline-flex items-center gap-2 px-7 py-3.5 bg-white/5 hover:bg-white/10 backdrop-blur-sm border border-white/10 text-white/90 rounded-xl text-sm md:text-base font-medium transition-all">
+                    💬 Чатаар захиалах
                   </span>
                 </Link>
               </div>
-              {/* Quick order shortcut */}
-              <div className="mb-6">
-                <Link href="/quick-order" className="no-underline inline-flex items-center gap-2 text-sm text-white/50 hover:text-[#FF6B00] transition-colors">
-                  <span>📁</span> Файл оруулж шууд захиалах →
-                </Link>
+
+              {/* Trust mini-line */}
+              <div className="mb-6 text-xs md:text-sm text-white/60 leading-relaxed max-w-xl">
+                <span className="text-[#FF6B00] font-semibold">Дизайн + Хэвлэл + Хүргэлт</span> — Улаанбаатарын хэвлэлийн үйлчилгээг нэг дороос. Байгууллагын болон бөөн захиалга авна.
               </div>
 
-              {/* Process: 3 steps */}
+              {/* Process: 4 simple steps (no AI overload) */}
               <div className="flex flex-wrap items-center gap-2 md:gap-3">
                 {[
-                  { icon: '📄', label: 'Файл оруулах' },
-                  { icon: '🤖', label: 'AI тооцоо' },
-                  { icon: '🖨️', label: 'Хэвлэл бэлэн' },
+                  { icon: '🛍️', label: 'Сонгох' },
+                  { icon: '📄', label: 'Файл/Дизайн' },
+                  { icon: '✅', label: 'Баталгаажуулах' },
+                  { icon: '🚚', label: 'Хүргүүлэх' },
                 ].map((step, i) => (
                   <div key={step.label} className="flex items-center gap-2 md:gap-3">
-                    {i > 0 && <span className="text-white/20">+</span>}
+                    {i > 0 && <span className="text-white/20">→</span>}
                     <div className="flex items-center gap-2 bg-white/[0.06] backdrop-blur-sm border border-white/[0.08] rounded-lg px-3 py-2">
                       <span className="text-base">{step.icon}</span>
                       <span className="text-xs md:text-sm font-medium text-white/90">{step.label}</span>
                     </div>
                   </div>
                 ))}
-                <span className="text-white/20 hidden md:inline">=</span>
-                <div className="hidden md:flex items-center gap-2 bg-[#FF6B00]/15 backdrop-blur-sm border border-[#FF6B00]/25 rounded-lg px-3 py-2">
-                  <span className="text-base">🔥</span>
-                  <span className="text-sm font-bold text-[#FF6B00]">Бодит хэвлэл</span>
-                </div>
               </div>
             </div>
           </div>
@@ -243,15 +241,15 @@ export default function HomePage() {
       {/* ═══ SERVICES GRID ═══ */}
       <section className="max-w-[1100px] mx-auto px-5 py-10 md:py-16">
         <div className="text-center mb-8 md:mb-10">
-          <h2 className="text-xl md:text-2xl font-bold tracking-tight" style={{ color: 'var(--text)' }}>Үйлчилгээ</h2>
-          <p className="text-sm mt-1" style={{ color: 'var(--text3)' }}>Хэрэгтэй зүйлээ сонгоорой</p>
+          <h2 className="text-xl md:text-2xl font-bold tracking-tight" style={{ color: 'var(--text)' }}>Хэвлэлийн үйлчилгээ</h2>
+          <p className="text-sm mt-1" style={{ color: 'var(--text3)' }}>Нэрийн хуудас хэвлэх, постер хэвлэх, баннер хэвлэх — нэг дороос</p>
         </div>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
           {[
-            { icon: '🖨️', title: 'Хэвлэл захиалах', desc: 'PDF оруулж AI-аар үнэ авах', href: '/quote', color: '#FF6B00' },
-            { icon: '🛒', title: 'Дэлгүүр', desc: 'Бэлэн бүтээгдэхүүн сонгох', href: '/shop', color: '#8B5CF6' },
-            { icon: '💳', title: 'Нэрийн хуудас', desc: 'Онлайнаар захиалах, QR кодтой', href: '/shop?category=business-card', color: '#F59E0B' },
-            { icon: '🎨', title: 'Дизайн хийх', desc: 'Live editor-ээр загвар хийх', href: '/design/editor', color: '#10B981' },
+            { icon: '🖨️', title: 'Хэвлэл захиалах', desc: 'Нэрийн хуудас, постер, баннер, меню, стикер', href: '/quote', color: '#FF6B00' },
+            { icon: '🎨', title: 'Дизайн хийлгэх', desc: 'Загвар байхгүй бол мэргэжлийн дизайн хийлгээрэй', href: '/design/editor', color: '#10B981' },
+            { icon: '🏢', title: 'Байгууллагын захиалга', desc: 'Оффис, ресторан, сургууль, эвент, багц хэвлэл', href: '/campaign/request', color: '#8B5CF6' },
+            { icon: '⚡', title: 'Яаралтай хэвлэл', desc: 'Богино хугацаанд гүйцэтгэх захиалга', href: '/quick-order', color: '#F59E0B' },
           ].map(s => (
             <Link key={s.title} href={s.href} className="no-underline group">
               <div className="rounded-2xl p-5 md:p-6 h-full transition-all duration-300 hover:-translate-y-1 hover:shadow-xl"
@@ -330,14 +328,15 @@ export default function HomePage() {
       {/* ═══ HOW IT WORKS ═══ */}
       <section className="max-w-[1100px] mx-auto px-5 pb-10 md:pb-16">
         <div className="text-center mb-8">
-          <h2 className="text-xl md:text-2xl font-bold tracking-tight" style={{ color: 'var(--text)' }}>Хэрхэн ажилладаг вэ</h2>
+          <h2 className="text-xl md:text-2xl font-bold tracking-tight" style={{ color: 'var(--text)' }}>Хэвлэл захиалга хэрхэн өгөх вэ</h2>
+          <p className="text-sm mt-1" style={{ color: 'var(--text3)' }}>4 хялбар алхам</p>
         </div>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
           {[
-            { n: '01', title: 'Бүтээгдэхүүн сонгох', desc: 'Төрлөө сонгож хэмжээ тохируулна' },
-            { n: '02', title: 'Файл оруулах', desc: 'PDF файл эсвэл загвар сонгоно' },
-            { n: '03', title: 'AI тооцоолно', desc: 'Хамгийн тохиромжтой үйлдвэр олно' },
-            { n: '04', title: 'Хүлээн авах', desc: 'УБ даяар 24-48 цагт хүргэнэ' },
+            { n: '01', title: 'Бүтээгдэхүүн сонгох', desc: 'Нэрийн хуудас, баннер, постер, меню, стикер зэрэг хэрэгтэй хэвлэлээ сонгоно' },
+            { n: '02', title: 'Файлаа илгээх', desc: 'Бэлэн загвартай бол файлаа оруулна. Загвар байхгүй бол дизайн хийлгэж болно' },
+            { n: '03', title: 'Үнийн санал баталгаажуулах', desc: 'Хэмжээ, тоо ширхэг, материал, хугацаа, хүргэлтийн мэдээллээ баталгаажуулна' },
+            { n: '04', title: 'Хэвлүүлж хүргүүлэх', desc: 'Захиалга баталгаажсаны дараа үйлдвэрлэл эхэлж, бэлэн болмогц хүргэгдэнэ' },
           ].map(s => (
             <div key={s.n} className="rounded-2xl p-5 text-center" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
               <div className="text-2xl font-black mb-3" style={{ color: 'rgba(255,107,0,0.15)' }}>{s.n}</div>
@@ -348,24 +347,60 @@ export default function HomePage() {
         </div>
       </section>
 
+      {/* ═══ TRUST SECTION ═══ */}
+      <section className="max-w-[1100px] mx-auto px-5 pb-10 md:pb-16">
+        <div className="rounded-2xl p-6 md:p-10" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
+          <div className="text-center mb-6 md:mb-8">
+            <h2 className="text-xl md:text-2xl font-bold tracking-tight" style={{ color: 'var(--text)' }}>Яагаад Bizprint?</h2>
+            <p className="text-sm mt-1" style={{ color: 'var(--text3)' }}>Хурдан, чанартай, найдвартай хэвлэлийн үйлчилгээ Улаанбаатарт</p>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
+            {[
+              { icon: '📞', title: '72000444', desc: 'Шууд утсаар захиалга өгөх боломжтой', href: 'tel:72000444' },
+              { icon: '🎨', title: 'Дизайн + Хэвлэл + Хүргэлт', desc: 'Бүх үйлчилгээ нэг газраас', href: '/quote' },
+              { icon: '🏢', title: 'Байгууллагын захиалга', desc: 'Оффис, эвент, бөөн захиалга авна', href: '/campaign/request' },
+              { icon: '✅', title: 'Баталгаажсаны дараа үйлдвэрлэл', desc: 'Захиалга батлагдсаны дараа л үйлдвэрлэл эхэлнэ', href: '/quote' },
+              { icon: '💬', title: 'Чатаар захиалга', desc: 'Messenger, чат ашиглан шууд захиалга өгнө', href: '/contact' },
+              { icon: '⚡', title: 'Хурдан гүйцэтгэл', desc: 'Яаралтай захиалга 24-48 цагт', href: '/quick-order' },
+            ].map(t => {
+              const isExt = t.href.startsWith('tel:') || t.href.startsWith('http')
+              const Inner = (
+                <div className="flex items-start gap-3 p-3 rounded-xl transition-colors hover:bg-[var(--surface2)]">
+                  <div className="w-10 h-10 rounded-lg flex items-center justify-center text-lg flex-shrink-0" style={{ background: 'rgba(255,107,0,0.1)' }}>
+                    {t.icon}
+                  </div>
+                  <div>
+                    <div className="text-sm font-bold mb-0.5" style={{ color: 'var(--text)' }}>{t.title}</div>
+                    <div className="text-xs leading-relaxed" style={{ color: 'var(--text3)' }}>{t.desc}</div>
+                  </div>
+                </div>
+              )
+              return isExt
+                ? <a key={t.title} href={t.href} className="no-underline">{Inner}</a>
+                : <Link key={t.title} href={t.href} className="no-underline">{Inner}</Link>
+            })}
+          </div>
+        </div>
+      </section>
+
       {/* ═══ BOTTOM CTA ═══ */}
       <section className="max-w-[1100px] mx-auto px-5 pb-16">
         <div className="rounded-2xl p-8 md:p-12 text-center relative overflow-hidden" style={{ background: '#0A0A0A' }}>
           <div className="absolute top-[-80px] right-[-40px] w-[300px] h-[300px] rounded-full opacity-15 pointer-events-none" style={{ background: 'radial-gradient(circle, #FF6B00, transparent 70%)' }} />
-          <h2 className="text-xl md:text-2xl font-bold text-white mb-2 relative">Эхлэхэд бэлэн үү?</h2>
-          <p className="text-sm text-white/40 mb-6 relative">Файлаа хуулаад хэдхэн секундэд үнэ мэдэгдэнэ</p>
+          <h2 className="text-xl md:text-2xl font-bold text-white mb-2 relative">Хэвлэл захиалга өгөх үү?</h2>
+          <p className="text-sm text-white/50 mb-6 relative">Дизайн, хэвлэл, хүргэлт — нэг дороос. Утсаар, чатаар эсвэл онлайн захиалга өгөөрэй.</p>
           <div className="flex gap-3 justify-center flex-wrap relative">
             <Link href="/quote" className="no-underline px-7 py-3 bg-[#FF6B00] text-white rounded-xl text-sm font-bold hover:bg-[#E55D00] transition-colors">
-              Үнийн санал авах
+              Захиалга өгөх
             </Link>
-            <Link href="/campaign/request" className="no-underline px-7 py-3 bg-purple-600 text-white rounded-xl text-sm font-bold hover:bg-purple-700 transition-colors">
-              🎯 Бөөн захиалга / Кампани
-            </Link>
-            <Link href="/start" className="no-underline px-7 py-3 bg-white/5 border border-white/10 text-white rounded-xl text-sm font-medium hover:bg-white/10 transition-colors">
-              Бүх үйлчилгээ
+            <a href="tel:72000444" className="no-underline px-7 py-3 bg-white/10 border border-white/15 text-white rounded-xl text-sm font-bold hover:bg-white/15 transition-colors">
+              📞 72000444 руу залгах
+            </a>
+            <Link href="/campaign/request" className="no-underline px-7 py-3 bg-white/5 border border-white/10 text-white rounded-xl text-sm font-medium hover:bg-white/10 transition-colors">
+              🎯 Бөөн захиалга
             </Link>
           </div>
-          <p className="text-xs text-white/30 mt-3 relative">B2B 200+ ширхэгтэй захиалга, олон төрлийн бүтээгдэхүүн нэг кампанит ажилд</p>
+          <p className="text-xs text-white/30 mt-3 relative">Байгууллагын захиалга, дизайн хэвлэл хүргэлт, Улаанбаатар хэвлэл</p>
         </div>
       </section>
 
