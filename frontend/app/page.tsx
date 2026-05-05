@@ -189,79 +189,36 @@ export default function HomePage() {
               </p>
 
               {/* CTA buttons */}
-              <div className="flex flex-wrap gap-3 mb-6">
-                <Link href={settings.hero_cta_primary_url || '/quote'} className="no-underline group">
+              <div className="flex flex-wrap gap-3 mb-5">
+                <Link
+                  href={settings.hero_cta_primary_url || '/quote'}
+                  onClick={() => trackEvent('hero_cta_primary_click', { pathname: '/' })}
+                  className="no-underline group"
+                >
                   <span className="inline-flex items-center gap-2 px-7 py-3.5 bg-[#FF6B00] hover:bg-[#E55D00] text-white rounded-xl text-sm md:text-base font-bold transition-all hover:shadow-lg hover:shadow-[#FF6B00]/25">
                     {settings.hero_cta_primary_text || 'Захиалга өгөх'}
                     <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24" className="group-hover:translate-x-0.5 transition-transform"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
                   </span>
                 </Link>
-                <a href="tel:72000444" className="no-underline">
+                <a
+                  href="tel:72000444"
+                  onClick={() => trackEvent('hero_cta_call_click', { pathname: '/' })}
+                  className="no-underline"
+                >
                   <span className="inline-flex items-center gap-2 px-7 py-3.5 bg-white/10 hover:bg-white/15 backdrop-blur-sm border border-white/15 text-white rounded-xl text-sm md:text-base font-semibold transition-all">
                     <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72 12.84 12.84 0 00.7 2.81 2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45 12.84 12.84 0 002.81.7A2 2 0 0122 16.92z"/></svg>
                     {settings.hero_cta_secondary_text || '72000444 руу залгах'}
                   </span>
                 </a>
-                <Link href="/quick-order" className="no-underline">
-                  <span className="inline-flex items-center gap-2 px-7 py-3.5 bg-white/5 hover:bg-white/10 backdrop-blur-sm border border-white/10 text-white/90 rounded-xl text-sm md:text-base font-medium transition-all">
-                    💬 Чатаар захиалах
-                  </span>
-                </Link>
               </div>
 
               {/* Trust mini-line */}
-              <div className="mb-5 text-xs md:text-sm text-white/70 leading-relaxed max-w-xl">
+              <div className="text-xs md:text-sm text-white/70 leading-relaxed max-w-xl">
                 <span className="text-[#FF6B00] font-semibold">24-48 цагийн гүйцэтгэл</span>
                 <span className="text-white/40 mx-1.5">·</span>
                 Дизайн + хэвлэл + хүргэлт
                 <span className="text-white/40 mx-1.5">·</span>
                 Байгууллагын захиалга
-              </div>
-
-              {/* 3 Quick paths */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-6 max-w-xl">
-                <Link
-                  href="/quick-order"
-                  onClick={() => trackEvent('hero_quickpath_with_file', { pathname: '/' })}
-                  className="flex items-center gap-2 px-3 py-2.5 rounded-lg bg-white/[0.06] hover:bg-white/[0.1] backdrop-blur-sm border border-white/10 text-white text-xs md:text-sm font-medium no-underline transition-colors"
-                >
-                  <span className="text-base shrink-0">📁</span>
-                  <span>Файлтай бол → <span className="text-[#FF6B00]">Шууд захиалах</span></span>
-                </Link>
-                <Link
-                  href="/quote"
-                  onClick={() => trackEvent('hero_quickpath_no_file', { pathname: '/' })}
-                  className="flex items-center gap-2 px-3 py-2.5 rounded-lg bg-white/[0.06] hover:bg-white/[0.1] backdrop-blur-sm border border-white/10 text-white text-xs md:text-sm font-medium no-underline transition-colors"
-                >
-                  <span className="text-base shrink-0">🎨</span>
-                  <span>Файлгүй бол → <span className="text-[#FF6B00]">Дизайн / Үнэ</span></span>
-                </Link>
-                <a
-                  href="tel:72000444"
-                  onClick={() => trackEvent('hero_quickpath_urgent', { pathname: '/' })}
-                  className="flex items-center gap-2 px-3 py-2.5 rounded-lg bg-white/[0.06] hover:bg-white/[0.1] backdrop-blur-sm border border-white/10 text-white text-xs md:text-sm font-medium no-underline transition-colors"
-                >
-                  <span className="text-base shrink-0">⚡</span>
-                  <span>Яаралтай бол → <span className="text-[#FF6B00]">72000444</span></span>
-                </a>
-              </div>
-
-              {/* Process: 4 simple steps (no AI overload) */}
-              <div className="flex flex-wrap items-center gap-2 md:gap-3">
-                {[
-                  { icon: '🛍️', label: 'Сонгох' },
-                  { icon: '📄', label: 'Файл/Дизайн' },
-                  { icon: '✅', label: 'Баталгаажуулах' },
-                  { icon: '🚚', label: 'Хүргүүлэх' },
-                ].map((step, i) => (
-                  <div key={step.label} className="flex items-center gap-2 md:gap-3">
-                    {i > 0 && <span className="text-white/20">→</span>}
-                    <div className="flex items-center gap-2 bg-white/[0.06] backdrop-blur-sm border border-white/[0.08] rounded-lg px-3 py-2">
-                      <span className="text-base">{step.icon}</span>
-                      <span className="text-xs md:text-sm font-medium text-white/90">{step.label}</span>
-                    </div>
-                  </div>
-                ))}
               </div>
             </div>
           </div>
