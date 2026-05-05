@@ -139,7 +139,15 @@ export default function MegaNav() {
   const { cartCount, wishlist } = useStore()
   const [mounted, setMounted] = useState(false)
   useEffect(() => setMounted(true), [])
-  const headerLogoUrl = settings.header_logo_url || ''
+  // Filter out broken hotlink-protected hosts (Facebook CDN, Instagram CDN block external loads).
+  // Fall back to site_logo_url, then to inline SVG logo.
+  const isHotlinkProtected = (url: string) => /fbcdn\.net|cdninstagram\.com|lookaside\.facebook\.com/i.test(url)
+  const rawHeader = settings.header_logo_url || ''
+  const rawSite = settings.site_logo_url || ''
+  const headerLogoUrl =
+    rawHeader && !isHotlinkProtected(rawHeader) ? rawHeader
+    : rawSite && !isHotlinkProtected(rawSite) ? rawSite
+    : ''
   const siteName = settings.site_name || 'BizPrint'
   const phone = settings.site_phone || '+976 7711-7700'
   const showSearch = settings.header_show_search !== false && settings.header_show_search !== 'false'
