@@ -10,10 +10,10 @@ import { RefreshCw, Search, Download } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 
-/* âââââââââââââââââââââââââââââââââââââââ
+/* ─────────────────────────────────────────
  *  ORDER OPERATIONS CONTROL CENTER
- *  KPI â Alerts â Filters â Table â Bulk â Detail
- * âââââââââââââââââââââââââââââââââââââââ */
+ *  KPI · Alerts · Filters · Table · Bulk · Detail
+ * ───────────────────────────────────────── */
 
 const STATUS_COLOR: Record<string, string> = {
   draft: '#94A3B8', quotation_sent: '#F59E0B', confirmed: '#3B82F6',
@@ -23,14 +23,14 @@ const STATUS_COLOR: Record<string, string> = {
   completed: '#059669', cancelled: '#EF4444',
 }
 const STATUS_LABEL: Record<string, string> = {
-  draft: 'ÐÐ¾Ð¾ÑÐ¾Ð³', quotation_sent: 'Ð¡Ð°Ð½Ð°Ð» Ð¸Ð»Ð³ÑÑÑÑÐ½', confirmed: 'ÐÐ°ÑÐ°Ð»Ð³Ð°Ð°Ð¶ÑÐ°Ð½',
-  pending_file: 'Ð¤Ð°Ð¹Ð» ÑÒ¯Ð»ÑÑÐ¶ Ð±ÑÐ¹', file_review: 'Ð¤Ð°Ð¹Ð» ÑÐ°Ð»Ð³Ð°Ð»Ñ', file_rejected: 'Ð¤Ð°Ð¹Ð» Ð±ÑÑÑÐ°Ð½',
-  on_hold: 'Ð¢Ò¯Ñ Ð·Ð¾Ð³ÑÑÐ¾Ð½', in_production: 'Ò®Ð¹Ð»Ð´Ð²ÑÑÐ»ÑÐ»Ð´', finishing: 'ÐÐ¾Ð»Ð¾Ð²ÑÑÑÑÐ»Ð°Ð»Ñ',
-  partially_dispatched: 'Ð¥ÑÑÑÐ³ÑÐ»ÑÐ½', dispatched: 'ÐÐ»Ð³ÑÑÑÑÐ½', delivered: 'Ð¥Ò¯ÑÐ³ÑÑÑÐ½',
-  completed: 'ÐÑÑÑÑÐ°Ð½', cancelled: 'Ð¦ÑÑÐ°Ð»ÑÐ°Ð½',
+  draft: 'Ноорог', quotation_sent: 'Санал илгээсэн', confirmed: 'Баталгаажсан',
+  pending_file: 'Файл хүлээж буй', file_review: 'Файл шалгалт', file_rejected: 'Файл буцаасан',
+  on_hold: 'Түр зогссон', in_production: 'Үйлдвэрлэлд', finishing: 'Боловсруулалт',
+  partially_dispatched: 'Хэсэгчилэн', dispatched: 'Илгээсэн', delivered: 'Хүргэгдсэн',
+  completed: 'Дууссан', cancelled: 'Цуцалсан',
 }
 const PRIORITY_COLOR: Record<string, string> = { low: '#94A3B8', normal: '#3B82F6', high: '#F59E0B', urgent: '#EF4444' }
-const PRIORITY_LABEL: Record<string, string> = { low: 'ÐÐ°Ð³Ð°', normal: 'Ð­Ð½Ð³Ð¸Ð¹Ð½', high: 'Ó¨Ð½Ð´Ó©Ñ', urgent: 'Ð¯Ð°ÑÐ°Ð»ÑÐ°Ð¹' }
+const PRIORITY_LABEL: Record<string, string> = { low: 'Бага', normal: 'Энгийн', high: 'Өндөр', urgent: 'Яаралтай' }
 
 const ALL_STATUSES = Object.keys(STATUS_LABEL)
 const fmt = (n: number) => n?.toLocaleString?.() ?? '0'
@@ -116,7 +116,7 @@ export default function AdminOrdersPage() {
     const ids = Array.from(selected)
     if (!ids.length || !bulkAction) return
     if (bulkAction === 'cancel') {
-      if (!confirm(`${ids.length} Ð·Ð°ÑÐ¸Ð°Ð»Ð³Ð° ÑÑÑÐ»Ð°Ñ ÑÑ?`)) return
+      if (!confirm(`${ids.length} захиалга цуцлах уу?`)) return
       await apiFetch('/orders/bulk/cancel', { method: 'POST', body: JSON.stringify({ order_ids: ids }) })
     } else if (bulkAction.startsWith('status:')) {
       const status = bulkAction.replace('status:', '')
@@ -140,27 +140,7 @@ export default function AdminOrdersPage() {
     if (filter && o.status !== filter) return false
     if (search) {
       const s = search.toLowerCase()
-    
-  const handleExportCsv = async () => {
-    try {
-      const token = localStorage.getItem('token') ?? '';
-      const res = await fetch('/api/orders/export', {
-        headers: { Authorization: 'Bearer ' + token },
-      });
-      if (!res.ok) throw new Error('Export failed');
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'orders-' + new Date().toISOString().split('T')[0] + '.csv';
-      a.click();
-      URL.revokeObjectURL(url);
-    } catch (e) {
-      alert('CSV tatahad aldaa garlaa');
-    }
-  };
-
-  return (o.customer_name || '').toLowerCase().includes(s) ||
+      return (o.customer_name || '').toLowerCase().includes(s) ||
         (o.product_name || '').toLowerCase().includes(s) ||
         (o.id || '').toLowerCase().includes(s) ||
         (o.customer_email || '').toLowerCase().includes(s)
@@ -205,18 +185,14 @@ export default function AdminOrdersPage() {
       `}</style>
 
       {/* Header */}
-      <AdminPageHeader title="ÐÐ°ÑÐ¸Ð°Ð»Ð³ÑÐ½ ÑÐ´Ð¸ÑÐ´Ð»Ð°Ð³Ð°" description={`Operations Control Center Â· ${orders.length} Ð·Ð°ÑÐ¸Ð°Ð»Ð³Ð°`}>
+      <AdminPageHeader title="Захиалгын удирдлага" description={`Operations Control Center · ${orders.length} захиалга`}>
+        <Button variant="outline" size="sm" onClick={() => handleExport('csv')} className="flex items-center gap-1">
+          <Download className="h-4 w-4 mr-1" />
+          CSV татах
+        </Button>
         <Button variant="outline" size="sm" onClick={load}>
           <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => handleExport('csv')}
-                className="flex items-center gap-1"
-              >
-                <Download className="h-4 w-4" />
-                CSV татах
-              </Button>Ð¨Ð¸Ð½ÑÑÐ»ÑÑ
+          Шинэчлэх
         </Button>
       </AdminPageHeader>
 
@@ -224,14 +200,14 @@ export default function AdminOrdersPage() {
       {kpi && (
         <div className="grid grid-cols-2 sm:grid-cols-4 xl:grid-cols-8 gap-2.5 mb-5">
           {[
-            { label: 'ÐÐ¸Ð¹Ñ Ð·Ð°ÑÐ¸Ð°Ð»Ð³Ð°', value: kpi.total_orders, color: '#64748B', icon: 'ð' },
-            { label: 'ÐÐ¸Ð¹Ñ Ð¾ÑÐ»Ð¾Ð³Ð¾', value: `â®${fmt(kpi.total_revenue)}`, color: '#FF6B00', icon: 'ð°' },
-            { label: 'Ð¥Ò¯Ð»ÑÑÐ³Ð´ÑÐ¶ Ð±ÑÐ¹', value: `${kpi.pending?.count || 0}`, sub: `â®${fmt(kpi.pending?.value || 0)}`, color: '#F59E0B', icon: 'â³' },
-            { label: 'Ò®Ð¹Ð»Ð´Ð²ÑÑÐ»ÑÐ»Ð´', value: `${kpi.production?.count || 0}`, sub: `â®${fmt(kpi.production?.value || 0)}`, color: '#EC4899', icon: 'ð­' },
-            { label: 'ÐÑÑÑÑÐ°Ð½', value: `${kpi.completed?.count || 0}`, sub: `â®${fmt(kpi.completed?.value || 0)}`, color: '#059669', icon: 'â' },
-            { label: 'Ð¥Ð¾ÑÐ¾ÑÑÐ¾Ð½', value: `${kpi.delayed?.count || 0}`, color: '#EF4444', icon: 'ð´' },
-            { label: 'Ó¨Ð½Ó©Ó©Ð´Ó©Ñ', value: `${kpi.today?.count || 0}`, color: '#3B82F6', icon: 'ð' },
-            { label: 'Ð¯Ð°ÑÐ°Ð»ÑÐ°Ð¹', value: `${kpi.urgent?.count || 0}`, color: '#EF4444', icon: 'ð¨' },
+            { label: 'Нийт захиалга', value: kpi.total_orders, color: '#64748B', icon: '📋' },
+            { label: 'Нийт орлого', value: `₮${fmt(kpi.total_revenue)}`, color: '#FF6B00', icon: '💰' },
+            { label: 'Хүлээгдэж буй', value: `${kpi.pending?.count || 0}`, sub: `₮${fmt(kpi.pending?.value || 0)}`, color: '#F59E0B', icon: '⏳' },
+            { label: 'Үйлдвэрлэлд', value: `${kpi.production?.count || 0}`, sub: `₮${fmt(kpi.production?.value || 0)}`, color: '#EC4899', icon: '🏭' },
+            { label: 'Дууссан', value: `${kpi.completed?.count || 0}`, sub: `₮${fmt(kpi.completed?.value || 0)}`, color: '#059669', icon: '✅' },
+            { label: 'Хоцорсон', value: `${kpi.delayed?.count || 0}`, color: '#EF4444', icon: '🔴' },
+            { label: 'Өнөөдөр', value: `${kpi.today?.count || 0}`, color: '#3B82F6', icon: '📅' },
+            { label: 'Яаралтай', value: `${kpi.urgent?.count || 0}`, color: '#EF4444', icon: '🚨' },
           ].map(k => (
             <div key={k.label} className="rounded-xl border border-border bg-card px-4 py-3.5" style={{ borderLeftWidth: 4, borderLeftColor: k.color }}>
               <div className="text-[11px] text-muted-foreground mb-1">{k.icon} {k.label}</div>
@@ -245,12 +221,12 @@ export default function AdminOrdersPage() {
       {/* ALERTS */}
       {alerts && alerts.total_alerts > 0 && (
         <div className="flex flex-wrap items-center gap-5 rounded-xl border border-red-200 bg-red-50 dark:bg-red-500/10 px-5 py-3.5 mb-5">
-          <span className="text-sm font-bold text-red-600">ð¥ ÐÐ½ÑÐ°Ð°ÑÑÑÐ»Ð³Ð° ({alerts.total_alerts})</span>
-          {alerts.delayed?.count > 0 && <span className="text-sm text-red-600">â° Ð¥Ð¾ÑÐ¾ÑÑÐ¾Ð½: {alerts.delayed.count}</span>}
-          {alerts.no_vendor?.count > 0 && <span className="text-sm text-red-600">ð¤ Vendor-Ð³Ò¯Ð¹: {alerts.no_vendor.count}</span>}
-          {alerts.urgent?.count > 0 && <span className="text-sm text-red-600">ð¨ Ð¯Ð°ÑÐ°Ð»ÑÐ°Ð¹: {alerts.urgent.count}</span>}
-          {alerts.stale?.count > 0 && <span className="text-sm text-red-600">â ï¸ Ð¥Ó©Ð´Ó©Ð»Ð³Ó©Ó©Ð½Ð³Ò¯Ð¹: {alerts.stale.count}</span>}
-          {alerts.file_pending?.count > 0 && <span className="text-sm text-red-600">ð Ð¤Ð°Ð¹Ð» ÑÒ¯Ð»ÑÑÐ¶: {alerts.file_pending.count}</span>}
+          <span className="text-sm font-bold text-red-600">🔥 Анхааруулга ({alerts.total_alerts})</span>
+          {alerts.delayed?.count > 0 && <span className="text-sm text-red-600">⏰ Хоцорсон: {alerts.delayed.count}</span>}
+          {alerts.no_vendor?.count > 0 && <span className="text-sm text-red-600">🏭 Vendor-гүй: {alerts.no_vendor.count}</span>}
+          {alerts.urgent?.count > 0 && <span className="text-sm text-red-600">🚨 Яаралтай: {alerts.urgent.count}</span>}
+          {alerts.stale?.count > 0 && <span className="text-sm text-red-600">⚠️ Хөдөлгөөнгүй: {alerts.stale.count}</span>}
+          {alerts.file_pending?.count > 0 && <span className="text-sm text-red-600">📁 Файл хүлээж: {alerts.file_pending.count}</span>}
         </div>
       )}
 
@@ -259,14 +235,14 @@ export default function AdminOrdersPage() {
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder="Ð¥Ð°Ð¹Ñ... (Ð½ÑÑ, Ð±Ò¯ÑÑÑÐ³Ð´ÑÑÒ¯Ò¯Ð½, ID)"
+            placeholder="Хайх... (нэр, бүтээгдэхүүн, ID)"
             value={search}
             onChange={e => setSearch(e.target.value)}
             className="pl-9 h-9 w-[260px] text-sm"
           />
         </div>
         <div className="flex flex-wrap gap-1">
-          <button onClick={() => setFilter('')} className={cn('px-3 py-1.5 rounded-md text-[11px] font-medium cursor-pointer border-none transition-colors', !filter ? 'bg-primary text-white' : 'bg-muted text-muted-foreground hover:bg-muted/80')}>ÐÒ¯Ð³Ð´</button>
+          <button onClick={() => setFilter('')} className={cn('px-3 py-1.5 rounded-md text-[11px] font-medium cursor-pointer border-none transition-colors', !filter ? 'bg-primary text-white' : 'bg-muted text-muted-foreground hover:bg-muted/80')}>Бүгд</button>
           {ALL_STATUSES.map(s => (
             <button key={s} onClick={() => setFilter(filter === s ? '' : s)} className={cn('px-3 py-1.5 rounded-md text-[11px] cursor-pointer border-none transition-colors', filter === s ? 'text-white font-semibold' : 'bg-muted text-muted-foreground hover:bg-muted/80')} style={filter === s ? { background: stColor(s) } : undefined}>
               {stLabel(s)}
@@ -278,19 +254,19 @@ export default function AdminOrdersPage() {
       {/* BULK ACTION BAR */}
       {selected.size > 0 && (
         <div className="flex flex-wrap items-center gap-3 rounded-lg border border-blue-200 bg-blue-50 dark:bg-blue-500/10 px-4 py-2.5 mb-4">
-          <Badge variant="secondary" className="text-blue-700 bg-blue-100">{selected.size} ÑÐ¾Ð½Ð³Ð¾ÑÐ¾Ð½</Badge>
+          <Badge variant="secondary" className="text-blue-700 bg-blue-100">{selected.size} сонгосон</Badge>
           <select value={bulkAction} onChange={e => setBulkAction(e.target.value)} className="rounded-md border border-blue-200 bg-background px-2.5 py-1.5 text-xs">
-            <option value="">Ò®Ð¹Ð»Ð´ÑÐ» ÑÐ¾Ð½Ð³Ð¾Ñ...</option>
-            <optgroup label="Ð¢Ó©Ð»Ó©Ð² ÑÐ¾Ð»Ð¸Ñ">
+            <option value="">Үйлдэл сонгох...</option>
+            <optgroup label="Төлөв солих">
               {ALL_STATUSES.map(s => <option key={s} value={`status:${s}`}>{stLabel(s)}</option>)}
             </optgroup>
-            <optgroup label="ÐÑ ÑÐ¾Ð»Ð±Ð¾Ð³Ð´Ð¾Ð»">
+            <optgroup label="Ач холбогдол">
               {Object.keys(PRIORITY_LABEL).map(p => <option key={p} value={`priority:${p}`}>{PRIORITY_LABEL[p]}</option>)}
             </optgroup>
-            <option value="cancel">â Ð¦ÑÑÐ»Ð°Ñ</option>
+            <option value="cancel">❌ Цуцлах</option>
           </select>
-          <Button size="sm" onClick={executeBulk} disabled={!bulkAction} className="h-7 text-xs">ÐÒ¯Ð¹ÑÑÑÐ³ÑÑ</Button>
-          <Button size="sm" variant="ghost" onClick={() => setSelected(new Set())} className="h-7 text-xs text-blue-700">ÐÐ¾Ð»Ð¸Ñ</Button>
+          <Button size="sm" onClick={executeBulk} disabled={!bulkAction} className="h-7 text-xs">Гүйцэтгэх</Button>
+          <Button size="sm" variant="ghost" onClick={() => setSelected(new Set())} className="h-7 text-xs text-blue-700">Болих</Button>
         </div>
       )}
 
@@ -302,16 +278,16 @@ export default function AdminOrdersPage() {
               <th style={{ padding: '10px 12px', width: 32 }}>
                 <input type="checkbox" checked={selected.size === filtered.length && filtered.length > 0} onChange={selectAll} />
               </th>
-              {['ID', 'Ð¥ÑÑÑÐ³Ð»ÑÐ³Ñ', 'ÐÒ¯ÑÑÑÐ³Ð´ÑÑÒ¯Ò¯Ð½', 'Vendor', 'Ð¢Ð¾Ð¾', 'ÐÒ¯Ð½', 'Ð¢Ó©Ð»Ó©Ð²', 'ÐÑÑÑÐ³', 'Ð¥ÑÐ³Ð°ÑÐ°Ð°', 'Ò®Ð¹Ð»Ð´ÑÐ»'].map(h => (
+              {['ID', 'Хэрэглэгч', 'Бүтээгдэхүүн', 'Vendor', 'Тоо', 'Үнэ', 'Төлөв', 'Зэрэг', 'Хугацаа', 'Үйлдэл'].map(h => (
                 <th key={h} style={{ padding: '10px 12px', textAlign: 'left', color: 'var(--text2)', fontWeight: 500, whiteSpace: 'nowrap', fontSize: 11, textTransform: 'uppercase' }}>{h}</th>
               ))}
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={11} style={{ padding: 40, textAlign: 'center', color: 'var(--text2)' }}>Ð£Ð½ÑÐ¸Ð¶ Ð±Ð°Ð¹Ð½Ð°...</td></tr>
+              <tr><td colSpan={11} style={{ padding: 40, textAlign: 'center', color: 'var(--text2)' }}>Уншиж байна...</td></tr>
             ) : filtered.length === 0 ? (
-              <tr><td colSpan={11} style={{ padding: 40, textAlign: 'center', color: 'var(--text2)' }}>ÐÐ°ÑÐ¸Ð°Ð»Ð³Ð° Ð±Ð°Ð¹ÑÐ³Ò¯Ð¹</td></tr>
+              <tr><td colSpan={11} style={{ padding: 40, textAlign: 'center', color: 'var(--text2)' }}>Захиалга байхгүй</td></tr>
             ) : filtered.map(o => {
               const isDelayed = o.is_delayed || (o.deadline && new Date(o.deadline) < new Date() && !['completed', 'cancelled', 'delivered'].includes(o.status))
               const vendorName = vendors.find((v: any) => v.id === o.factory_id)?.company_name
@@ -322,21 +298,21 @@ export default function AdminOrdersPage() {
                   </td>
                   <td style={{ padding: '8px 12px', fontFamily: 'monospace', color: 'var(--text3)', fontSize: 11 }}>#{o.id?.slice(0, 8)}</td>
                   <td style={{ padding: '8px 12px' }}>
-                    <div style={{ fontWeight: 500, fontSize: 13 }}>{o.customer_name || 'â'}</div>
+                    <div style={{ fontWeight: 500, fontSize: 13 }}>{o.customer_name || '—'}</div>
                     <div style={{ fontSize: 11, color: 'var(--text3)' }}>{o.customer_email || ''}</div>
                   </td>
-                  <td style={{ padding: '8px 12px', color: 'var(--text2)', fontSize: 12 }}>{o.product_name || 'â'}</td>
+                  <td style={{ padding: '8px 12px', color: 'var(--text2)', fontSize: 12 }}>{o.product_name || '—'}</td>
                   <td style={{ padding: '8px 12px', fontSize: 12 }}>
                     {vendorName ? (
                       <span style={{ fontSize: 11, padding: '2px 8px', borderRadius: 6, background: '#EFF6FF', color: '#1D4ED8' }}>{vendorName}</span>
                     ) : o.factory_id ? (
                       <span style={{ fontSize: 11, color: 'var(--text3)' }}>#{o.factory_id.slice(0, 6)}</span>
                     ) : (
-                      <span style={{ fontSize: 11, color: '#EF4444' }}>â</span>
+                      <span style={{ fontSize: 11, color: '#EF4444' }}>—</span>
                     )}
                   </td>
-                  <td style={{ padding: '8px 12px', color: 'var(--text2)' }}>{o.quantity || 'â'}</td>
-                  <td style={{ padding: '8px 12px', color: '#FF6B00', fontWeight: 600, whiteSpace: 'nowrap' }}>â®{fmt(Number(o.total_price || 0))}</td>
+                  <td style={{ padding: '8px 12px', color: 'var(--text2)' }}>{o.quantity || '—'}</td>
+                  <td style={{ padding: '8px 12px', color: '#FF6B00', fontWeight: 600, whiteSpace: 'nowrap' }}>₮{fmt(Number(o.total_price || 0))}</td>
                   <td style={{ padding: '8px 12px' }}>
                     <span style={{ fontSize: 10, padding: '3px 8px', borderRadius: 99, background: stColor(o.status) + '18', color: stColor(o.status), fontWeight: 600 }}>
                       {stLabel(o.status)}
@@ -344,20 +320,20 @@ export default function AdminOrdersPage() {
                   </td>
                   <td style={{ padding: '8px 12px' }}>
                     <span style={{ fontSize: 10, padding: '2px 6px', borderRadius: 4, background: (PRIORITY_COLOR[o.priority] || '#94A3B8') + '18', color: PRIORITY_COLOR[o.priority] || '#94A3B8', fontWeight: 600 }}>
-                      {PRIORITY_LABEL[o.priority] || 'Ð­Ð½Ð³Ð¸Ð¹Ð½'}
+                      {PRIORITY_LABEL[o.priority] || 'Энгийн'}
                     </span>
                   </td>
                   <td style={{ padding: '8px 12px', fontSize: 11 }}>
                     {o.deadline ? (
                       <span style={{ color: isDelayed ? '#EF4444' : 'var(--text2)', fontWeight: isDelayed ? 700 : 400 }}>
-                        {isDelayed && 'ð´ '}{new Date(o.deadline).toLocaleDateString('mn-MN')}
+                        {isDelayed && '🔴 '}{new Date(o.deadline).toLocaleDateString('mn-MN')}
                       </span>
                     ) : (
-                      <span style={{ color: 'var(--text3)' }}>â</span>
+                      <span style={{ color: 'var(--text3)' }}>—</span>
                     )}
                   </td>
                   <td style={{ padding: '8px 12px' }} onClick={e => e.stopPropagation()}>
-                    <button onClick={() => openDetail(o)} style={{ padding: '4px 10px', background: 'rgba(59,130,246,0.1)', color: '#3B82F6', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 11, fontWeight: 500 }}>ÐÑÐ»Ð³ÑÑÑÐ½Ð³Ò¯Ð¹</button>
+                    <button onClick={() => openDetail(o)} style={{ padding: '4px 10px', background: 'rgba(59,130,246,0.1)', color: '#3B82F6', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 11, fontWeight: 500 }}>Дэлгэрэнгүй</button>
                   </td>
                 </tr>
               )
@@ -378,15 +354,15 @@ export default function AdminOrdersPage() {
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
                     <span style={{ fontSize: 12, fontFamily: 'monospace', color: 'var(--text3)' }}>#{detail.id?.slice(0, 12)}</span>
                     <span style={{ fontSize: 10, padding: '2px 10px', borderRadius: 99, background: stColor(detail.status) + '15', color: stColor(detail.status), fontWeight: 600 }}>{stLabel(detail.status)}</span>
-                    {detail.is_delayed && <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 99, background: '#FEE2E2', color: '#DC2626', fontWeight: 700 }}>ð´ Ð¥ÐÐ¦ÐÐ Ð¡ÐÐ</span>}
-                    <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 4, background: (PRIORITY_COLOR[detail.priority] || '#94A3B8') + '15', color: PRIORITY_COLOR[detail.priority] || '#94A3B8', fontWeight: 600 }}>{PRIORITY_LABEL[detail.priority] || 'Ð­Ð½Ð³Ð¸Ð¹Ð½'}</span>
+                    {detail.is_delayed && <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 99, background: '#FEE2E2', color: '#DC2626', fontWeight: 700 }}>🔴 ХОЦОРСОН</span>}
+                    <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 4, background: (PRIORITY_COLOR[detail.priority] || '#94A3B8') + '15', color: PRIORITY_COLOR[detail.priority] || '#94A3B8', fontWeight: 600 }}>{PRIORITY_LABEL[detail.priority] || 'Энгийн'}</span>
                   </div>
-                  <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 2 }}>{detail.product_name || 'ÐÐ°ÑÐ¸Ð°Ð»Ð³Ð°'}</div>
+                  <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 2 }}>{detail.product_name || 'Захиалга'}</div>
                   <div style={{ fontSize: 13, color: 'var(--text2)' }}>
-                    {detail.customer_name || detail.customer_email || 'â'} Â· {detail.quantity || 0}Ñ Â· <span style={{ color: '#FF6B00', fontWeight: 600 }}>â®{fmt(Number(detail.total_price || 0))}</span>
+                    {detail.customer_name || detail.customer_email || '—'} · {detail.quantity || 0}ш · <span style={{ color: '#FF6B00', fontWeight: 600 }}>₮{fmt(Number(detail.total_price || 0))}</span>
                   </div>
                 </div>
-                <button onClick={() => setDetail(null)} style={{ background: 'var(--surface2)', border: '1px solid var(--border)', color: 'var(--text2)', width: 32, height: 32, borderRadius: 8, cursor: 'pointer', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>â</button>
+                <button onClick={() => setDetail(null)} style={{ background: 'var(--surface2)', border: '1px solid var(--border)', color: 'var(--text2)', width: 32, height: 32, borderRadius: 8, cursor: 'pointer', fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
               </div>
             </div>
 
@@ -396,18 +372,18 @@ export default function AdminOrdersPage() {
               {/* Info Grid */}
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px 16px', marginBottom: 20 }}>
                 {[
-                  { label: 'Ð¥ÑÑÑÐ³Ð»ÑÐ³Ñ', value: detail.customer_name || 'â' },
-                  { label: 'Ð£ÑÐ°Ñ', value: detail.customer_phone || 'â' },
-                  { label: 'Ð-Ð¼ÑÐ¹Ð»', value: detail.customer_email || 'â' },
-                  { label: 'Ð¢Ð¾Ð¾ ÑÐ¸ÑÑÑÐ³', value: detail.quantity || 'â' },
-                  { label: 'ÐÑÐ³Ð¶ Ò¯Ð½Ñ', value: detail.unit_price ? `â®${fmt(Number(detail.unit_price))}` : 'â' },
-                  { label: 'ÐÐ¸Ð¹Ñ Ð´Ò¯Ð½', value: detail.total_price ? `â®${fmt(Number(detail.total_price))}` : 'â' },
-                  { label: 'Ð¥ÑÐ¼Ð¶ÑÑ', value: detail.width_mm && detail.height_mm ? `${detail.width_mm}Ã${detail.height_mm}Ð¼Ð¼` : 'â' },
-                  { label: 'Ð¦Ð°Ð°Ñ', value: detail.paper_gsm ? `${detail.paper_gsm}gsm` : 'â' },
-                  { label: 'Finishing', value: detail.finishing || 'â' },
-                  { label: 'Ð¢Ó©Ð»Ð±Ó©Ñ', value: detail.payment_status || 'â' },
-                  { label: 'ÐÑÑÑÐ°Ñ ÑÑÐ³Ð°ÑÐ°Ð°', value: detail.deadline ? new Date(detail.deadline).toLocaleDateString('mn-MN') : 'â' },
-                  { label: 'ÐÐ³Ð½Ð¾Ð¾', value: detail.created_at ? new Date(detail.created_at).toLocaleString('mn-MN') : 'â' },
+                  { label: 'Хэрэглэгч', value: detail.customer_name || '—' },
+                  { label: 'Утас', value: detail.customer_phone || '—' },
+                  { label: 'И-мэйл', value: detail.customer_email || '—' },
+                  { label: 'Тоо ширхэг', value: detail.quantity || '—' },
+                  { label: 'Нэгж үнэ', value: detail.unit_price ? `₮${fmt(Number(detail.unit_price))}` : '—' },
+                  { label: 'Нийт дүн', value: detail.total_price ? `₮${fmt(Number(detail.total_price))}` : '—' },
+                  { label: 'Хэмжээ', value: detail.width_mm && detail.height_mm ? `${detail.width_mm}×${detail.height_mm}мм` : '—' },
+                  { label: 'Цаас', value: detail.paper_gsm ? `${detail.paper_gsm}gsm` : '—' },
+                  { label: 'Finishing', value: detail.finishing || '—' },
+                  { label: 'Төлбөр', value: detail.payment_status || '—' },
+                  { label: 'Дуусах хугацаа', value: detail.deadline ? new Date(detail.deadline).toLocaleDateString('mn-MN') : '—' },
+                  { label: 'Огноо', value: detail.created_at ? new Date(detail.created_at).toLocaleString('mn-MN') : '—' },
                 ].map(item => (
                   <div key={item.label} style={{ fontSize: 12 }}>
                     <span style={{ color: 'var(--text3)', marginRight: 6 }}>{item.label}:</span>
@@ -418,42 +394,42 @@ export default function AdminOrdersPage() {
 
               {/* Vendor Assignment */}
               <div style={{ marginBottom: 20 }}>
-                <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8, color: 'var(--text2)' }}>Vendor ÑÑÐ²Ð°Ð°ÑÐ¸Ð»Ð°Ð»Ñ</div>
+                <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8, color: 'var(--text2)' }}>Vendor хуваарилалт</div>
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                   <select
                     value={detail.factory_id || ''}
                     onChange={e => { if (e.target.value) assignVendor(detail.id, e.target.value) }}
                     style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 13, flex: 1 }}
                   >
-                    <option value="">â Vendor ÑÐ¾Ð½Ð³Ð¾Ñ â</option>
+                    <option value="">— Vendor сонгох —</option>
                     {vendors.map((v: any) => (
                       <option key={v.id} value={v.id}>{v.company_name} ({v.load_status || 'available'})</option>
                     ))}
                   </select>
                   {detail.factory_id && (
                     <span style={{ fontSize: 12, color: '#10B981', fontWeight: 600 }}>
-                      â {vendors.find((v: any) => v.id === detail.factory_id)?.company_name || detail.factory_id.slice(0, 8)}
+                      ✓ {vendors.find((v: any) => v.id === detail.factory_id)?.company_name || detail.factory_id.slice(0, 8)}
                     </span>
                   )}
                 </div>
               </div>
 
-              {/* PRODUCTION GATE â Preflight Panel */}
+              {/* PRODUCTION GATE — Preflight Panel */}
               <div style={{ marginBottom: 20 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text2)' }}>Ð¤Ð°Ð¹Ð» ÑÐ°Ð»Ð³Ð°Ð»Ñ (Production Gate)</div>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text2)' }}>Файл шалгалт (Production Gate)</div>
                   <button onClick={() => runGateCheck(detail.id)} disabled={gateLoading} style={{ padding: '4px 12px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--surface)', fontSize: 11, cursor: 'pointer' }}>
-                    {gateLoading ? 'â³ Ð¨Ð°Ð»Ð³Ð°Ð¶ Ð±Ð°Ð¹Ð½Ð°...' : 'ð ÐÐ°ÑÐ¸Ð½ ÑÐ°Ð»Ð³Ð°Ñ'}
+                    {gateLoading ? '⏳ Шалгаж байна...' : '🔄 Дахин шалгах'}
                   </button>
                 </div>
 
                 {!gateResult ? (
                   <div style={{ padding: 16, background: 'var(--surface2)', borderRadius: 10, fontSize: 12, color: 'var(--text3)', textAlign: 'center' }}>
-                    Ð¤Ð°Ð¹Ð» Ð±Ð°Ð¹ÑÐ³Ò¯Ð¹ ÑÑÐ²ÑÐ» ÑÐ°Ð»Ð³Ð°Ð»Ñ ÑÐ¸Ð¹Ð³Ð´ÑÑÐ³Ò¯Ð¹
+                    Файл байхгүй эсвэл шалгалт хийгдээгүй
                   </div>
                 ) : gateResult.total_files === 0 ? (
                   <div style={{ padding: 16, background: '#FEF3C7', border: '1px solid #FDE68A', borderRadius: 10, fontSize: 12, color: '#92400E' }}>
-                    â ï¸ Ð¤Ð°Ð¹Ð» Ð¾ÑÑÑÐ»Ð°Ð³Ð´Ð°Ð°Ð³Ò¯Ð¹ Ð±Ð°Ð¹Ð½Ð°
+                    ⚠️ Файл оруулагдаагүй байна
                   </div>
                 ) : (
                   <div style={{ border: '1px solid var(--border)', borderRadius: 10, overflow: 'hidden' }}>
@@ -465,13 +441,13 @@ export default function AdminOrdersPage() {
                     }}>
                       <div>
                         <span style={{ fontSize: 14, fontWeight: 700, color: gateResult.production_ready ? '#16A34A' : '#DC2626' }}>
-                          {gateResult.production_ready ? 'â Ò®Ð¹Ð»Ð´Ð²ÑÑÑ Ð±ÑÐ»ÑÐ½' : 'â Ð¨Ð°Ð»Ð³Ð°Ð»Ñ Ð´Ð°Ð²ÑÐ°Ð½Ð³Ò¯Ð¹'}
+                          {gateResult.production_ready ? '✅ Үйлдвэрт бэлэн' : '❌ Шалгалт давсангүй'}
                         </span>
                         <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>{gateResult.summary}</div>
                       </div>
                       <div style={{ textAlign: 'right' }}>
-                        <div style={{ fontSize: 11, color: 'var(--text3)' }}>Ð¤Ð°Ð¹Ð»: {gateResult.total_files}</div>
-                        <div style={{ fontSize: 11, color: 'var(--text3)' }}>Ð¨Ð°Ð»Ð³Ð°ÑÐ°Ð½: {gateResult.checked}</div>
+                        <div style={{ fontSize: 11, color: 'var(--text3)' }}>Файл: {gateResult.total_files}</div>
+                        <div style={{ fontSize: 11, color: 'var(--text3)' }}>Шалгасан: {gateResult.checked}</div>
                       </div>
                     </div>
 
@@ -479,13 +455,13 @@ export default function AdminOrdersPage() {
                     {gateResult.results?.map((r: any, i: number) => (
                       <div key={i} style={{ padding: '10px 16px', borderBottom: '1px solid var(--border)' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                          <span style={{ fontSize: 12, fontWeight: 600 }}>ð {r.filename}</span>
+                          <span style={{ fontSize: 12, fontWeight: 600 }}>📄 {r.filename}</span>
                           <span style={{
                             fontSize: 11, padding: '2px 10px', borderRadius: 99, fontWeight: 700,
                             background: r.score >= 80 ? '#DCFCE7' : r.score >= 60 ? '#FEF3C7' : '#FEE2E2',
                             color: r.score >= 80 ? '#16A34A' : r.score >= 60 ? '#D97706' : '#DC2626',
                           }}>
-                            {r.score}/100 Â· {r.risk}
+                            {r.score}/100 · {r.risk}
                           </span>
                         </div>
 
@@ -493,12 +469,12 @@ export default function AdminOrdersPage() {
                         {r.checks && (
                           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 12px' }}>
                             {Object.entries(r.checks).map(([key, val]: [string, any]) => {
-                              const icon = val.status === 'pass' ? 'â' : val.status === 'fail' ? 'â' : val.status === 'warning' ? 'â ï¸' : 'â¹ï¸'
+                              const icon = val.status === 'pass' ? '✅' : val.status === 'fail' ? '❌' : val.status === 'warning' ? '⚠️' : 'ℹ️'
                               const color = val.status === 'pass' ? '#16A34A' : val.status === 'fail' ? '#DC2626' : val.status === 'warning' ? '#D97706' : '#64748B'
                               const labels: Record<string, string> = {
-                                resolution: 'ÐÑÐ³ÑÐ°ÑÑÐ¸Ð» (DPI)', color_mode: 'Ó¨Ð½Ð³Ó© (CMYK)', bleed: 'Bleed (3Ð¼Ð¼)',
-                                fonts: 'Ð¤Ð¾Ð½Ñ embed', page_size: 'Ð¥ÑÐ¼Ð¶ÑÑ', transparency: 'Transparency',
-                                image_count: 'ÐÑÑÐ³ÑÑÐ´', bleed_box: 'BleedBox',
+                                resolution: 'Нягтрал (DPI)', color_mode: 'Өнгө (CMYK)', bleed: 'Bleed (3мм)',
+                                fonts: 'Фонт embed', page_size: 'Хэмжээ', transparency: 'Transparency',
+                                image_count: 'Зургууд', bleed_box: 'BleedBox',
                               }
                               return (
                                 <div key={key} style={{ fontSize: 11, display: 'flex', gap: 4, alignItems: 'start' }}>
@@ -517,7 +493,7 @@ export default function AdminOrdersPage() {
                         {r.blocking_issues?.length > 0 && (
                           <div style={{ marginTop: 8, padding: '6px 10px', background: '#FEE2E2', borderRadius: 6 }}>
                             {r.blocking_issues.map((issue: string, j: number) => (
-                              <div key={j} style={{ fontSize: 11, color: '#DC2626', fontWeight: 500 }}>â {issue}</div>
+                              <div key={j} style={{ fontSize: 11, color: '#DC2626', fontWeight: 500 }}>❌ {issue}</div>
                             ))}
                           </div>
                         )}
@@ -526,7 +502,7 @@ export default function AdminOrdersPage() {
                         {r.warnings?.length > 0 && (
                           <div style={{ marginTop: 6, padding: '6px 10px', background: '#FEF3C7', borderRadius: 6 }}>
                             {r.warnings.map((w: string, j: number) => (
-                              <div key={j} style={{ fontSize: 11, color: '#92400E' }}>â ï¸ {w}</div>
+                              <div key={j} style={{ fontSize: 11, color: '#92400E' }}>⚠️ {w}</div>
                             ))}
                           </div>
                         )}
@@ -539,7 +515,7 @@ export default function AdminOrdersPage() {
               {/* Timeline */}
               {timeline.length > 0 && (
                 <div style={{ marginBottom: 20 }}>
-                  <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8, color: 'var(--text2)' }}>Ð¢Ò¯Ò¯Ñ (Timeline)</div>
+                  <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8, color: 'var(--text2)' }}>Түүх (Timeline)</div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 0, paddingLeft: 12 }}>
                     {timeline.map((t: any, i: number) => (
                       <div key={i} style={{ display: 'flex', gap: 12, position: 'relative', paddingBottom: i < timeline.length - 1 ? 16 : 0 }}>
@@ -555,24 +531,24 @@ export default function AdminOrdersPage() {
                 </div>
               )}
 
-              {/* Ò®Ð¹Ð»Ð´Ð²ÑÑÑ Ð¸Ð»Ð³ÑÑÑ â ÑÑÑÐ³Ð°Ð¹ ÑÐ¾Ð²Ñ */}
+              {/* Үйлдвэрт илгээх — хурдан товч */}
               {(detail.status === 'file_review' || detail.status === 'confirmed' || detail.status === 'paid') && (
                 <div style={{ marginBottom: 16, padding: 16, background: '#F0FDF4', borderRadius: 12, border: '1px solid #BBF7D0' }}>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: '#059669', marginBottom: 8 }}>ð­ Ò®Ð¹Ð»Ð´Ð²ÑÑÐ»ÑÐ»Ð´ Ð±ÑÐ»ÑÐ½</div>
-                  <div style={{ fontSize: 11, color: '#6B7280', marginBottom: 10 }}>Ð¤Ð°Ð¹Ð» ÑÐ°Ð»Ð³Ð°Ð»Ñ Ð´ÑÑÑÑÐ°Ð½ Ð±Ð¾Ð» Ò¯Ð¹Ð»Ð´Ð²ÑÑÑ Ð¸Ð»Ð³ÑÑÐ½Ñ</div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: '#059669', marginBottom: 8 }}>🏭 Үйлдвэрлэлд бэлэн</div>
+                  <div style={{ fontSize: 11, color: '#6B7280', marginBottom: 10 }}>Файл шалгалт дууссан бол үйлдвэрт илгээнэ</div>
                   <button onClick={async () => {
                     await updateStatus(detail.id, 'in_production')
                     setDetail({ ...detail, status: 'in_production' })
-                    alert('Ò®Ð¹Ð»Ð´Ð²ÑÑÐ»ÑÐ»Ð´ Ð¸Ð»Ð³ÑÑÐ³Ð´Ð»ÑÑ!')
+                    alert('Үйлдвэрлэлд илгээгдлээ!')
                   }} style={{ width: '100%', padding: '12px 0', borderRadius: 10, border: 'none', background: '#10B981', color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer' }}>
-                    ð­ Ò®Ð¹Ð»Ð´Ð²ÑÑÐ»ÑÐ»Ð´ Ð¸Ð»Ð³ÑÑÑ
+                    🏭 Үйлдвэрлэлд илгээх
                   </button>
                 </div>
               )}
 
               {/* Quick Actions */}
               <div style={{ marginBottom: 20 }}>
-                <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8, color: 'var(--text2)' }}>Ð¢Ó©Ð»Ó©Ð² ÑÐ¾Ð»Ð¸Ñ</div>
+                <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8, color: 'var(--text2)' }}>Төлөв солих</div>
                 <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                   {ALL_STATUSES.map(s => (
                     <button key={s} onClick={() => updateStatus(detail.id, s)} style={{
@@ -589,7 +565,7 @@ export default function AdminOrdersPage() {
 
               {/* Priority */}
               <div>
-                <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8, color: 'var(--text2)' }}>ÐÑ ÑÐ¾Ð»Ð±Ð¾Ð³Ð´Ð¾Ð»</div>
+                <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8, color: 'var(--text2)' }}>Ач холбогдол</div>
                 <div style={{ display: 'flex', gap: 6 }}>
                   {Object.entries(PRIORITY_LABEL).map(([k, v]) => (
                     <button key={k} onClick={async () => {
@@ -610,7 +586,7 @@ export default function AdminOrdersPage() {
               {/* Notes */}
               {detail.notes && (
                 <div style={{ marginTop: 16 }}>
-                  <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 6, color: 'var(--text2)' }}>Ð¢ÑÐ¼Ð´ÑÐ³Ð»ÑÐ»</div>
+                  <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 6, color: 'var(--text2)' }}>Тэмдэглэл</div>
                   <div style={{ fontSize: 12, color: 'var(--text2)', background: 'var(--surface2)', padding: '10px 14px', borderRadius: 8 }}>{detail.notes}</div>
                 </div>
               )}
