@@ -194,6 +194,8 @@ export default function DetailedQuote() {
     setShowSaved(false);
   };
   const savedTotal = savedQuotes.reduce((s, q) => s + Number(q.total_price || 0), 0);
+  const savedSubtotal = savedQuotes.reduce((s, q) => s + Number(q.subtotal ?? Math.round(Number(q.total_price || 0) / 1.1)), 0);
+  const savedVat = savedQuotes.reduce((s, q) => s + Number(q.vat ?? (Number(q.total_price || 0) - Math.round(Number(q.total_price || 0) / 1.1))), 0);
 
   /* ─── SIGN CALC ─── */
   const signCalc = useMemo(() => {
@@ -370,11 +372,12 @@ export default function DetailedQuote() {
         body = {
           product:    offProduct,
           size_code:  offSize,
+          pages:      offPages,
           gsm:        offGsm,
           quantity:   offQty,
           color_mode: offColor,
           sides:      offSides,
-          finish:     offFinish,
+          finishing:  offFinish,
           fold:       offFold,
           rush_hours: rush === '24h' ? 24 : rush === '48h' ? 48 : 0,
         };
@@ -403,7 +406,7 @@ export default function DetailedQuote() {
             setOffAiLoading(false);
             if (d?.total_price) {
               setOffAiResult(d);
-              setApiResult({ total_price: d.total_price, unit_price: d.unit_price });
+              setApiResult(d);
             } else {
               setOffAiResult(null);
               setApiResult(null);
@@ -422,8 +425,24 @@ export default function DetailedQuote() {
       wideType, wideW, wideL, rush, margin, nerjLit, d3Lit, sbLocation, sbThickness, sbOutType]);
 
   /* ─── Display prices: prefer API result, fallback to client calc ─── */
-  const displayTotal = apiResult?.total_price || breakdown.total;
-  const displayUnitPrice = apiResult?.unit_price || breakdown.unitPrice;
+  const displayQty = tab === 'sign' ? (signProd === 'tovgor' ? tovgorQty : 1) : (printSub === 'offset' ? offQty : 1);
+  const apiTotal = Number(apiResult?.total_price || 0);
+  const displaySubtotal = apiTotal > 0
+    ? Number(apiResult?.subtotal ?? Math.round(apiTotal / 1.1))
+    : Math.round(breakdown.total);
+  const displayVat = apiTotal > 0
+    ? Number(apiResult?.vat ?? (apiTotal - displaySubtotal))
+    : Math.round(displaySubtotal * 0.1);
+  const displayTotal = apiTotal > 0 ? apiTotal : displaySubtotal + displayVat;
+  const displayUnitPrice = Number(apiResult?.unit_price || 0) || (displayQty > 0 ? Math.round(displayTotal / displayQty) : displayTotal);
+  const previewLogoPrice = signLogoUrl ? (() => {
+    const sh = signProd === 'tovgor' ? tovgorSize : dimH * 100;
+    const lh = sh * 1.18;
+    return Math.round(Math.max((lh / 100) * (lh / 100) * 500000, 80000));
+  })() : 0;
+  const previewSubtotal = displaySubtotal + savedSubtotal + previewLogoPrice;
+  const previewVat = displayVat + savedVat + Math.round(previewLogoPrice * 0.1);
+  const previewGrandTotal = displayTotal + savedTotal + previewLogoPrice + Math.round(previewLogoPrice * 0.1);
 
   // Жагсаалтад нэмэх (displayTotal зарлагдсаны дараа)
   const addToList = useCallback(() => {
@@ -463,6 +482,8 @@ export default function DetailedQuote() {
       product_subtype: productSubtype,
       dimensions: dims,
       quantity: qty,
+      subtotal: displaySubtotal,
+      vat: displayVat,
       total_price: displayTotal,
       unit_price: displayUnitPrice,
       breakdown: breakdown.lines.map(l => ({ label: l.label, amount: Math.round(l.amount) })),
@@ -475,7 +496,7 @@ export default function DetailedQuote() {
       _form: { tab, signProd, signText, extraRele, extraTog, extraCrane1, extraCrane8, tovgorSize, tovgorQty, dimW, dimH, printSub, offProduct, offSize, offPages, offQty, offGsm, offColor, offSides, offFinish, offFold, wideType, wideW, wideL, rush, margin },
     };
     setSavedQuotes(prev => [...prev, newQuote]);
-  }, [tab, signProd, tovgorSize, tovgorQty, dimW, dimH, printSub, offProduct, offSize, offPages, offQty, wideType, wideW, wideL, displayTotal, displayUnitPrice, breakdown, rush, margin]);
+  }, [tab, signProd, tovgorSize, tovgorQty, dimW, dimH, printSub, offProduct, offSize, offPages, offQty, wideType, wideW, wideL, displaySubtotal, displayVat, displayTotal, displayUnitPrice, breakdown, rush, margin]);
 
   /* ─── MARKET ANALYSIS ─── */
   interface MarketData { has_data: boolean; market_avg_unit_price?: number; market_min_unit_price?: number; market_max_unit_price?: number; sample_count?: number; factories?: string[] }
@@ -556,6 +577,8 @@ export default function DetailedQuote() {
       finishing:  printSub === 'offset' ? (offFinish !== 'none' ? offFinish : undefined) : undefined,
       paper_type: printSub === 'offset' ? `${offGsm}gsm` : undefined,
       base_price: breakdown.lines[0]?.amount || 0,
+      subtotal: displaySubtotal,
+      vat: displayVat,
       total_price: displayTotal,
       unit_price: displayUnitPrice,
       margin_rate: MARGIN_MAP[margin],
@@ -1354,19 +1377,19 @@ export default function DetailedQuote() {
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text2)' }}>
                     <span>Тоо ширхэг</span>
-                    <span style={{ fontWeight: 600 }}>×{displayUnitPrice > 0 ? Math.round(displayTotal / displayUnitPrice) : 1}</span>
+                    <span style={{ fontWeight: 600 }}>×{displayQty}</span>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: 8, borderTop: '1px solid var(--border)', color: 'var(--text)' }}>
                     <span style={{ fontWeight: 600 }}>Дүн</span>
-                    <span style={{ fontWeight: 700 }}>{fmt(displayTotal)}</span>
+                    <span style={{ fontWeight: 700 }}>{fmt(displaySubtotal)}</span>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text3)' }}>
                     <span>НӨАТ (10%)</span>
-                    <span style={{ fontWeight: 600 }}>{fmt(Math.round(displayTotal * 0.1))}</span>
+                    <span style={{ fontWeight: 600 }}>{fmt(displayVat)}</span>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: 10, borderTop: '2px solid #FF6B00', marginTop: 4 }}>
                     <span style={{ fontSize: 16, fontWeight: 800, color: '#FF6B00' }}>НИЙТ</span>
-                    <span style={{ fontSize: 22, fontWeight: 800, color: '#FF6B00' }}>{fmt(Math.round(displayTotal * 1.1))}</span>
+                    <span style={{ fontSize: 22, fontWeight: 800, color: '#FF6B00' }}>{fmt(displayTotal)}</span>
                   </div>
                 </div>
               </>
@@ -1382,7 +1405,7 @@ export default function DetailedQuote() {
               }}>
                 <div>
                   <div style={{ fontSize: 13, fontWeight: 700, color: '#FF6B00' }}>{savedQuotes.length} тооцоо хадгалагдсан</div>
-                  <div style={{ fontSize: 12, color: '#9a3412' }}>Нийт: {fmt(savedTotal)} + НӨАТ</div>
+                  <div style={{ fontSize: 12, color: '#9a3412' }}>Нийт: {fmt(savedTotal)}</div>
                 </div>
                 <div style={{ fontSize: 12, color: '#FF6B00', fontWeight: 600 }}>{showSaved ? 'Хаах ▲' : 'Харах ▼'}</div>
               </div>
@@ -1405,10 +1428,10 @@ export default function DetailedQuote() {
                 {/* Нийт дүн */}
                 <div style={{ borderTop: '2px solid var(--border)', marginTop: 8, paddingTop: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <div>
-                    <div style={{ fontSize: 11, color: 'var(--text3)' }}>Дүн: {fmt(savedTotal)}</div>
-                    <div style={{ fontSize: 11, color: 'var(--text3)' }}>НӨАТ (10%): {fmt(Math.round(savedTotal * 0.1))}</div>
+                    <div style={{ fontSize: 11, color: 'var(--text3)' }}>Дүн: {fmt(savedSubtotal)}</div>
+                    <div style={{ fontSize: 11, color: 'var(--text3)' }}>НӨАТ (10%): {fmt(savedVat)}</div>
                   </div>
-                  <div style={{ fontSize: 16, fontWeight: 800, color: '#FF6B00' }}>{fmt(Math.round(savedTotal * 1.1))}</div>
+                  <div style={{ fontSize: 16, fontWeight: 800, color: '#FF6B00' }}>{fmt(savedTotal)}</div>
                 </div>
               </div>
             )}
@@ -1502,7 +1525,7 @@ export default function DetailedQuote() {
                       {savedQuotes.map((sq, i) => (
                         <div key={sq.id} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4, fontSize: 12 }}>
                           <span style={{ color: '#555' }}>{sq.product_name} ({sq.quantity}ш)</span>
-                          <span style={{ fontWeight: 600 }}>{fmt(Math.round(sq.total_price * 1.1))}</span>
+                          <span style={{ fontWeight: 600 }}>{fmt(sq.total_price)}</span>
                         </div>
                       ))}
                     </div>
@@ -1513,19 +1536,19 @@ export default function DetailedQuote() {
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
                     <span style={{ color: '#555' }}>Тоо ширхэг</span>
-                    <span style={{ fontWeight: 600 }}>×{displayUnitPrice > 0 ? Math.round(displayTotal / displayUnitPrice) : 1}</span>
+                    <span style={{ fontWeight: 600 }}>×{displayQty}</span>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: 6, borderTop: '1px solid #D1FAE5', marginBottom: 4 }}>
                     <span style={{ fontWeight: 600, color: '#333' }}>Дүн</span>
-                    <span style={{ fontWeight: 700 }}>{fmt(displayTotal + savedTotal)}</span>
+                    <span style={{ fontWeight: 700 }}>{fmt(displaySubtotal + savedSubtotal)}</span>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
                     <span style={{ color: '#888' }}>НӨАТ (10%)</span>
-                    <span style={{ fontWeight: 600 }}>{fmt(Math.round((displayTotal + savedTotal) * 0.1))}</span>
+                    <span style={{ fontWeight: 600 }}>{fmt(displayVat + savedVat)}</span>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: 8, borderTop: '2px solid #10B981', marginTop: 4 }}>
                     <span style={{ fontSize: 16, fontWeight: 800, color: '#10B981' }}>НИЙТ</span>
-                    <span style={{ fontSize: 20, fontWeight: 800, color: '#10B981' }}>{fmt(Math.round((displayTotal + savedTotal) * 1.1))}</span>
+                    <span style={{ fontSize: 20, fontWeight: 800, color: '#10B981' }}>{fmt(displayTotal + savedTotal)}</span>
                   </div>
                 </div>
 
@@ -1587,9 +1610,9 @@ export default function DetailedQuote() {
             customerPhone: loggedUser?.phone || mPhone || '',
             customerCompany: loggedUser?.company_name || mCompany || '',
             notes: mNotes || undefined,
-            subtotal: displayTotal + savedTotal + (signLogoUrl ? (() => { const sh = signProd === 'tovgor' ? tovgorSize : dimH * 100; const lh = sh * 1.18; return Math.round(Math.max((lh/100)*(lh/100)*500000, 80000)) })() : 0),
-            vat: Math.round((displayTotal + savedTotal + (signLogoUrl ? (() => { const sh = signProd === 'tovgor' ? tovgorSize : dimH * 100; const lh = sh * 1.18; return Math.round(Math.max((lh/100)*(lh/100)*500000, 80000)) })() : 0)) * 0.1),
-            grandTotal: Math.round((displayTotal + savedTotal + (signLogoUrl ? (() => { const sh = signProd === 'tovgor' ? tovgorSize : dimH * 100; const lh = sh * 1.18; return Math.round(Math.max((lh/100)*(lh/100)*500000, 80000)) })() : 0)) * 1.1),
+            subtotal: previewSubtotal,
+            vat: previewVat,
+            grandTotal: previewGrandTotal,
             quoteNumber: 'QT-' + String(Date.now()).slice(-6),
             date: new Date().toLocaleDateString('mn-MN'),
             validDays: 7,

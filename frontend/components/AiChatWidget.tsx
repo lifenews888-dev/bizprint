@@ -18,8 +18,11 @@ interface ProductCard {
 interface PriceResult {
   total: number
   unitPrice: number
+  total_price?: number
+  unit_price?: number
   leadTimeDays?: number
   leadDays?: number
+  lead_days?: number
   productType: string
   quantity: number
   breakdown?: Record<string, number>
@@ -143,7 +146,7 @@ function ChatProductCard({ product, onOrder }: { product: ProductCard; onOrder: 
 
 // ─── Inline price calculation result ──────────────────────
 function ChatPriceCard({ result, onOrder }: { result: PriceResult; onOrder: () => void }) {
-  const leadDays = result.leadTimeDays ?? result.leadDays ?? 3
+  const leadDays = result.leadTimeDays ?? result.lead_days ?? result.leadDays ?? 3
   const breakdownLabels: Record<string, string> = {
     paper: 'Цаас', printing: 'Хэвлэлт', finishing: 'Боловсруулалт',
     overhead: 'Нэмэгдэл', platform: 'Платформ', ink: 'Бэх',
@@ -241,8 +244,10 @@ async function detectAndFetch(text: string): Promise<{ products?: ProductCard[];
         }),
       })
       const data = await res.json()
-      if (data.total) {
-        return { priceResult: { ...data, quantity: qty, productType } }
+      const total = Number(data.total_price ?? data.total ?? 0)
+      if (total > 0) {
+        const unitPrice = Number(data.unit_price ?? data.unitPrice ?? (total / qty))
+        return { priceResult: { ...data, total, unitPrice, quantity: qty, productType } }
       }
     } catch { }
   }
