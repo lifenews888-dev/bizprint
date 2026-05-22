@@ -24,6 +24,25 @@ export class LoyaltyService {
     private usageService: UsageService,
   ) {}
 
+  async processTx(body: any) {
+    const programId = body?.program_id || body?.programId || body?.campaign_id || body?.campaignId;
+    const action = String(body?.action || body?.type || 'stamp').toLowerCase();
+    const phone = body?.phone || body?.customer_phone || body?.customerPhone;
+    const userId = body?.user_id || body?.userId || body?.customer_id || body?.customerId;
+
+    if (!programId) throw new BadRequestException('program_id required');
+
+    if (action === 'redeem' || action === 'reward_redeem') {
+      if (!phone) throw new BadRequestException('phone required');
+      return this.redeemByPhone(programId, phone);
+    }
+
+    if (phone) return this.addStampByPhone(programId, phone);
+    if (userId) return this.addStamp(userId, programId);
+
+    throw new BadRequestException('phone or user_id required');
+  }
+
   // ════════════════════════════════════
   //  PROGRAM CRUD (Vendor)
   // ════════════════════════════════════

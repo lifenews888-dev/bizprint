@@ -843,17 +843,17 @@ export class OrdersService {
     endDate?: string;
     status?: string;
   }): Promise<string> {
-    const qb = this.orderRepo.createQueryBuilder('order')
-      .leftJoinAndSelect('order.user', 'user')
+    const qb = this.ordersRepo.createQueryBuilder('order')
+      .leftJoinAndSelect('order.customer', 'customer')
       .leftJoinAndSelect('order.items', 'items')
       .leftJoinAndSelect('items.product', 'product')
-      .orderBy('order.createdAt', 'DESC');
+      .orderBy('order.created_at', 'DESC');
 
     if (filters.startDate) {
-      qb.andWhere('order.createdAt >= :startDate', { startDate: new Date(filters.startDate) });
+      qb.andWhere('order.created_at >= :startDate', { startDate: new Date(filters.startDate) });
     }
     if (filters.endDate) {
-      qb.andWhere('order.createdAt <= :endDate', { endDate: new Date(filters.endDate) });
+      qb.andWhere('order.created_at <= :endDate', { endDate: new Date(filters.endDate) });
     }
     if (filters.status) {
       qb.andWhere('order.status = :status', { status: filters.status });
@@ -867,13 +867,13 @@ export class OrdersService {
         .map((item: any) => item.product?.name || item.productName || '')
         .filter(Boolean)
         .join(' | ');
-      const email = (o as any).user?.email || '';
-      const price = (o as any).totalPrice ?? (o as any).total_price ?? '';
+      const email = o.customer_email || (o as any).customer?.email || '';
+      const price = o.total_price ?? '';
       return [
         o.id,
         o.status,
         price,
-        o.createdAt ? new Date(o.createdAt).toISOString() : '',
+        o.created_at ? new Date(o.created_at).toISOString() : '',
         email,
         `"${productNames.replace(/"/g, '""')}"`,
       ].join(',');
@@ -884,28 +884,27 @@ export class OrdersService {
 
 
   async exportOrdersCsv(): Promise<string> {
-    const repo = (this as any).orderRepository ?? (this as any).ordersRepository ?? (this as any).repository;
-    const orders = repo ? await repo.find({ relations: ['user'], order: { createdAt: 'DESC' }, take: 10000 }).catch(() => []) : [];
+    const orders = await this.ordersRepo.find({ relations: ['customer'], order: { created_at: 'DESC' }, take: 10000 }).catch(() => []);
     const rows = [
       ['ID', 'Order Number', 'Customer', 'Email', 'Total', 'Status', 'Created'].join(','),
       ...orders.map((o: any) => [
         o.id ?? '',
         o.orderNumber ?? o.order_number ?? '',
-        o.user ? (o.user.name ?? o.user.fullName ?? '').toString().replace(/,/g, ' ') : '',
-        o.user ? (o.user.email ?? '') : '',
-        o.totalAmount ?? o.total ?? o.totalPrice ?? 0,
+        (o.customer_name ?? o.customer?.full_name ?? '').toString().replace(/,/g, ' '),
+        o.customer_email ?? o.customer?.email ?? '',
+        o.total_price ?? 0,
         o.status ?? '',
-        o.createdAt ? new Date(o.createdAt).toISOString().split('T')[0] : '',
+        o.created_at ? new Date(o.created_at).toISOString().split('T')[0] : '',
       ].join(',')),
     ];
     return rows.join('\n');
   }
 
   async generateInvoicePdf(orderId: string): Promise<Buffer> {
-    const order = await (this as any).orderRepository?.findOne({
+    const order = await this.ordersRepo.findOne({
       where: { id: orderId },
-      relations: ['user', 'items', 'items.product'],
-    }) ?? null;
+      relations: ['customer', 'items', 'items.product'],
+    });
 
     const { PDFDocument, rgb, StandardFonts } = require('pdf-lib');
     const pdfDoc = await PDFDocument.create();
@@ -922,14 +921,14 @@ export class OrdersService {
     page.drawText('INVOICE', { x: 430, y: 790, size: 18, font: boldFont, color: black });
 
     // Order info
-    const orderNum = order?.orderNumber ?? orderId.slice(0, 8).toUpperCase();
-    const createdAt = order?.createdAt ? new Date(order.createdAt).toLocaleDateString() : new Date().toLocaleDateString();
+    const orderNum = order?.quote_number ?? orderId.slice(0, 8).toUpperCase();
+    const createdAt = order?.created_at ? new Date(order.created_at).toLocaleDateString() : new Date().toLocaleDateString();
     page.drawText('Order #: ' + orderNum, { x: 50, y: 755, size: 11, font: boldFont, color: black });
     page.drawText('Date: ' + createdAt, { x: 50, y: 738, size: 10, font, color: gray });
 
     // Customer
-    const customerName = order?.user?.name ?? order?.user?.fullName ?? 'Customer';
-    const customerEmail = order?.user?.email ?? '';
+    const customerName = order?.customer_name ?? order?.customer?.full_name ?? 'Customer';
+    const customerEmail = order?.customer_email ?? order?.customer?.email ?? '';
     page.drawText('Bill To:', { x: 50, y: 710, size: 11, font: boldFont, color: black });
     page.drawText(customerName, { x: 50, y: 694, size: 10, font, color: black });
     if (customerEmail) page.drawText(customerEmail, { x: 50, y: 679, size: 10, font, color: gray });
@@ -949,9 +948,9 @@ export class OrdersService {
     let y = 622;
     let subtotal = 0;
     for (const item of items.slice(0, 20)) {
-      const name = (item.product?.name ?? item.productName ?? 'Product').slice(0, 45);
+      const name = (item.product?.name ?? item.specs?.product_name ?? 'Product').slice(0, 45);
       const qty = item.quantity ?? 1;
-      const price = item.unitPrice ?? item.price ?? 0;
+      const price = item.unit_price ?? 0;
       const lineTotal = qty * price;
       subtotal += lineTotal;
       page.drawText(name, { x: 50, y, size: 9, font, color: black });
@@ -963,7 +962,7 @@ export class OrdersService {
     }
 
     if (!items.length) {
-      const total = order?.totalAmount ?? order?.total ?? 0;
+      const total = order?.total_price ?? 0;
       page.drawText('See order details', { x: 50, y, size: 9, font, color: gray });
       subtotal = Number(total);
       y -= 16;
@@ -971,7 +970,7 @@ export class OrdersService {
 
     // Total
     page.drawLine({ start: { x: 350, y: y - 4 }, end: { x: 545, y: y - 4 }, thickness: 0.5, color: gray });
-    const finalTotal = order?.totalAmount ?? order?.total ?? subtotal;
+    const finalTotal = order?.total_price ?? subtotal;
     page.drawText('TOTAL:', { x: 390, y: y - 20, size: 12, font: boldFont, color: black });
     page.drawText(Number(finalTotal).toLocaleString() + ' MNT', { x: 460, y: y - 20, size: 12, font: boldFont, color: orange });
 
