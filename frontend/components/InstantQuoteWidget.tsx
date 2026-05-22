@@ -31,7 +31,10 @@ export default function InstantQuoteWidget() {
         auth: false,
         body: { productType: product, widthMm: selected.w, heightMm: selected.h, quantity: qty, colorMode: 'CMYK', finishing: [] },
       });
-      setResult(data);
+      const total = Number(data.total_price ?? data.total ?? 0);
+      const unitPrice = Number(data.unit_price ?? data.unitPrice ?? (total / qty));
+      const leadDays = Number(data.lead_days ?? data.leadDays ?? 3);
+      setResult({ ...data, total, unitPrice, leadDays });
     } catch { setResult(null); }
     setLoading(false);
   };

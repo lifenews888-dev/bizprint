@@ -287,7 +287,9 @@ export class QuoteEngineService {
 
     // Apply margin (hidden from user)
     const beforeMargin = afterDisc + rushAmt
-    const total_price = Math.round(beforeMargin * (1 + marginRate))
+    const subtotalWithMargin = Math.round(beforeMargin * (1 + marginRate))
+    const vat = Math.round(subtotalWithMargin * 0.10)
+    const total_price = subtotalWithMargin + vat
     const unit_price = Math.round(total_price / qty)
 
     // Return - NO margin, NO cost info exposed
@@ -302,15 +304,17 @@ export class QuoteEngineService {
       fold_cost: Math.round(foldCost),
       setup_cost_label: 'Setup',
       setup_cost: Math.round(setupCost),
-      subtotal: Math.round(subtotal),
+      pre_discount_subtotal: Math.round(subtotal),
+      subtotal: subtotalWithMargin,
       discount_pct: Math.round(disc * 100),
       discount_amount: discAmt,
       rush_pct: Math.round(rushRate * 100),
       rush_amount: rushAmt,
+      vat,
       total_price,
       unit_price,
       quantity: qty,
-      novat_note: 'НӨАТ ороогүй',
+      vat_note: 'НӨАТ орсон',
       valid_hours: 72,
     }
   }
@@ -378,8 +382,9 @@ export class QuoteEngineService {
 
     // Total with hidden margin
     const beforeMargin = base + extras + rushAmt
-    const total_price = Math.round(beforeMargin * (1 + marginRate))
-    const unit_price = total_price
+    const subtotal = Math.round(beforeMargin * (1 + marginRate))
+    const vat = Math.round(subtotal * 0.10)
+    const total_price = subtotal + vat
     const qty = product === 'tovgor' ? (Number(params.quantity) || 1) : 1
 
     return {
@@ -389,10 +394,12 @@ export class QuoteEngineService {
       extras_total: extras,
       rush_pct: Math.round(rushRate * 100),
       rush_amount: rushAmt,
+      subtotal,
+      vat,
       total_price,
       unit_price: Math.round(total_price / qty),
       quantity: qty,
-      novat_note: 'НӨАТ ороогүй',
+      vat_note: 'НӨАТ орсон',
       valid_hours: 72,
     }
   }
@@ -418,17 +425,21 @@ export class QuoteEngineService {
       ? (await this.pricingConfig.getValue('b2b_margin') ?? 0.20)
       : (await this.pricingConfig.getValue('retail_margin') ?? 0.45)
 
-    const total_price = Math.round((base + rushAmt) * (1 + marginRate))
+    const subtotal = Math.round((base + rushAmt) * (1 + marginRate))
+    const vat = Math.round(subtotal * 0.10)
+    const total_price = subtotal + vat
 
     return {
       base_label: `${type} ${w}×${l}м`,
       base_price: Math.round(base),
       rush_pct: Math.round(rushRate * 100),
       rush_amount: rushAmt,
+      subtotal,
+      vat,
       total_price,
       unit_price: total_price,
       quantity: 1,
-      novat_note: 'НӨАТ ороогүй',
+      vat_note: 'НӨАТ орсон',
       valid_hours: 72,
     }
   }
@@ -446,9 +457,10 @@ export class QuoteEngineService {
       ? (await this.pricingConfig.getValue('b2b_margin') ?? 0.20)
       : (await this.pricingConfig.getValue('retail_margin') ?? 0.45)
 
-    // Reverse-engineer cost from total
-    const totalBeforeMargin = Math.round(publicResult.total_price / (1 + marginRate))
-    const marginAmount = publicResult.total_price - totalBeforeMargin
+    // Reverse-engineer cost from the pre-VAT customer subtotal.
+    const publicSubtotal = Number(publicResult.subtotal || publicResult.total_price || 0)
+    const totalBeforeMargin = Math.round(publicSubtotal / (1 + marginRate))
+    const marginAmount = publicSubtotal - totalBeforeMargin
 
     return {
       ...publicResult,

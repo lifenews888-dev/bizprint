@@ -93,6 +93,10 @@ export class QuoteController {
     // Urgency multiplier
     const urgencyMult = urgency === 'urgent' ? 1.35 : urgency === 'express' ? 1.20 : 1;
     const total = Math.round((productionCost + platform) * urgencyMult);
+    const vat = Math.round(total * 0.10);
+    const totalWithVat = total + vat;
+    const unitPrice = Math.round((total / qty) * 100) / 100;
+    const unitPriceWithVat = Math.round((totalWithVat / qty) * 100) / 100;
 
     // Хүргэх хугацаа
     const leadDays = urgency === 'urgent' ? 1 : urgency === 'express' ? 2 : qty <= 100 ? 2 : qty <= 500 ? 3 : qty <= 2000 ? 5 : 7;
@@ -102,13 +106,30 @@ export class QuoteController {
       .filter(q => q !== qty)
       .map(q => {
         const disc = q >= 1000 ? 0.25 : q >= 500 ? 0.15 : q >= 250 ? 0.10 : q >= 100 ? 0.05 : 0;
-        const scaledTotal = Math.round(total * (q / qty) * (1 - disc));
-        return { qty: q, discount: Math.round(disc * 100), total: scaledTotal, unitPrice: Math.round(scaledTotal / q) };
+        const scaledSubtotal = Math.round(total * (q / qty) * (1 - disc));
+        const scaledVat = Math.round(scaledSubtotal * 0.10);
+        const scaledTotal = scaledSubtotal + scaledVat;
+        return {
+          qty: q,
+          discount: Math.round(disc * 100),
+          subtotal: scaledSubtotal,
+          vat: scaledVat,
+          total: scaledSubtotal,
+          total_price: scaledTotal,
+          unitPrice: Math.round(scaledSubtotal / q),
+          unit_price: Math.round(scaledTotal / q),
+        };
       });
 
     return {
+      // Legacy fields: keep old no-VAT meaning for existing callers.
       total,
-      unitPrice: Math.round((total / qty) * 100) / 100,
+      unitPrice,
+      // Canonical quote fields: VAT-aware customer-facing shape.
+      subtotal: total,
+      vat,
+      total_price: totalWithVat,
+      unit_price: unitPriceWithVat,
       breakdown: {
         paper: paperCost,
         ink: inkCost,
@@ -116,9 +137,18 @@ export class QuoteController {
         overhead,
         platform,
       },
+      line_items: [
+        { label: 'Цаас', total: paperCost },
+        { label: 'Бэх', total: inkCost },
+        { label: 'Боловсруулалт', total: finishingCost },
+        { label: 'Нэмэгдэл зардал', total: overhead },
+        { label: 'Платформ', total: platform },
+      ].filter((item) => item.total > 0),
       leadDays,
+      lead_days: leadDays,
       quantity: qty,
       productType,
+      product_type: productType,
       material: material || null,
       volumeDiscounts,
     };

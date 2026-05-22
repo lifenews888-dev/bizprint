@@ -86,6 +86,9 @@ export default function SmartQuote() {
           letter_size_cm: isTovgor ? maxLetterSize : undefined,
           letter_count: isTovgor ? totalLetters : undefined,
           material: lit ? `${productType}_on` : undefined, urgency,
+          logo_price: logoPrice,
+          logo_width_cm: logoUrl ? logoWidthCm : undefined,
+          logo_height_cm: logoUrl ? logoHeightCm : undefined,
         },
       }).then(r => {
         if (!r) { setErrorMsg('Сервер хариу буцаасангүй'); return }
@@ -98,7 +101,7 @@ export default function SmartQuote() {
       }).finally(() => setLoading(false))
     }, 400)
     return () => clearTimeout(t)
-  }, [productType, textLines, width, height, quantity, urgency, lit])
+  }, [productType, textLines, width, height, quantity, urgency, lit, logoPrice, logoUrl, logoWidthCm, logoHeightCm])
 
   return (
     <div style={{ fontFamily: "'Segoe UI',system-ui,sans-serif", background: '#FAFAF8', minHeight: '100vh' }}>
@@ -249,17 +252,19 @@ export default function SmartQuote() {
               <div style={{ padding: 16, textAlign: 'center', color: '#9CA3AF', fontSize: 12 }}>Тооцоолж байна...</div>
             ) : result ? (<>
               {(() => {
-                const lp = logoPrice
-                const sub = (result.subtotal || 0) + lp
-                const vatAmt = Math.round(sub * 0.1)
-                const grand = sub + vatAmt
+                const lineItems = Array.isArray(result.line_items) ? result.line_items : []
+                const sub = Number(result.subtotal || 0)
+                const vatAmt = Number(result.vat || 0)
+                const grand = Number(result.total_price || sub + vatAmt)
                 return (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 13 }}>
-                    {isTovgor ? activeLines.map((l, i) => {
+                    {lineItems.length > 0 ? lineItems.map((item: any, i: number) => (
+                      <Row key={i} label={item.label || `Item ${i + 1}`} value={`₮${Number(item.total || 0).toLocaleString()}`} />
+                    )) : isTovgor ? activeLines.map((l, i) => {
                       const c = l.text.replace(/\s/g, '').length
                       return c > 0 ? <Row key={i} label={`${l.label}: ${c} үсэг × ${l.size}см`} value={`₮${(c * (result.unit_price || 0)).toLocaleString()}`} /> : null
                     }) : <Row label="Хаягны үнэ" value={`₮${(result.subtotal || 0).toLocaleString()}`} />}
-                    {logoUrl && <Row label={`Лого хаяг (${logoWidthCm}×${logoHeightCm}см)`} value={`₮${logoPrice.toLocaleString()}`} />}
+                    {lineItems.length === 0 && logoUrl && <Row label={`Лого хаяг (${logoWidthCm}×${logoHeightCm}см)`} value={`₮${logoPrice.toLocaleString()}`} />}
                     <div style={{ borderTop: '1px solid #F3F4F6', paddingTop: 6 }} />
                     <Row label="Дүн" value={`₮${sub.toLocaleString()}`} bold />
                     <Row label="НӨАТ (10%)" value={`₮${vatAmt.toLocaleString()}`} muted />
@@ -302,6 +307,9 @@ export default function SmartQuote() {
                           material: lit ? `${productType}_on` : undefined, urgency,
                           customer_id: user.id,
                           logo_url: logoUrl,
+                          logo_price: logoPrice,
+                          logo_width_cm: logoUrl ? logoWidthCm : undefined,
+                          logo_height_cm: logoUrl ? logoHeightCm : undefined,
                         },
                       })
                       const quoteId = saved?.quote?.id || saved?.id
@@ -351,7 +359,7 @@ export default function SmartQuote() {
                       {i === 1 && <span style={{ fontSize: 8, background: '#FF6B00', color: '#fff', padding: '1px 6px', borderRadius: 99, marginLeft: 6 }}>Санал болгох</span>}
                       <div style={{ fontSize: 10, color: '#888', marginTop: 1 }}>{opt.material} · {opt.delivery_days} өдөр</div>
                     </div>
-                    <div style={{ fontSize: 14, fontWeight: 800, color: c }}>₮{Math.round(opt.price * 1.1).toLocaleString()}</div>
+                    <div style={{ fontSize: 14, fontWeight: 800, color: c }}>₮{Number(opt.price || 0).toLocaleString()}</div>
                   </div>
                 )
               })}
@@ -373,7 +381,7 @@ export default function SmartQuote() {
           }],
           logoUrl: logoUrl || undefined, logoItem: logoUrl ? { width: logoWidthCm, height: logoHeightCm, unit: 'см', price: logoPrice } : null,
           customerName: user?.full_name || '', customerEmail: user?.email || '', customerPhone: user?.phone || '',
-          subtotal: result.subtotal + logoPrice, vat: Math.round((result.subtotal + logoPrice) * 0.1), grandTotal: Math.round((result.subtotal + logoPrice) * 1.1),
+          subtotal: Number(result.subtotal || 0), vat: Number(result.vat || 0), grandTotal: Number(result.total_price || 0),
           quoteNumber: 'QT-' + String(Date.now()).slice(-6), date: new Date().toLocaleDateString('mn-MN'), validDays: 7,
         }} />
       )}

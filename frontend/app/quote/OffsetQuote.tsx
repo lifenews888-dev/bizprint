@@ -228,7 +228,7 @@ export default function OffsetQuote() {
                 <Row label="Цаасны зардал" value={fmt(result.paper_cost)} />
                 <Row label="Хэвлэл" value={fmt(result.print_cost)} />
                 <Row label="Тохиргоо (setup)" value={fmt(result.setup_cost)} />
-                {result.finish_cost > 0 && <Row label="Finishing" value={fmt(result.finish_cost)} />}
+                {result.finishing_cost > 0 && <Row label="Finishing" value={fmt(result.finishing_cost)} />}
                 {result.fold_cost > 0 && <Row label="Нугалалт" value={fmt(result.fold_cost)} />}
                 <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
                 {result.margin > 0 && <Row label="Margin" value={fmt(result.margin)} />}
