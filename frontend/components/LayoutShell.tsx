@@ -8,6 +8,7 @@ import Footer from '@/components/Footer'
 import ChatWidget from '@/components/ChatWidget'
 import ChatbotEmbed from '@/components/ChatbotEmbed'
 import MobileBottomNav from '@/components/MobileBottomNav'
+import { useSiteSettings } from '@/contexts/SiteSettingsContext'
 
 /** login, register зэрэг full-page хуудсуудад Nav/Footer нуугдана */
 const BARE_ROUTES = ['/login', '/register', '/design/editor', '/dashboard', '/admin', '/creator', '/designer', '/courier', '/sales', '/invite', '/loyalty', '/mobile', '/start']
@@ -16,8 +17,14 @@ const NO_CHAT_WIDGET = ['/admin/chat']
 
 export default function LayoutShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
+  const { settings } = useSiteSettings()
   const isBare = BARE_ROUTES.some(r => pathname === r || pathname.startsWith(r + '/'))
-  const hideChatWidget = NO_CHAT_WIDGET.some(r => pathname === r || pathname.startsWith(r + '/'))
+  const onChatPage = NO_CHAT_WIDGET.some(r => pathname === r || pathname.startsWith(r + '/'))
+  // 3rd-party chatbot configured → hide internal ChatWidget on public pages so the two
+  // floating buttons don't overlap at bottom-right. Staff chat is still reachable via
+  // /admin/chat and /dashboard/chat.
+  const hasChatbot = !!(settings?.chatbot_embed_code && String(settings.chatbot_embed_code).trim())
+  const hideChatWidget = onChatPage || hasChatbot
 
   if (isBare) {
     return <>{children}</>

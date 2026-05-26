@@ -31,10 +31,7 @@ const CSP_SOURCES = {
     "ws://127.0.0.1:4000",
   ],
   frameSrc: [
-    "https://*.facebook.com",
-    "https://www.youtube.com",
-    "https://www.youtube-nocookie.com",
-    "https://player.vimeo.com",
+    "https:",
   ],
 }
 
