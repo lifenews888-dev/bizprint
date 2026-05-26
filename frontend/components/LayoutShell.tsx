@@ -6,7 +6,7 @@ import MegaNav from '@/components/nav/MegaNav'
 import AnnouncementBar from '@/components/AnnouncementBar'
 import Footer from '@/components/Footer'
 import ChatWidget from '@/components/ChatWidget'
-import AiChatWidget from '@/components/AiChatWidget'
+import ChatbotEmbed from '@/components/ChatbotEmbed'
 import MobileBottomNav from '@/components/MobileBottomNav'
 
 /** login, register зэрэг full-page хуудсуудад Nav/Footer нуугдана */
@@ -29,7 +29,7 @@ export default function LayoutShell({ children }: { children: React.ReactNode })
       <MegaNav />
       <main>{children}</main>
       {!hideChatWidget && <ChatWidget />}
-      <AiChatWidget />
+      <ChatbotEmbed />
       {!pathname.startsWith('/quote') && <StickyCTA />}
       <Footer />
       <MobileBottomNav />
