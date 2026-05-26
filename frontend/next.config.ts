@@ -1,10 +1,60 @@
 import type { NextConfig } from "next";
 
+// `https:` in script-src and connect-src lets admins paste arbitrary
+// chatbot widget embed codes via /admin/chatbot without per-vendor CSP edits.
+// 'unsafe-inline' already broadens script-src; the rest of the policy
+// (img, font, style, frame) stays scoped to known hosts.
+const CSP_SOURCES = {
+  scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https:"],
+  styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+  imgSrc: [
+    "'self'",
+    "data:",
+    "blob:",
+    "https://res.cloudinary.com",
+    "https://res-console.cloudinary.com",
+    "https://*.bizprint.mn",
+    "https://images.unsplash.com",
+    "https://*.facebook.com",
+    "https://*.fbcdn.net",
+    "https://img.youtube.com",
+    "https://i.ytimg.com",
+  ],
+  fontSrc: ["'self'", "data:", "https://fonts.gstatic.com"],
+  connectSrc: [
+    "'self'",
+    "https:",
+    "wss:",
+    "http://localhost:4000",
+    "http://127.0.0.1:4000",
+    "ws://localhost:4000",
+    "ws://127.0.0.1:4000",
+  ],
+  frameSrc: [
+    "https://*.facebook.com",
+    "https://www.youtube.com",
+    "https://www.youtube-nocookie.com",
+    "https://player.vimeo.com",
+  ],
+}
+
 const nextConfig: NextConfig = {
   // output: 'standalone' — Vercel-д шаардлагагүй, 404 үүсгэж болно
-  allowedDevOrigins: ['192.168.1.9', '192.168.0.154'],
+  allowedDevOrigins: [
+    'http://127.0.0.1:3002',
+    'http://localhost:3002',
+    '127.0.0.1',
+    'localhost',
+    '127.0.0.1:3002',
+    'localhost:3002',
+    '192.168.1.9',
+    '192.168.0.154',
+  ],
   poweredByHeader: false,
   compress: true,
+  turbopack: {
+    root: process.cwd(),
+  },
   images: {
     remotePatterns: [
       { protocol: 'https', hostname: '**.bizprint.mn' },
@@ -31,12 +81,12 @@ const nextConfig: NextConfig = {
             key: 'Content-Security-Policy',
             value: [
               "default-src 'self'",
-              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://connect.facebook.net",
-              "style-src 'self' 'unsafe-inline'",
-              "img-src 'self' data: blob: https://res.cloudinary.com https://*.bizprint.mn https://images.unsplash.com https://*.facebook.com https://*.fbcdn.net https://img.youtube.com https://i.ytimg.com",
-              "font-src 'self' data:",
-              "connect-src 'self' https://api.bizprint.mn https://*.bizprint.mn wss://*.bizprint.mn https://bizprint-production.up.railway.app https://*.up.railway.app http://localhost:4000 ws://localhost:4000 https://*.facebook.com https://connect.facebook.net",
-              "frame-src https://*.facebook.com https://www.youtube.com https://www.youtube-nocookie.com https://player.vimeo.com",
+              `script-src ${CSP_SOURCES.scriptSrc.join(' ')}`,
+              `style-src ${CSP_SOURCES.styleSrc.join(' ')}`,
+              `img-src ${CSP_SOURCES.imgSrc.join(' ')}`,
+              `font-src ${CSP_SOURCES.fontSrc.join(' ')}`,
+              `connect-src ${CSP_SOURCES.connectSrc.join(' ')}`,
+              `frame-src ${CSP_SOURCES.frameSrc.join(' ')}`,
               "frame-ancestors 'none'",
             ].join('; '),
           },
