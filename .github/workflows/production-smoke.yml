@@ -1,0 +1,43 @@
+name: Production Smoke
+
+on:
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: "Frontend base URL to smoke test"
+        required: true
+        default: "https://bizprint.mn"
+      timeout_ms:
+        description: "Per-request timeout in milliseconds"
+        required: true
+        default: "30000"
+
+jobs:
+  smoke:
+    name: Run smoke checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Run production smoke
+        run: |
+          node tools/production-smoke.mjs \
+            --base-url "${{ inputs.base_url }}" \
+            --timeout-ms "${{ inputs.timeout_ms }}" \
+            --json | tee smoke-results.json
+
+      - name: Upload smoke results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-smoke-results
+          path: smoke-results.json
+          if-no-files-found: warn
