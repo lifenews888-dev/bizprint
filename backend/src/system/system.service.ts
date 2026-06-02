@@ -47,6 +47,55 @@ export class SystemService {
   }
 
   // ─── METRICS (Admin App: Charts) ───
+  async getReadiness() {
+    const startedAt = new Date(Date.now() - process.uptime() * 1000).toISOString();
+    let dbStatus: 'up' | 'down' = this.dataSource.isInitialized ? 'up' : 'down';
+    let dbLatencyMs: number | null = null;
+
+    if (this.dataSource.isInitialized) {
+      const start = Date.now();
+      try {
+        await this.dataSource.query('SELECT 1');
+        dbLatencyMs = Date.now() - start;
+      } catch {
+        dbStatus = 'down';
+      }
+    }
+
+    const commit =
+      process.env.RAILWAY_GIT_COMMIT_SHA ||
+      process.env.VERCEL_GIT_COMMIT_SHA ||
+      process.env.GITHUB_SHA ||
+      process.env.COMMIT_SHA ||
+      null;
+
+    const deployment =
+      process.env.RAILWAY_DEPLOYMENT_ID ||
+      process.env.VERCEL_DEPLOYMENT_ID ||
+      process.env.DEPLOYMENT_ID ||
+      null;
+
+    return {
+      status: dbStatus === 'up' ? 'ready' : 'not_ready',
+      service: 'bizprint-backend',
+      version: process.env.npm_package_version || '1.0.0',
+      commit,
+      commit_short: commit ? commit.slice(0, 7) : null,
+      deployment,
+      environment: process.env.NODE_ENV || 'development',
+      uptime_seconds: Math.round(process.uptime()),
+      started_at: startedAt,
+      timestamp: new Date().toISOString(),
+      checks: {
+        api: 'up',
+        database: dbStatus,
+      },
+      latencies_ms: {
+        database: dbLatencyMs,
+      },
+    };
+  }
+
   async getMetrics() {
     const now = Date.now();
     const cpuPoints = Array.from({ length: 20 }, (_, i) => ({
