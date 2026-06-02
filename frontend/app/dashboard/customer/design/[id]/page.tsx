@@ -18,16 +18,16 @@ import { useParams, useRouter } from 'next/navigation'
 import { useRealtime } from '@/contexts/RealtimeContext'
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; icon: string }> = {
-  pending:             { label: 'Ð¥Ò¯Ð»ÑÑÐ¶ Ð±Ð°Ð¹Ð½Ð°',    color: '#6B7280', icon: 'â³' },
-  assigned:            { label: 'ÐÐ¸Ð·Ð°Ð¹Ð½ÐµÑ ÑÑÐ²Ð°Ð°ÑÐ¸Ð»Ð°Ð³Ð´ÑÐ°Ð½', color: '#3B82F6', icon: 'ð¤' },
-  in_progress:         { label: 'ÐÐ¶Ð¸Ð»Ð»Ð°Ð¶ Ð±Ð°Ð¹Ð½Ð°',   color: '#8B5CF6', icon: 'ð¨' },
-  under_review:        { label: 'ð Ð¢Ð°Ð½Ñ ÑÑÐ½Ð°Ð»ÑÐ°Ð´', color: '#F59E0B', icon: 'ð' },
-  revision_requested:  { label: 'ÐÐ°ÑÐ°Ñ ÑÒ¯ÑÑÐ»Ñ ÑÐ²ÑÑÐ»ÑÐ°Ð½', color: '#F97316', icon: 'â' },
-  updated_version:     { label: 'Ð¨Ð¸Ð½Ñ ÑÑÐ²Ð¸Ð»Ð±Ð°Ñ Ð±ÑÐ»ÑÐ½', color: '#06B6D4', icon: 'ð' },
-  zoom_scheduled:      { label: 'Zoom ÑÐ¾Ð²Ð»Ð¾ÑÐ¾Ð½',    color: '#10B981', icon: 'ð¹' },
-  approved:            { label: 'â Ð¢Ð° Ð±Ð°ÑÐ°Ð»ÑÐ°Ð½',   color: '#10B981', icon: 'â' },
-  in_production:       { label: 'ð­ Ò®Ð¹Ð»Ð´Ð²ÑÑÐ»ÑÐ»Ð´ ÑÐ²ÑÐ°Ð½', color: '#64748B', icon: 'ð­' },
-  rejected:            { label: 'Ð¦ÑÑÐ»Ð°Ð³Ð´ÑÐ°Ð½',      color: '#DC2626', icon: 'â' },
+  pending:             { label: 'Хүлээж байна',    color: '#6B7280', icon: '⏳' },
+  assigned:            { label: 'Дизайнер хуваарилагдсан', color: '#3B82F6', icon: '👤' },
+  in_progress:         { label: 'Ажиллаж байна',   color: '#8B5CF6', icon: '🎨' },
+  under_review:        { label: '🔍 Таны хяналтад', color: '#F59E0B', icon: '🔍' },
+  revision_requested:  { label: 'Засах хүсэлт явуулсан', color: '#F97316', icon: '✏' },
+  updated_version:     { label: 'Шинэ хувилбар бэлэн', color: '#06B6D4', icon: '🆕' },
+  zoom_scheduled:      { label: 'Zoom товлосон',    color: '#10B981', icon: '📹' },
+  approved:            { label: '✅ Та баталсан',   color: '#10B981', icon: '✅' },
+  in_production:       { label: '🏭 Үйлдвэрлэлд явсан', color: '#64748B', icon: '🏭' },
+  rejected:            { label: 'Цуцлагдсан',      color: '#DC2626', icon: '❌' },
 }
 
 export default function CustomerDesignApproval() {
@@ -52,7 +52,7 @@ export default function CustomerDesignApproval() {
     setTimeout(() => setToast(null), 4000)
   }
 
-  // ââ Load design detail ââââââââââââââââââââââââââââââââââââââââââââââââââââ
+  // ── Load design detail ────────────────────────────────────────────────────
 
   const loadDesign = useCallback(async () => {
     if (!id) return
@@ -67,7 +67,7 @@ export default function CustomerDesignApproval() {
 
   useEffect(() => { loadDesign() }, [loadDesign])
 
-  // ââ Real-time updates âââââââââââââââââââââââââââââââââââââââââââââââââââââ
+  // ── Real-time updates ─────────────────────────────────────────────────────
 
   useEffect(() => {
     if (!id) return
@@ -77,7 +77,7 @@ export default function CustomerDesignApproval() {
     const unsubs = [
       subscribe('DESIGN_FILE_UPLOADED', (p: any) => {
         if (p.designRequestId === id) {
-          showToast(`ð ÐÐ¸Ð·Ð°Ð¹Ð½ÐµÑ v${p.versionNumber} ÑÑÐ²Ð¸Ð»Ð±Ð°Ñ Ð±Ð°Ð¹ÑÑÑÑÐ»ÑÐ°Ð½!`)
+          showToast(`🆕 Дизайнер v${p.versionNumber} хувилбар байршуулсан!`)
           loadDesign()
         }
       }),
@@ -86,7 +86,7 @@ export default function CustomerDesignApproval() {
       }),
       subscribe('DESIGN_ZOOM_CREATED', (p: any) => {
         if (p.designRequestId === id) {
-          showToast('ð¹ Zoom ÑÑÐ»Ð·Ð°Ð»Ñ ÑÐ¾Ð²Ð»Ð¾Ð³Ð´Ð»Ð¾Ð¾!')
+          showToast('📹 Zoom уулзалт товлогдлоо!')
           loadDesign()
         }
       }),
@@ -102,22 +102,22 @@ export default function CustomerDesignApproval() {
     }
   }, [id])
 
-  // ââ Revision request ââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+  // ── Revision request ──────────────────────────────────────────────────────
 
   const handleRequestRevision = async () => {
-    if (!revisionReason.trim()) { showToast('ÐÐ°ÑÐ°Ñ ÑÐ°Ð»ÑÐ³Ð°Ð°Ð½ÑÐ³ Ð±Ð¸ÑÐ½Ñ Ò¯Ò¯', 'error'); return }
+    if (!revisionReason.trim()) { showToast('Засах шалтгааныг бичнэ үү', 'error'); return }
     try {
       const res = await apiFetch<any>(`/design-requests/${id}/request-revision`, {
         method: 'PATCH',
         body: { reason: revisionReason },
       })
-      showToast('ÐÐ°ÑÐ°Ñ ÑÒ¯ÑÑÐ»Ñ Ð¸Ð»Ð³ÑÑÐ³Ð´Ð»ÑÑ â')
+      showToast('Засах хүсэлт илгээгдлээ ✓')
       setRevisionReason('')
       loadDesign()
-    } catch { showToast('ÐÐ»Ð´Ð°Ð°', 'error') }
+    } catch { showToast('Алдаа', 'error') }
   }
 
-  // ââ Approve design ââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+  // ── Approve design ────────────────────────────────────────────────────────
 
   const handleApprove = async () => {
     setApproving(true)
@@ -125,14 +125,14 @@ export default function CustomerDesignApproval() {
       const res = await apiFetch<any>(`/design-requests/${id}/approve`, {
         method: 'PATCH',
       })
-      showToast('â ÐÐ°Ð³Ð²Ð°Ñ Ð°Ð¼Ð¶Ð¸Ð»ÑÑÐ°Ð¹ Ð±Ð°ÑÐ»Ð°Ð³Ð´Ð»Ð°Ð°! Ò®Ð¹Ð»Ð´Ð²ÑÑÐ»ÑÐ» ÑÑÑÐ»Ð¶ Ð±Ð°Ð¹Ð½Ð°.')
+      showToast('✅ Загвар амжилттай батлагдлаа! Үйлдвэрлэл эхэлж байна.')
       setShowApproveModal(false)
       loadDesign()
-    } catch { showToast('ÐÐ»Ð´Ð°Ð°', 'error') }
+    } catch { showToast('Алдаа', 'error') }
     finally { setApproving(false) }
   }
 
-  // ââ Request Zoom ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+  // ── Request Zoom ──────────────────────────────────────────────────────────
 
   const handleRequestZoom = async () => {
     setZoomRequesting(true)
@@ -143,14 +143,14 @@ export default function CustomerDesignApproval() {
         method: 'PATCH',
         body: body,
       })
-      showToast('ð¹ Zoom ÑÒ¯ÑÑÐ»Ñ Ð´Ð¸Ð·Ð°Ð¹Ð½ÐµÑÑ Ð¸Ð»Ð³ÑÑÐ³Ð´Ð»ÑÑ!')
+      showToast('📹 Zoom хүсэлт дизайнерт илгээгдлээ!')
       setZoomPreferredAt('')
       loadDesign()
-    } catch { showToast('ÐÐ»Ð´Ð°Ð°', 'error') }
+    } catch { showToast('Алдаа', 'error') }
     finally { setZoomRequesting(false) }
   }
 
-  // ââ Add comment âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+  // ── Add comment ───────────────────────────────────────────────────────────
 
   const handleAddComment = async () => {
     if (!commentText.trim()) return
@@ -164,14 +164,14 @@ export default function CustomerDesignApproval() {
     } catch {}
   }
 
-  // ââ Render ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+  // ── Render ────────────────────────────────────────────────────────────────
 
   if (loading) {
     return (
       <div style={{ minHeight: '100vh', background: '#0F0F0F', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontFamily: 'DM Sans, system-ui' }}>
         <div style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: 40, marginBottom: 12 }}>ð¨</div>
-          <div>ÐÑÐ°Ð°Ð»Ð¶ Ð±Ð°Ð¹Ð½Ð°...</div>
+          <div style={{ fontSize: 40, marginBottom: 12 }}>🎨</div>
+          <div>Ачаалж байна...</div>
         </div>
       </div>
     )
@@ -181,17 +181,17 @@ export default function CustomerDesignApproval() {
     return (
       <div style={{ minHeight: '100vh', background: '#0F0F0F', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontFamily: 'DM Sans, system-ui' }}>
         <div style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: 40 }}>â</div>
-          <div>ÐÐ°Ð³Ð²Ð°Ñ Ð¾Ð»Ð´ÑÐ¾Ð½Ð³Ò¯Ð¹</div>
+          <div style={{ fontSize: 40 }}>❌</div>
+          <div>Загвар олдсонгүй</div>
           <button onClick={() => router.back()} style={{ marginTop: 16, padding: '10px 20px', background: '#FF6B00', color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer' }}>
-            ÐÑÑÐ°Ñ
+            Буцах
           </button>
         </div>
       </div>
     )
   }
 
-  const sc = STATUS_CONFIG[design.status] || { label: design.status, color: '#6B7280', icon: 'â' }
+  const sc = STATUS_CONFIG[design.status] || { label: design.status, color: '#6B7280', icon: '●' }
   const isLocked = design.approval_locked
   const canApprove = !isLocked && (design.status === 'under_review' || design.status === 'updated_version' || design.status === 'zoom_scheduled')
   const canRequestRevision = !isLocked && (design.status === 'under_review' || design.status === 'updated_version' || design.status === 'zoom_scheduled')
@@ -216,27 +216,27 @@ export default function CustomerDesignApproval() {
       {showApproveModal && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
           <div style={{ background: '#1A1A1A', borderRadius: 20, padding: 32, maxWidth: 480, width: '100%', border: '1px solid #2A2A2A' }}>
-            <div style={{ fontSize: 40, marginBottom: 16, textAlign: 'center' }}>â</div>
-            <div style={{ fontSize: 22, fontWeight: 700, textAlign: 'center', marginBottom: 12 }}>ÐÐ°Ð³Ð²Ð°Ñ Ð±Ð°ÑÐ»Ð°Ñ ÑÑ?</div>
+            <div style={{ fontSize: 40, marginBottom: 16, textAlign: 'center' }}>✅</div>
+            <div style={{ fontSize: 22, fontWeight: 700, textAlign: 'center', marginBottom: 12 }}>Загвар батлах уу?</div>
             <div style={{ fontSize: 14, color: '#9CA3AF', textAlign: 'center', lineHeight: 1.6, marginBottom: 24 }}>
-              <strong>v{design.current_version}</strong> Ð·Ð°Ð³Ð²Ð°ÑÑÐ³ Ð±Ð°ÑÐ»Ð°ÑÐ°Ð´:{' '}
-              <br />â ÐÐ°ÑÐ°Ñ Ð±Ð¾Ð»Ð¾Ð¼Ð¶Ð³Ò¯Ð¹ Ð±Ð¾Ð»Ð½Ð¾ (locked)
-              <br />â Ò®Ð¹Ð»Ð´Ð²ÑÑÐ»ÑÐ» ÑÑÑÐ´ ÑÑÑÐ»Ð½Ñ
-              <br />â ÐÐ¸Ð·Ð°Ð¹Ð½ÐµÑ ÑÓ©Ð»Ñ ÑÐ¾Ð¾ÑÐ¾Ð³Ð´Ð¾Ð½Ð¾
+              <strong>v{design.current_version}</strong> загварыг батлахад:{' '}
+              <br />— Засах боломжгүй болно (locked)
+              <br />— Үйлдвэрлэл шууд эхэлнэ
+              <br />— Дизайнер хөлс тооцогдоно
             </div>
             <div style={{ display: 'flex', gap: 12 }}>
               <button
                 onClick={() => setShowApproveModal(false)}
                 style={{ flex: 1, padding: '12px', background: '#252525', color: '#fff', border: '1px solid #333', borderRadius: 10, cursor: 'pointer', fontWeight: 600 }}
               >
-                ÐÐ¾Ð»Ð¸Ñ
+                Болих
               </button>
               <button
                 onClick={handleApprove}
                 disabled={approving}
                 style={{ flex: 1, padding: '12px', background: approving ? '#333' : '#10B981', color: '#fff', border: 'none', borderRadius: 10, cursor: 'pointer', fontWeight: 700, fontSize: 15 }}
               >
-                {approving ? 'ÐÐ°ÑÐ»Ð°Ð¶ Ð±Ð°Ð¹Ð½Ð°...' : 'â Ð¢Ð¸Ð¹Ð¼, ÐÐ°ÑÐ»Ð°Ñ'}
+                {approving ? 'Батлаж байна...' : '✅ Тийм, Батлах'}
               </button>
             </div>
           </div>
@@ -249,12 +249,12 @@ export default function CustomerDesignApproval() {
           onClick={() => router.back()}
           style={{ padding: '8px 12px', background: '#252525', color: '#9CA3AF', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 13 }}
         >
-          â ÐÑÑÐ°Ñ
+          ← Буцах
         </button>
         <div style={{ flex: 1 }}>
-          <div style={{ fontSize: 18, fontWeight: 700 }}>{design.product_name || 'ÐÐ¸Ð·Ð°Ð¹Ð½ ÑÒ¯ÑÑÐ»Ñ'}</div>
+          <div style={{ fontSize: 18, fontWeight: 700 }}>{design.product_name || 'Дизайн хүсэлт'}</div>
           <div style={{ fontSize: 12, color: '#6B7280', marginTop: 2 }}>
-            ÐÐ¸Ð·Ð°Ð¹Ð½ÐµÑ: {design.designer_name || 'Ð¥ÑÐ²Ð°Ð°ÑÐ¸Ð»Ð°Ð³Ð´Ð°Ð°Ð³Ò¯Ð¹'} Â· v{design.current_version}
+            Дизайнер: {design.designer_name || 'Хуваарилагдаагүй'} · v{design.current_version}
           </div>
         </div>
         <div style={{
@@ -270,11 +270,11 @@ export default function CustomerDesignApproval() {
       <div style={{ background: '#1A1A1A', padding: '16px 24px', borderBottom: '1px solid #2A2A2A' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 0, fontSize: 11 }}>
           {[
-            { key: 'assigned', label: 'Ð¥ÑÐ²Ð°Ð°ÑÐ¸Ð»Ð°Ð³Ð´ÑÐ°Ð½' },
-            { key: 'in_progress', label: 'ÐÐ¶Ð¸Ð»Ð»Ð°Ð¶ Ð±Ð°Ð¹Ð½Ð°' },
-            { key: 'under_review', label: 'Ð¥ÑÐ½Ð°Ñ' },
-            { key: 'approved', label: 'ÐÐ°ÑÐ»Ð°Ñ' },
-            { key: 'in_production', label: 'Ò®Ð¹Ð»Ð´Ð²ÑÑÐ»ÑÐ»' },
+            { key: 'assigned', label: 'Хуваарилагдсан' },
+            { key: 'in_progress', label: 'Ажиллаж байна' },
+            { key: 'under_review', label: 'Хянах' },
+            { key: 'approved', label: 'Батлах' },
+            { key: 'in_production', label: 'Үйлдвэрлэл' },
           ].map((step, i, arr) => {
             const statusOrder = ['assigned', 'in_progress', 'under_review', 'revision_requested', 'updated_version', 'zoom_scheduled', 'approved', 'in_production']
             const currentIdx = statusOrder.indexOf(design.status)
@@ -293,7 +293,7 @@ export default function CustomerDesignApproval() {
                     fontSize: 12, fontWeight: 700,
                     border: active && !done ? '2px solid #FF6B00' : 'none',
                   }}>
-                    {done ? 'â' : i + 1}
+                    {done ? '✓' : i + 1}
                   </div>
                   <span style={{ color: done || active ? '#D1D5DB' : '#4B5563', whiteSpace: 'nowrap' }}>{step.label}</span>
                 </div>
@@ -308,14 +308,14 @@ export default function CustomerDesignApproval() {
 
       <div style={{ maxWidth: 1100, margin: '0 auto', padding: '24px 24px' }}>
 
-        {/* Zoom banner â designer created a session */}
+        {/* Zoom banner — designer created a session */}
         {design.zoom_join_url && (
           <div style={{ background: '#0D2D1E', border: '2px solid #10B981', borderRadius: 16, padding: '16px 20px', marginBottom: 20, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
             <div>
-              <div style={{ color: '#10B981', fontWeight: 700, fontSize: 15 }}>ð¹ Zoom ÑÑÐ»Ð·Ð°Ð»Ñ Ð±ÑÐ»ÑÐ½ Ð±Ð°Ð¹Ð½Ð°!</div>
-              <div style={{ color: '#6B7280', fontSize: 12, marginTop: 4 }}>ÐÐ¸Ð·Ð°Ð¹Ð½ÐµÑ Ð´ÑÐ»Ð³ÑÑÑÑ share ÑÐ¸Ð¹Ð¶ Ð·Ð°Ð³Ð²Ð°ÑÑÐ³ ÑÐ°Ð¼ÑÐ´Ð°Ð° ÑÑÐ½Ð°Ñ Ð±Ð¾Ð»Ð½Ð¾</div>
+              <div style={{ color: '#10B981', fontWeight: 700, fontSize: 15 }}>📹 Zoom уулзалт бэлэн байна!</div>
+              <div style={{ color: '#6B7280', fontSize: 12, marginTop: 4 }}>Дизайнер дэлгэцээ share хийж загварыг хамтдаа хянах болно</div>
               {design.zoom_password && (
-                <div style={{ fontSize: 12, color: '#9CA3AF', marginTop: 4 }}>ÐÑÑÑ Ò¯Ð³: <strong style={{ color: '#fff' }}>{design.zoom_password}</strong></div>
+                <div style={{ fontSize: 12, color: '#9CA3AF', marginTop: 4 }}>Нууц үг: <strong style={{ color: '#fff' }}>{design.zoom_password}</strong></div>
               )}
             </div>
             <a
@@ -324,7 +324,7 @@ export default function CustomerDesignApproval() {
               rel="noreferrer"
               style={{ background: '#10B981', color: '#fff', padding: '14px 24px', borderRadius: 10, fontWeight: 700, fontSize: 15, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 8 }}
             >
-              ð¹ Zoom-Ð´ Ð½ÑÐ³Ð´ÑÑ
+              📹 Zoom-д нэгдэх
             </a>
           </div>
         )}
@@ -332,10 +332,10 @@ export default function CustomerDesignApproval() {
         {/* Approved banner */}
         {isLocked && (
           <div style={{ background: '#0A2E1A', border: '1px solid #10B981', borderRadius: 16, padding: '16px 20px', marginBottom: 20, display: 'flex', alignItems: 'center', gap: 16 }}>
-            <span style={{ fontSize: 32 }}>â</span>
+            <span style={{ fontSize: 32 }}>✅</span>
             <div>
-              <div style={{ color: '#10B981', fontWeight: 700, fontSize: 16 }}>Ð¢Ð° Ð·Ð°Ð³Ð²Ð°ÑÑÐ³ Ð±Ð°ÑÐ»Ð°ÑÐ°Ð½ â Ò®Ð¹Ð»Ð´Ð²ÑÑÐ»ÑÐ» ÑÑÑÐ»Ð»ÑÑ</div>
-              <div style={{ color: '#6B7280', fontSize: 13, marginTop: 4 }}>v{design.current_version} Ð·Ð°Ð³Ð²Ð°Ñ Ð±Ð°ÑÐ»Ð°Ð³Ð´Ð°Ð¶ Ò¯Ð¹Ð»Ð´Ð²ÑÑÑ ÑÐ²Ð»Ð°Ð°. Ð¥ÑÐ²Ð»ÑÐ»Ð¸Ð¹Ð½ ÑÐ²Ñ ÑÐ¾Ð»Ð±Ð¾Ð³Ð´Ð¾Ñ ÑÑÑÐ³Ò¯Ò¯Ð´ÑÐ´ ÑÐ°ÑÐ°Ð³Ð´Ð°Ñ Ð±Ð¾Ð»Ð½Ð¾.</div>
+              <div style={{ color: '#10B981', fontWeight: 700, fontSize: 16 }}>Та загварыг батласан — Үйлдвэрлэл эхэллээ</div>
+              <div style={{ color: '#6B7280', fontSize: 13, marginTop: 4 }}>v{design.current_version} загвар батлагдаж үйлдвэрт явлаа. Хэвлэлийн явц холбогдох хэсгүүдэд харагдах болно.</div>
             </div>
           </div>
         )}
@@ -353,12 +353,12 @@ export default function CustomerDesignApproval() {
                 borderBottom: activeTab === tab ? '2px solid #FF6B00' : '2px solid transparent',
               }}
             >
-              {tab === 'review' ? 'ð ÐÐ°Ð³Ð²Ð°Ñ ÑÑÐ½Ð°Ñ' : tab === 'history' ? 'ð Ð¥ÑÐ²Ð¸Ð»Ð±Ð°ÑÑÑÐ´' : `ð¬ Ð¢Ð°Ð¹Ð»Ð±Ð°Ñ (${design.comments?.filter((c: any) => c.type !== 'system').length || 0})`}
+              {tab === 'review' ? '🔍 Загвар хянах' : tab === 'history' ? '📁 Хувилбарууд' : `💬 Тайлбар (${design.comments?.filter((c: any) => c.type !== 'system').length || 0})`}
             </button>
           ))}
         </div>
 
-        {/* ââ REVIEW TAB âââââââââââââââââââââââââââââââââââââââââââââââââââââââ */}
+        {/* ── REVIEW TAB ─────────────────────────────────────────────────────── */}
         {activeTab === 'review' && (
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 360px', gap: 24 }}>
 
@@ -366,7 +366,7 @@ export default function CustomerDesignApproval() {
             <div>
               <div style={{ background: '#1A1A1A', borderRadius: 16, padding: 20, marginBottom: 20 }}>
                 <div style={{ fontSize: 12, color: '#6B7280', marginBottom: 12, fontWeight: 600 }}>
-                  ÐÐÐÐÐÐÐÐ ÐÐÐÐÐÐ  â v{design.current_version}
+                  ОДООГИЙН ЗАГВАР — v{design.current_version}
                 </div>
                 {design.preview_url ? (
                   <img
@@ -376,20 +376,20 @@ export default function CustomerDesignApproval() {
                   />
                 ) : design.file_url ? (
                   <div style={{ padding: 40, background: '#252525', borderRadius: 10, textAlign: 'center' }}>
-                    <div style={{ fontSize: 40, marginBottom: 12 }}>ð</div>
-                    <div style={{ color: '#9CA3AF', fontSize: 14, marginBottom: 16 }}>ÐÐ°Ð³Ð²Ð°ÑÑÐ½ ÑÐ°Ð¹Ð»</div>
+                    <div style={{ fontSize: 40, marginBottom: 12 }}>📄</div>
+                    <div style={{ color: '#9CA3AF', fontSize: 14, marginBottom: 16 }}>Загварын файл</div>
                     <a href={design.file_url} target="_blank" rel="noreferrer" style={{ background: '#FF6B00', color: '#fff', padding: '12px 20px', borderRadius: 8, fontSize: 13, fontWeight: 600, textDecoration: 'none' }}>
-                      ð Ð¤Ð°Ð¹Ð» Ð½ÑÑÑ
+                      📎 Файл нээх
                     </a>
                   </div>
                 ) : (
                   <div style={{ padding: 40, background: '#252525', borderRadius: 10, textAlign: 'center', color: '#4B5563' }}>
-                    <div style={{ fontSize: 40, marginBottom: 8 }}>â³</div>
-                    <div style={{ marginBottom: 16 }}>ÐÐ¸Ð·Ð°Ð¹Ð½ÐµÑ Ð°Ð¶Ð¸Ð»Ð»Ð°Ð¶ Ð±Ð°Ð¹Ð½Ð°...</div>
+                    <div style={{ fontSize: 40, marginBottom: 8 }}>⏳</div>
+                    <div style={{ marginBottom: 16 }}>Дизайнер ажиллаж байна...</div>
                     <button
                       onClick={() => router.push(`/design/editor?designRequestId=${id}`)}
                       style={{ background: '#FF6B00', color: '#fff', padding: '10px 18px', borderRadius: 8, fontSize: 13, fontWeight: 600, border: 'none', cursor: 'pointer' }}>
-                      âï¸ Ó¨Ó©ÑÓ©Ó© Ð·Ð°Ð³Ð²Ð°Ñ ÑÐ°Ð½Ð°Ð» Ð±Ð¾Ð»Ð³Ð¾Ñ
+                      ✏️ Өөрөө загвар санал болгох
                     </button>
                   </div>
                 )}
@@ -401,9 +401,9 @@ export default function CustomerDesignApproval() {
               {/* Approve button */}
               {canApprove && !isLocked && (
                 <div style={{ background: '#0A2E1A', border: '1px solid #10B981', borderRadius: 16, padding: 20, marginBottom: 16 }}>
-                  <div style={{ fontSize: 15, fontWeight: 700, color: '#10B981', marginBottom: 8 }}>â ÐÐ°Ð³Ð²Ð°Ñ Ð±Ð°ÑÐ»Ð°Ñ</div>
+                  <div style={{ fontSize: 15, fontWeight: 700, color: '#10B981', marginBottom: 8 }}>✅ Загвар батлах</div>
                   <div style={{ fontSize: 13, color: '#6B7280', marginBottom: 16, lineHeight: 1.6 }}>
-                    ÐÐ°Ð³Ð²Ð°Ñ ÑÐ°Ð½Ð´ Ð±Ò¯ÑÑÐ½ ÑÐ¾ÑÐ¸ÑÑÐ¾Ð½ Ð±Ð¾Ð» Ð±Ð°ÑÐ»Ð°Ð°ÑÐ°Ð¹. ÐÐ°ÑÐ»Ð°Ð³Ð´ÑÐ°Ð½ Ð´Ð°ÑÑÐ¹ Ò¯Ð¹Ð»Ð´Ð²ÑÑÐ»ÑÐ» ÑÑÑÐ»Ð½Ñ.
+                    Загвар танд бүрэн тохирсон бол батлаарай. Батлагдсан даруй үйлдвэрлэл эхэлнэ.
                   </div>
                   <button
                     onClick={() => setShowApproveModal(true)}
@@ -413,7 +413,7 @@ export default function CustomerDesignApproval() {
                       cursor: 'pointer', fontWeight: 700, fontSize: 15,
                     }}
                   >
-                    â ÐÓ©Ð²ÑÓ©Ó©ÑÑ Ð±Ð°ÑÐ»Ð°Ñ
+                    ✅ Зөвшөөрч батлах
                   </button>
                 </div>
               )}
@@ -421,14 +421,14 @@ export default function CustomerDesignApproval() {
               {/* Revision request */}
               {canRequestRevision && (
                 <div style={{ background: '#1A1A1A', border: '1px solid #2A2A2A', borderRadius: 16, padding: 20, marginBottom: 16 }}>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: '#F97316', marginBottom: 8 }}>â ÐÐ°ÑÐ°Ñ ÑÒ¯ÑÑÐ»Ñ</div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: '#F97316', marginBottom: 8 }}>✏ Засах хүсэлт</div>
                   <div style={{ fontSize: 12, color: '#6B7280', marginBottom: 12 }}>
-                    Ð®Ñ Ð·Ð°ÑÐ°Ñ ÑÑÑÑÐ³ÑÑÐ¹Ð³ÑÑ ÑÐ¾Ð´Ð¾ÑÑÐ¾Ð¹ Ð±Ð¸ÑÐ½Ñ Ò¯Ò¯ â Ð´Ð¸Ð·Ð°Ð¹Ð½ÐµÑ ÑÑÑÑÑÐ°Ð¹ Ð·Ð°ÑÐ½Ð°.
+                    Юу засах хэрэгтэйгээ тодорхой бичнэ үү — дизайнер шуурхай засна.
                   </div>
                   <textarea
                     value={revisionReason}
                     onChange={e => setRevisionReason(e.target.value)}
-                    placeholder="ÐÐ¸ÑÑÑ: ÐÐ¾Ð³Ð¾ Ð´Ð¾Ð¾Ñ Ð±ÑÑÐ»Ð³Ð°Ñ, Ó©Ð½Ð³Ð¸Ð¹Ð³ #FF6B00 Ð±Ð¾Ð»Ð³Ð¾Ñ, ÑÐµÐºÑÑÐ¸Ð¹Ð½ ÑÑÐ¼Ð¶ÑÑ 16px Ð±Ð¾Ð»Ð³Ð¾Ñ..."
+                    placeholder="Жишээ: Лого доош буулгах, өнгийг #FF6B00 болгох, текстийн хэмжээ 16px болгох..."
                     rows={4}
                     style={{
                       width: '100%', padding: '12px', background: '#252525',
@@ -447,23 +447,23 @@ export default function CustomerDesignApproval() {
                       fontWeight: 600, fontSize: 14,
                     }}
                   >
-                    â ÐÐ°ÑÐ°Ñ ÑÒ¯ÑÑÐ»Ñ ÑÐ²ÑÑÐ»Ð°Ñ
+                    ✏ Засах хүсэлт явуулах
                   </button>
                 </div>
               )}
 
-              {/* Zoom request â customer can request live session with designer */}
+              {/* Zoom request — customer can request live session with designer */}
               {canRequestZoom && (
                 <div style={{ background: '#0F1F2E', border: '1px solid #1E3A5F', borderRadius: 16, padding: 20 }}>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: '#3B82F6', marginBottom: 8 }}>ð¹ Zoom ÑÑÐ»Ð·Ð°Ð»Ñ ÑÒ¯ÑÑÑ</div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: '#3B82F6', marginBottom: 8 }}>📹 Zoom уулзалт хүсэх</div>
                   <div style={{ fontSize: 12, color: '#6B7280', marginBottom: 14, lineHeight: 1.6 }}>
-                    ÐÐ°Ð³Ð²Ð°ÑÑÐ½ ÑÐ°Ð»Ð°Ð°Ñ Ð´Ð¸Ð·Ð°Ð¹Ð½ÐµÑÑÐ°Ð¹ ÑÑÑÐ´ ÑÑÐ¸Ð»ÑÐ¼Ð°Ð°Ñ Ð±Ð°Ð¹Ð²Ð°Ð» Zoom ÑÒ¯ÑÑÐ»Ñ ÑÐ²ÑÑÐ»Ð°Ð°ÑÐ°Ð¹.
-                    ÐÐ¸Ð·Ð°Ð¹Ð½ÐµÑ Ð°Ð¶Ð»ÑÐ½ Ð´ÑÐ»Ð³ÑÑÑÑ share ÑÐ¸Ð¹Ð¶ ÑÐ°Ð¼ÑÐ´Ð°Ð° Ð·Ð°ÑÐ²Ð°ÑÐ»Ð°Ð½Ð°.
+                    Загварын талаар дизайнертай шууд ярилцмаар байвал Zoom хүсэлт явуулаарай.
+                    Дизайнер ажлын дэлгэцээ share хийж хамтдаа засварлана.
                   </div>
                   {/* Preferred time picker */}
                   <div style={{ marginBottom: 14 }}>
                     <label style={{ fontSize: 11, color: '#6B7280', display: 'block', marginBottom: 6, fontWeight: 600 }}>
-                      Ð£Ð£ÐÐÐÐÐ¢Ð«Ð Ð¢ÐÐ¥ÐÐ ÐÐÐÐ¢ÐÐ Ð¦ÐÐ (Ð·Ð°Ð°Ð²Ð°Ð» Ð±Ð¸Ñ)
+                      УУЛЗАЛТЫН ТОХИРОМЖТОЙ ЦАГ (заавал биш)
                     </label>
                     <input
                       type="datetime-local"
@@ -489,17 +489,17 @@ export default function CustomerDesignApproval() {
                       fontWeight: 600, fontSize: 14,
                     }}
                   >
-                    {zoomRequesting ? 'ÐÐ»Ð³ÑÑÐ¶ Ð±Ð°Ð¹Ð½Ð°...' : 'ð¹ Zoom ÑÒ¯ÑÑÑ'}
+                    {zoomRequesting ? 'Илгээж байна...' : '📹 Zoom хүсэх'}
                   </button>
                 </div>
               )}
 
-              {/* Zoom already requested â waiting for designer */}
+              {/* Zoom already requested — waiting for designer */}
               {canRequestZoom &&
                 design.comments?.some((c: any) => c.type === 'system' && c.author_role === 'customer' && c.content?.includes('Zoom')) && (
                 <div style={{ background: '#0F1F2E', border: '1px solid #3B82F6', borderRadius: 12, padding: '12px 16px', marginTop: 10, display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <span style={{ fontSize: 18 }}>â³</span>
-                  <div style={{ fontSize: 12, color: '#60A5FA' }}>Zoom ÑÒ¯ÑÑÐ»Ñ ÑÐ²ÑÑÐ»ÑÐ°Ð½ â Ð´Ð¸Ð·Ð°Ð¹Ð½ÐµÑ ÑÑÐ»Ð·Ð°Ð»Ñ ÑÐ¾Ð²Ð»Ð¾ÑÑÐ³ ÑÒ¯Ð»ÑÑÐ¶ Ð±Ð°Ð¹Ð½Ð°</div>
+                  <span style={{ fontSize: 18 }}>⏳</span>
+                  <div style={{ fontSize: 12, color: '#60A5FA' }}>Zoom хүсэлт явуулсан — дизайнер уулзалт товлохыг хүлээж байна</div>
                 </div>
               )}
 
@@ -509,10 +509,10 @@ export default function CustomerDesignApproval() {
                   <div style={{ fontSize: 24, textAlign: 'center', marginBottom: 12 }}>{sc.icon}</div>
                   <div style={{ color: sc.color, fontWeight: 700, textAlign: 'center', fontSize: 15, marginBottom: 8 }}>{sc.label}</div>
                   <div style={{ color: '#6B7280', fontSize: 13, textAlign: 'center', lineHeight: 1.6 }}>
-                    {design.status === 'pending' && 'ÐÐ¸Ð·Ð°Ð¹Ð½ÐµÑ ÑÑÐ²Ð°Ð°ÑÐ¸Ð»Ð°Ð³Ð´Ð°ÑÑÐ³ ÑÒ¯Ð»ÑÑÐ¶ Ð±Ð°Ð¹Ð½Ð°.'}
-                    {design.status === 'assigned' && 'ÐÐ¸Ð·Ð°Ð¹Ð½ÐµÑ ÑÐ°Ð½Ñ Ð·Ð°ÑÐ¸Ð°Ð»Ð³Ð°ÑÐ°Ð¹ ÑÐ°Ð½Ð¸Ð»ÑÐ°Ð¶ Ð±Ð°Ð¹Ð½Ð°.'}
-                    {design.status === 'in_progress' && 'ÐÐ¸Ð·Ð°Ð¹Ð½ÐµÑ Ð·Ð°Ð³Ð²Ð°Ñ Ð±ÑÐ»ÑÐ³ÑÐ¶ Ð±Ð°Ð¹Ð½Ð°. Ð£Ð´Ð°ÑÐ³Ò¯Ð¹ ÑÑÐ½ÑÑÐ»Ð°ÑÐ°Ð°Ñ Ð¸ÑÐ½Ñ.'}
-                    {design.status === 'revision_requested' && 'ÐÐ°ÑÐ°Ñ ÑÒ¯ÑÑÐ»ÑÐ¸Ð¹Ð³ Ð´Ð¸Ð·Ð°Ð¹Ð½ÐµÑ ÑÒ¯Ð»ÑÑÐ½ Ð°Ð²Ð»Ð°Ð°. Ð£Ð´Ð°ÑÐ³Ò¯Ð¹ ÑÐ¸Ð½Ñ ÑÑÐ²Ð¸Ð»Ð±Ð°Ñ Ð¸ÑÐ½Ñ.'}
+                    {design.status === 'pending' && 'Дизайнер хуваарилагдахыг хүлээж байна.'}
+                    {design.status === 'assigned' && 'Дизайнер таны захиалгатай танилцаж байна.'}
+                    {design.status === 'in_progress' && 'Дизайнер загвар бэлтгэж байна. Удахгүй хянуулахаар ирнэ.'}
+                    {design.status === 'revision_requested' && 'Засах хүсэлтийг дизайнер хүлээн авлаа. Удахгүй шинэ хувилбар ирнэ.'}
                   </div>
                 </div>
               )}
@@ -520,13 +520,13 @@ export default function CustomerDesignApproval() {
           </div>
         )}
 
-        {/* ââ HISTORY TAB ââââââââââââââââââââââââââââââââââââââââââââââââââââââ */}
+        {/* ── HISTORY TAB ────────────────────────────────────────────────────── */}
         {activeTab === 'history' && (
           <div>
             {(design.versions || []).length === 0 ? (
               <div style={{ textAlign: 'center', padding: 60, color: '#4B5563' }}>
-                <div style={{ fontSize: 40, marginBottom: 12 }}>ð</div>
-                <div>Ð¥ÑÐ²Ð¸Ð»Ð±Ð°Ñ Ð±Ð°Ð¹ÑÐ³Ò¯Ð¹ Ð±Ð°Ð¹Ð½Ð°</div>
+                <div style={{ fontSize: 40, marginBottom: 12 }}>📁</div>
+                <div>Хувилбар байхгүй байна</div>
               </div>
             ) : (
               <div style={{ display: 'grid', gap: 16 }}>
@@ -540,7 +540,7 @@ export default function CustomerDesignApproval() {
                         <span style={{ background: '#FF6B00', color: '#fff', fontSize: 13, fontWeight: 800, padding: '4px 10px', borderRadius: 8 }}>
                           v{v.version_number}
                         </span>
-                        {v.is_current && <span style={{ fontSize: 12, color: '#10B981', fontWeight: 600 }}>â Ð¡Ò¯Ò¯Ð»Ð¸Ð¹Ð½ ÑÑÐ²Ð¸Ð»Ð±Ð°Ñ</span>}
+                        {v.is_current && <span style={{ fontSize: 12, color: '#10B981', fontWeight: 600 }}>● Сүүлийн хувилбар</span>}
                       </div>
                       <span style={{ fontSize: 12, color: '#6B7280' }}>
                         {new Date(v.created_at).toLocaleString('mn-MN')}
@@ -559,7 +559,7 @@ export default function CustomerDesignApproval() {
                         )}
                         {v.issues && Object.values(v.issues).some(Boolean) && (
                           <div style={{ background: '#EF444418', borderRadius: 8, padding: '8px 12px', marginBottom: 10 }}>
-                            <div style={{ fontSize: 11, color: '#EF4444', fontWeight: 600 }}>â  ÐÐ½ÑÐ°Ð°ÑÑÑÐ»Ð³Ð°:</div>
+                            <div style={{ fontSize: 11, color: '#EF4444', fontWeight: 600 }}>⚠ Анхааруулга:</div>
                             <div style={{ fontSize: 11, color: '#FCA5A5', marginTop: 2 }}>
                               {Object.entries(v.issues).filter(([, val]) => val).map(([k]) => k).join(', ')}
                             </div>
@@ -567,7 +567,7 @@ export default function CustomerDesignApproval() {
                         )}
                         {v.file_url && (
                           <a href={v.file_url} target="_blank" rel="noreferrer" style={{ color: '#FF6B00', fontSize: 12, fontWeight: 600 }}>
-                            ð Ð¤Ð°Ð¹Ð» Ð½ÑÑÑ â
+                            📎 Файл нээх →
                           </a>
                         )}
                       </div>
@@ -598,7 +598,7 @@ export default function CustomerDesignApproval() {
           </div>
         )}
 
-        {/* ââ COMMENTS TAB âââââââââââââââââââââââââââââââââââââââââââââââââââââ */}
+        {/* ── COMMENTS TAB ───────────────────────────────────────────────────── */}
         {activeTab === 'comments' && (
           <div style={{ maxWidth: 700 }}>
             {/* Comments list */}
@@ -619,8 +619,8 @@ export default function CustomerDesignApproval() {
                   </div>
                   <div style={{ maxWidth: '80%' }}>
                     <div style={{ fontSize: 11, color: '#6B7280', marginBottom: 4, textAlign: c.author_role === 'customer' ? 'right' : 'left' }}>
-                      {c.author_name} Â· {c.author_role === 'customer' ? 'Ð¢Ð°' : c.author_role === 'designer' ? 'ÐÐ¸Ð·Ð°Ð¹Ð½ÐµÑ' : 'Admin'}
-                      {c.version_number ? ` Â· v${c.version_number}` : ''}
+                      {c.author_name} · {c.author_role === 'customer' ? 'Та' : c.author_role === 'designer' ? 'Дизайнер' : 'Admin'}
+                      {c.version_number ? ` · v${c.version_number}` : ''}
                     </div>
                     <div style={{
                       padding: '12px 16px', borderRadius: 12, fontSize: 13, lineHeight: 1.6,
@@ -645,7 +645,7 @@ export default function CustomerDesignApproval() {
                 <textarea
                   value={commentText}
                   onChange={e => setCommentText(e.target.value)}
-                  placeholder="Ð¢Ð°Ð¹Ð»Ð±Ð°Ñ, Ð°ÑÑÑÐ»Ñ, ÑÐ°Ð½Ð°Ð» Ð±Ð¸ÑÐ¸Ñ..."
+                  placeholder="Тайлбар, асуулт, санал бичих..."
                   rows={3}
                   style={{ flex: 1, padding: '12px', background: '#1A1A1A', border: '1px solid #2A2A2A', borderRadius: 10, color: '#fff', fontSize: 13, resize: 'none' }}
                 />
@@ -654,7 +654,7 @@ export default function CustomerDesignApproval() {
                   disabled={!commentText.trim()}
                   style={{ padding: '12px 16px', background: commentText.trim() ? '#FF6B00' : '#252525', color: '#fff', border: 'none', borderRadius: 10, cursor: 'pointer', fontWeight: 600 }}
                 >
-                  ÐÐ»Ð³ÑÑÑ
+                  Илгээх
                 </button>
               </div>
             )}

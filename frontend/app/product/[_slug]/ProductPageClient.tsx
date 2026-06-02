@@ -1,7 +1,7 @@
 'use client'
 import { apiFetch } from '@/lib/api'
 import React, { useState, useEffect, useRef } from 'react'
-import { useParams } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useStore } from '@/lib/store'
 import { toast } from 'sonner'
@@ -9,6 +9,10 @@ import { Heart, Share2, GitCompareArrows, ShoppingCart, Zap, Link2, ExternalLink
 import PriceCalculator from '@/components/PriceCalculator'
 import BookPriceCalculator from '@/components/BookPriceCalculator'
 import { fbPixel } from '@/components/FacebookPixel'
+import {
+  CLIENT_PRICING_SNAPSHOT_VERSION,
+  PRICING_CONTRACT_VERSION,
+} from '@/lib/pricing/snapshot'
 
 const fmt = (n: number) => '₮' + n.toLocaleString('mn-MN')
 
@@ -169,6 +173,14 @@ function slugDistance(a: string, b: string) {
   return previous[b.length]
 }
 
+function stableHash(value: string) {
+  let hash = 0
+  for (let i = 0; i < value.length; i++) {
+    hash = ((hash << 5) - hash + value.charCodeAt(i)) | 0
+  }
+  return Math.abs(hash).toString(36)
+}
+
 function findProductBySlug(list: any[], slug: string) {
   const normalized = normalizeSlug(slug)
   const exact = list.find((i: any) => normalizeSlug(i.slug || i.id || '') === normalized)
@@ -182,6 +194,7 @@ function findProductBySlug(list: any[], slug: string) {
 // ═══ MAIN PAGE ═══
 export default function ProductPageClient({ initialProduct, slug: slugProp }: { initialProduct?: any; slug?: string }) {
   const params = useParams<{ _slug?: string }>()
+  const router = useRouter()
   const _slug = slugProp || params?._slug || ''
   const [product, setProduct] = useState<any>(initialProduct || null)
   const [related, setRelated] = useState<any[]>([])
@@ -195,7 +208,7 @@ export default function ProductPageClient({ initialProduct, slug: slugProp }: { 
   const [liveBreakdown, setLiveBreakdown] = useState<any>(null)
   const [leadTime, setLeadTime] = useState<any>(null)
   const { addToCart: storeAddToCart, cart, toggleWishlist, isWished, toggleCompare, isCompared } = useStore()
-  const inCart = cart.some(c => c.id === product?.id)
+  const inCart = cart.some(c => (c.productId || c.id.split(':')[0]) === product?.id)
   const wished = product ? isWished(product?.id) : false
   const compared = product ? isCompared(product?.id) : false
 
@@ -249,41 +262,121 @@ export default function ProductPageClient({ initialProduct, slug: slugProp }: { 
     }).catch(() => {})
   }, [_slug, initialProduct?.id])
 
-  const handleAddToCart = () => {
-    if (!product) return
+  const handleAddToCart = async () => {
+    if (!product || adding) return false
     setAdding(true)
-    const unitPrice = liveBreakdown?.unit_price || Number(product.sale_price ?? product.base_price ?? 0)
+    const effectiveQty = Math.max(1, Number(liveBreakdown?.quantity || qty) || 1)
+    const unitPrice = Math.round(Number(
+      liveBreakdown?.unit_price ||
+      (livePrice && effectiveQty ? livePrice / effectiveQty : 0) ||
+      product.sale_price ||
+      product.base_price ||
+      0,
+    ))
+    const totalPrice = Math.round(Number(liveBreakdown?.total_price ?? liveBreakdown?.total ?? unitPrice * effectiveQty))
+    const pricingSource = liveBreakdown?.is_estimate ? 'fallback' : liveBreakdown ? 'server' : 'catalog'
+    const pricingEngine = liveBreakdown
+      ? `product.calculate.${liveBreakdown.formula_used || product.pricing_mode || 'unknown'}`
+      : 'product.catalog.fixed'
+    const pricingSpecs = {
+      formula_used: liveBreakdown?.formula_used || product.pricing_mode || 'fixed',
+      quantity: effectiveQty,
+      unit_price: unitPrice,
+      total_price: totalPrice,
+      subtotal_excl_vat: liveBreakdown?.subtotal_excl_vat,
+      vat: liveBreakdown?.vat,
+      vat_rate: liveBreakdown?.vat_rate ?? 0.1,
+      vat_included: liveBreakdown?.vat_included ?? true,
+      width_mm: liveBreakdown?.width_mm,
+      height_mm: liveBreakdown?.height_mm,
+      width_m: liveBreakdown?.width_m,
+      height_m: liveBreakdown?.height_m,
+      area_m2: liveBreakdown?.area_m2,
+      sides: liveBreakdown?.sides,
+      options: liveBreakdown?.options,
+      notes: liveBreakdown?.notes,
+      source: pricingSource,
+      clientSnapshotVersion: CLIENT_PRICING_SNAPSHOT_VERSION,
+      pricingContractVersion: PRICING_CONTRACT_VERSION,
+      pricingEngine,
+    }
+    const pricingSnapshot = {
+      source: pricingSource,
+      clientSnapshotVersion: CLIENT_PRICING_SNAPSHOT_VERSION,
+      pricingContractVersion: PRICING_CONTRACT_VERSION,
+      pricingEngine,
+      total: totalPrice,
+      unitPrice,
+      breakdown: liveBreakdown || null,
+      product: {
+        id: product.id,
+        name: product.name_mn || product.name || '',
+        category: product.category || '',
+      },
+      spec: {
+        quantity: effectiveQty,
+        selectedSize,
+        addons: selectedAddons,
+        widthMm: liveBreakdown?.width_mm,
+        heightMm: liveBreakdown?.height_mm,
+        sides: liveBreakdown?.sides,
+        options: liveBreakdown?.options,
+      },
+      generatedAt: new Date().toISOString(),
+    }
+    const cartSpecs = {
+      selected_size: selectedSize,
+      addons: selectedAddons,
+      pricing: pricingSpecs,
+      pricing_snapshot: pricingSnapshot,
+    }
+    const lineSignature = stableHash(JSON.stringify({
+      product_id: product.id,
+      selectedSize,
+      selectedAddons: [...selectedAddons].sort(),
+      pricing: pricingSpecs,
+    }))
+    const cartLineId = liveBreakdown || selectedSize || selectedAddons.length
+      ? `${product.id}:${lineSignature}`
+      : product.id
     fbPixel.addToCart({
       productId: product.id,
       name: product.name_mn || product.name,
-      price: unitPrice * qty,
+      price: unitPrice * effectiveQty,
     })
     storeAddToCart({
-      id: product.id,
+      id: cartLineId,
+      productId: product.id,
       name: product.name_mn || product.name,
       price: unitPrice,
       image: product.thumbnail_url,
-    }, qty)
+      specs: cartSpecs,
+    }, effectiveQty)
     // Add selected addons to cart
     for (const addonId of selectedAddons) {
       const addon = addons.find(a => a.id === addonId)
       if (addon) {
         storeAddToCart({
           id: `addon-${addon.id}`,
+          productId: product.id,
           name: `↳ ${addon.name_mn}`,
           price: Number(addon.price),
           image: product.thumbnail_url,
-        }, qty)
+          specs: { parent_line_id: cartLineId },
+        }, effectiveQty)
       }
     }
     const addonCount = selectedAddons.length
-    toast.success('Сагсанд нэмэгдлээ', { description: `${product.name_mn || product.name} × ${qty}${addonCount ? ` + ${addonCount} дагалдах` : ''}` })
+    toast.success('Сагсанд нэмэгдлээ', { description: `${product.name_mn || product.name} × ${effectiveQty}${addonCount ? ` + ${addonCount} дагалдах` : ''}` })
     // Also try API
     try {
       const u = JSON.parse(localStorage.getItem('user') || '{}')
-      if (u?.id) apiFetch('/cart/items', { method: 'POST', body: { user_id: u.id, product_id: product.id, quantity: qty, specs: { addons: selectedAddons } } }).catch(() => {})
+      if (u?.id) {
+        await apiFetch('/cart/items', { method: 'POST', body: { product_id: product.id, quantity: effectiveQty, unit_price: unitPrice, specs: cartSpecs } })
+      }
     } catch {}
     setTimeout(() => setAdding(false), 500)
+    return true
   }
 
   if (loading) return <div className="min-h-screen flex items-center justify-center bg-[var(--bg)]"><div className="w-10 h-10 border-[3px] border-[var(--border)] border-t-[#FF6B00] rounded-full animate-spin" /></div>
@@ -449,8 +542,8 @@ export default function ProductPageClient({ initialProduct, slug: slugProp }: { 
                 }`}>
                 <ShoppingCart className="w-4 h-4 inline mr-1" strokeWidth={1.5} />{adding ? '...' : inCart ? 'САГСАНД БАЙГАА' : 'САГСАНД НЭМЭХ'}
               </motion.button>
-              <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.96 }} disabled={out}
-                onClick={() => { handleAddToCart(); window.location.href = '/checkout?source=cart' }}
+              <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.96 }} disabled={out || adding}
+                onClick={async () => { if (await handleAddToCart()) router.push('/checkout?source=cart') }}
                 className="py-3 rounded-lg border-none bg-[#FF6B00] text-white font-bold text-[12px] cursor-pointer shadow-lg shadow-[#FF6B00]/20 hover:bg-[#E55D00] transition-all disabled:opacity-30 disabled:cursor-not-allowed disabled:shadow-none">
                 <Zap className="w-4 h-4 inline mr-1" strokeWidth={1.5} />ХУДАЛДАН АВАХ
               </motion.button>

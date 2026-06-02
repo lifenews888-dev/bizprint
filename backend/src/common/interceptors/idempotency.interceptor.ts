@@ -36,9 +36,11 @@ export class IdempotencyInterceptor implements NestInterceptor {
     const rawKey = (req.headers['x-idempotency-key'] || req.headers['X-Idempotency-Key']) as string | undefined
     if (!rawKey) return next.handle()
 
-    // Scope by user — different users with same key get distinct namespaces
+    // Scope by user, method and route so one key cannot replay a different action.
     const userId = req.user?.id || 'anon'
-    const key = `${userId}:${rawKey}`
+    const method = req.method || 'UNKNOWN'
+    const path = req.originalUrl || req.url || context.getHandler().name
+    const key = `${userId}:${method}:${path}:${rawKey}`
 
     this.gc()
 

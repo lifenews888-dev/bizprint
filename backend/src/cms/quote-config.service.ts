@@ -137,7 +137,8 @@ export class QuoteConfigService {
     private repo: Repository<QuoteConfig>,
   ) {}
 
-  findAll() {
+  async findAll() {
+    await this.seedMissingDefaults();
     return this.repo.find({
       where: { is_active: true },
       order: { sort_order: 'ASC' },
@@ -160,16 +161,24 @@ export class QuoteConfigService {
   }
 
   async seed() {
-    const count = await this.repo.count();
-    if (count > 0) return { seeded: 0, message: 'Already seeded' };
+    return this.seedMissingDefaults();
+  }
 
+  private async seedMissingDefaults() {
+    const existing = await this.repo.find();
+    const existingTypes = new Set(existing.map((config) => config.product_type));
     let seeded = 0;
     for (const c of SEED_CONFIGS) {
+      if (existingTypes.has(c.product_type)) continue;
       try {
         await this.repo.save(this.repo.create(c as any));
         seeded++;
       } catch {}
     }
-    return { seeded };
+    return {
+      seeded,
+      total_defaults: SEED_CONFIGS.length,
+      message: seeded > 0 ? 'Default quote configs seeded' : 'Default quote configs already present',
+    };
   }
 }

@@ -528,8 +528,8 @@ function EditorInner() {
           if (invoiceCode) startPolling(invoiceCode)
         } catch (e: any) {
           console.log('Payment creation error:', e.message)
-          // Fallback: redirect to checkout
-          window.location.href = `/checkout?order_id=${order.id}`
+          // Fallback: redirect to payment page for this already-created order.
+          window.location.href = `/checkout/pay?orderId=${order.id}&amount=${Number(order.total_price)}&desc=${encodeURIComponent('BizPrint нэрийн хуудас')}`
           return
         }
       }

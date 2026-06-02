@@ -1,5 +1,6 @@
 'use client'
 import { useStore } from '@/lib/store'
+import { getCartPricingAudit, getCartPricingAuditSummaryMessage, summarizeCartPricingAudit } from '@/lib/cart-pricing-audit'
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -13,9 +14,13 @@ export default function CartPage() {
   const { cart, removeFromCart, updateQty, clearCart, cartTotal, cartCount, toggleWishlist, isWished } = useStore()
   const [removingId, setRemovingId] = useState<string | null>(null)
 
-  const shipping = cartTotal() >= 50000 ? 0 : 5000
-  const tax = Math.round(cartTotal() * 0.1)
-  const grandTotal = cartTotal() + shipping + tax
+  const itemTotal = cartTotal()
+  const subtotalExclVat = Math.round(itemTotal / 1.1)
+  const tax = itemTotal - subtotalExclVat
+  const shipping = itemTotal >= 50000 ? 0 : 5000
+  const grandTotal = itemTotal + shipping
+  const pricingAuditSummary = summarizeCartPricingAudit(cart)
+  const { message: pricingAuditMessage, tone: pricingAuditTone } = getCartPricingAuditSummaryMessage(pricingAuditSummary, cart.length)
 
   const handleRemove = (id: string) => {
     setRemovingId(id)
@@ -66,7 +71,9 @@ export default function CartPage() {
           {/* ─── CART ITEMS ─── */}
           <div className="space-y-3">
             <AnimatePresence>
-              {cart.map(item => (
+              {cart.map(item => {
+                const audit = getCartPricingAudit(item)
+                return (
                 <motion.div key={item.id}
                   layout initial={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: -200 }}
@@ -75,14 +82,14 @@ export default function CartPage() {
                   className="flex gap-4 p-4 rounded-xl border border-[var(--border)] bg-[var(--surface)]">
 
                   {/* Image */}
-                  <a href={`/product/${item.id}`} className="shrink-0 w-20 h-20 rounded-xl overflow-hidden bg-[var(--surface2)] no-underline">
+                  <a href={`/product/${item.productId || item.id.split(':')[0]}`} className="shrink-0 w-20 h-20 rounded-xl overflow-hidden bg-[var(--surface2)] no-underline">
                     {item.image ? <img src={item.image} alt="" className="w-full h-full object-cover" /> :
                       <div className="w-full h-full flex items-center justify-center text-2xl">🖨️</div>}
                   </a>
 
                   {/* Info */}
                   <div className="flex-1 min-w-0">
-                    <a href={`/product/${item.id}`} className="text-sm font-semibold text-[var(--text)] no-underline hover:text-[#FF6B00] transition-colors line-clamp-2">{item.name}</a>
+                    <a href={`/product/${item.productId || item.id.split(':')[0]}`} className="text-sm font-semibold text-[var(--text)] no-underline hover:text-[#FF6B00] transition-colors line-clamp-2">{item.name}</a>
                     <div className="text-lg font-extrabold text-[#FF6B00] mt-1">{fmt(item.price)}</div>
 
                     {/* Controls */}
@@ -114,9 +121,17 @@ export default function CartPage() {
                         </motion.button>
                       </div>
                     </div>
+                    <div
+                      className="mt-2 inline-flex items-center gap-1.5 rounded-full px-2 py-1 text-[11px] font-bold"
+                      style={{ background: audit.background, color: audit.color }}
+                    >
+                      <span>{audit.label}</span>
+                      <span className="font-semibold opacity-75">{audit.detail}</span>
+                    </div>
                   </div>
                 </motion.div>
-              ))}
+                )
+              })}
             </AnimatePresence>
           </div>
 
@@ -128,7 +143,11 @@ export default function CartPage() {
               <div className="space-y-2.5 text-sm">
                 <div className="flex justify-between">
                   <span className="text-[var(--text3)]">Бараа ({cartCount()})</span>
-                  <span className="font-semibold">{fmt(cartTotal())}</span>
+                  <span className="font-semibold">{fmt(itemTotal)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-[var(--text3)]">НӨАТгүй дүн</span>
+                  <span className="font-semibold">{fmt(subtotalExclVat)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-[var(--text3)]">Хүргэлт</span>
@@ -146,7 +165,21 @@ export default function CartPage() {
 
               {shipping > 0 && (
                 <div className="text-[10px] text-emerald-600 bg-emerald-50 rounded-lg px-3 py-2 font-semibold">
-                  🚚 ₮50,000+ захиалгад хүргэлт ҮНЭГҮЙ! Дутуу: {fmt(50000 - cartTotal())}
+                  🚚 ₮50,000+ захиалгад хүргэлт ҮНЭГҮЙ! Дутуу: {fmt(50000 - itemTotal)}
+                </div>
+              )}
+
+              {pricingAuditMessage && (
+                <div
+                  className={`rounded-lg px-3 py-2 text-[11px] font-bold ${
+                    pricingAuditTone === 'warning'
+                      ? 'bg-amber-50 text-amber-700'
+                      : pricingAuditTone === 'success'
+                        ? 'bg-emerald-50 text-emerald-700'
+                        : 'bg-blue-50 text-blue-700'
+                  }`}
+                >
+                  {pricingAuditMessage}
                 </div>
               )}
 

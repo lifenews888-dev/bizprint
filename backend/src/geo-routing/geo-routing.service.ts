@@ -20,6 +20,7 @@ export interface VendorWithDistance {
     services: string[];
   };
   distanceKm: number;
+  hasLocation: boolean;
   estimatedDeliveryHours: number;
   deliveryCost: number;
   score: number;
@@ -49,6 +50,7 @@ export const UB_DISTRICTS: Record<string, GeoPoint> = {
 @Injectable()
 export class GeoRoutingService {
   private readonly logger = new Logger(GeoRoutingService.name);
+  private readonly unknownLocationDistanceKm = 9999;
 
   constructor(
     @InjectRepository(Vendor)
@@ -78,17 +80,27 @@ export class GeoRoutingService {
       maxDistanceKm?: number;
       strategy?: 'nearest' | 'fastest' | 'cheapest' | 'best_score';
       limit?: number;
+      includeUnlocated?: boolean;
     } = {},
   ): Promise<GeoRoutingResult> {
-    const { productType, maxDistanceKm = 50, strategy = 'best_score', limit = 5 } = options;
+    const {
+      productType,
+      maxDistanceKm,
+      strategy = 'best_score',
+      limit = 5,
+      includeUnlocated = true,
+    } = options;
+    const safeCustomerLocation = this.normalizePoint(customerLocation) || this.getDefaultLocation();
 
     const vendors = await this.vendorRepo.find({ where: { status: 'active' as any } });
 
     const vendorsWithDistance: VendorWithDistance[] = vendors
-      .filter(v => (v as any).latitude && (v as any).longitude)
       .map(v => {
-        const vPoint: GeoPoint = { lat: Number((v as any).latitude), lng: Number((v as any).longitude) };
-        const distanceKm = this.calculateDistance(customerLocation, vPoint);
+        const vPoint = this.normalizePoint({ lat: (v as any).latitude, lng: (v as any).longitude });
+        const hasLocation = Boolean(vPoint);
+        const distanceKm = vPoint
+          ? this.calculateDistance(safeCustomerLocation, vPoint)
+          : this.unknownLocationDistanceKm;
         const deliveryCost = this.calcDeliveryCost(
           distanceKm,
           Number((v as any).base_delivery_cost || 0),
@@ -110,12 +122,16 @@ export class GeoRoutingService {
             services: (v as any).services || [],
           },
           distanceKm,
+          hasLocation,
           estimatedDeliveryHours,
           deliveryCost,
           score,
         };
       })
-      .filter(v => v.distanceKm <= maxDistanceKm);
+      .filter(v => {
+        if (!v.hasLocation) return includeUnlocated;
+        return typeof maxDistanceKm === 'number' ? v.distanceKm <= maxDistanceKm : true;
+      });
 
     let filtered = vendorsWithDistance;
     if (productType) {
@@ -140,7 +156,7 @@ export class GeoRoutingService {
     const maxCost = Math.max(...candidates.map(v => v.deliveryCost), 0);
     const estimatedSavings = nearest ? maxCost - nearest.deliveryCost : 0;
 
-    return { nearest, candidates, strategy, customerLocation, estimatedSavings };
+    return { nearest, candidates, strategy, customerLocation: safeCustomerLocation, estimatedSavings };
   }
 
   calcDeliveryCost(distanceKm: number, baseCost: number, costPerKm: number, freeRadiusKm: number): number {
@@ -161,6 +177,16 @@ export class GeoRoutingService {
     const costScore = (deliveryCost === 0 ? 100 : Math.max(0, 100 - deliveryCost / 100)) * 0.20;
     const loadScore = (vendor.load_status === 'available' ? 100 : vendor.load_status === 'busy' ? 50 : 0) * 0.15;
     return Math.round(locationScore + qualityScore + costScore + loadScore);
+  }
+
+  private normalizePoint(point: { lat: unknown; lng: unknown } | null | undefined): GeoPoint | null {
+    if (point?.lat === null || point?.lat === undefined || point?.lat === '') return null;
+    if (point?.lng === null || point?.lng === undefined || point?.lng === '') return null;
+    const lat = Number(point?.lat);
+    const lng = Number(point?.lng);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+    if (lat < -90 || lat > 90 || lng < -180 || lng > 180) return null;
+    return { lat, lng };
   }
 
   async autoAssignVendor(

@@ -99,7 +99,7 @@ export class Order {
   total_price: number;
 
   @Column({ type: 'jsonb', nullable: true })
-  options: Record<string, string>;
+  options: Record<string, any>;
 
   @Column({ nullable: true })
   notes: string;

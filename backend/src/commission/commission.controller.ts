@@ -8,6 +8,12 @@ import { AdminGuard } from '../admin/admin.guard';
 export class CommissionController {
   constructor(private svc: CommissionService) {}
 
+  private scopedVendorId(req: any, requestedVendorId?: string): string | undefined {
+    const role = req.user?.role;
+    if (role === 'admin' || role === 'superadmin') return requestedVendorId;
+    return req.user?.id;
+  }
+
   // Escrow release: every 6h, auto-approve commissions for orders that have
   // been DELIVERED for ≥ 48h with no dispute. Same window for vendor and
   // sales-agent commissions so the customer's dispute window is consistent.
@@ -82,14 +88,14 @@ export class CommissionController {
   // Vendor can read their own; admin can read any
   @Get()
   @UseGuards(JwtAuthGuard)
-  findAll(@Query('vendor_id') vendorId?: string, @Query('status') status?: string) {
-    return this.svc.findAll({ vendorId, status });
+  findAll(@Req() req: any, @Query('vendor_id') vendorId?: string, @Query('status') status?: string) {
+    return this.svc.findAll({ vendorId: this.scopedVendorId(req, vendorId), status });
   }
 
   @Get('summary')
   @UseGuards(JwtAuthGuard)
-  getSummary(@Query('vendor_id') vendorId?: string) {
-    return this.svc.getSummary(vendorId);
+  getSummary(@Req() req: any, @Query('vendor_id') vendorId?: string) {
+    return this.svc.getSummary(this.scopedVendorId(req, vendorId));
   }
 
   @Get('batches')

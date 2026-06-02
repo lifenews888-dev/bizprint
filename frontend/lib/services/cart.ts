@@ -9,7 +9,7 @@ export const CartService = {
   get: () => apiFetch('/cart'),
 
   /** Сагсанд бараа нэмэх */
-  addItem: (data: { product_id: string; quantity: number; specs?: Record<string, unknown> }) =>
+  addItem: (data: { product_id: string; quantity: number; unit_price?: number; specs?: Record<string, unknown> }) =>
     apiFetch('/cart/items', { method: 'POST', body: data }),
 
   /** Сагснаас бараа хасах */

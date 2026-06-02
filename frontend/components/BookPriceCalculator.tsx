@@ -80,12 +80,16 @@ export default function BookPriceCalculator({ product, onPriceChange, isAdminVie
 
   // Notify parent of price changes
   useEffect(() => {
+    const subtotalExclVat = Math.round(total / 1.1)
+    const vat = total - subtotalExclVat
     onPriceChange?.(total, {
-      total, unit_price: unitPrice, quantity: input.quantity,
+      total, total_price: total, unit_price: unitPrice, quantity: input.quantity,
+      subtotal_excl_vat: subtotalExclVat, vat, vat_rate: 0.1, vat_included: true,
+      pages: input.totalPages, totalPages: input.totalPages, size: input.paperSize,
       formula_used: result.method, notes: result.warnings,
       is_estimate: false,
     })
-  }, [total, unitPrice, input.quantity])
+  }, [total, unitPrice, input.quantity, input.totalPages, input.paperSize, result.method, result.warnings])
 
   const isLoggedIn = typeof window !== 'undefined' && !!(localStorage.getItem('access_token') || localStorage.getItem('token'))
 

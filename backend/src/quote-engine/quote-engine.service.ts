@@ -240,9 +240,9 @@ export class QuoteEngineService {
 
   async calculateOffset(params: any) {
     const size_code = params.size_code || 'A4'
-    const pages = Number(params.pages) || 1
-    const qty = Number(params.quantity) || 100
-    const gsm = Number(params.gsm) || 130
+    const pages = this.parsePositiveInteger(params.pages, 1, 10_000)
+    const qty = this.parsePositiveInteger(params.quantity, 100, 1_000_000)
+    const gsm = this.parsePositiveInteger(params.gsm, 130, 1000)
     const color = params.color_mode || 'full'
     const sides = params.sides || 'single'
     const finishing = params.finishing || 'none'
@@ -332,14 +332,14 @@ export class QuoteEngineService {
     let label = ''
 
     if (product === 'tovgor') {
-      const size = Number(params.size) || 30
-      const qty = Number(params.quantity) || 1
+      const size = this.parsePositiveNumber(params.size, 30, 1000)
+      const qty = this.parsePositiveInteger(params.quantity, 1, 1_000_000)
       const unit = await this.pricingConfig.getValue(`tovgor_${size}cm`) ?? 35000
       base = unit * qty
       label = `Товгор ${size}см × ${qty}ш`
     } else {
-      const w = Number(params.width) || 1
-      const h = Number(params.height) || 1
+      const w = this.parseWideDimension(params.width, 1)
+      const h = this.parseWideDimension(params.height, 1)
       const area = w * h
       // Map product to pricing key
       const keyMap: Record<string, string> = {
@@ -385,7 +385,7 @@ export class QuoteEngineService {
     const subtotal = Math.round(beforeMargin * (1 + marginRate))
     const vat = Math.round(subtotal * 0.10)
     const total_price = subtotal + vat
-    const qty = product === 'tovgor' ? (Number(params.quantity) || 1) : 1
+    const qty = product === 'tovgor' ? this.parsePositiveInteger(params.quantity, 1, 1_000_000) : 1
 
     return {
       base_label: label,
@@ -406,8 +406,18 @@ export class QuoteEngineService {
 
   async calculateWide(params: any) {
     const type = params.type || 'banner'
-    const w = Number(params.width) || 1
-    const l = Number(params.length) || 2
+    const w = this.parseWideDimension(params.width ?? params.width_m, 1)
+    const l = this.parseWideDimension(params.length ?? params.height ?? params.height_m, 2)
+    const qty = Math.min(1_000_000, Math.max(1, Math.round(Number(params.quantity) || 1)))
+    const sides = params.sides === 'double' ? 'double' : 'single'
+    const materialInput = params.material || params.material_key || params.material_code || type
+    const material = this.resolveWideMaterial(type, materialInput)
+    const finishing = Array.isArray(params.finishing)
+      ? params.finishing
+      : String(params.finishing || '')
+        .split(',')
+        .map((f) => f.trim())
+        .filter(Boolean)
     const rush = params.rush_hours || 0
     const mode = params.pricing_mode || 'retail'
 
@@ -415,8 +425,24 @@ export class QuoteEngineService {
       banner: 'orgon_banner', sticker: 'orgon_sticker',
       flag: 'orgon_flag', canvas: 'orgon_fabric',
     }
-    const rate = await this.pricingConfig.getValue(keyMap[type] || 'orgon_banner') ?? 8000
-    const base = rate * w * l
+    const configuredRate = await this.pricingConfig.getValue(`wide_material_${material.key}`)
+      ?? await this.pricingConfig.getValue(keyMap[type] || 'orgon_banner')
+    const materialRate = configuredRate ?? material.materialRate
+    const printRate = await this.pricingConfig.getValue(`wide_print_${type}`) ?? material.printRate
+    const setupCost = await this.pricingConfig.getValue(`wide_setup_${type}`) ?? material.setupCost
+    const wasteFactor = await this.pricingConfig.getValue(`wide_waste_${material.key}`) ?? material.wasteFactor
+
+    const areaPerUnit = w * l
+    const billableAreaPerUnit = Math.max(areaPerUnit, material.minBillableM2)
+    const totalArea = billableAreaPerUnit * qty
+    const sideMultiplier = sides === 'double' ? material.doubleSidePrintMultiplier : 1
+    const materialCost = Math.round(totalArea * materialRate * (1 + wasteFactor))
+    const printCost = Math.round(totalArea * printRate * sideMultiplier)
+    const finishingCost = await this.calculateWideFinishingCost(finishing, {
+      areaM2: totalArea,
+      perimeterM: (w + l) * 2 * qty,
+    })
+    const base = materialCost + printCost + finishingCost + setupCost
 
     const rushRate = rush === 24 ? 0.30 : rush === 48 ? 0.15 : 0
     const rushAmt = Math.round(base * rushRate)
@@ -437,11 +463,151 @@ export class QuoteEngineService {
       subtotal,
       vat,
       total_price,
-      unit_price: total_price,
-      quantity: 1,
+      unit_price: Math.round(total_price / qty),
+      quantity: qty,
       vat_note: 'НӨАТ орсон',
       valid_hours: 72,
+      material_key: material.key,
+      material_name: material.name,
+      width_m: w,
+      length_m: l,
+      area_m2: Math.round(areaPerUnit * 1000) / 1000,
+      billable_area_m2: Math.round(totalArea * 1000) / 1000,
+      material_rate_m2: materialRate,
+      print_rate_m2: printRate,
+      waste_pct: Math.round(wasteFactor * 100),
+      sides,
+      side_multiplier: sideMultiplier,
+      material_cost: materialCost,
+      print_cost: printCost,
+      finishing_cost: finishingCost,
+      setup_cost: Math.round(setupCost),
+      breakdown: {
+        material: materialCost,
+        print: printCost,
+        finishing: finishingCost,
+        setup: Math.round(setupCost),
+        rush: rushAmt,
+        vat,
+      },
     }
+  }
+
+  private parseWideDimension(value: unknown, fallback: number) {
+    const parsed = Number(value)
+    if (!Number.isFinite(parsed) || parsed <= 0) return fallback
+    return Math.min(1_000, parsed)
+  }
+
+  private parsePositiveInteger(value: unknown, fallback: number, max: number) {
+    const parsed = Number(value)
+    if (!Number.isFinite(parsed) || parsed <= 0) return fallback
+    return Math.min(max, Math.max(1, Math.round(parsed)))
+  }
+
+  private parsePositiveNumber(value: unknown, fallback: number, max: number) {
+    const parsed = Number(value)
+    if (!Number.isFinite(parsed) || parsed <= 0) return fallback
+    return Math.min(max, parsed)
+  }
+
+  private resolveWideMaterial(type: string, value: any) {
+    const raw = String(value || '')
+    const normalized = raw.toLowerCase().replace(/[^a-z0-9]+/g, '_')
+    const defaults: Record<string, any> = {
+      vinyl_440: {
+        key: 'vinyl_440',
+        name: 'Vinyl 440gsm',
+        materialRate: 8500,
+        printRate: 6500,
+        wasteFactor: 0.10,
+        setupCost: 5000,
+        minBillableM2: 1,
+        doubleSidePrintMultiplier: 2,
+      },
+      mesh_banner: {
+        key: 'mesh_banner',
+        name: 'Mesh banner',
+        materialRate: 11500,
+        printRate: 7000,
+        wasteFactor: 0.12,
+        setupCost: 5000,
+        minBillableM2: 1,
+        doubleSidePrintMultiplier: 2,
+      },
+      backlit: {
+        key: 'backlit',
+        name: 'Backlit flex',
+        materialRate: 18000,
+        printRate: 8500,
+        wasteFactor: 0.12,
+        setupCost: 7000,
+        minBillableM2: 1,
+        doubleSidePrintMultiplier: 1.6,
+      },
+      sticker_vinyl: {
+        key: 'sticker_vinyl',
+        name: 'Sticker vinyl',
+        materialRate: 12000,
+        printRate: 7500,
+        wasteFactor: 0.15,
+        setupCost: 5000,
+        minBillableM2: 0.5,
+        doubleSidePrintMultiplier: 1,
+      },
+    }
+
+    if (this.matchesAny(raw, ['mesh', 'мэш', 'торон']) || normalized.includes('mesh')) return defaults.mesh_banner
+    if (this.matchesAny(raw, ['backlit', 'гэрэлт', 'хулдаас']) || normalized.includes('backlit')) return defaults.backlit
+    if (type === 'sticker') return defaults.sticker_vinyl
+    return defaults.vinyl_440
+  }
+
+  private async calculateWideFinishingCost(finishing: string[], dims: { areaM2: number; perimeterM: number }) {
+    let total = 0
+    for (const option of finishing) {
+      const key = String(option || '')
+      if (this.matchesAny(key, ['grommet', 'eyelet', 'oosor', 'оосор'])) {
+        total += Math.round(dims.perimeterM * (await this.pricingConfig.getValue('wide_finish_grommet_m') ?? 1800))
+      } else if (this.matchesAny(key, ['weld', 'edge', 'gagnuur', 'гагнуур', 'гантиг', 'дантиг'])) {
+        total += Math.round(dims.perimeterM * (await this.pricingConfig.getValue('wide_finish_weld_m') ?? 1200))
+      } else if (this.matchesAny(key, ['laminat', 'lamination', 'ламинат'])) {
+        total += Math.round(dims.areaM2 * (await this.pricingConfig.getValue('wide_finish_laminate_m2') ?? 4500))
+      } else {
+        total += Math.round(dims.areaM2 * (await this.pricingConfig.getValue('wide_finish_default_m2') ?? 3000))
+      }
+    }
+    return total
+  }
+
+  private matchesAny(value: string, aliases: string[]) {
+    const aliasSet = new Set(aliases)
+    for (const alias of aliases) {
+      const legacy = this.toLegacyMojibake(alias)
+      const doubleLegacy = this.toLegacyMojibake(legacy)
+      aliasSet.add(legacy)
+      aliasSet.add(legacy.toLowerCase())
+      aliasSet.add(doubleLegacy)
+      aliasSet.add(doubleLegacy.toLowerCase())
+    }
+    const candidates = [
+      value,
+      value.toLowerCase(),
+      this.fromLegacyMojibake(value),
+      this.fromLegacyMojibake(value).toLowerCase(),
+    ]
+    return [...aliasSet].some((alias) => {
+      const normalizedAlias = alias.toLowerCase()
+      return candidates.some((candidate) => candidate.toLowerCase().includes(normalizedAlias))
+    })
+  }
+
+  private toLegacyMojibake(value: string) {
+    return Buffer.from(value, 'utf8').toString('latin1')
+  }
+
+  private fromLegacyMojibake(value: string) {
+    return Buffer.from(value, 'latin1').toString('utf8')
   }
 
   async calculateWithBreakdown(params: any) {

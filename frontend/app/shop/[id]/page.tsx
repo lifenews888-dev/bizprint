@@ -1,5 +1,6 @@
 'use client'
 import { apiFetch, getToken } from '@/lib/api'
+import { CLIENT_PRICING_SNAPSHOT_VERSION, PRICING_CONTRACT_VERSION } from '@/lib/pricing/snapshot'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 
@@ -207,26 +208,67 @@ export default function ProductConfiguratorPage() {
   // Add to cart
   const addToCart = async () => {
     const token = getToken()
-    if (!token) { router.push('/login'); return }
+    if (!token) { router.push('/login'); return false }
+    if (addingToCart) return false
     setAddingToCart(true)
     try {
+      const totalPrice = Number(uploadResult?.quote?.total_price ?? priceResult?.total ?? product?.base_price ?? 0)
+      const unitPrice = Math.round(Number(uploadResult?.quote?.unit_price ?? priceResult?.unit_price ?? (totalPrice ? totalPrice / quantity : 0)))
+      const roundedTotal = Math.round(unitPrice * quantity)
+      const pricingSource = uploadResult?.quote ? 'ai-upload' : (priceResult ? 'pricing-catalog' : 'catalog')
+      const pricingEngine = `shop.detail.${pricingSource}`
+      const pricingSnapshot = {
+        source: pricingSource,
+        clientSnapshotVersion: CLIENT_PRICING_SNAPSHOT_VERSION,
+        pricingContractVersion: PRICING_CONTRACT_VERSION,
+        pricingEngine,
+        total: roundedTotal,
+        unitPrice,
+        product: {
+          id,
+          name: product?.name_mn || product?.name || '',
+          category: product?.category || product?.type || '',
+        },
+        spec: {
+          ...selectedOptions,
+          quantity,
+          uploaded_file: uploadResult?.file_url || null,
+        },
+        serverQuote: uploadResult?.quote || priceResult || null,
+        generatedAt: new Date().toISOString(),
+      }
       await apiFetch('/cart/items', {
         method: 'POST',
         body: {
           product_id: id,
           quantity,
+          unit_price: unitPrice,
           specs: {
             ...selectedOptions,
             uploaded_file: uploadResult?.file_url || null,
             ai_price: uploadResult?.quote?.total_price || null,
+            pricing: {
+              unit_price: unitPrice,
+              total_price: roundedTotal,
+              quantity,
+              vat_included: true,
+              source: pricingSource,
+              clientSnapshotVersion: CLIENT_PRICING_SNAPSHOT_VERSION,
+              pricingContractVersion: PRICING_CONTRACT_VERSION,
+              pricingEngine,
+            },
+            pricing_snapshot: pricingSnapshot,
           },
         },
       })
       show('Сагсанд нэмэгдлээ ✓')
+      return true
     } catch (err: any) {
       show(err.message || 'Алдаа гарлаа')
+      return false
+    } finally {
+      setAddingToCart(false)
     }
-    setAddingToCart(false)
   }
 
   const getRiskColor = (risk: string) => ({ LOW: '#10B981', MEDIUM: '#F59E0B', HIGH: '#EF4444', CRITICAL: '#DC2626' }[risk] || '#888')
@@ -528,15 +570,15 @@ export default function ProductConfiguratorPage() {
             }}>
               {addingToCart ? 'Нэмж байна...' : '🛒 Сагсанд нэмэх'}
             </button>
-            <button onClick={() => {
-              const token = getToken()
-              if (!token) { router.push('/login'); return }
-              router.push(`/checkout?product_id=${id}&qty=${quantity}`)
-            }} style={{
+            <button onClick={async () => {
+              const added = await addToCart()
+              if (added) router.push('/checkout?source=cart')
+            }} disabled={addingToCart} style={{
               flex: 1, padding: '15px 0', background: O, color: '#fff', border: 'none',
-              borderRadius: 12, fontSize: 15, fontWeight: 700, cursor: 'pointer', fontFamily: F,
+              borderRadius: 12, fontSize: 15, fontWeight: 700, cursor: addingToCart ? 'not-allowed' : 'pointer', fontFamily: F,
+              opacity: addingToCart ? 0.6 : 1,
             }}>
-              Захиалах — {displayPrice != null ? fmt(displayPrice) : '...'}
+              {addingToCart ? 'Нэмж байна...' : `Захиалах — ${displayPrice != null ? fmt(displayPrice) : '...'}`}
             </button>
           </div>
 

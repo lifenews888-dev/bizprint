@@ -15,6 +15,8 @@ export class GeoRoutingController {
     productType?: string;
     quantity?: number;
     strategy?: string;
+    maxDistanceKm?: number;
+    includeUnlocated?: boolean;
   }) {
     return this.geoSvc.findNearestVendors(
       { lat: body.lat, lng: body.lng },
@@ -22,6 +24,8 @@ export class GeoRoutingController {
         productType: body.productType,
         quantity: body.quantity,
         strategy: (body.strategy as any) || 'best_score',
+        maxDistanceKm: body.maxDistanceKm,
+        includeUnlocated: body.includeUnlocated,
       },
     );
   }
