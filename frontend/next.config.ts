@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import path from "node:path";
 
 // `https:` in script-src and connect-src lets admins paste arbitrary
 // chatbot widget embed codes via /admin/chatbot without per-vendor CSP edits.
@@ -35,6 +36,8 @@ const CSP_SOURCES = {
   ],
 }
 
+const repoRoot = path.resolve(process.cwd(), '..');
+
 const nextConfig: NextConfig = {
   // output: 'standalone' — Vercel-д шаардлагагүй, 404 үүсгэж болно
   allowedDevOrigins: [
@@ -50,7 +53,7 @@ const nextConfig: NextConfig = {
   poweredByHeader: false,
   compress: true,
   turbopack: {
-    root: process.cwd(),
+    root: repoRoot,
   },
   images: {
     remotePatterns: [
