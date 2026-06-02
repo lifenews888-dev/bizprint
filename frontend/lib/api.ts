@@ -14,6 +14,13 @@
  */
 
 function resolveApiUrl(): string {
+  if (
+    typeof window !== 'undefined' &&
+    process.env.NODE_ENV !== 'production' &&
+    ['localhost', '127.0.0.1'].includes(window.location.hostname)
+  ) {
+    return window.location.origin
+  }
   const envUrl = process.env.NEXT_PUBLIC_API_URL
   if (envUrl) return envUrl
   // In production, log a clear warning at runtime — do NOT crash the build.

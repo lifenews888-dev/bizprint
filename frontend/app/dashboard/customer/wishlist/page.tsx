@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { apiFetch } from '@/lib/api'
+import { CLIENT_PRICING_SNAPSHOT_VERSION, PRICING_CONTRACT_VERSION } from '@/lib/pricing/snapshot'
 import { useStore } from '@/lib/store'
 import { Heart, ShoppingCart, Trash2, ShoppingBag } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -21,7 +22,45 @@ export default function WishlistPage() {
   }, [wishlist])
 
   const handleAddToCart = (p: any) => {
-    addToCart({ id: p.id, name: p.name_mn || p.name, price: Number(p.sale_price ?? p.base_price ?? 0), image: p.thumbnail_url })
+    const unitPrice = Math.round(Number(p.sale_price ?? p.base_price ?? 0))
+    const pricingEngine = p.pricing_mode ? `wishlist.catalog.${p.pricing_mode}` : 'wishlist.catalog.fixed'
+    const pricingSnapshot = {
+      source: 'catalog',
+      clientSnapshotVersion: CLIENT_PRICING_SNAPSHOT_VERSION,
+      pricingContractVersion: PRICING_CONTRACT_VERSION,
+      pricingEngine,
+      total: unitPrice,
+      unitPrice,
+      product: {
+        id: p.id,
+        name: p.name_mn || p.name || '',
+        category: p.category || '',
+      },
+      spec: { quantity: 1 },
+      generatedAt: new Date().toISOString(),
+    }
+    addToCart({
+      id: p.id,
+      productId: p.id,
+      name: p.name_mn || p.name,
+      price: unitPrice,
+      image: p.thumbnail_url,
+      specs: {
+        product_name: p.name_mn || p.name,
+        product_image: p.thumbnail_url,
+        pricing: {
+          unit_price: unitPrice,
+          total_price: unitPrice,
+          quantity: 1,
+          vat_included: true,
+          source: 'catalog',
+          clientSnapshotVersion: CLIENT_PRICING_SNAPSHOT_VERSION,
+          pricingContractVersion: PRICING_CONTRACT_VERSION,
+          pricingEngine,
+        },
+        pricing_snapshot: pricingSnapshot,
+      },
+    })
     toast.success('Сагсанд нэмэгдлээ')
   }
 

@@ -56,20 +56,19 @@ export default function PublicProductQr() {
   const trackReorder = () => {
     if (!product) return
     fetch(`${API}/api/p/${product.id}/reorder`, { method: 'POST' })
-    // Navigate to checkout with product info pre-filled
+    // Public QR reorders are inquiry/order requests, not cart checkout.
     const params = new URLSearchParams({
-      product_name: product.product_name || '',
-      quantity: String(reorderQty),
-      total_price: String(price * reorderQty),
-      unit_price: String(price),
+      productId: product.id || '',
+      name: product.product_name || '',
+      category: product.category || '',
+      qty: String(reorderQty),
       source: 'product_qr',
-      slug: String(slug),
-      note: reorderNote,
     })
+    if (reorderNote) params.set('note', reorderNote)
     if (product.reorder_url) {
       window.open(product.reorder_url, '_blank')
     } else {
-      window.location.href = `/checkout?${params.toString()}`
+      window.location.href = `/orders/new?${params.toString()}`
     }
   }
 

@@ -6,6 +6,7 @@ import { BarChart as VBarChart, DonutChart } from '@/components/chart-blocks'
 import { Wallet, TrendingUp, Clock, Landmark, Users, Target } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { RealtimeSignalPanel } from '@/components/admin/RealtimeSignalPanel'
 
 /* ═══ Helpers ═══ */
 const fmt = (n: number) => '₮' + n.toLocaleString()
@@ -88,7 +89,20 @@ function SystemTab({ services }: { services: { name: string; icon: string; port:
   const [loadingErrors, setLoadingErrors] = useState(true)
 
   useEffect(() => {
-    apiFetch<any>('/errors/summary').then(d => setErrorSummary(d)).catch(() => {}).finally(() => setLoadingErrors(false))
+    let mounted = true
+    const load = async () => {
+      try {
+        const data = await apiFetch<any>('/errors/summary')
+        if (mounted) setErrorSummary(data)
+      } catch {}
+      if (mounted) setLoadingErrors(false)
+    }
+    load()
+    const timer = setInterval(load, 15000)
+    return () => {
+      mounted = false
+      clearInterval(timer)
+    }
   }, [])
 
   const filteredErrors = (errorSummary?.recent || []).filter((e: any) =>
@@ -102,6 +116,7 @@ function SystemTab({ services }: { services: { name: string; icon: string; port:
 
   return (
     <div>
+      <RealtimeSignalPanel />
       {/* Service Control Panel */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 mb-6">
         {services.map(svc => (

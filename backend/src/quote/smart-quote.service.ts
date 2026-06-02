@@ -35,7 +35,7 @@ export class SmartQuoteService {
   }
 
   private async calculateLetterQuote(body: any, productType: string) {
-    const quantity = this.clampInt(body?.quantity, 1);
+    const quantity = this.positiveInt(body?.quantity, 1);
     const urgency = this.normalizeUrgency(body?.urgency ?? body?.rush_hours);
     const lines = this.normalizeTextLines(body);
     const logoPrice = this.money(body?.logo_price ?? body?.logoPrice);
@@ -91,7 +91,7 @@ export class SmartQuoteService {
   }
 
   private async calculateAreaQuote(body: any, productType: string) {
-    const quantity = this.clampInt(body?.quantity, 1);
+    const quantity = this.positiveInt(body?.quantity, 1);
     const urgency = this.normalizeUrgency(body?.urgency ?? body?.rush_hours);
     const dimensions = this.normalizeDimensions(body);
     const logoPrice = this.money(body?.logo_price ?? body?.logoPrice);
@@ -287,6 +287,9 @@ export class SmartQuoteService {
     } else if (unit === 'cm' || unit === 'см') {
       widthMm = rawWidth * 10;
       heightMm = rawHeight * 10;
+    } else if (unit === 'in' || unit === 'inch' || unit === 'inches') {
+      widthMm = rawWidth * 25.4;
+      heightMm = rawHeight * 25.4;
     }
 
     return {
@@ -298,14 +301,14 @@ export class SmartQuoteService {
 
   private async resolveMaterialKey(productType: string, material?: string, paperGsm?: any): Promise<string> {
     const raw = String(material || '').toLowerCase();
-    if (raw.includes('mesh')) return 'mesh';
-    if (raw.includes('canvas')) return 'canvas';
-    if (raw.includes('backlit')) return 'backlit';
-    if (raw.includes('sticker')) return 'sticker';
-    if (raw.includes('vinyl')) return 'vinyl';
-    if (raw.includes('pvc')) return 'pvc_5mm';
-    if (raw.includes('nerj') || raw.includes('stainless')) return 'stainless';
-    if (raw.includes('acrylic')) return 'acrylic_5mm';
+    if (this.matchesAnyText(raw, ['backlit', 'гэрэлт', 'гэрэлтэй'])) return 'backlit';
+    if (this.matchesAnyText(raw, ['mesh', 'мэш', 'торон'])) return 'mesh';
+    if (this.matchesAnyText(raw, ['canvas', 'канвас', 'даавуу'])) return 'canvas';
+    if (this.matchesAnyText(raw, ['sticker', 'стикер', 'наалт'])) return 'sticker';
+    if (this.matchesAnyText(raw, ['vinyl', 'винил', 'хулдаас'])) return 'vinyl';
+    if (this.matchesAnyText(raw, ['pvc', 'пвц'])) return 'pvc_5mm';
+    if (this.matchesAnyText(raw, ['nerj', 'stainless', 'нерж', 'ган'])) return 'stainless';
+    if (this.matchesAnyText(raw, ['acrylic', 'акрил'])) return 'acrylic_5mm';
 
     if (productType === 'nerj') return 'stainless';
     if (productType === 'd3') return 'acrylic_5mm';
@@ -370,14 +373,28 @@ export class SmartQuoteService {
       productType === 'sambar' ||
       material.includes('_on') ||
       material.includes('led') ||
-      material.includes('light'),
+      material.includes('light') ||
+      this.matchesAnyText(material, ['гэрэлт', 'гэрэлтэй']),
     );
+  }
+
+  private matchesAnyText(value: string, aliases: string[]) {
+    const compactValue = value.replace(/[\s_-]+/g, '');
+    return aliases.some((alias) => {
+      const normalizedAlias = alias.toLowerCase();
+      return value.includes(normalizedAlias) || compactValue.includes(normalizedAlias.replace(/[\s_-]+/g, ''));
+    });
   }
 
   private clampInt(value: any, fallback: number) {
     const n = Math.floor(Number(value));
     if (!Number.isFinite(n) || n < 0) return fallback;
     return n;
+  }
+
+  private positiveInt(value: any, fallback: number) {
+    const n = this.clampInt(value, fallback);
+    return n > 0 ? n : fallback;
   }
 
   private money(value: any) {
@@ -466,7 +483,7 @@ export class SmartQuoteService {
     const result: ParsedQuoteData = { confidence: 0, rawText: text };
 
     // Dimensions: e.g. "100x200mm", "50 x 70 cm", "24x36 inch"
-    const dimMatch = text.match(/(\d+(?:\.\d+)?)\s*[xXÃ—]\s*(\d+(?:\.\d+)?)\s*(mm|cm|inch|in)\b/);
+    const dimMatch = text.match(/(\d+(?:\.\d+)?)\s*[xX×]\s*(\d+(?:\.\d+)?)\s*(mm|cm|inch|in)\b/);
     if (dimMatch) {
       result.dimensions = {
         width: parseFloat(dimMatch[1]),
@@ -499,11 +516,11 @@ export class SmartQuoteService {
       }
     }
 
-    // Price: e.g. "$250", "USD 1,500", "â‚® 50,000"
-    const priceMatch = text.match(/(?:USD|EUR|GBP|MNT|[$â‚¬Â£â‚®])\s*([\d,]+(?:\.\d+)?)|(\d[\d,]*(?:\.\d+)?)\s*(?:USD|EUR|GBP|MNT)/i);
+    // Price: e.g. "$250", "USD 1,500", "₮ 50,000"
+    const priceMatch = text.match(/(?:USD|EUR|GBP|MNT|[$€£₮])\s*([\d,]+(?:\.\d+)?)|(\d[\d,]*(?:\.\d+)?)\s*(?:USD|EUR|GBP|MNT)/i);
     if (priceMatch) {
       const amount = parseFloat((priceMatch[1] || priceMatch[2]).replace(/,/g, ''));
-      const currMatch = text.match(/USD|EUR|GBP|MNT|\$|â‚¬|Â£|â‚®/);
+      const currMatch = text.match(/USD|EUR|GBP|MNT|\$|€|£|₮/);
       result.price = { amount, currency: currMatch ? currMatch[0] : 'USD' };
       result.confidence += 25;
     }
@@ -513,10 +530,10 @@ export class SmartQuoteService {
 
   parsePdfSummary(data: ParsedQuoteData): string {
     const parts: string[] = [];
-    if (data.dimensions) parts.push(`Ð¥ÑÐ¼Ð¶ÑÑ: ${data.dimensions.width}Ã—${data.dimensions.height}${data.dimensions.unit}`);
-    if (data.quantity) parts.push(`Ð¢Ð¾Ð¾: ${data.quantity}`);
-    if (data.material) parts.push(`ÐœÐ°Ñ‚ÐµÑ€Ð¸Ð°Ð»: ${data.material}`);
-    if (data.price) parts.push(`Ò®Ð½Ñ: ${data.price.currency}${data.price.amount}`);
-    return parts.length ? parts.join(', ') : 'ÐœÑÐ´ÑÑÐ»ÑÐ» Ð¾Ð»Ð´ÑÐ¾Ð½Ð³Ò¯Ð¹';
+    if (data.dimensions) parts.push(`Хэмжээ: ${data.dimensions.width}×${data.dimensions.height}${data.dimensions.unit}`);
+    if (data.quantity) parts.push(`Тоо: ${data.quantity}`);
+    if (data.material) parts.push(`Материал: ${data.material}`);
+    if (data.price) parts.push(`Үнэ: ${data.price.currency}${data.price.amount}`);
+    return parts.length ? parts.join(', ') : 'Мэдээлэл олдсонгүй';
   }
 }

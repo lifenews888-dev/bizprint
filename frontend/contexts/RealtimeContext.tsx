@@ -27,8 +27,8 @@ import {
   ReactNode,
 } from 'react'
 import { io, Socket } from 'socket.io-client'
+import { API_URL, getToken } from '@/lib/api'
 
-const SYNC_URL = (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000') + ''
 const FALLBACK_POLL_MS = 10_000
 
 type Handler = (data: any) => void
@@ -65,8 +65,15 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
 
   // ── Init socket ─────────────────────────────────────────────────────────────
   useEffect(() => {
-    const socket = io(`${SYNC_URL}/sync`, {
-      transports: ['websocket'],
+    const token = getToken()
+    if (!token) {
+      setConnected(false)
+      return
+    }
+
+    const socket = io(`${API_URL}/sync`, {
+      auth: { token },
+      transports: ['websocket', 'polling'],
       reconnection: true,
       reconnectionDelay: 2000,
       reconnectionDelayMax: 10000,

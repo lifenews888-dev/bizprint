@@ -1,8 +1,10 @@
 'use client'
 import { useState, useMemo, useEffect } from 'react'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 import PrintPreview from '@/components/PrintPreview'
 import { API_URL } from '@/lib/api'
+import { calcWideFallbackPrice, clampWideDimensionMm, clampWideQuantity, fetchWideServerPrice } from '@/lib/pricing/wide'
 
 interface PrintType {
   id: string
@@ -22,6 +24,31 @@ interface PrintType {
   volumeDiscounts?: Array<{ min_qty: number; discount_percent: number }>
 }
 
+interface QuotePrice {
+  total: number
+  unitPrice: number
+  source?: 'local' | 'server'
+  breakdown: {
+    paper: number
+    ink: number
+    material?: number
+    print?: number
+    finishing: number
+    setup?: number
+    pages: number
+    vat?: number
+  }
+  meta?: {
+    materialName?: string
+    areaM2?: number
+    billableAreaM2?: number
+    wastePct?: number
+    materialRateM2?: number
+    printRateM2?: number
+    sideMultiplier?: number
+  }
+}
+
 // ─── Fallback static config (used if API fails) ─────────────
 const FALLBACK_TYPES: PrintType[] = [
   { id: 'business-card', name: 'Нэрийн хуудас', icon: '💳', sizes: [{ label: '90×54мм (стандарт)', w: 90, h: 54 }, { label: '90×50мм', w: 90, h: 50 }, { label: 'Захиалгат', w: 0, h: 0 }], materials: ['Art card 300gsm', 'Art card 350gsm', 'Металл', 'PVC тунгалаг'], finishing: ['Матт ламинат', 'Глосс ламинат', 'Soft-touch', 'УВ лак', 'Фольг тамга'], minQty: 100, baseRate: 340, doubleSideMultiplier: 1.7, overheadRate: 0.12, platformRate: 0.10, inkCostPer500: 7000, finishingCostEach: 5000 },
@@ -34,10 +61,48 @@ const FALLBACK_TYPES: PrintType[] = [
 ]
 
 const QTY_PRESETS = [50, 100, 250, 500, 1000, 2000, 5000]
+const PRODUCT_ALIASES: Record<string, string> = {
+  businesscard: 'business-card',
+  businesscards: 'business-card',
+  'business-cards': 'business-card',
+  namecard: 'business-card',
+  flyers: 'flyer',
+  poster: 'poster',
+  posters: 'poster',
+  banners: 'banner',
+  stickers: 'sticker',
+}
 
-function calcPrice(pt: PrintType, size: { w: number; h: number }, finishing: string[], qty: number, sides: string, pages: number) {
+const findSizeIndex = (pt: PrintType, value: string | null) => {
+  if (!value) return -1
+  const normalized = value.toLowerCase().replace('×', 'x')
+  const byLabel = pt.sizes.findIndex(s => s.label.toLowerCase().replace('×', 'x') === normalized)
+  if (byLabel >= 0) return byLabel
+  const [w, h] = normalized.split('x').map(Number)
+  if (!w || !h) return -1
+  return pt.sizes.findIndex(s => Number(s.w) === w && Number(s.h) === h)
+}
+
+const clampQuotePages = (value: unknown) => {
+  const parsed = Number(value)
+  if (!Number.isFinite(parsed) || parsed < 4) return 4
+  return Math.min(10_000, Math.max(4, Math.round(parsed / 4) * 4))
+}
+
+function calcPrice(pt: PrintType, size: { w: number; h: number }, finishing: string[], qty: number, sides: string, pages: number, materialName = ''): QuotePrice | null {
   if (!size.w || !size.h || qty < 1) return null
   const areaM2 = (size.w / 1000) * (size.h / 1000)
+  if (pt.id === 'banner' || pt.id === 'sticker') {
+    return calcWideFallbackPrice({
+      productId: pt.id,
+      widthMm: size.w,
+      heightMm: size.h,
+      quantity: qty,
+      sides,
+      materialName,
+      finishing,
+    })
+  }
   const paperCost = pt.baseRate * qty * (areaM2 / 0.0623)
   const inkCost = pt.inkCostPer500 * qty / 500
   const finishingCost = finishing.length * pt.finishingCostEach
@@ -47,10 +112,17 @@ function calcPrice(pt: PrintType, size: { w: number; h: number }, finishing: str
   const overhead = subtotal * pt.overheadRate
   const platform = (subtotal + overhead) * pt.platformRate
   const total = Math.round(subtotal + overhead + platform)
-  return { total, unitPrice: Math.round(total / qty), breakdown: { paper: Math.round(paperCost), ink: Math.round(inkCost), finishing: Math.round(finishingCost), pages: Math.round(pagesCost) } }
+  return { total, unitPrice: Math.round(total / qty), source: 'local' as const, breakdown: { paper: Math.round(paperCost), ink: Math.round(inkCost), finishing: Math.round(finishingCost), pages: Math.round(pagesCost) } }
 }
 
 export default function InstantQuote() {
+  const searchParams = useSearchParams()
+  const requestedProduct = searchParams.get('product') || searchParams.get('type') || ''
+  const requestedSize = searchParams.get('size')
+  const requestedMaterial = searchParams.get('material')
+  const requestedQty = Number(searchParams.get('qty') || '')
+  const requestedSides = searchParams.get('sides')
+  const requestedFinishing = searchParams.get('finishing')
   const [types, setTypes] = useState<PrintType[]>(FALLBACK_TYPES)
   const [typeIdx, setTypeIdx] = useState(0)
   const [sizeIdx, setSizeIdx] = useState(0)
@@ -63,6 +135,18 @@ export default function InstantQuote() {
   const [customQty, setCustomQty] = useState('')
   const [pages, setPages] = useState(32)
   const [showBreakdown, setShowBreakdown] = useState(false)
+  const [serverPrice, setServerPrice] = useState<QuotePrice | null>(null)
+  const [priceLoading, setPriceLoading] = useState(false)
+
+  const selectType = (index: number) => {
+    const nextType = types[index] || types[0]
+    setTypeIdx(index)
+    setSizeIdx(0)
+    setMatIdx(0)
+    setSelectedFinishing([])
+    setCustomQty('')
+    setQty(Math.max(1, nextType?.minQty || 1))
+  }
 
   // Fetch admin-managed configs from API; keep fallback on error
   useEffect(() => {
@@ -91,17 +175,82 @@ export default function InstantQuote() {
       .catch(() => {})
   }, [])
 
+  useEffect(() => {
+    if (!requestedProduct) return
+    const normalized = PRODUCT_ALIASES[requestedProduct.toLowerCase()] || requestedProduct.toLowerCase()
+    const nextIdx = types.findIndex(t => t.id.toLowerCase() === normalized)
+    if (nextIdx < 0) return
+
+    const nextType = types[nextIdx]
+    if (nextIdx !== typeIdx) setTypeIdx(nextIdx)
+    const nextSizeIdx = findSizeIndex(nextType, requestedSize)
+    setSizeIdx(nextSizeIdx >= 0 ? nextSizeIdx : 0)
+    const nextMatIdx = requestedMaterial ? nextType.materials.findIndex(m => m === requestedMaterial) : -1
+    setMatIdx(nextMatIdx >= 0 ? nextMatIdx : 0)
+    setSelectedFinishing(
+      (requestedFinishing || '')
+        .split(',')
+        .map(f => f.trim())
+        .filter(f => nextType.finishing.includes(f)),
+    )
+    setSides(requestedSides === 'single' ? 'single' : 'double')
+    setCustomQty('')
+    setQty(clampWideQuantity(requestedQty || nextType.minQty || 1, Math.max(1, nextType.minQty || 1)))
+  }, [requestedProduct, requestedSize, requestedMaterial, requestedQty, requestedSides, requestedFinishing, types, typeIdx])
+
   const pt = types[typeIdx] || types[0]
   const size = pt.sizes[sizeIdx] || { label: '', w: 0, h: 0 }
   const isCustom = size?.w === 0
-  const effectiveSize = isCustom ? { w: customW, h: customH } : size
-  const effectiveQty = customQty ? parseInt(customQty) || qty : qty
+  const effectiveSize = isCustom
+    ? { w: clampWideDimensionMm(customW, 0), h: clampWideDimensionMm(customH, 0) }
+    : { ...size, w: clampWideDimensionMm(size.w, 0), h: clampWideDimensionMm(size.h, 0) }
+  const effectiveQty = customQty
+    ? clampWideQuantity(customQty, Math.max(1, pt.minQty || 1))
+    : clampWideQuantity(qty, Math.max(1, pt.minQty || 1))
+  const effectivePages = clampQuotePages(pages)
 
-  const price = useMemo(() => calcPrice(pt, effectiveSize, selectedFinishing, effectiveQty, sides, pages), [pt, effectiveSize.w, effectiveSize.h, selectedFinishing.length, effectiveQty, sides, pages])
+  const localPrice = useMemo(() => calcPrice(pt, effectiveSize, selectedFinishing, effectiveQty, sides, effectivePages, pt.materials[matIdx]), [pt, effectiveSize.w, effectiveSize.h, selectedFinishing.length, effectiveQty, sides, effectivePages, matIdx])
+  const useServerPricing = ['banner', 'sticker'].includes(pt.id)
+  const price = useServerPricing ? (serverPrice || localPrice) : localPrice
+
+  useEffect(() => {
+    if (!useServerPricing || !effectiveSize.w || !effectiveSize.h || effectiveQty < 1) {
+      setServerPrice(null)
+      return
+    }
+
+    const controller = new AbortController()
+    const t = setTimeout(() => {
+      setPriceLoading(true)
+      fetchWideServerPrice(API_URL, {
+        productId: pt.id,
+        widthMm: effectiveSize.w,
+        heightMm: effectiveSize.h,
+        quantity: effectiveQty,
+        materialName: pt.materials[matIdx],
+        finishing: selectedFinishing,
+        sides,
+      }, controller.signal)
+        .then(setServerPrice)
+        .catch(() => setServerPrice(null))
+        .finally(() => setPriceLoading(false))
+    }, 300)
+
+    return () => {
+      clearTimeout(t)
+      controller.abort()
+    }
+  }, [useServerPricing, pt.id, pt.materials, matIdx, effectiveSize.w, effectiveSize.h, effectiveQty, selectedFinishing, sides])
 
   const toggleFinishing = (f: string) => setSelectedFinishing(prev => prev.includes(f) ? prev.filter(x => x !== f) : [...prev, f])
 
-  const orderParams = new URLSearchParams({ type: pt.id, size: `${effectiveSize.w}x${effectiveSize.h}`, material: pt.materials[matIdx], finishing: selectedFinishing.join(','), qty: String(effectiveQty), sides, ...(pt.id === 'book' ? { pages: String(pages) } : {}) }).toString()
+  const orderParams = new URLSearchParams({ type: pt.id, size: `${effectiveSize.w}x${effectiveSize.h}`, material: pt.materials[matIdx], finishing: selectedFinishing.join(','), qty: String(effectiveQty), sides, ...(pt.id === 'book' ? { pages: String(effectivePages) } : {}) }).toString()
+  const orderValidationError = (() => {
+    if (!effectiveSize.w || !effectiveSize.h) return 'Хэмжээ сонгох эсвэл захиалгат хэмжээг бүрэн оруулна уу.'
+    if (['banner', 'sticker'].includes(pt.id) && !String(pt.materials[matIdx] || '').trim()) return 'Материал сонгоно уу.'
+    if (!price) return 'Үнэ бодогдсоны дараа захиалах боломжтой.'
+    return ''
+  })()
 
   return (
     <div style={{ maxWidth: 800, margin: '0 auto', padding: '24px 20px' }}>
@@ -110,7 +259,7 @@ export default function InstantQuote() {
         <label style={labelSt}>Бүтээгдэхүүний төрөл</label>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 1fr))', gap: 8 }}>
           {types.map((t, i) => (
-            <button key={t.id} onClick={() => { setTypeIdx(i); setSizeIdx(0); setMatIdx(0); setSelectedFinishing([]) }}
+            <button key={t.id} onClick={() => selectType(i)}
               style={{ padding: '12px 8px', borderRadius: 10, border: `2px solid ${i === typeIdx ? '#FF6B00' : 'var(--border)'}`, background: i === typeIdx ? 'rgba(255,107,0,0.08)' : 'var(--surface)', cursor: 'pointer', textAlign: 'center' }}>
               <div style={{ fontSize: 24, marginBottom: 4 }}>{t.icon}</div>
               <div style={{ fontSize: 11, fontWeight: i === typeIdx ? 700 : 500, color: i === typeIdx ? '#FF6B00' : 'var(--text2)' }}>{t.name}</div>
@@ -132,9 +281,9 @@ export default function InstantQuote() {
             </div>
             {isCustom && (
               <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-                <input type="number" placeholder="Өргөн мм" value={customW || ''} onChange={e => setCustomW(+e.target.value)} style={inputSt} />
+                <input type="number" placeholder="Өргөн мм" value={customW || ''} onChange={e => setCustomW(clampWideDimensionMm(e.target.value, 0))} style={inputSt} />
                 <span style={{ color: 'var(--text3)', alignSelf: 'center' }}>×</span>
-                <input type="number" placeholder="Өндөр мм" value={customH || ''} onChange={e => setCustomH(+e.target.value)} style={inputSt} />
+                <input type="number" placeholder="Өндөр мм" value={customH || ''} onChange={e => setCustomH(clampWideDimensionMm(e.target.value, 0))} style={inputSt} />
               </div>
             )}
           </div>
@@ -161,7 +310,7 @@ export default function InstantQuote() {
             {pt.id === 'book' && (
               <div>
                 <label style={labelSt}>Хуудасны тоо</label>
-                <input type="number" value={pages} onChange={e => setPages(+e.target.value)} min={4} step={4} style={inputSt} />
+                <input type="number" value={pages} onChange={e => setPages(clampQuotePages(e.target.value))} min={4} step={4} style={inputSt} />
               </div>
             )}
           </div>
@@ -182,7 +331,7 @@ export default function InstantQuote() {
               <label style={{ ...labelSt, margin: 0 }}>Тоо ширхэг</label>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                 <input type="number" value={customQty || qty} min={pt.minQty} max={10000}
-                  onChange={e => { const v = parseInt(e.target.value) || pt.minQty; setCustomQty(String(v)); setQty(Math.max(pt.minQty, v)) }}
+                  onChange={e => { const v = clampWideQuantity(e.target.value, Math.max(1, pt.minQty || 1)); setCustomQty(String(v)); setQty(Math.max(pt.minQty, v)) }}
                   style={{ ...inputSt, width: 80, textAlign: 'center', padding: '6px 8px' }} />
                 <span style={{ fontSize: 11, color: 'var(--text3)' }}>ширхэг</span>
               </div>
@@ -195,7 +344,7 @@ export default function InstantQuote() {
             {/* Range slider */}
             <input type="range" min={pt.minQty} max={5000} step={pt.minQty <= 50 ? 50 : 100}
               value={Math.min(effectiveQty, 5000)}
-              onChange={e => { setQty(parseInt(e.target.value)); setCustomQty('') }}
+              onChange={e => { setQty(clampWideQuantity(e.target.value, Math.max(1, pt.minQty || 1))); setCustomQty('') }}
               className="qty-slider"
               style={{ width: '100%', height: 6, borderRadius: 3, outline: 'none', cursor: 'pointer',
                 background: `linear-gradient(to right, #FF6B00 0%, #FF6B00 ${((Math.min(effectiveQty,5000)-pt.minQty)/(5000-pt.minQty))*100}%, var(--border) ${((Math.min(effectiveQty,5000)-pt.minQty)/(5000-pt.minQty))*100}%, var(--border) 100%)` }} />
@@ -243,8 +392,47 @@ export default function InstantQuote() {
               <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Тал</span><strong>{sides === 'double' ? 'Хоёр тал' : 'Нэг тал'}</strong></div>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Тоо</span><strong>{effectiveQty.toLocaleString()} ш</strong></div>
               {selectedFinishing.length > 0 && <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Боловсруулалт</span><strong>{selectedFinishing.length} сонголт</strong></div>}
-              {pt.id === 'book' && <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Хуудас</span><strong>{pages}</strong></div>}
+              {pt.id === 'book' && <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Хуудас</span><strong>{effectivePages}</strong></div>}
             </div>
+
+            {price && useServerPricing && (
+              <div style={{ marginBottom: 12, padding: 12, borderRadius: 10, background: 'var(--surface2)', border: '1px solid var(--border)', fontSize: 12, color: 'var(--text2)', lineHeight: 1.7 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
+                  <span>Үнэ бодолт</span>
+                  <strong style={{ color: price.source === 'server' ? '#10B981' : '#F59E0B' }}>
+                    {priceLoading ? 'Шинэчилж байна' : price.source === 'server' ? 'Backend engine' : 'Fallback'}
+                  </strong>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
+                  <span>Талбай</span>
+                  <strong>{(price.meta?.billableAreaM2 || price.meta?.areaM2 || 0).toLocaleString()} м²</strong>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
+                  <span>Материал + хэвлэл</span>
+                  <strong>₮{((price.breakdown.material || 0) + (price.breakdown.print || 0)).toLocaleString()}</strong>
+                </div>
+                {price.meta?.materialRateM2 != null && price.meta.materialRateM2 > 0 && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
+                    <span>Материалын тариф</span>
+                    <strong>₮{price.meta.materialRateM2.toLocaleString()}/м²</strong>
+                  </div>
+                )}
+                {price.meta?.printRateM2 != null && price.meta.printRateM2 > 0 && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
+                    <span>Хэвлэх тариф</span>
+                    <strong>
+                      ₮{price.meta.printRateM2.toLocaleString()}/м²{price.meta.sideMultiplier && price.meta.sideMultiplier > 1 ? ` × ${price.meta.sideMultiplier}` : ''}
+                    </strong>
+                  </div>
+                )}
+                {price.meta?.wastePct != null && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
+                    <span>Хаягдал тооцоо</span>
+                    <strong>{price.meta.wastePct}%</strong>
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Breakdown */}
             {price && (
@@ -255,10 +443,16 @@ export default function InstantQuote() {
                 </button>
                 {showBreakdown && (
                   <div style={{ fontSize: 12, color: 'var(--text3)', lineHeight: 2, paddingTop: 8, borderTop: '1px solid var(--border)' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Цаас</span><span>₮{price.breakdown.paper.toLocaleString()}</span></div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Бэх</span><span>₮{price.breakdown.ink.toLocaleString()}</span></div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>{useServerPricing ? 'Материал' : 'Цаас'}</span><span>₮{price.breakdown.paper.toLocaleString()}</span></div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>{useServerPricing ? 'Хэвлэл' : 'Бэх'}</span><span>₮{price.breakdown.ink.toLocaleString()}</span></div>
                     <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Боловсруулалт</span><span>₮{price.breakdown.finishing.toLocaleString()}</span></div>
+                    {useServerPricing && price.breakdown.setup != null && (
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Тохируулга</span><span>₮{price.breakdown.setup.toLocaleString()}</span></div>
+                    )}
                     {price.breakdown.pages > 0 && <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Хуудас</span><span>₮{price.breakdown.pages.toLocaleString()}</span></div>}
+                    {useServerPricing && price.breakdown.vat != null && (
+                      <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid var(--border)', marginTop: 6, paddingTop: 6 }}><span>НӨАТ</span><span>₮{price.breakdown.vat.toLocaleString()}</span></div>
+                    )}
                   </div>
                 )}
               </div>
@@ -284,9 +478,18 @@ export default function InstantQuote() {
             )}
 
             {/* CTA */}
-            <Link href={`/orders/new?${orderParams}`} style={{ display: 'block', textAlign: 'center', padding: '14px 0', borderRadius: 10, background: '#FF6B00', color: '#fff', textDecoration: 'none', fontSize: 14, fontWeight: 700, marginBottom: 8 }}>
+            <Link
+              href={`/orders/new?${orderParams}`}
+              onClick={(e) => { if (orderValidationError) e.preventDefault() }}
+              style={{ display: 'block', textAlign: 'center', padding: '14px 0', borderRadius: 10, background: orderValidationError ? 'var(--border)' : '#FF6B00', color: orderValidationError ? 'var(--text3)' : '#fff', textDecoration: 'none', fontSize: 14, fontWeight: 700, marginBottom: 8, cursor: orderValidationError ? 'not-allowed' : 'pointer' }}
+            >
               Захиалах →
             </Link>
+            {orderValidationError && (
+              <div style={{ marginBottom: 8, padding: 10, borderRadius: 8, background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)', color: '#DC2626', fontSize: 12, lineHeight: 1.5 }}>
+                {orderValidationError}
+              </div>
+            )}
             <Link href={`/quote?tab=detailed`} style={{ display: 'block', textAlign: 'center', padding: '12px 0', borderRadius: 10, background: 'var(--surface2)', color: 'var(--text2)', textDecoration: 'none', fontSize: 13, border: '1px solid var(--border)' }}>
               Нарийвчилсан тооцоо
             </Link>

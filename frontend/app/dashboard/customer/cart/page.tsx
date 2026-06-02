@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { apiFetch } from '@/lib/api'
 import { useRoleGuard } from '@/lib/use-role-guard'
+import { getCartPricingAudit, getCartPricingAuditSummaryMessage } from '@/lib/cart-pricing-audit'
 import { ShoppingCart, Trash2, ShoppingBag, ArrowRight, Package } from 'lucide-react'
 
 const ORANGE = '#FF6B00'
@@ -14,19 +15,40 @@ interface CartItem {
   name: string
   price: number
   qty: number
+  unit_price?: number
+  total_price?: number
   image?: string
   options?: Record<string, string>
+  specs?: Record<string, unknown>
 }
 
 interface CartResponse {
   items: CartItem[]
   total: number
+  total_price?: number
+  subtotal_excl_vat?: number
+  vat?: number
+  vat_rate?: number
+  vat_included?: boolean
+  pricing_audit?: CartPricingAuditSummary
+}
+
+interface CartPricingAuditSummary {
+  total_items?: number
+  accepted_count?: number
+  adjusted_count?: number
+  missing_count?: number
+  dynamic_count?: number
+  catalog_count?: number
+  has_adjustments?: boolean
+  all_priced?: boolean
 }
 
 export default function CartPage() {
   useRoleGuard(['customer'])
   const router = useRouter()
   const [items, setItems] = useState<CartItem[]>([])
+  const [pricingAudit, setPricingAudit] = useState<CartPricingAuditSummary | null>(null)
   const [loading, setLoading] = useState(true)
   const [removing, setRemoving] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -38,8 +60,10 @@ export default function CartPage() {
       const data = await apiFetch<CartResponse | CartItem[]>('/cart')
       if (Array.isArray(data)) {
         setItems(data)
+        setPricingAudit(null)
       } else {
         setItems(data.items ?? [])
+        setPricingAudit(data.pricing_audit ?? null)
       }
     } catch (e: any) {
       setError(e?.message ?? 'Сагс ачаалахад алдаа гарлаа')
@@ -64,6 +88,9 @@ export default function CartPage() {
 
   const total = items.reduce((sum, i) => sum + i.price * i.qty, 0)
   const itemCount = items.reduce((sum, i) => sum + i.qty, 0)
+  const subtotalExclVat = Math.round(total / 1.1)
+  const vat = total - subtotalExclVat
+  const { message: pricingAuditMessage, tone: pricingAuditTone } = getCartPricingAuditSummaryMessage(pricingAudit, items.length)
 
   /* ─── loading ─── */
   if (loading) {
@@ -143,11 +170,28 @@ export default function CartPage() {
         </div>
       )}
 
+      {pricingAuditMessage && (
+        <div style={{
+          background: pricingAuditTone === 'warning' ? '#2b2110' : pricingAuditTone === 'success' ? '#10241b' : '#101d2b',
+          border: `1px solid ${pricingAuditTone === 'warning' ? '#F59E0B66' : pricingAuditTone === 'success' ? '#10B98166' : '#3B82F666'}`,
+          borderRadius: 10,
+          padding: '12px 16px',
+          color: pricingAuditTone === 'warning' ? '#FBBF24' : pricingAuditTone === 'success' ? '#34D399' : '#93C5FD',
+          fontSize: 13,
+          fontWeight: 700,
+          marginBottom: 20,
+        }}>
+          {pricingAuditMessage}
+        </div>
+      )}
+
       <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 16 }}>
 
         {/* item list */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          {items.map(item => (
+          {items.map(item => {
+            const audit = getCartPricingAudit(item)
+            return (
             <div
               key={item.id}
               style={{
@@ -186,6 +230,21 @@ export default function CartPage() {
                     <span style={{ color: '#555', fontSize: 12 }}>₮{item.price.toLocaleString()} / ширхэг</span>
                   )}
                 </div>
+                <div style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  marginTop: 8,
+                  padding: '4px 8px',
+                  borderRadius: 999,
+                  background: audit.background,
+                  color: audit.color,
+                  fontSize: 11,
+                  fontWeight: 700,
+                }}>
+                  <span>{audit.label}</span>
+                  <span style={{ opacity: 0.75, fontWeight: 600 }}>{audit.detail}</span>
+                </div>
               </div>
 
               {/* remove */}
@@ -205,7 +264,8 @@ export default function CartPage() {
                 <Trash2 size={16} />
               </button>
             </div>
-          ))}
+            )
+          })}
         </div>
 
         {/* summary */}
@@ -220,6 +280,14 @@ export default function CartPage() {
               <span style={{ color: '#ccc' }}>₮{total.toLocaleString()}</span>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14 }}>
+              <span style={{ color: '#888' }}>НӨАТгүй дүн</span>
+              <span style={{ color: '#ccc' }}>₮{subtotalExclVat.toLocaleString()}</span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14 }}>
+              <span style={{ color: '#888' }}>НӨАТ (10%)</span>
+              <span style={{ color: '#ccc' }}>₮{vat.toLocaleString()}</span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14 }}>
               <span style={{ color: '#888' }}>Хүргэлт</span>
               <span style={{ color: '#4ade80', fontSize: 13 }}>Тооцоолох</span>
             </div>
@@ -231,7 +299,7 @@ export default function CartPage() {
           </div>
 
           <button
-            onClick={() => router.push('/dashboard/customer/checkout')}
+            onClick={() => router.push('/checkout')}
             style={{
               width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center',
               gap: 8, background: ORANGE, color: '#fff', border: 'none',

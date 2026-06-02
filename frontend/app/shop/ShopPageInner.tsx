@@ -1,5 +1,6 @@
 'use client'
 import { apiFetch, getToken } from '@/lib/api'
+import { CLIENT_PRICING_SNAPSHOT_VERSION, PRICING_CONTRACT_VERSION } from '@/lib/pricing/snapshot'
 import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import ProductCard from '@/components/ProductCard'
@@ -28,8 +29,15 @@ const FALLBACK_LABELS: Record<string, { label: string; icon: string }> = {
 type Product = {
   id: string; name: string; price?: number; base_price?: number; sale_price?: number
   category?: string; thumbnail_url?: string; description?: string; name_mn?: string
-  vendor_name?: string; rating?: number; slug?: string
+  vendor_name?: string; rating?: number; slug?: string; pricing_mode?: string
 }
+
+const FALLBACK_PRODUCTS = [
+  { icon: '💼', title: 'Нэрийн хуудас', desc: 'Стандарт болон премиум цаас, ламинат, 2 талт хэвлэл', href: '/quote?product=business-card', price: '₮35,000-аас' },
+  { icon: '📄', title: 'Флаер & постер', desc: 'A5/A4 сурталчилгааны материал, олон тоогоор хурдан хэвлэл', href: '/quote?product=flyer', price: '₮120-аас' },
+  { icon: '🪧', title: 'Баннер', desc: 'Гадна болон дотор сурталчилгааны баннер, хэмжээ сонголттой', href: '/quote?product=banner', price: '₮18,000/м²-аас' },
+  { icon: '🏷️', title: 'Стикер & шошго', desc: 'Бүтээгдэхүүний шошго, наалт, хэлбэртэй тайралт', href: '/quote?product=sticker', price: '₮90-аас' },
+]
 
 export default function ShopPageInner() {
   const search = useSearchParams()
@@ -41,12 +49,29 @@ export default function ShopPageInner() {
   const [toast, setToast] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
   const [dbCategories, setDbCategories] = useState<Record<string, { label: string; icon: string }>>({})
+  const [productLoadFailed, setProductLoadFailed] = useState(false)
 
   useEffect(() => {
-    apiFetch<any>('/products', { auth: false })
-      .then(d => setProducts(Array.isArray(d) ? d : []))
-      .catch(() => setProducts([]))
-      .finally(() => setLoading(false))
+    const controller = new AbortController()
+    const timeout = window.setTimeout(() => controller.abort(), 6000)
+    let cancelled = false
+
+    setLoading(true)
+    setProductLoadFailed(false)
+    apiFetch<any>('/products', { auth: false, signal: controller.signal })
+      .then(d => {
+        if (!cancelled) setProducts(Array.isArray(d) ? d : [])
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setProducts([])
+          setProductLoadFailed(true)
+        }
+      })
+      .finally(() => {
+        window.clearTimeout(timeout)
+        if (!cancelled) setLoading(false)
+      })
 
     apiFetch<any>('/categories', { auth: false }).then(cats => {
       if (Array.isArray(cats)) {
@@ -61,6 +86,12 @@ export default function ShopPageInner() {
 
     const token = getToken()
     if (token) apiFetch<any>('/auth/me').then(u => u?.id && setUser(u)).catch(() => {})
+
+    return () => {
+      cancelled = true
+      window.clearTimeout(timeout)
+      controller.abort()
+    }
   }, [])
 
   const categories = useMemo(() => {
@@ -79,11 +110,58 @@ export default function ShopPageInner() {
     return list
   }, [products, catFilter, searchQuery, dealsOnly])
 
-  const addToCart = async (e: React.MouseEvent, productId: string) => {
-    e.preventDefault(); e.stopPropagation()
+  const buildCartPricing = (product: Product, quantity = 1) => {
+    const unitPrice = Math.round(Number(product.sale_price ?? product.base_price ?? product.price ?? 0))
+    const totalPrice = Math.round(unitPrice * quantity)
+    const pricingEngine = product.pricing_mode ? `shop.catalog.${product.pricing_mode}` : 'shop.catalog.fixed'
+    const pricingSnapshot = {
+      source: 'catalog',
+      clientSnapshotVersion: CLIENT_PRICING_SNAPSHOT_VERSION,
+      pricingContractVersion: PRICING_CONTRACT_VERSION,
+      pricingEngine,
+      total: totalPrice,
+      unitPrice,
+      product: {
+        id: product.id,
+        name: product.name_mn || product.name || '',
+        category: product.category || '',
+      },
+      spec: { quantity },
+      generatedAt: new Date().toISOString(),
+    }
+    return { unitPrice, totalPrice, pricingEngine, pricingSnapshot }
+  }
+
+  const addToCart = async (productId: string) => {
     if (!user?.id) { alert('Нэвтэрч орно уу'); return }
+    const product = products.find(p => p.id === productId)
+    if (!product) { alert('Бүтээгдэхүүн олдсонгүй'); return }
+    const { unitPrice, totalPrice, pricingEngine, pricingSnapshot } = buildCartPricing(product)
+    if (unitPrice <= 0) { alert('Үнийн мэдээлэл дутуу байна'); return }
     try {
-      await apiFetch<any>('/cart/items', { method: 'POST', body: { user_id: user.id, product_id: productId, quantity: 1 } })
+      await apiFetch<any>('/cart/items', {
+        method: 'POST',
+        body: {
+          product_id: productId,
+          quantity: 1,
+          unit_price: unitPrice,
+          specs: {
+            product_name: product.name_mn || product.name || '',
+            product_image: product.thumbnail_url || null,
+            pricing: {
+              unit_price: unitPrice,
+              total_price: totalPrice,
+              quantity: 1,
+              vat_included: true,
+              source: 'catalog',
+              clientSnapshotVersion: CLIENT_PRICING_SNAPSHOT_VERSION,
+              pricingContractVersion: PRICING_CONTRACT_VERSION,
+              pricingEngine,
+            },
+            pricing_snapshot: pricingSnapshot,
+          },
+        },
+      })
       setToast('Сагсанд нэмэгдлээ'); setTimeout(() => setToast(''), 2500)
     } catch { alert('Сагслах үед алдаа гарлаа') }
   }
@@ -145,7 +223,7 @@ export default function ShopPageInner() {
       </section>
 
       {/* Count */}
-      <div className="shop-products" style={{ maxWidth: 1200, margin: '0 auto', paddingBottom: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div className="shop-products" style={{ maxWidth: 1200, margin: '0 auto', paddingBottom: 0, display: productLoadFailed ? 'none' : 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <span style={{ fontSize: 13, color: 'var(--text3)' }}>{loading ? 'Ачааллаж байна...' : `${filtered.length} бүтээгдэхүүн`}</span>
       </div>
 
@@ -154,6 +232,40 @@ export default function ShopPageInner() {
         {loading ? (
           <div className="shop-grid">
             {[1,2,3,4,5,6,7,8].map(i => <div key={i} style={{ aspectRatio: '3/4', background: 'var(--surface2)', borderRadius: 16 }} className="animate-pulse" />)}
+          </div>
+        ) : productLoadFailed ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+            <div style={{ padding: 24, background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16 }}>
+              <h3 style={{ margin: '0 0 8px', fontSize: 18, fontWeight: 800 }}>Дэлгүүрийн мэдээлэл түр ачаалсангүй</h3>
+              <p style={{ color: 'var(--text3)', fontSize: 14, lineHeight: 1.6, margin: '0 0 16px', maxWidth: 620 }}>
+                Сервер түр холбогдохгүй байна. Доорх түгээмэл бүтээгдэхүүнүүдээр шууд үнийн санал авах боломжтой.
+              </p>
+              <button onClick={() => window.location.reload()} style={{
+                padding: '10px 16px', background: '#FF6B00', color: '#fff', border: 'none',
+                borderRadius: 10, fontWeight: 700, fontSize: 14, cursor: 'pointer', fontFamily: F,
+              }}>
+                Дахин ачаалах
+              </button>
+            </div>
+            <div className="shop-grid">
+              {FALLBACK_PRODUCTS.map(item => (
+                <a key={item.title} href={item.href} style={{
+                  minHeight: 220, padding: 20, borderRadius: 16, background: 'var(--surface)',
+                  border: '1px solid var(--border)', color: 'var(--text)', textDecoration: 'none',
+                  display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
+                }}>
+                  <div>
+                    <div style={{ fontSize: 38, marginBottom: 14 }}>{item.icon}</div>
+                    <h3 style={{ margin: '0 0 8px', fontSize: 17, fontWeight: 800 }}>{item.title}</h3>
+                    <p style={{ margin: 0, color: 'var(--text3)', fontSize: 13, lineHeight: 1.5 }}>{item.desc}</p>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, marginTop: 18 }}>
+                    <span style={{ color: '#FF6B00', fontWeight: 800, fontSize: 14 }}>{item.price}</span>
+                    <span style={{ color: '#FF6B00', fontWeight: 700, fontSize: 13 }}>Үнэ авах →</span>
+                  </div>
+                </a>
+              ))}
+            </div>
           </div>
         ) : filtered.length === 0 ? (
           <div style={{ padding: 60, textAlign: 'center' }}>
@@ -165,7 +277,7 @@ export default function ShopPageInner() {
           <div className="shop-grid">
             {filtered.map(p => {
               const catInfo = { ...FALLBACK_LABELS, ...dbCategories }[p.category || '']
-              return <ProductCard key={p.id} product={p} categoryLabel={catInfo?.label} onAddToCart={id => addToCart({ preventDefault: () => {}, stopPropagation: () => {} } as any, id)} />
+              return <ProductCard key={p.id} product={p} categoryLabel={catInfo?.label} onAddToCart={addToCart} />
             })}
           </div>
         )}

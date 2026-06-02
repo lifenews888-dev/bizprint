@@ -1,9 +1,11 @@
 'use client'
-import { apiFetch } from '@/lib/api'
+import { apiFetch, getToken } from '@/lib/api'
 import { useState, useEffect, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Suspense } from 'react'
 import { useStore } from '@/lib/store'
+import { getCartPricingAudit, getCartPricingAuditSummaryMessage, summarizeCartPricingAudit } from '@/lib/cart-pricing-audit'
+import { CLIENT_PRICING_SNAPSHOT_VERSION, PRICING_CONTRACT_VERSION } from '@/lib/pricing/snapshot'
 
 const FONT = "'DM Sans','Segoe UI',system-ui,sans-serif"
 const fmt = (n: number) => new Intl.NumberFormat('mn-MN').format(Math.round(n)) + '₮'
@@ -21,17 +23,108 @@ const PAYMENT_METHODS = [
   { value: 'cash', label: '💵 Бэлэн мөнгө', desc: 'Хүргэлтийн үед төлөх' },
 ]
 
+type CheckoutCartItem = {
+  id: string
+  productId?: string
+  product_id?: string
+  name: string
+  price: number
+  qty: number
+  quantity?: number
+  unit_price?: number
+  total_price?: number
+  image?: string
+  specs?: Record<string, unknown>
+}
+
+type CheckoutCartResponse = {
+  items?: CheckoutCartItem[]
+  total?: number
+  total_price?: number
+  subtotal_excl_vat?: number
+  vat?: number
+  vat_rate?: number
+  vat_included?: boolean
+  pricing_audit?: CartPricingAuditSummary
+}
+
+type CartPricingAuditSummary = {
+  total_items?: number
+  accepted_count?: number
+  adjusted_count?: number
+  missing_count?: number
+  dynamic_count?: number
+  catalog_count?: number
+  has_adjustments?: boolean
+  all_priced?: boolean
+}
+
+type LocalCheckoutCartItem = {
+  id: string
+  productId?: string
+  name: string
+  price: number
+  qty: number
+  image?: string
+  specs?: Record<string, any>
+}
+
+const buildCheckoutSyncSpecs = (item: LocalCheckoutCartItem, productId: string) => {
+  const quantity = Math.max(1, Number(item.qty) || 1)
+  const unitPrice = Math.round(Number(item.price) || 0)
+  const totalPrice = Math.round(unitPrice * quantity)
+  const specs = item.specs || {}
+  const pricing = specs.pricing && typeof specs.pricing === 'object' ? specs.pricing as Record<string, any> : {}
+  const snapshot = specs.pricing_snapshot && typeof specs.pricing_snapshot === 'object'
+    ? specs.pricing_snapshot as Record<string, any>
+    : {
+        source: 'catalog',
+        clientSnapshotVersion: CLIENT_PRICING_SNAPSHOT_VERSION,
+        pricingContractVersion: PRICING_CONTRACT_VERSION,
+        pricingEngine: 'checkout.local-cart-sync',
+        product: { id: productId, name: item.name || '' },
+        generatedAt: new Date().toISOString(),
+      }
+
+  return {
+    ...specs,
+    product_name: item.name,
+    product_image: item.image,
+    local_cart_line_id: item.id,
+    pricing: {
+      ...pricing,
+      unit_price: unitPrice,
+      total_price: totalPrice,
+      quantity,
+      vat_included: pricing.vat_included ?? true,
+      source: pricing.source || snapshot.source || 'catalog',
+      clientSnapshotVersion: pricing.clientSnapshotVersion || CLIENT_PRICING_SNAPSHOT_VERSION,
+      pricingContractVersion: pricing.pricingContractVersion || PRICING_CONTRACT_VERSION,
+      pricingEngine: pricing.pricingEngine || snapshot.pricingEngine || 'checkout.local-cart-sync',
+    },
+    pricing_snapshot: {
+      ...snapshot,
+      total: totalPrice,
+      unitPrice,
+      spec: {
+        ...(snapshot.spec && typeof snapshot.spec === 'object' ? snapshot.spec : {}),
+        quantity,
+      },
+    },
+  }
+}
+
 function CheckoutInner() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const quoteId = searchParams.get('quote_id')
-  const source = searchParams.get('source') // 'subscription' | 'addon' | 'product' | null
+  const source = searchParams.get('source') // 'subscription' | 'addon' | 'product' | 'cart' | null
   const planId = searchParams.get('plan_id')
   const billingCycle = (searchParams.get('billing_cycle') || 'monthly') as 'monthly' | 'yearly'
   const addonId = searchParams.get('addon_id')
   const productPricingId = searchParams.get('product_pricing_id')
 
-  const isDigitalPurchase = !!source
+  const isDigitalPurchase = source === 'subscription' || source === 'addon' || source === 'product'
   const store = useStore()
 
   const [step, setStep] = useState(1) // 1=form, 2=payment method, 3=pay, 4=done
@@ -46,7 +139,50 @@ function CheckoutInner() {
   const [paymentData, setPaymentData] = useState<any>(null)
   const [paymentStatus, setPaymentStatus] = useState<string>('pending')
   const [digitalInfo, setDigitalInfo] = useState<any>(null) // plan/addon/product info
+  const [digitalLoading, setDigitalLoading] = useState(isDigitalPurchase)
+  const [serverCart, setServerCart] = useState<CheckoutCartResponse | null>(null)
+  const [cartLoading, setCartLoading] = useState(false)
+  const [cartSyncing, setCartSyncing] = useState(false)
+  const [cartSyncError, setCartSyncError] = useState('')
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const cartSyncAttemptedRef = useRef(false)
+
+  const serverCartItems = (serverCart?.items || []).map(item => ({
+    ...item,
+    price: Number(item.price ?? item.unit_price ?? 0),
+    qty: Math.max(1, Number(item.qty ?? item.quantity ?? 1) || 1),
+  }))
+  const storeCartItems = store.cart.map(item => ({
+    ...item,
+    price: Number(item.price || 0),
+    total_price: Number(item.price || 0) * Math.max(1, Number(item.qty) || 1),
+  }))
+  const cartItems = serverCartItems.length > 0 ? serverCartItems : storeCartItems
+  const hasCartItems = cartItems.length > 0
+  const regularCheckoutNeedsCart = !quoteId && !isDigitalPurchase
+  const hasAuthToken = Boolean(getToken())
+  const regularCheckoutRequiresLogin = regularCheckoutNeedsCart && !hasAuthToken
+  const regularCheckoutWaitingForCart = regularCheckoutNeedsCart && (cartLoading || cartSyncing) && !hasCartItems
+  const regularCheckoutBlocked = regularCheckoutNeedsCart && (
+    regularCheckoutRequiresLogin ||
+    Boolean(cartSyncError) ||
+    (!cartLoading && !cartSyncing && !hasCartItems)
+  )
+  const digitalCheckoutBlocked = isDigitalPurchase && (digitalLoading || !digitalInfo)
+  const stepOneBlocked = digitalCheckoutBlocked || regularCheckoutBlocked || regularCheckoutWaitingForCart
+  const showStepOneForm = isDigitalPurchase || Boolean(quoteId) || hasCartItems
+  const cartItemCount = cartItems.reduce((sum, item) => sum + item.qty, 0)
+  const cartTotal = serverCartItems.length > 0
+    ? Math.round(Number(serverCart?.total_price ?? serverCart?.total ?? cartItems.reduce((sum, item) => sum + item.price * item.qty, 0)))
+    : Math.round(store.cartTotal())
+  const cartSubtotalExclVat = serverCartItems.length > 0 && serverCart?.subtotal_excl_vat != null
+    ? Math.round(Number(serverCart.subtotal_excl_vat))
+    : Math.round(cartTotal / 1.1)
+  const cartVat = serverCartItems.length > 0 && serverCart?.vat != null
+    ? Math.round(Number(serverCart.vat))
+    : cartTotal - cartSubtotalExclVat
+  const cartPricingAudit = serverCart?.pricing_audit || (hasCartItems ? summarizeCartPricingAudit(cartItems) : null)
+  const { message: cartPricingAuditMessage, tone: cartPricingAuditTone } = getCartPricingAuditSummaryMessage(cartPricingAudit, cartItems.length)
 
   // Pre-fill from localStorage user + search params
   useEffect(() => {
@@ -64,23 +200,85 @@ function CheckoutInner() {
     } catch {}
 
     // Load digital purchase info
+    setDigitalInfo(null)
+    if (!isDigitalPurchase) {
+      setDigitalLoading(false)
+      return
+    }
+    setDigitalLoading(true)
     if (source === 'subscription' && planId) {
       apiFetch<any>('/subscription/plans').then((plans: any[]) => {
         const plan = plans?.find((p: any) => p.id === planId)
         if (plan) setDigitalInfo({ type: 'subscription', plan, price: billingCycle === 'yearly' ? plan.price_yearly : plan.price_monthly })
-      }).catch(() => {})
+      }).catch(() => {}).finally(() => setDigitalLoading(false))
     } else if (source === 'addon' && addonId) {
       apiFetch<any>('/subscription/addons').then((addons: any[]) => {
         const addon = addons?.find((a: any) => a.id === addonId)
         if (addon) setDigitalInfo({ type: 'addon', addon, price: addon.price })
-      }).catch(() => {})
+      }).catch(() => {}).finally(() => setDigitalLoading(false))
     } else if (source === 'product' && productPricingId) {
       apiFetch<any>('/subscription/product-pricing').then((products: any[]) => {
         const product = products?.find((p: any) => p.id === productPricingId)
         if (product) setDigitalInfo({ type: 'product', product, price: product.price })
-      }).catch(() => {})
+      }).catch(() => {}).finally(() => setDigitalLoading(false))
+    } else {
+      setDigitalLoading(false)
     }
   }, [])
+
+  useEffect(() => {
+    if (quoteId || isDigitalPurchase) return
+    if (!getToken()) {
+      setServerCart(null)
+      setCartLoading(false)
+      setCartSyncing(false)
+      setCartSyncError('')
+      return
+    }
+
+    let cancelled = false
+    const loadAndSyncCart = async () => {
+      setCartLoading(true)
+      setCartSyncError('')
+      try {
+        let data = await apiFetch<CheckoutCartResponse>('/cart')
+        if (cancelled) return
+        const serverItems = data?.items || []
+        if (serverItems.length === 0 && store.cart.length > 0 && !cartSyncAttemptedRef.current) {
+          cartSyncAttemptedRef.current = true
+          setCartSyncing(true)
+          for (const item of store.cart) {
+            const productId = item.productId || item.id.split(':')[0]
+            if (!productId) continue
+            await apiFetch('/cart/items', {
+              method: 'POST',
+              body: {
+                product_id: productId,
+                quantity: Math.max(1, Number(item.qty) || 1),
+                unit_price: Math.round(Number(item.price) || 0),
+                specs: buildCheckoutSyncSpecs(item, productId),
+              },
+            })
+          }
+          data = await apiFetch<CheckoutCartResponse>('/cart')
+        }
+        if (!cancelled) setServerCart(data)
+      } catch (e: any) {
+        if (!cancelled) {
+          setServerCart(null)
+          setCartSyncError(e?.message || 'Сагсыг сервертэй sync хийхэд алдаа гарлаа')
+        }
+      } finally {
+        if (!cancelled) {
+          setCartLoading(false)
+          setCartSyncing(false)
+        }
+      }
+    }
+    void loadAndSyncCart()
+
+    return () => { cancelled = true }
+  }, [quoteId, isDigitalPurchase, store.cart])
 
   // Poll payment status
   useEffect(() => {
@@ -102,6 +300,11 @@ function CheckoutInner() {
   }
 
   const set = (k: string, v: any) => setForm(f => ({ ...f, [k]: v }))
+
+  const makeIdempotencyKey = () =>
+    (typeof crypto !== 'undefined' && (crypto as any).randomUUID)
+      ? (crypto as any).randomUUID()
+      : `${Date.now()}-${Math.random().toString(36).slice(2)}`
 
   const submitOrder = async () => {
     if (!form.customer_name || !form.customer_phone) {
@@ -141,19 +344,34 @@ function CheckoutInner() {
       }
 
       // ── Regular order / quote flow ──
+      if (isDigitalPurchase) {
+        setError(digitalLoading ? 'Дижитал үйлчилгээний мэдээлэл ачаалж байна' : 'Дижитал үйлчилгээний мэдээлэл олдсонгүй')
+        return
+      }
+
+      if (regularCheckoutBlocked) {
+        setError(regularCheckoutRequiresLogin
+          ? 'Checkout хийхийн тулд эхлээд нэвтэрнэ үү'
+          : cartSyncError || 'Захиалга үүсгэхийн тулд эхлээд сагсанд бараа нэмнэ үү')
+        return
+      }
+
+      if (cartLoading || cartSyncing) {
+        setError('Сагс сервертэй sync хийж дууссаны дараа үргэлжлүүлнэ үү')
+        return
+      }
+
       // Idempotency: same key prevents double-orders if the user double-clicks
       // or the network retries. Stored on the form for the lifetime of this view.
-      const idemKey = (typeof crypto !== 'undefined' && (crypto as any).randomUUID)
-        ? (crypto as any).randomUUID()
-        : `${Date.now()}-${Math.random().toString(36).slice(2)}`
-      const idemHeaders = { 'X-Idempotency-Key': idemKey }
+      const quoteIdemHeaders = { 'X-Idempotency-Key': `quote-${makeIdempotencyKey()}` }
+      const confirmIdemHeaders = { 'X-Idempotency-Key': `confirm-${makeIdempotencyKey()}` }
 
       // Canonical pipeline: must always go through cart → quote → confirm.
       // If the user arrived without a quoteId (e.g. came directly from cart),
       // we generate the quote here from their current cart, then confirm it.
       let activeQuoteId = quoteId
       if (!activeQuoteId) {
-        const quote = await apiFetch<any>('/cart/quote', { method: 'POST', headers: idemHeaders })
+        const quote = await apiFetch<any>('/cart/quote', { method: 'POST', headers: quoteIdemHeaders })
         activeQuoteId = quote?.quotation_id || quote?.id
         if (!activeQuoteId) {
           throw new Error('Үнийн санал үүсгэж чадсангүй')
@@ -166,7 +384,7 @@ function CheckoutInner() {
 
       const data = await apiFetch<any>('/cart/quote/confirm', {
         method: 'POST',
-        headers: idemHeaders,
+        headers: confirmIdemHeaders,
         body: {
           quotation_id: activeQuoteId,
           payment_method: payMethod,
@@ -403,6 +621,7 @@ function CheckoutInner() {
       {/* Step 1 — Customer Info */}
       {step === 1 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+          {showStepOneForm && (
           <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: 24 }}>
             <h3 style={{ margin: '0 0 20px', fontSize: 16, fontWeight: 700 }}>👤 Хэрэглэгчийн мэдээлэл</h3>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16 }}>
@@ -424,8 +643,24 @@ function CheckoutInner() {
               </div>
             </div>
           </div>
+          )}
 
           {/* Digital purchase summary */}
+          {isDigitalPurchase && digitalLoading && (
+            <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: 24 }}>
+              <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>Дижитал үйлчилгээ ачаалж байна...</h3>
+            </div>
+          )}
+
+          {isDigitalPurchase && !digitalLoading && !digitalInfo && (
+            <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 16, padding: 24 }}>
+              <h3 style={{ margin: '0 0 8px', fontSize: 16, fontWeight: 700, color: '#DC2626' }}>Мэдээлэл олдсонгүй</h3>
+              <p style={{ color: '#991B1B', fontSize: 14, lineHeight: 1.6, margin: 0 }}>
+                Сонгосон багц эсвэл нэмэлт эрх олдсонгүй. Dashboard-оос дахин сонгоно уу.
+              </p>
+            </div>
+          )}
+
           {isDigitalPurchase && digitalInfo && (
             <div style={{ background: '#FFF7ED', border: '1px solid #FDBA74', borderRadius: 16, padding: 24 }}>
               <h3 style={{ margin: '0 0 16px', fontSize: 16, fontWeight: 700 }}>
@@ -454,24 +689,86 @@ function CheckoutInner() {
 
           {/* Cart items summary OR manual form */}
           {!quoteId && !isDigitalPurchase && (
-            store.cart.length > 0 ? (
+            (cartLoading || cartSyncing) && !hasCartItems ? (
               <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: 24 }}>
-                <h3 style={{ margin: '0 0 16px', fontSize: 16, fontWeight: 700 }}>🛒 Сагсны бараа ({store.cartCount()} ш)</h3>
+                <h3 style={{ margin: 0, fontSize: 16, fontWeight: 700 }}>
+                  {cartSyncing ? 'Сагсыг сервертэй sync хийж байна...' : 'Сагс ачаалж байна...'}
+                </h3>
+              </div>
+            ) : hasCartItems ? (
+              <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: 24 }}>
+                <h3 style={{ margin: '0 0 16px', fontSize: 16, fontWeight: 700 }}>🛒 Сагсны бараа ({cartItemCount} ш)</h3>
+                {cartPricingAuditMessage && (
+                  <div style={{
+                    marginBottom: 12,
+                    border: `1px solid ${cartPricingAuditTone === 'warning' ? '#F59E0B' : cartPricingAuditTone === 'success' ? '#10B981' : '#BFDBFE'}`,
+                    background: cartPricingAuditTone === 'warning' ? '#FFFBEB' : cartPricingAuditTone === 'success' ? '#ECFDF5' : '#EFF6FF',
+                    color: cartPricingAuditTone === 'warning' ? '#92400E' : cartPricingAuditTone === 'success' ? '#047857' : '#1D4ED8',
+                    borderRadius: 10,
+                    padding: '10px 12px',
+                    fontSize: 12,
+                    fontWeight: 700,
+                  }}>
+                    {cartPricingAuditMessage}
+                  </div>
+                )}
+                {(cartSyncing || cartSyncError || regularCheckoutRequiresLogin) && (
+                  <div style={{
+                    marginBottom: 12,
+                    border: `1px solid ${cartSyncError || regularCheckoutRequiresLogin ? '#F59E0B' : '#BFDBFE'}`,
+                    background: cartSyncError || regularCheckoutRequiresLogin ? '#FFFBEB' : '#EFF6FF',
+                    color: cartSyncError || regularCheckoutRequiresLogin ? '#92400E' : '#1D4ED8',
+                    borderRadius: 10,
+                    padding: '10px 12px',
+                    fontSize: 12,
+                    fontWeight: 600,
+                  }}>
+                    {regularCheckoutRequiresLogin
+                      ? 'Checkout хийхийн тулд нэвтэрнэ үү. Нэвтэрсний дараа сагс сервертэй sync хийгдэнэ.'
+                      : cartSyncError || 'Local cart сервертэй sync хийгдэж байна.'}
+                  </div>
+                )}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                  {store.cart.map(item => (
+                  {cartItems.map(item => {
+                    const audit = getCartPricingAudit(item)
+                    return (
                     <div key={item.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', background: 'var(--surface2)', borderRadius: 10, border: '1px solid var(--border)' }}>
-                      {item.image && <img src={item.image} alt="" style={{ width: 44, height: 44, borderRadius: 8, objectFit: 'cover' }} />}
+                      {item.image && <img src={item.image} alt={item.name} style={{ width: 44, height: 44, borderRadius: 8, objectFit: 'cover' }} />}
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.name}</div>
                         <div style={{ fontSize: 12, color: 'var(--text3)' }}>{fmt(item.price)} × {item.qty}</div>
+                        <div style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 6,
+                          marginTop: 6,
+                          padding: '4px 8px',
+                          borderRadius: 999,
+                          background: audit.background,
+                          color: audit.color,
+                          fontSize: 11,
+                          fontWeight: 700,
+                        }}>
+                          <span>{audit.label}</span>
+                          <span style={{ opacity: 0.75, fontWeight: 600 }}>{audit.detail}</span>
+                        </div>
                       </div>
                       <div style={{ fontSize: 14, fontWeight: 700, color: '#FF6B00', whiteSpace: 'nowrap' }}>{fmt(item.price * item.qty)}</div>
                     </div>
-                  ))}
+                    )
+                  })}
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 16, paddingTop: 12, borderTop: '2px solid var(--border)', fontSize: 16 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 16, paddingTop: 12, borderTop: '2px solid var(--border)', fontSize: 14 }}>
+                  <span style={{ color: 'var(--text2)' }}>НӨАТгүй дүн:</span>
+                  <span style={{ fontWeight: 600 }}>{fmt(cartSubtotalExclVat)}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8, fontSize: 14 }}>
+                  <span style={{ color: 'var(--text2)' }}>НӨАТ (10%):</span>
+                  <span style={{ fontWeight: 600 }}>{fmt(cartVat)}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8, fontSize: 16 }}>
                   <span style={{ fontWeight: 700 }}>Нийт дүн:</span>
-                  <span style={{ fontWeight: 800, color: '#FF6B00', fontSize: 20 }}>{fmt(store.cartTotal())}</span>
+                  <span style={{ fontWeight: 800, color: '#FF6B00', fontSize: 20 }}>{fmt(cartTotal)}</span>
                 </div>
                 <div style={{ marginTop: 12 }}>
                   <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text2)', display: 'block', marginBottom: 6 }}>НЭМЭЛТ ТАЙЛБАР</label>
@@ -480,20 +777,24 @@ function CheckoutInner() {
               </div>
             ) : (
               <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: 24 }}>
-                <h3 style={{ margin: '0 0 20px', fontSize: 16, fontWeight: 700 }}>🖨️ Захиалгын мэдээлэл</h3>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16 }}>
-                  <div style={{ gridColumn: '1/-1' }}>
-                    <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text2)', display: 'block', marginBottom: 6 }}>БҮТЭЭГДЭХҮҮН</label>
-                    <input style={inp} placeholder="Визит карт, Флаер, Баннер..." value={form.product_name} onChange={e => set('product_name', e.target.value)} />
-                  </div>
-                  <div>
-                    <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text2)', display: 'block', marginBottom: 6 }}>ТОО ШИРХЭГ</label>
-                    <input style={inp} type="number" min={1} value={form.quantity} onChange={e => set('quantity', Number(e.target.value))} />
-                  </div>
-                  <div>
-                    <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text2)', display: 'block', marginBottom: 6 }}>НЭМЭЛТ ТАЙЛБАР</label>
-                    <input style={inp} placeholder="2 тал, мат ламинат..." value={form.notes} onChange={e => set('notes', e.target.value)} />
-                  </div>
+                <h3 style={{ margin: '0 0 8px', fontSize: 16, fontWeight: 700 }}>Сагс хоосон байна</h3>
+                <p style={{ color: 'var(--text2)', fontSize: 14, lineHeight: 1.6, margin: '0 0 18px' }}>
+                  Захиалга баталгаажуулахын тулд эхлээд бүтээгдэхүүн сонгож сагсанд нэмнэ үү.
+                </p>
+                <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                  <button onClick={() => router.push('/shop')} style={{
+                    padding: '11px 18px', background: '#FF6B00', color: '#fff', border: 'none',
+                    borderRadius: 10, fontWeight: 700, fontSize: 14, cursor: 'pointer', fontFamily: FONT,
+                  }}>
+                    Дэлгүүр үзэх
+                  </button>
+                  <button onClick={() => router.push('/quote')} style={{
+                    padding: '11px 18px', background: 'var(--surface2)', color: 'var(--text)',
+                    border: '1px solid var(--border)', borderRadius: 10, fontWeight: 600,
+                    fontSize: 14, cursor: 'pointer', fontFamily: FONT,
+                  }}>
+                    Үнийн санал авах
+                  </button>
                 </div>
               </div>
             )
@@ -501,12 +802,29 @@ function CheckoutInner() {
 
           {error && <div style={{ background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 10, padding: '12px 16px', color: '#DC2626', fontSize: 14 }}>⚠️ {error}</div>}
 
-          <button onClick={() => isDigitalPurchase ? setStep(2) : setStep(2)} style={{
-            padding: '16px', background: '#FF6B00', color: '#fff', border: 'none',
-            borderRadius: 12, fontWeight: 700, fontSize: 16, cursor: 'pointer',
+          {showStepOneForm && (
+          <button
+            onClick={() => {
+              if (digitalCheckoutBlocked) {
+                setError(digitalLoading ? 'Дижитал үйлчилгээний мэдээлэл ачаалж байна' : 'Дижитал үйлчилгээний мэдээлэл олдсонгүй')
+                return
+              }
+              if (regularCheckoutBlocked) {
+                setError(regularCheckoutRequiresLogin
+                  ? 'Checkout хийхийн тулд эхлээд нэвтэрнэ үү'
+                  : cartSyncError || 'Захиалга үүсгэхийн тулд эхлээд сагсанд бараа нэмнэ үү')
+                return
+              }
+              setStep(2)
+            }}
+            disabled={stepOneBlocked}
+            style={{
+            padding: '16px', background: stepOneBlocked ? '#ccc' : '#FF6B00', color: '#fff', border: 'none',
+            borderRadius: 12, fontWeight: 700, fontSize: 16, cursor: stepOneBlocked ? 'not-allowed' : 'pointer',
           }}>
             Үргэлжлүүлэх →
           </button>
+          )}
         </div>
       )}
 
@@ -565,15 +883,23 @@ function CheckoutInner() {
                 </>
               ) : (
                 <>
-                  {store.cart.length > 0 ? (
+                  {hasCartItems ? (
                     <>
                       <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                         <span style={{ color: 'var(--text2)' }}>Бараа:</span>
-                        <span style={{ fontWeight: 600 }}>{store.cartCount()} ширхэг ({store.cart.length} төрөл)</span>
+                        <span style={{ fontWeight: 600 }}>{cartItemCount} ширхэг ({cartItems.length} төрөл)</span>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid var(--border)', paddingTop: 8, marginTop: 4 }}>
+                        <span style={{ color: 'var(--text2)' }}>НӨАТгүй дүн:</span>
+                        <span style={{ fontWeight: 600 }}>{fmt(cartSubtotalExclVat)}</span>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span style={{ color: 'var(--text2)' }}>НӨАТ (10%):</span>
+                        <span style={{ fontWeight: 600 }}>{fmt(cartVat)}</span>
                       </div>
                       <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid var(--border)', paddingTop: 8, marginTop: 4 }}>
                         <span style={{ fontWeight: 700 }}>Нийт:</span>
-                        <span style={{ fontWeight: 800, color: '#FF6B00', fontSize: 18 }}>{fmt(store.cartTotal())}</span>
+                        <span style={{ fontWeight: 800, color: '#FF6B00', fontSize: 18 }}>{fmt(cartTotal)}</span>
                       </div>
                     </>
                   ) : form.product_name ? (

@@ -13,6 +13,7 @@ type Tab = typeof TABS[number]
 const CATEGORY_SECTIONS = [
   { category: 'hadag', title: 'Хаяг реклам', suffix: '' },
   { category: 'khevlel', title: 'Хэвлэл', suffix: '' },
+  { category: 'wide', title: 'Өргөн хэвлэл / Баннер', suffix: '' },
   { category: 'extra', title: 'Нэмэлт', suffix: '' },
   { category: 'margin', title: 'Margin', suffix: '%' },
   { category: 'rush', title: 'Яаралтай', suffix: '%' },
@@ -86,6 +87,56 @@ type PricingConfig = {
   category: string
 }
 
+type WideCalcResult = {
+  base_price?: number
+  subtotal?: number
+  vat?: number
+  total_price?: number
+  unit_price?: number
+  material_key?: string
+  material_name?: string
+  area_m2?: number
+  billable_area_m2?: number
+  material_rate_m2?: number
+  print_rate_m2?: number
+  waste_pct?: number
+  side_multiplier?: number
+  material_cost?: number
+  print_cost?: number
+  finishing_cost?: number
+  setup_cost?: number
+  breakdown?: Record<string, number>
+}
+
+function formatConfigValue(item: PricingConfig, suffix: string) {
+  if (item.key.includes('margin') || item.key.includes('rush') || item.key.includes('disc_') || item.key.includes('waste')) {
+    return `${Math.round(Number(item.value) * 100)}%`
+  }
+  return `${fmt(Number(item.value))}${suffix}`
+}
+
+function describeConfigUnit(key: string) {
+  if (key.includes('_material_') || key.includes('_print_') || key.endsWith('_m2')) return '₮/м²'
+  if (key.includes('_finish_') && key.endsWith('_m')) return '₮/метр'
+  if (key.includes('_finish_') && key.endsWith('_m2')) return '₮/м²'
+  if (key.includes('_setup_')) return 'setup ₮'
+  if (key.includes('_waste_')) return 'хаягдал %'
+  if (key.includes('margin') || key.includes('rush') || key.includes('disc_')) return '%'
+  return ''
+}
+
+function sortConfigs(items: PricingConfig[]) {
+  const rank = (key: string) => {
+    if (key.includes('_material_')) return 1
+    if (key.includes('_print_')) return 2
+    if (key.includes('_waste_')) return 3
+    if (key.includes('_setup_')) return 4
+    if (key.includes('_finish_')) return 5
+    return 9
+  }
+  return [...items].sort((a, b) => rank(a.key) - rank(b.key) || a.key.localeCompare(b.key))
+}
+
 function PriceConfigTab() {
   const [configs, setConfigs] = useState<PricingConfig[]>([])
   const [editValues, setEditValues] = useState<Record<string, string>>({})
@@ -152,7 +203,7 @@ function PriceConfigTab() {
   }
 
   function getByCategory(cat: string) {
-    return configs.filter(c => c.category === cat)
+    return sortConfigs(configs.filter(c => c.category === cat))
   }
 
   return (
@@ -174,6 +225,8 @@ function PriceConfigTab() {
           {toast}
         </div>
       )}
+
+      <WidePriceSimulator />
 
       {CATEGORY_SECTIONS.map(section => {
         const items = getByCategory(section.category)
@@ -214,6 +267,11 @@ function PriceConfigTab() {
 
             {!isCollapsed && (
               <div style={{ padding: '0 20px 16px' }}>
+                {section.category === 'wide' && (
+                  <div style={{ marginBottom: 10, padding: '10px 12px', borderRadius: 8, background: 'var(--surface2)', color: 'var(--text2)', fontSize: 12, lineHeight: 1.5 }}>
+                    Баннер/өргөн хэвлэлийн үнэ: материалын ₮/м² + хэвлэх ₮/м² + waste + setup + finishing. Эдгээр утгыг өөрчлөхөд quote engine-ийн үнэ шууд шинэчлэгдэнэ.
+                  </div>
+                )}
                 {items.map(item => (
                   <div
                     key={item.key}
@@ -227,9 +285,19 @@ function PriceConfigTab() {
                   >
                     <span style={{ flex: 1, fontSize: 13, color: 'var(--text)', fontWeight: 500 }}>
                       {item.label}
+                      {section.category === 'wide' && (
+                        <span style={{ display: 'block', marginTop: 2, fontSize: 11, color: 'var(--text3)', fontWeight: 400 }}>
+                          {item.key}
+                        </span>
+                      )}
                     </span>
-                    <span style={{ fontSize: 12, color: 'var(--text2)', minWidth: 80, textAlign: 'right' }}>
-                      {fmt(item.value)}{section.suffix}
+                    <span style={{ fontSize: 12, color: 'var(--text2)', minWidth: 112, textAlign: 'right' }}>
+                      {formatConfigValue(item, section.suffix)}
+                      {describeConfigUnit(item.key) && (
+                        <span style={{ display: 'block', marginTop: 2, fontSize: 10, color: 'var(--text3)' }}>
+                          {describeConfigUnit(item.key)}
+                        </span>
+                      )}
                     </span>
                     <input
                       type="number"
@@ -273,6 +341,121 @@ function PriceConfigTab() {
           {saving ? 'Хадгалж байна...' : 'Бүгдийг хадгалах'}
         </button>
       </div>
+    </div>
+  )
+}
+
+function WidePriceSimulator() {
+  const [form, setForm] = useState({
+    width: '1',
+    length: '2',
+    quantity: '1',
+    material: 'Vinyl 440gsm',
+    sides: 'double',
+    finishing: 'Гантиг гагнуур,Оосор нэмэх',
+  })
+  const [result, setResult] = useState<WideCalcResult | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+
+  const calculate = useCallback(async () => {
+    setLoading(true)
+    setError('')
+    try {
+      const data = await apiFetch<WideCalcResult>('/quote-engine/calculate-wide', {
+        method: 'POST',
+        auth: false,
+        body: {
+          type: 'banner',
+          width: Number(form.width) || 1,
+          length: Number(form.length) || 1,
+          quantity: Number(form.quantity) || 1,
+          material: form.material,
+          sides: form.sides,
+          finishing: form.finishing.split(',').map(v => v.trim()).filter(Boolean),
+          pricing_mode: 'retail',
+        },
+      })
+      setResult(data)
+    } catch (err: any) {
+      setError(err?.message || 'Үнэ бодоход алдаа гарлаа')
+      setResult(null)
+    } finally {
+      setLoading(false)
+    }
+  }, [form])
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => { calculate() }, 350)
+    return () => window.clearTimeout(timer)
+  }, [calculate])
+
+  const row = (label: string, value?: number | string, unit = '') => (
+    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, padding: '6px 0', borderBottom: '1px solid var(--border)' }}>
+      <span style={{ color: 'var(--text2)', fontSize: 12 }}>{label}</span>
+      <strong style={{ color: 'var(--text)', fontSize: 12, textAlign: 'right' }}>
+        {typeof value === 'number' ? fmt(value) : value || '-'}{unit}
+      </strong>
+    </div>
+  )
+
+  return (
+    <div style={{ border: '1px solid var(--border)', borderRadius: 12, background: 'var(--surface)', padding: 16 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, alignItems: 'flex-start', marginBottom: 14, flexWrap: 'wrap' }}>
+        <div>
+          <h2 style={{ margin: 0, color: 'var(--text)', fontSize: 16, fontWeight: 700 }}>Өргөн хэвлэлийн үнэ шалгах</h2>
+          <p style={{ margin: '4px 0 0', color: 'var(--text2)', fontSize: 12, lineHeight: 1.45 }}>
+            Доорх тооцоо backend quote engine-ээс шууд ирнэ. Тариф өөрчилбөл энд шууд шинэ үнэ, задрал харагдана.
+          </p>
+        </div>
+        <button onClick={calculate} disabled={loading} style={{ ...btnStyle, padding: '8px 14px', opacity: loading ? 0.6 : 1 }}>
+          {loading ? 'Бодож байна...' : 'Дахин бодох'}
+        </button>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 10, marginBottom: 14 }}>
+        <label style={labelStyle}>Өргөн м<input type="number" min="0.1" step="0.1" value={form.width} onChange={e => setForm({ ...form, width: e.target.value })} style={inputStyle} /></label>
+        <label style={labelStyle}>Урт м<input type="number" min="0.1" step="0.1" value={form.length} onChange={e => setForm({ ...form, length: e.target.value })} style={inputStyle} /></label>
+        <label style={labelStyle}>Тоо<input type="number" min="1" step="1" value={form.quantity} onChange={e => setForm({ ...form, quantity: e.target.value })} style={inputStyle} /></label>
+        <label style={labelStyle}>Материал
+          <select value={form.material} onChange={e => setForm({ ...form, material: e.target.value })} style={inputStyle}>
+            <option value="Vinyl 440gsm">Vinyl 440gsm</option>
+            <option value="Мэш баннер">Мэш баннер</option>
+            <option value="Гэрэлт хулдаас">Гэрэлт хулдаас</option>
+            <option value="Sticker vinyl">Sticker vinyl</option>
+          </select>
+        </label>
+        <label style={labelStyle}>Тал
+          <select value={form.sides} onChange={e => setForm({ ...form, sides: e.target.value })} style={inputStyle}>
+            <option value="single">Нэг тал</option>
+            <option value="double">Хоёр тал</option>
+          </select>
+        </label>
+        <label style={labelStyle}>Дуусгал<input value={form.finishing} onChange={e => setForm({ ...form, finishing: e.target.value })} style={inputStyle} /></label>
+      </div>
+
+      {error && <div style={{ color: '#DC2626', fontSize: 13, marginBottom: 10 }}>{error}</div>}
+
+      {result && (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 14 }}>
+          <div style={{ border: '1px solid var(--border)', borderRadius: 8, padding: 12, background: 'var(--bg)' }}>
+            {row('Нийт үнэ', result.total_price, '₮')}
+            {row('НӨАТ', result.vat, '₮')}
+            {row('Нэгж үнэ', result.unit_price, '₮')}
+            {row('Материал', result.material_name || result.material_key)}
+            {row('Талын multiplier', result.side_multiplier)}
+          </div>
+          <div style={{ border: '1px solid var(--border)', borderRadius: 8, padding: 12, background: 'var(--bg)' }}>
+            {row('Материалын тариф', result.material_rate_m2, '₮/м²')}
+            {row('Хэвлэх тариф', result.print_rate_m2, '₮/м²')}
+            {row('Хаягдал', result.waste_pct, '%')}
+            {row('Материалын өртөг', result.material_cost, '₮')}
+            {row('Хэвлэх өртөг', result.print_cost, '₮')}
+            {row('Дуусгал', result.finishing_cost, '₮')}
+            {row('Setup', result.setup_cost, '₮')}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -676,6 +859,15 @@ const inputStyle: React.CSSProperties = {
   outline: 'none',
   background: 'var(--bg)',
   color: 'var(--text)',
+}
+
+const labelStyle: React.CSSProperties = {
+  display: 'flex',
+  flexDirection: 'column',
+  gap: 6,
+  color: 'var(--text2)',
+  fontSize: 12,
+  fontWeight: 600,
 }
 
 const btnStyle: React.CSSProperties = {

@@ -69,6 +69,7 @@ export class PrintInquiry {
   @Column({ nullable: true }) assigned_to: string;
   @Column({ nullable: true }) quoted_price: number;
   @Column({ type: 'decimal', precision: 14, scale: 2, nullable: true }) estimated_price: number;
+  @Column({ type: 'jsonb', nullable: true }) pricing_snapshot: Record<string, any>;
   @Column({ type: 'text', nullable: true }) admin_notes: string;
 
   // Vendor workflow

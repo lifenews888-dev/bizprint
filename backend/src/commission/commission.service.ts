@@ -121,6 +121,19 @@ export class CommissionService implements OnModuleInit {
     grossAmount: number;
     commissionRate?: number;
   }): Promise<CommissionLog> {
+    const identityWhere = data.vendorId && (data.orderId || data.inquiryId)
+      ? (data.orderId
+          ? { order_id: data.orderId, vendor_id: data.vendorId }
+          : { inquiry_id: data.inquiryId, vendor_id: data.vendorId })
+      : null;
+
+    if (identityWhere) {
+      const existing = await this.repo.findOne({
+        where: identityWhere,
+      });
+      if (existing) return existing;
+    }
+
     let rate = data.commissionRate ?? 15;
     let vendorName = data.vendorName;
 
@@ -138,8 +151,7 @@ export class CommissionService implements OnModuleInit {
     const commission = Math.round((data.grossAmount * rate) / 100);
     const net = data.grossAmount - commission;
 
-    return this.repo.save(
-      this.repo.create({
+    const row = this.repo.create({
         order_id: data.orderId,
         inquiry_id: data.inquiryId,
         vendor_id: data.vendorId,
@@ -149,8 +161,17 @@ export class CommissionService implements OnModuleInit {
         commission_amount: commission,
         net_amount: net,
         status: CommissionStatus.PENDING,
-      }),
-    );
+      });
+
+    try {
+      return await this.repo.save(row);
+    } catch (error) {
+      if ((error as any)?.code === '23505' && identityWhere) {
+        const existing = await this.repo.findOne({ where: identityWhere });
+        if (existing) return existing;
+      }
+      throw error;
+    }
   }
 
   findAll(filters: { vendorId?: string; status?: string } = {}) {

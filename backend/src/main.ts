@@ -23,6 +23,21 @@ import { ValidationPipe } from '@nestjs/common';
 import { systemLogger } from './common/logger';
 import helmet from 'helmet';
 
+const FRONTEND_CSP_CONNECT_SRC = [
+  "'self'",
+  'https://api.bizprint.mn',
+  'https://*.bizprint.mn',
+  'wss://*.bizprint.mn',
+  'https://bizprint-production.up.railway.app',
+  'https://*.up.railway.app',
+  'wss://bizprint-production.up.railway.app',
+  'wss://*.up.railway.app',
+  'http://localhost:4000',
+  'ws://localhost:4000',
+  'https://*.facebook.com',
+  'https://connect.facebook.net',
+]
+
 async function bootstrap() {
   try { mkdirSync(join(process.cwd(), 'logs'), { recursive: true }); } catch {}
 
@@ -81,9 +96,10 @@ async function bootstrap() {
       directives: {
         defaultSrc: ["'self'"],
         scriptSrc: ["'self'"],
-        styleSrc: ["'self'", "'unsafe-inline'"],
-        imgSrc: ["'self'", 'data:', 'blob:', 'https://res.cloudinary.com', 'https:'],
-        connectSrc: ["'self'", 'https://api.bonum.mn', 'https://api.tdbmlabs.mn', 'wss:', 'https:'],
+        styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
+        imgSrc: ["'self'", 'data:', 'blob:', 'https://res.cloudinary.com', 'https://res-console.cloudinary.com', 'https:'],
+        connectSrc: FRONTEND_CSP_CONNECT_SRC,
+        fontSrc: ["'self'", 'data:', 'https://fonts.gstatic.com'],
         frameSrc: ["'self'", 'https://*.bonum.mn', 'https://*.tdbmlabs.mn', 'https://zoom.us'],
         objectSrc: ["'none'"],
         baseUri: ["'self'"],
@@ -106,7 +122,14 @@ async function bootstrap() {
   // CORS
   const allowedOrigins = process.env.CORS_ORIGINS
     ? process.env.CORS_ORIGINS.split(',').map(s => s.trim())
-    : ['http://localhost:3000', 'http://localhost:3001'];
+    : [
+      'http://localhost:3000',
+      'http://localhost:3001',
+      'http://localhost:3002',
+      'http://127.0.0.1:3000',
+      'http://127.0.0.1:3001',
+      'http://127.0.0.1:3002',
+    ];
 
   app.enableCors({
     origin: allowedOrigins,
@@ -138,6 +161,9 @@ async function bootstrap() {
 
   // Static files
   app.setGlobalPrefix('api');
+  app.use('/uploads/inquiries', (_req: any, res: any) => {
+    res.status(404).json({ message: 'Inquiry files require authorized API access' });
+  });
   app.useStaticAssets(join(process.cwd(), 'uploads'), { prefix: '/uploads/' });
 
   const port = process.env.PORT || 4000;
@@ -168,4 +194,3 @@ async function bootstrap() {
   console.log(`BizPrint API running on http://0.0.0.0:${port}`);
 }
 bootstrap();
-

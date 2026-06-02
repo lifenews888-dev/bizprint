@@ -30,10 +30,16 @@ export interface PriceBreakdown {
   addons_cost: number;
   addons_detail: { name: string; cost: number; type: string }[];
   subtotal: number;
+  subtotal_excl_vat: number;
+  vat: number;
+  vat_rate: number;
+  vat_included: boolean;
   volume_discount: number;
   discount_rate: number;
   total: number;
+  total_price: number;
   unit_price: number;
+  unit_price_excl_vat: number;
   quantity: number;
   currency: string;
   formula_used: string;
@@ -43,6 +49,7 @@ export interface PriceBreakdown {
 
 @Injectable()
 export class ProductPriceCalculatorService {
+  private readonly VAT_RATE = 0.1;
 
   calculate(product: any, input: PriceInput): PriceBreakdown {
     // ── Validate input ──
@@ -314,24 +321,53 @@ export class ProductPriceCalculatorService {
     return Math.round(n);
   }
 
+  private splitIncludedVat(totalWithVat: number) {
+    const subtotalExclVat = this.round(totalWithVat / (1 + this.VAT_RATE));
+    const vat = totalWithVat - subtotalExclVat;
+    return { subtotalExclVat, vat };
+  }
+
   /** Build a complete PriceBreakdown with defaults */
   private buildResult(partial: Partial<PriceBreakdown>): PriceBreakdown {
-    return {
+    const result = {
       base_setup: 0,
       material_cost: 0,
       addons_cost: 0,
       addons_detail: [],
       subtotal: 0,
+      subtotal_excl_vat: 0,
+      vat: 0,
+      vat_rate: this.VAT_RATE,
+      vat_included: true,
       volume_discount: 0,
       discount_rate: 0,
       total: 0,
+      total_price: 0,
       unit_price: 0,
+      unit_price_excl_vat: 0,
       quantity: 1,
       currency: 'MNT',
       formula_used: 'fixed',
       notes: [],
       is_estimate: false,
       ...partial,
+    };
+
+    const totalPrice = this.round(Number(result.total_price || result.total || 0));
+    const { subtotalExclVat, vat } = this.splitIncludedVat(totalPrice);
+    const quantity = Math.max(1, Number(result.quantity) || 1);
+
+    return {
+      ...result,
+      subtotal: result.subtotal || totalPrice,
+      subtotal_excl_vat: subtotalExclVat,
+      vat,
+      vat_rate: this.VAT_RATE,
+      vat_included: true,
+      total: totalPrice,
+      total_price: totalPrice,
+      unit_price: result.unit_price || this.round(totalPrice / quantity),
+      unit_price_excl_vat: this.round(subtotalExclVat / quantity),
     };
   }
 }

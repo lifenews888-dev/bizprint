@@ -47,15 +47,15 @@ export class CartController {
   /** POST /cart/items — Add item to cart */
   @Post('items')
   @UseGuards(JwtAuthGuard)
-  addItem(@Req() req: any, @Body() body: { product_id: string; quantity: number; specs?: Record<string, any> }) {
+  addItem(@Req() req: any, @Body() body: { product_id: string; quantity: number; unit_price?: number; specs?: Record<string, any> }) {
     return this.cartService.addItem(req.user.id, body)
   }
 
   /** DELETE /cart/items/:id — Remove item from cart */
   @Delete('items/:id')
   @UseGuards(JwtAuthGuard)
-  removeItem(@Param('id') id: string) {
-    return this.cartService.removeItem(id)
+  removeItem(@Req() req: any, @Param('id') id: string) {
+    return this.cartService.removeItem(req.user.id, id)
   }
 
   /** POST /cart/quote — Generate quote from cart */

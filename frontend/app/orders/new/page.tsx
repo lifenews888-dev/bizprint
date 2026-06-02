@@ -3,6 +3,13 @@ import { useState, useRef, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { fbPixel } from '@/components/FacebookPixel'
 import { API_URL } from '@/lib/api'
+import { calcWideFallbackPrice, clampWideDimensionMm, clampWideQuantity, fetchWideServerPrice } from '@/lib/pricing/wide'
+import {
+  CLIENT_ORDER_FALLBACK_ENGINE,
+  CLIENT_ORDER_SERVER_PREVIEW_ENGINE,
+  CLIENT_PRICING_SNAPSHOT_VERSION,
+  PRICING_CONTRACT_VERSION,
+} from '@/lib/pricing/snapshot'
 
 // ─── Static Mongolian label tables ─────────────────────────
 
@@ -18,6 +25,73 @@ const SIDES = [
 ]
 
 const QTY_PRESETS = [50, 100, 250, 500, 1000, 2000, 5000]
+
+const FALLBACK_ORDER_CONFIGS = [
+  {
+    product_type: 'business-card',
+    name_mn: 'Нэрийн хуудас',
+    icon: '💳',
+    sizes: [{ label: '90×54мм (стандарт)', w: 90, h: 54 }, { label: '90×50мм', w: 90, h: 50 }, { label: 'Захиалгат', w: 0, h: 0 }],
+    materials: ['Art card 300gsm', 'Art card 350gsm', 'Металл', 'PVC тунгалаг'],
+    finishing_options: ['Матт ламинат', 'Глосс ламинат', 'Soft-touch', 'УВ лак', 'Фольг тамга'],
+    min_qty: 100,
+    base_rate: 340,
+    double_side_multiplier: 1.7,
+    overhead_rate: 0.12,
+    platform_rate: 0.10,
+    ink_cost_per_500: 7000,
+    finishing_cost_each: 5000,
+    volume_discounts: [{ min_qty: 250, discount_percent: 10 }, { min_qty: 500, discount_percent: 15 }, { min_qty: 1000, discount_percent: 25 }],
+  },
+  {
+    product_type: 'flyer',
+    name_mn: 'Флаер',
+    icon: '📄',
+    sizes: [{ label: 'A6 (105×148мм)', w: 105, h: 148 }, { label: 'A5 (148×210мм)', w: 148, h: 210 }, { label: 'A4 (210×297мм)', w: 210, h: 297 }, { label: 'DL (99×210мм)', w: 99, h: 210 }, { label: 'Захиалгат', w: 0, h: 0 }],
+    materials: ['Glossy 130gsm', 'Glossy 170gsm', 'Matte 170gsm', 'Art card 250gsm'],
+    finishing_options: ['Матт ламинат', 'Глосс ламинат', 'УВ лак'],
+    min_qty: 50,
+    base_rate: 180,
+    double_side_multiplier: 1.7,
+    overhead_rate: 0.12,
+    platform_rate: 0.10,
+    ink_cost_per_500: 7000,
+    finishing_cost_each: 5000,
+    volume_discounts: [{ min_qty: 250, discount_percent: 10 }, { min_qty: 500, discount_percent: 15 }, { min_qty: 1000, discount_percent: 25 }],
+  },
+  {
+    product_type: 'sticker',
+    name_mn: 'Стикер',
+    icon: '📎',
+    sizes: [{ label: 'Дугуй 50мм', w: 50, h: 50 }, { label: 'Дугуй 100мм', w: 100, h: 100 }, { label: 'Дөрвөлжин A6', w: 105, h: 148 }, { label: 'Захиалгат', w: 0, h: 0 }],
+    materials: ['Vinyl цагаан', 'Vinyl тунгалаг', 'Цаасан'],
+    finishing_options: ['Ламинат', 'UV coating'],
+    min_qty: 100,
+    base_rate: 280,
+    double_side_multiplier: 1.7,
+    overhead_rate: 0.12,
+    platform_rate: 0.10,
+    ink_cost_per_500: 7000,
+    finishing_cost_each: 5000,
+    volume_discounts: [{ min_qty: 250, discount_percent: 10 }, { min_qty: 500, discount_percent: 15 }, { min_qty: 1000, discount_percent: 25 }],
+  },
+  {
+    product_type: 'banner',
+    name_mn: 'Баннер',
+    icon: '🏗️',
+    sizes: [{ label: '1×2м', w: 1000, h: 2000 }, { label: '1×3м', w: 1000, h: 3000 }, { label: '2×3м', w: 2000, h: 3000 }, { label: '3×6м', w: 3000, h: 6000 }, { label: 'Захиалгат', w: 0, h: 0 }],
+    materials: ['Vinyl 440gsm', 'Mesh баннер', 'Backlit хулдаас'],
+    finishing_options: ['Гантиг гагнуур', 'Оосор нэмэх'],
+    min_qty: 1,
+    base_rate: 1200,
+    double_side_multiplier: 1.7,
+    overhead_rate: 0.12,
+    platform_rate: 0.10,
+    ink_cost_per_500: 7000,
+    finishing_cost_each: 5000,
+    volume_discounts: [],
+  },
+]
 
 const CONTACTS = [
   { v: 'chat',  l: 'Чат',    i: '💬', d: 'Шууд энэ сайтаар' },
@@ -90,6 +164,96 @@ const lookupLabel = (key: string, keys: string[] | undefined, labels: string[] |
   return staticMap[key] || key
 }
 
+const findConfig = (configs: any[], productType: string) =>
+  configs.find((c: any) => c.product_type === productType)
+
+const getSizeLabelFromParam = (config: any, sizeParam: string | null): string => {
+  if (!config || !sizeParam) return ''
+  const normalized = sizeParam.toLowerCase().replace('×', 'x')
+  const byLabel = (config.sizes || []).find((s: any) => String(s.label).toLowerCase().replace('×', 'x') === normalized)
+  if (byLabel) return byLabel.label
+
+  const [w, h] = normalized.split('x').map((n: string) => Number(n))
+  if (!w || !h) return ''
+  return (config.sizes || []).find((s: any) => Number(s.w) === w && Number(s.h) === h)?.label || ''
+}
+
+const parseFinishingParam = (value: string | null) =>
+  (value || '').split(',').map(v => v.trim()).filter(Boolean)
+
+const clampOrderQuantity = (value: unknown, fallback = 1) =>
+  clampWideQuantity(value, Math.max(1, fallback))
+
+function EstimateSourceDetails({
+  estimate,
+  serverPricingLoading = false,
+  serverPricingError = '',
+}: {
+  estimate: any
+  serverPricingLoading?: boolean
+  serverPricingError?: string
+}) {
+  if (!estimate?.breakdown) return null
+
+  const materialPrint = Number(estimate.breakdown.material || 0) + Number(estimate.breakdown.print || 0)
+
+  return (
+    <div className="mt-3 border-t border-orange-200/70 dark:border-orange-800/70 pt-3 text-xs text-gray-500 dark:text-gray-400 space-y-1.5">
+      <div className="flex justify-between gap-3">
+        <span>Үнэ бодолт</span>
+        <span className={estimate.source === 'server' ? 'text-green-600 font-semibold' : 'text-amber-600 font-semibold'}>
+          {estimate.source === 'server' ? 'Backend engine' : serverPricingLoading ? 'Шалгаж байна' : 'Fallback'}
+        </span>
+      </div>
+      {estimate.source !== 'server' && (
+        <div className={`rounded-lg border px-3 py-2 ${serverPricingError ? 'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900/60 dark:bg-amber-950/20 dark:text-amber-300' : 'border-gray-200 bg-white/70 text-gray-500 dark:border-gray-800 dark:bg-gray-900/40 dark:text-gray-400'}`}>
+          {serverPricingLoading
+            ? 'Backend engine-ээс үнэ баталгаажуулж байна.'
+            : serverPricingError || 'Backend engine үнэ ирээгүй тул түр fallback тооцоо харуулж байна.'}
+        </div>
+      )}
+      {materialPrint > 0 && (
+        <div className="flex justify-between gap-3">
+          <span>Материал + хэвлэл</span>
+          <span className="font-medium text-gray-700 dark:text-gray-300">{materialPrint.toLocaleString()}₮</span>
+        </div>
+      )}
+      {estimate.meta?.materialRateM2 > 0 && (
+        <div className="flex justify-between gap-3">
+          <span>Материалын тариф</span>
+          <span className="font-medium text-gray-700 dark:text-gray-300">{Number(estimate.meta.materialRateM2).toLocaleString()}₮/м²</span>
+        </div>
+      )}
+      {estimate.meta?.printRateM2 > 0 && (
+        <div className="flex justify-between gap-3">
+          <span>Хэвлэх тариф</span>
+          <span className="font-medium text-gray-700 dark:text-gray-300">
+            {Number(estimate.meta.printRateM2).toLocaleString()}₮/м²{estimate.meta.sideMultiplier > 1 ? ` × ${estimate.meta.sideMultiplier}` : ''}
+          </span>
+        </div>
+      )}
+      {estimate.breakdown.finishing > 0 && (
+        <div className="flex justify-between gap-3">
+          <span>Боловсруулалт</span>
+          <span className="font-medium text-gray-700 dark:text-gray-300">{Number(estimate.breakdown.finishing).toLocaleString()}₮</span>
+        </div>
+      )}
+      {estimate.breakdown.vat > 0 && (
+        <div className="flex justify-between gap-3">
+          <span>НӨАТ</span>
+          <span className="font-medium text-gray-700 dark:text-gray-300">{Number(estimate.breakdown.vat).toLocaleString()}₮</span>
+        </div>
+      )}
+      {estimate.source === 'server' && Number(estimate.meta?.backendTotal || 0) > 0 && (
+        <div className="flex justify-between gap-3 border-t border-orange-200/70 pt-1.5 font-semibold text-gray-800 dark:border-orange-800/70 dark:text-gray-200">
+          <span>Backend нийт</span>
+          <span>{Number(estimate.meta.backendTotal).toLocaleString()}₮</span>
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function NewOrderPageWrapper() {
   return (
     <Suspense fallback={<div className="flex justify-center py-12"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500" /></div>}>
@@ -102,23 +266,29 @@ function NewOrderPage() {
   const router = useRouter()
   const params = useSearchParams()
   const fileRef = useRef<HTMLInputElement>(null)
+  const requestedProductType = params.get('category') || params.get('type') || params.get('productType') || ''
+  const requestedSize = params.get('size')
+  const requestedMaterial = params.get('material') || ''
+  const requestedSides = params.get('sides') || 'double'
+  const requestedFinishing = parseFinishingParam(params.get('finishing'))
+  const fallbackActiveConfig = findConfig(FALLBACK_ORDER_CONFIGS, requestedProductType) || FALLBACK_ORDER_CONFIGS[0]
 
   const [step, setStep] = useState(1)
   const [customW, setCustomW] = useState(0)
   const [customH, setCustomH] = useState(0)
-  const [configs, setConfigs] = useState<any[]>([])
-  const [activeConfig, setActiveConfig] = useState<any>(null)
+  const [configs, setConfigs] = useState<any[]>(FALLBACK_ORDER_CONFIGS)
+  const [activeConfig, setActiveConfig] = useState<any>(fallbackActiveConfig)
 
   const [spec, setSpec] = useState({
     productId: params.get('productId') || '',
     productName: params.get('name') || '',
-    category: params.get('category') || params.get('type') || params.get('productType') || '',
-    quantity: +(params.get('qty') || 500),
+    category: requestedProductType || fallbackActiveConfig.product_type,
+    quantity: clampOrderQuantity(params.get('qty'), fallbackActiveConfig.min_qty || 1),
     sizeLabel: '',
-    paperType: '',
+    paperType: requestedMaterial,
     colorMode: 'CMYK',
-    sides: 'double',
-    finishing: [] as string[],
+    sides: SIDES.some(s => s.v === requestedSides) ? requestedSides : 'double',
+    finishing: requestedFinishing,
     notes: '',
     hasDesign: false,
     needsDesign: false,
@@ -129,23 +299,48 @@ function NewOrderPage() {
     viberNumber: '', preferredContact: 'chat',
   })
 
+  useEffect(() => {
+    try {
+      const savedUser = JSON.parse(localStorage.getItem('user') || '{}')
+      const queryName = params.get('customer_name') || params.get('name') || ''
+      const queryPhone = params.get('phone') || params.get('customer_phone') || ''
+      const queryEmail = params.get('email') || params.get('customer_email') || ''
+      const queryCompany = params.get('company') || params.get('customer_company') || ''
+
+      setContact(prev => ({
+        ...prev,
+        name: prev.name || queryName || savedUser.full_name || savedUser.name || savedUser.username || '',
+        phone: prev.phone || queryPhone || savedUser.phone || '',
+        email: prev.email || queryEmail || savedUser.email || '',
+        company: prev.company || queryCompany || savedUser.company_name || savedUser.company || '',
+        viberNumber: prev.viberNumber || queryPhone || savedUser.phone || '',
+      }))
+    } catch {}
+  }, [params])
+
   const [files, setFiles] = useState<Array<{ file: File; preview?: string }>>([])
   const [loading, setLoading] = useState(false)
+  const [submitError, setSubmitError] = useState('')
+  const [submitRequestId, setSubmitRequestId] = useState('')
+  const [submitRequestIdCopied, setSubmitRequestIdCopied] = useState(false)
   const [result, setResult] = useState<{ id: string; number: string } | null>(null)
+  const [serverEstimate, setServerEstimate] = useState<any>(null)
+  const [serverPricingLoading, setServerPricingLoading] = useState(false)
+  const [serverPricingError, setServerPricingError] = useState('')
 
   // Fetch quote configs from admin API
   useEffect(() => {
     fetch(`${API_URL}/api/cms/quote-config`)
       .then(r => r.json())
       .then(data => {
-        if (Array.isArray(data) && data.length > 0) {
-          setConfigs(data)
-          const productType = params.get('type') || params.get('category') || params.get('productType') || ''
-          const matched = data.find((c: any) => c.product_type === productType)
-          setActiveConfig(matched || data[0])
-        }
+        const nextConfigs = Array.isArray(data) && data.length > 0 ? data : FALLBACK_ORDER_CONFIGS
+        setConfigs(nextConfigs)
+        setActiveConfig(findConfig(nextConfigs, requestedProductType) || nextConfigs[0])
       })
-      .catch(() => {})
+      .catch(() => {
+        setConfigs(FALLBACK_ORDER_CONFIGS)
+        setActiveConfig(fallbackActiveConfig)
+      })
   }, [])
 
   // Update spec when active config changes (only if not already set from URL)
@@ -153,8 +348,8 @@ function NewOrderPage() {
     if (activeConfig) {
       setSpec(p => ({
         ...p,
-        sizeLabel: p.sizeLabel || activeConfig.sizes?.[0]?.label || '',
-        paperType: p.paperType || activeConfig.materials?.[0] || '',
+        sizeLabel: p.sizeLabel || getSizeLabelFromParam(activeConfig, requestedSize) || activeConfig.sizes?.[0]?.label || '',
+        paperType: p.paperType || requestedMaterial || activeConfig.materials?.[0] || '',
         category: p.category || activeConfig.product_type,
         productName: p.productName || activeConfig.name_mn,
       }))
@@ -190,8 +385,26 @@ function NewOrderPage() {
 
   // Calculate estimated price using active config
   const calcEstimate = () => {
-    if (!activeConfig || !selSize?.w || !selSize?.h || !spec.quantity) return null
-    const areaM2 = (selSize.w / 1000) * (selSize.h / 1000)
+    const widthMm = isCustom ? clampWideDimensionMm(customW, 0) : clampWideDimensionMm(selSize?.w, 0)
+    const heightMm = isCustom ? clampWideDimensionMm(customH, 0) : clampWideDimensionMm(selSize?.h, 0)
+    const quantity = clampOrderQuantity(spec.quantity, activeConfig?.min_qty || 1)
+    if (!activeConfig || !widthMm || !heightMm || !quantity) return null
+    const areaM2 = (widthMm / 1000) * (heightMm / 1000)
+
+    if (['banner', 'sticker'].includes(spec.category || activeConfig.product_type)) {
+      const productType = spec.category || activeConfig.product_type
+      const wideEstimate = calcWideFallbackPrice({
+        productId: productType,
+        widthMm,
+        heightMm,
+        quantity,
+        sides: spec.sides,
+        materialName: spec.paperType,
+        finishing: spec.finishing,
+      })
+      return wideEstimate ? { ...wideEstimate, discount: 0, originalTotal: null } : null
+    }
+
     const baseRate = Number(activeConfig.base_rate) || 200
     const inkCost = Number(activeConfig.ink_cost_per_500) || 7000
     const finCost = Number(activeConfig.finishing_cost_each) || 5000
@@ -199,8 +412,8 @@ function NewOrderPage() {
     const platformRate = Number(activeConfig.platform_rate) || 0.10
     const sidesMult = spec.sides === 'double' ? (Number(activeConfig.double_side_multiplier) || 1.7) : 1
 
-    const paper = baseRate * spec.quantity * (areaM2 / 0.0623)
-    const ink = inkCost * spec.quantity / 500
+    const paper = baseRate * quantity * (areaM2 / 0.0623)
+    const ink = inkCost * quantity / 500
     const finishing = spec.finishing.length * finCost
     const sub = (paper + ink + finishing) * sidesMult
     const overhead = sub * overheadRate
@@ -209,7 +422,7 @@ function NewOrderPage() {
 
     const discounts = activeConfig.volume_discounts || []
     const activeDisc = discounts
-      .filter((d: any) => spec.quantity >= d.min_qty)
+      .filter((d: any) => quantity >= d.min_qty)
       .sort((a: any, b: any) => b.min_qty - a.min_qty)[0]
 
     const discounted = activeDisc
@@ -218,26 +431,177 @@ function NewOrderPage() {
 
     return {
       total: discounted,
-      unitPrice: Math.round(discounted / spec.quantity),
+      unitPrice: Math.round(discounted / quantity),
       discount: activeDisc?.discount_percent || 0,
       originalTotal: activeDisc ? total : null,
     }
   }
 
-  const estimate = calcEstimate()
+  const fallbackEstimate = calcEstimate()
+
+  useEffect(() => {
+    if (step !== 1 || !submitError) return
+    if (!getWideSubmitValidationError()) setSubmitError('')
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [customH, customW, isCustom, selSize?.h, selSize?.w, spec.category, spec.paperType, step, submitError])
+
+  useEffect(() => {
+    const widthMm = isCustom ? clampWideDimensionMm(customW, 0) : clampWideDimensionMm(selSize?.w, 0)
+    const heightMm = isCustom ? clampWideDimensionMm(customH, 0) : clampWideDimensionMm(selSize?.h, 0)
+    const quantity = clampOrderQuantity(spec.quantity, activeConfig?.min_qty || 1)
+    const productType = spec.category || activeConfig?.product_type || ''
+
+    if (!['banner', 'sticker'].includes(productType) || !widthMm || !heightMm || !quantity) {
+      setServerEstimate(null)
+      setServerPricingLoading(false)
+      setServerPricingError('')
+      return
+    }
+
+    const controller = new AbortController()
+    setServerPricingLoading(true)
+    setServerPricingError('')
+    const t = window.setTimeout(() => {
+      fetchWideServerPrice(API_URL, {
+        productId: productType,
+        widthMm,
+        heightMm,
+        quantity,
+        materialName: spec.paperType,
+        finishing: spec.finishing,
+        sides: spec.sides,
+      }, controller.signal)
+        .then((r) => {
+          setServerEstimate({ ...r, discount: 0, originalTotal: null })
+          setServerPricingError('')
+        })
+        .catch(() => {
+          setServerEstimate(null)
+          setServerPricingError('Backend engine үнэ авахад алдаа гарлаа. Энэ үнэ түр fallback тооцоо тул оператор дахин баталгаажуулна.')
+        })
+        .finally(() => setServerPricingLoading(false))
+    }, 300)
+
+    return () => {
+      window.clearTimeout(t)
+      controller.abort()
+      setServerPricingLoading(false)
+    }
+  }, [activeConfig?.product_type, customH, customW, isCustom, selSize?.h, selSize?.w, spec.category, spec.finishing, spec.paperType, spec.quantity, spec.sides])
+
+  const serverEstimateTotal = Number(serverEstimate?.total || 0)
+  const estimate = serverEstimateTotal > 0 ? serverEstimate : fallbackEstimate
+  const estimateSource = serverEstimateTotal > 0 ? 'server' : estimate?.source
+  const safeOrderQuantity = clampOrderQuantity(spec.quantity, activeConfig?.min_qty || 1)
+  const safeWidthMm = isCustom ? clampWideDimensionMm(customW, 0) : clampWideDimensionMm(selSize?.w, 0)
+  const safeHeightMm = isCustom ? clampWideDimensionMm(customH, 0) : clampWideDimensionMm(selSize?.h, 0)
+  const displayTotal = estimateSource === 'server'
+    ? Number(estimate?.meta?.backendTotal || estimate?.total || 0)
+    : Number(estimate?.total || 0)
+  const displayUnitPrice = estimateSource === 'server'
+    ? Math.round(displayTotal / safeOrderQuantity)
+    : Number(estimate?.unitPrice || 0)
+  const quoteRetryParams = new URLSearchParams({
+    product: spec.category || activeConfig?.product_type || 'flyer',
+    size: `${safeWidthMm}x${safeHeightMm}`,
+    material: spec.paperType,
+    qty: String(safeOrderQuantity),
+    sides: spec.sides,
+    finishing: spec.finishing.join(','),
+  })
+  const quoteRetryHref = `/quote?${quoteRetryParams.toString()}`
+
+  const getWideSubmitValidationError = () => {
+    const productType = spec.category || activeConfig?.product_type || ''
+    if (!['banner', 'sticker'].includes(productType)) return ''
+    const widthMm = isCustom ? clampWideDimensionMm(customW, 0) : clampWideDimensionMm(selSize?.w, 0)
+    const heightMm = isCustom ? clampWideDimensionMm(customH, 0) : clampWideDimensionMm(selSize?.h, 0)
+    if (!widthMm || !heightMm) return 'Хэмжээний мэдээлэл дутуу байна. Хэмжээгээ сонгох эсвэл захиалгат хэмжээг бүрэн оруулна уу.'
+    if (!String(spec.paperType || '').trim()) return 'Материалын мэдээлэл дутуу байна. Материалаа сонгоно уу.'
+    return ''
+  }
+
+  const getStep1ValidationError = () => {
+    if (!spec.quantity || spec.quantity < 1) return 'Тиражийн тоо оруулна уу.'
+    if (!spec.sizeLabel) return 'Хэмжээгээ сонгоно уу.'
+    return getWideSubmitValidationError()
+  }
+
+  const getSubmitErrorMessage = (error: any) => {
+    if (error?.name === 'AbortError') {
+      return 'Сервер хариу өгөхөд удаж байна. Интернэт холболтоо шалгаад дахин оролдоно уу.'
+    }
+    if (error instanceof TypeError || String(error?.message || '').includes('Failed to fetch')) {
+      return 'Сервертэй холбогдож чадсангүй. Түр хүлээгээд дахин оролдох эсвэл 72000444 руу залгана уу.'
+    }
+    return error?.message || 'Захиалга илгээж чадсангүй. Дахин оролдоно уу.'
+  }
+
+  const createSubmitRequestId = () => {
+    if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
+      return crypto.randomUUID()
+    }
+    return `order-${Date.now()}-${Math.random().toString(16).slice(2)}`
+  }
 
   const submit = async () => {
+    setSubmitError('')
+    setSubmitRequestId('')
+    setSubmitRequestIdCopied(false)
+    const validationError = getWideSubmitValidationError()
+    if (validationError) {
+      setSubmitError(validationError)
+      setStep(1)
+      return
+    }
     setLoading(true)
+    const requestId = createSubmitRequestId()
+    setSubmitRequestId(requestId)
+    const controller = new AbortController()
+    const timeout = window.setTimeout(() => controller.abort(), 12000)
     try {
       const fd = new FormData()
+      const widthMm = safeWidthMm
+      const heightMm = safeHeightMm
+      const quantity = safeOrderQuantity
+      const pricingSnapshot = {
+        source: estimateSource || 'fallback',
+        clientSnapshotVersion: CLIENT_PRICING_SNAPSHOT_VERSION,
+        pricingContractVersion: PRICING_CONTRACT_VERSION,
+        pricingEngine: estimateSource === 'server'
+          ? CLIENT_ORDER_SERVER_PREVIEW_ENGINE
+          : CLIENT_ORDER_FALLBACK_ENGINE,
+        total: displayTotal || estimate?.total || 0,
+        unitPrice: displayUnitPrice || estimate?.unitPrice || 0,
+        discount: estimate?.discount || 0,
+        originalTotal: estimate?.originalTotal || null,
+        breakdown: estimate?.breakdown || null,
+        meta: estimate?.meta || null,
+        product: {
+          id: spec.productId,
+          name: spec.productName || activeConfig?.name_mn || '',
+          category: spec.category || activeConfig?.product_type || '',
+        },
+        spec: {
+          quantity,
+          sizeLabel: spec.sizeLabel,
+          widthMm,
+          heightMm,
+          material: spec.paperType,
+          colorMode: spec.colorMode,
+          sides: spec.sides,
+          finishing: spec.finishing,
+        },
+        generatedAt: new Date().toISOString(),
+      }
       Object.entries({
         product_id: spec.productId,
         product_name: spec.productName || activeConfig?.name_mn || '',
         category: spec.category || activeConfig?.product_type || '',
-        quantity: spec.quantity,
+        quantity,
         size_label: spec.sizeLabel,
-        width_mm: isCustom ? customW : (selSize?.w || 0),
-        height_mm: isCustom ? customH : (selSize?.h || 0),
+        width_mm: widthMm,
+        height_mm: heightMm,
         paper_type: spec.paperType,
         color_mode: spec.colorMode,
         sides: spec.sides,
@@ -245,7 +609,8 @@ function NewOrderPage() {
         notes: spec.notes,
         has_design: spec.hasDesign,
         needs_design: spec.needsDesign,
-        estimated_price: estimate?.total || 0,
+        estimated_price: displayTotal || estimate?.total || 0,
+        pricing_snapshot: JSON.stringify(pricingSnapshot),
       }).forEach(([k, v]) => fd.append(k, String(v)))
 
       Object.entries({
@@ -262,21 +627,39 @@ function NewOrderPage() {
       const token = localStorage.getItem('access_token') || ''
       const res = await fetch(`${API_URL}/api/inquiries`, {
         method: 'POST',
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          'x-request-id': requestId,
+        },
         body: fd,
+        signal: controller.signal,
       })
-      const data = await res.json()
+      setSubmitRequestId(res.headers.get('x-request-id') || requestId)
+      const text = await res.text()
+      let data: any = {}
+      try {
+        data = text ? JSON.parse(text) : {}
+      } catch {
+        data = { message: text }
+      }
+      if (!res.ok) {
+        throw new Error(data?.message || data?.error || `Захиалга илгээхэд алдаа гарлаа (${res.status})`)
+      }
       if (data.id) {
         setResult({ id: data.id, number: data.inquiry_number })
         fbPixel.purchase({
           orderId: data.id,
-          value: estimate?.total || 0,
+          value: displayTotal || estimate?.total || 0,
           productName: spec.productName || activeConfig?.name_mn,
         })
+      } else {
+        throw new Error('Серверээс захиалгын дугаар ирсэнгүй')
       }
-    } catch (e) {
+    } catch (e: any) {
       console.error(e)
+      setSubmitError(getSubmitErrorMessage(e))
     } finally {
+      window.clearTimeout(timeout)
       setLoading(false)
     }
   }
@@ -301,14 +684,21 @@ function NewOrderPage() {
       {estimate && (
         <div className="bg-orange-50 dark:bg-orange-900/10 border border-orange-200 dark:border-orange-800 rounded-xl p-4 mb-6">
           <p className="text-xs text-gray-400 mb-1">Тооцоолсон үнэ</p>
-          <p className="text-2xl font-bold text-orange-500">{estimate.total.toLocaleString()}₮</p>
-          <p className="text-xs text-gray-400">Нэгж: {estimate.unitPrice.toLocaleString()}₮/ш</p>
+          <p className="text-2xl font-bold text-orange-500">{displayTotal.toLocaleString()}₮</p>
+          <p className="text-xs text-gray-400">Нэгж: {displayUnitPrice.toLocaleString()}₮/ш</p>
+          <p className={`mt-1 text-xs ${estimateSource === 'server' ? 'text-green-600' : 'text-amber-600'}`}>
+            {estimateSource === 'server' ? 'Backend баталгаатай' : 'Ойролцоо тооцоо'}
+          </p>
         </div>
       )}
       <div className="flex gap-3 justify-center">
         <button onClick={() => router.push(`/inquiries/${result.id}`)}
           className="px-5 py-2.5 bg-orange-500 text-white rounded-xl text-sm font-medium">
           Захиалга + чат харах
+        </button>
+        <button onClick={() => router.push(`/inquiries/${result.id}?tab=detail`)}
+          className="px-5 py-2.5 border border-orange-200 text-orange-600 rounded-xl text-sm font-medium dark:border-orange-800 dark:text-orange-300">
+          Үнийн задаргаа
         </button>
         <button onClick={() => router.push('/')}
           className="px-5 py-2.5 border border-gray-200 dark:border-gray-700 rounded-xl text-sm text-gray-600 dark:text-gray-400">
@@ -318,8 +708,20 @@ function NewOrderPage() {
     </div>
   )
 
-  const step1Valid = spec.quantity > 0 && spec.sizeLabel
+  const step1Valid = !getStep1ValidationError()
   const step3Valid = contact.name && contact.phone
+
+  const handleStep1Next = () => {
+    const validationError = getStep1ValidationError()
+    if (validationError) {
+      setSubmitError(validationError)
+      setSubmitRequestId('')
+      return
+    }
+    setSubmitError('')
+    setSubmitRequestId('')
+    setStep(2)
+  }
 
   const STEPS = ['Тодорхойлолт', 'Файл', 'Холбоо барих', 'Батлах']
 
@@ -380,6 +782,13 @@ function NewOrderPage() {
       {/* ─── STEP 1: Specification ─── */}
       {step === 1 && (
         <div className="space-y-6">
+          {submitError && (
+            <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700 dark:border-red-900/60 dark:bg-red-950/30 dark:text-red-300">
+              <p className="font-semibold mb-1">Захиалгын мэдээлэл дутуу байна</p>
+              <p className="leading-6">{submitError}</p>
+            </div>
+          )}
+
           {/* Quantity */}
           <div>
             <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -398,8 +807,9 @@ function NewOrderPage() {
               ))}
               <input type="number"
                 placeholder="Бусад тоо"
+                value={spec.quantity || ''}
                 min={activeConfig?.min_qty || 1}
-                onChange={e => e.target.value && setSpec(p => ({ ...p, quantity: +e.target.value }))}
+                onChange={e => setSpec(p => ({ ...p, quantity: clampOrderQuantity(e.target.value, activeConfig?.min_qty || 1) }))}
                 className="w-28 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm bg-transparent focus:outline-none focus:border-orange-400" />
             </div>
             {activeConfig?.min_qty > 0 && (
@@ -426,12 +836,12 @@ function NewOrderPage() {
               <div className="flex gap-3 mt-3">
                 <div>
                   <p className="text-xs text-gray-400 mb-1">Өргөн (мм)</p>
-                  <input type="number" value={customW || ''} onChange={e => setCustomW(+e.target.value)}
+                  <input type="number" value={customW || ''} onChange={e => setCustomW(clampWideDimensionMm(e.target.value, 0))}
                     className="w-24 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm bg-transparent focus:outline-none focus:border-orange-400" />
                 </div>
                 <div>
                   <p className="text-xs text-gray-400 mb-1">Өндөр (мм)</p>
-                  <input type="number" value={customH || ''} onChange={e => setCustomH(+e.target.value)}
+                  <input type="number" value={customH || ''} onChange={e => setCustomH(clampWideDimensionMm(e.target.value, 0))}
                     className="w-24 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-sm bg-transparent focus:outline-none focus:border-orange-400" />
                 </div>
               </div>
@@ -509,6 +919,11 @@ function NewOrderPage() {
                   </button>
                 ))}
               </div>
+              <EstimateSourceDetails
+                estimate={estimate}
+                serverPricingLoading={serverPricingLoading}
+                serverPricingError={serverPricingError}
+              />
             </div>
           )}
 
@@ -552,21 +967,25 @@ function NewOrderPage() {
                   {estimate.originalTotal && (
                     <p className="text-sm text-gray-400 line-through">{estimate.originalTotal.toLocaleString()}₮</p>
                   )}
-                  <p className="text-2xl font-bold text-orange-500">{estimate.total.toLocaleString()}₮</p>
+                  <p className="text-2xl font-bold text-orange-500">{displayTotal.toLocaleString()}₮</p>
                   {estimate.discount > 0 && (
                     <p className="text-xs text-green-600 font-medium">-{estimate.discount}% хямдрал</p>
                   )}
                 </div>
                 <div className="text-right text-xs text-gray-400">
-                  <p>Нэгж: {estimate.unitPrice.toLocaleString()}₮/ш</p>
-                  <p className="mt-0.5 text-[10px]">Ойролцоо тооцоо</p>
+                  <p>Нэгж: {displayUnitPrice.toLocaleString()}₮/ш</p>
+                  <p className={`mt-0.5 text-[10px] ${estimateSource === 'server' ? 'text-green-600' : 'text-amber-600'}`}>
+                    {estimateSource === 'server' ? 'Backend баталгаатай' : serverPricingLoading ? 'Backend шалгаж байна' : 'Ойролцоо тооцоо'}
+                  </p>
                 </div>
               </div>
             </div>
           )}
 
-          <button onClick={() => setStep(2)} disabled={!step1Valid}
-            className="w-full py-3.5 bg-orange-500 hover:bg-orange-600 text-white font-semibold rounded-xl disabled:opacity-50 transition-colors">
+          <button onClick={handleStep1Next} aria-disabled={!step1Valid}
+            className={`w-full py-3.5 text-white font-semibold rounded-xl transition-colors ${
+              step1Valid ? 'bg-orange-500 hover:bg-orange-600' : 'bg-orange-400 hover:bg-orange-500'
+            }`}>
             Дараах →
           </button>
         </div>
@@ -725,8 +1144,11 @@ function NewOrderPage() {
                 <div className="flex justify-between items-end">
                   <span className="text-sm text-gray-500">Тооцоолсон үнэ</span>
                   <div className="text-right">
-                    <p className="text-xl font-bold text-orange-500">{estimate.total.toLocaleString()}₮</p>
-                    <p className="text-xs text-gray-400">Нэгж: {estimate.unitPrice.toLocaleString()}₮/ш</p>
+                    <p className="text-xl font-bold text-orange-500">{displayTotal.toLocaleString()}₮</p>
+                    <p className="text-xs text-gray-400">Нэгж: {displayUnitPrice.toLocaleString()}₮/ш</p>
+                    <p className={`mt-1 text-xs ${estimateSource === 'server' ? 'text-green-600' : 'text-amber-600'}`}>
+                      {estimateSource === 'server' ? 'Backend баталгаатай' : 'Ойролцоо тооцоо'}
+                    </p>
                   </div>
                 </div>
               </div>
@@ -736,6 +1158,39 @@ function NewOrderPage() {
           <p className="text-xs text-gray-400 text-center">
             Захиалга илгээсний дараа бид 30 минутын дотор холбогдоно
           </p>
+
+          {submitError && (
+            <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700 dark:border-red-900/60 dark:bg-red-950/30 dark:text-red-300">
+              <p className="font-semibold mb-1">Захиалга илгээж чадсангүй</p>
+              <p className="leading-6">{submitError}</p>
+              {submitRequestId && (
+                <div className="mt-3 flex flex-col gap-2 rounded-xl border border-red-200 bg-white/70 px-3 py-2 text-xs text-red-700 dark:border-red-900/60 dark:bg-gray-950/40 dark:text-red-300 sm:flex-row sm:items-center sm:justify-between">
+                  <span>
+                    Support ID: <span className="font-mono">{submitRequestId}</span>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      await navigator.clipboard.writeText(submitRequestId).catch(() => {})
+                      setSubmitRequestIdCopied(true)
+                      window.setTimeout(() => setSubmitRequestIdCopied(false), 1600)
+                    }}
+                    className="w-fit rounded-lg border border-red-200 px-2 py-1 text-xs font-semibold text-red-700 hover:bg-red-50 dark:border-red-800 dark:text-red-300 dark:hover:bg-red-950/40"
+                  >
+                    {submitRequestIdCopied ? 'Хуулагдлаа' : 'Хуулах'}
+                  </button>
+                </div>
+              )}
+              <div className="mt-3 flex flex-wrap gap-2">
+                <a href="tel:72000444" className="rounded-lg bg-red-600 px-3 py-2 text-xs font-semibold text-white no-underline">
+                  72000444 руу залгах
+                </a>
+                <a href={quoteRetryHref} className="rounded-lg border border-red-200 px-3 py-2 text-xs font-semibold text-red-700 no-underline dark:border-red-800 dark:text-red-300">
+                  Үнийн санал дахин авах
+                </a>
+              </div>
+            </div>
+          )}
 
           <div className="flex gap-3">
             <button onClick={() => setStep(3)}

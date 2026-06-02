@@ -85,9 +85,6 @@ export class PricingConfigService implements OnModuleInit {
   }
 
   async seedDefaults(): Promise<void> {
-    const count = await this.repo.count();
-    if (count > 0) return;
-
     const defaults = [
       // Товгор үсэг
       { key: 'tovgor_20cm', value: 35000, label: 'Товгор 20см', category: 'hadag' },
@@ -151,6 +148,22 @@ export class PricingConfigService implements OnModuleInit {
       { key: 'orgon_sticker', value: 12000, label: 'Стикер м²', category: 'khevlel' },
       { key: 'orgon_flag', value: 18000, label: 'Туг м²', category: 'khevlel' },
       { key: 'orgon_fabric', value: 22000, label: 'Даавуу м²', category: 'khevlel' },
+      { key: 'wide_material_vinyl_440', value: 8500, label: 'Wide Vinyl 440gsm material m2', category: 'wide' },
+      { key: 'wide_material_mesh_banner', value: 11500, label: 'Wide Mesh banner material m2', category: 'wide' },
+      { key: 'wide_material_backlit', value: 18000, label: 'Wide Backlit material m2', category: 'wide' },
+      { key: 'wide_material_sticker_vinyl', value: 12000, label: 'Wide Sticker vinyl material m2', category: 'wide' },
+      { key: 'wide_print_banner', value: 6500, label: 'Wide banner print m2', category: 'wide' },
+      { key: 'wide_print_sticker', value: 7500, label: 'Wide sticker print m2', category: 'wide' },
+      { key: 'wide_setup_banner', value: 5000, label: 'Wide banner setup', category: 'wide' },
+      { key: 'wide_setup_sticker', value: 5000, label: 'Wide sticker setup', category: 'wide' },
+      { key: 'wide_waste_vinyl_440', value: 0.10, label: 'Wide Vinyl 440gsm waste', category: 'wide' },
+      { key: 'wide_waste_mesh_banner', value: 0.12, label: 'Wide Mesh banner waste', category: 'wide' },
+      { key: 'wide_waste_backlit', value: 0.12, label: 'Wide Backlit waste', category: 'wide' },
+      { key: 'wide_waste_sticker_vinyl', value: 0.15, label: 'Wide Sticker vinyl waste', category: 'wide' },
+      { key: 'wide_finish_grommet_m', value: 1800, label: 'Wide grommet/oosor per meter', category: 'wide' },
+      { key: 'wide_finish_weld_m', value: 1200, label: 'Wide edge weld per meter', category: 'wide' },
+      { key: 'wide_finish_laminate_m2', value: 4500, label: 'Wide lamination m2', category: 'wide' },
+      { key: 'wide_finish_default_m2', value: 3000, label: 'Wide default finishing m2', category: 'wide' },
       // Промо
       { key: 'promo_pen', value: 2500, label: 'Үзэг', category: 'khevlel' },
       { key: 'promo_notebook', value: 8000, label: 'Дэвтэр', category: 'khevlel' },
@@ -196,6 +209,13 @@ export class PricingConfigService implements OnModuleInit {
       { key: 'offset_size_BC', value: 0.1, label: 'Нэрийн хуудас коэф', category: 'offset' },
     ];
 
-    await this.repo.save(defaults.map((d) => this.repo.create(d)));
+    const existing = await this.repo.find({ select: ['key'] });
+    const existingKeys = new Set(existing.map((item) => item.key));
+    const missing = defaults.filter((item) => !existingKeys.has(item.key));
+    if (missing.length === 0) return;
+
+    await this.repo.save(missing.map((d) => this.repo.create(d)));
+    this.cache.clear();
+    this.cacheTime = 0;
   }
 }

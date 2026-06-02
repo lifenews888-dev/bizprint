@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, Index } from 'typeorm';
 
 export enum CommissionStatus {
   PENDING = 'pending',
@@ -7,6 +7,8 @@ export enum CommissionStatus {
   CANCELLED = 'cancelled',
 }
 
+@Index('UQ_commission_order_vendor', ['order_id', 'vendor_id'], { unique: true, where: 'order_id IS NOT NULL AND vendor_id IS NOT NULL' })
+@Index('UQ_commission_inquiry_vendor', ['inquiry_id', 'vendor_id'], { unique: true, where: 'inquiry_id IS NOT NULL AND vendor_id IS NOT NULL' })
 @Entity('commission_logs')
 export class CommissionLog {
   @PrimaryGeneratedColumn('uuid')

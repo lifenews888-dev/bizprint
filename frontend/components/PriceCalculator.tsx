@@ -5,6 +5,34 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { Calculator, Ruler, Package } from 'lucide-react'
 
 const fmt = (n: number) => '₮' + n.toLocaleString('mn-MN')
+const VAT_RATE = 0.1
+
+function withIncludedVat<T extends Record<string, any>>(result: T, total: number, qty: number) {
+  const subtotalExclVat = Math.round(total / (1 + VAT_RATE))
+  const vat = total - subtotalExclVat
+  return {
+    ...result,
+    total,
+    total_price: total,
+    subtotal_excl_vat: subtotalExclVat,
+    vat,
+    vat_rate: VAT_RATE,
+    vat_included: true,
+    unit_price_excl_vat: Math.round(subtotalExclVat / Math.max(1, qty)),
+  }
+}
+
+function getVatSummary(result: any, totalFallback: number, qty: number) {
+  const total = Math.round(Number(result?.total_price ?? result?.total ?? totalFallback ?? 0))
+  const subtotalExclVat = Math.round(Number(result?.subtotal_excl_vat ?? (total / (1 + VAT_RATE))))
+  const vat = Math.round(Number(result?.vat ?? (total - subtotalExclVat)))
+  return {
+    total,
+    subtotalExclVat,
+    vat,
+    unitExclVat: Math.round(subtotalExclVat / Math.max(1, qty)),
+  }
+}
 
 interface Props {
   product: any
@@ -62,7 +90,7 @@ export default function PriceCalculator({ product, onPriceChange }: Props) {
     // Fixed price — no API needed (only if no dimensions required)
     if (!isArea && !isTier && !needsDimensions) {
       const total = Math.round(basePrice * qty * sidesMultiplier)
-      const r = { total, unit_price: Math.round(total / qty), formula_used: 'fixed', notes: [sidesNote], volume_discount: 0, quantity: qty, is_estimate: false }
+      const r = withIncludedVat({ unit_price: Math.round(total / qty), formula_used: 'fixed', notes: [sidesNote], volume_discount: 0, quantity: qty, is_estimate: false, sides: effectiveSides }, total, qty)
       setResult(r)
       onPriceChange?.(total, r)
       return
@@ -81,12 +109,26 @@ export default function PriceCalculator({ product, onPriceChange }: Props) {
         method: 'POST', auth: false,
         body: { quantity: qty, width_mm: width, height_mm: height, options, sides } as any,
       })
-      const apiTotal = Number(res?.total) || 0
+      const apiTotal = Number(res?.total_price ?? res?.total) || 0
       const apiUnit = Number(res?.unit_price) || 0
+      const adjustedTotal = Math.round(apiTotal * sidesMultiplier)
+      const adjustedSubtotalExclVat = Math.round(Number(res?.subtotal_excl_vat ?? Math.round(apiTotal / (1 + VAT_RATE))) * sidesMultiplier)
       const adjusted = {
         ...res,
-        total: Math.round(apiTotal * sidesMultiplier),
+        total: adjustedTotal,
+        total_price: adjustedTotal,
+        subtotal_excl_vat: adjustedSubtotalExclVat,
+        vat: adjustedTotal - adjustedSubtotalExclVat,
+        vat_rate: Number(res?.vat_rate ?? VAT_RATE),
+        vat_included: res?.vat_included ?? true,
         unit_price: Math.round(apiUnit * sidesMultiplier),
+        unit_price_excl_vat: Math.round(adjustedSubtotalExclVat / qty),
+        width_mm: width,
+        height_mm: height,
+        width_m: widthM,
+        height_m: heightM,
+        sides,
+        options,
         notes: [...(res?.notes || []), sidesNote],
       }
       setResult(adjusted)
@@ -98,7 +140,7 @@ export default function PriceCalculator({ product, onPriceChange }: Props) {
       const fallbackTotal = (isArea || needsDimensions)
         ? Math.round(pricePerM2 * effectiveArea * qty * sidesMultiplier)
         : Math.round(basePrice * qty * sidesMultiplier)
-      const r = { total: fallbackTotal, unit_price: Math.round(fallbackTotal / qty), formula_used: 'fallback', notes: [sidesNote, '⚠ Серверийн алдаа — суурь үнээр тооцоолсон'], volume_discount: 0, quantity: qty, is_estimate: true }
+      const r = withIncludedVat({ unit_price: Math.round(fallbackTotal / qty), formula_used: 'fallback', notes: [sidesNote, '⚠ Серверийн алдаа — суурь үнээр тооцоолсон'], volume_discount: 0, quantity: qty, is_estimate: true, width_mm: width, height_mm: height, width_m: widthM, height_m: heightM, sides, options }, fallbackTotal, qty)
       setResult(r)
       onPriceChange?.(fallbackTotal, r)
     } finally {
@@ -233,12 +275,16 @@ export default function PriceCalculator({ product, onPriceChange }: Props) {
                   {result.volume_discount > 0 && <div className="flex justify-between text-emerald-600"><span>Хөнгөлөлт</span><span>-{fmt(result.volume_discount)}</span></div>}
                 </div>
               )}
+              <div className="space-y-1 mb-2 text-[11px]">
+                <div className="flex justify-between"><span className="text-[var(--text3)]">НӨАТгүй дүн</span><span>{fmt(getVatSummary(result, result.total, qty).subtotalExclVat)}</span></div>
+                <div className="flex justify-between"><span className="text-[var(--text3)]">НӨАТ (10%)</span><span>{fmt(getVatSummary(result, result.total, qty).vat)}</span></div>
+              </div>
               <div className="flex items-baseline justify-between pt-2 border-t border-[var(--border)]">
-                <span className="text-sm font-bold">Нийт</span>
+                <span className="text-sm font-bold">Нийт <span className="text-[10px] font-medium text-[var(--text3)]">(НӨАТ орсон)</span></span>
                 <motion.span key={result.total} initial={{ scale: 1.1, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
                   className="text-2xl font-extrabold text-[#FF6B00]">{fmt(result.total)}</motion.span>
               </div>
-              {result.unit_price > 0 && qty > 1 && <div className="text-[10px] text-[var(--text3)] text-right">Нэгж: {fmt(result.unit_price)} × {qty}ш</div>}
+              {result.unit_price > 0 && qty > 1 && <div className="text-[10px] text-[var(--text3)] text-right">Нэгж: {fmt(result.unit_price)} × {qty}ш · НӨАТгүй {fmt(getVatSummary(result, result.total, qty).unitExclVat)}</div>}
               {sidesEnabled && sides === 'double' && (
                 <div className="text-[9px] text-amber-500 mt-0.5">▣ Хоёр талын хэвлэл тооцоологдсон</div>
               )}
@@ -260,6 +306,7 @@ export default function PriceCalculator({ product, onPriceChange }: Props) {
   const price = Number(p.sale_price || p.base_price || 0)
   const sidesMult = sidesEnabled && sides === 'double' ? doubleSideMultiplier : 1
   const displayTotal = result?.total ?? Math.round(price * qty * sidesMult)
+  const displayVat = getVatSummary(result, displayTotal, qty)
   return (
     <div className="rounded-xl border border-[var(--border)] bg-[var(--surface2)]/50 p-4">
       <div className="flex items-center gap-2 mb-3">
@@ -305,6 +352,12 @@ export default function PriceCalculator({ product, onPriceChange }: Props) {
         <span className="text-xs text-[var(--text3)]">=</span>
         <motion.span key={displayTotal} initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }}
           className="text-lg font-extrabold text-[#FF6B00]">{fmt(displayTotal)}</motion.span>
+      </div>
+      <div className="mt-3 rounded-lg bg-[var(--surface)] border border-[var(--border)]/70 px-3 py-2 text-[11px] space-y-1">
+        <div className="flex justify-between"><span className="text-[var(--text3)]">НӨАТгүй дүн</span><span>{fmt(displayVat.subtotalExclVat)}</span></div>
+        <div className="flex justify-between"><span className="text-[var(--text3)]">НӨАТ (10%)</span><span>{fmt(displayVat.vat)}</span></div>
+        <div className="flex justify-between pt-1 border-t border-[var(--border)] font-bold"><span>Нийт (НӨАТ орсон)</span><span className="text-[#FF6B00]">{fmt(displayVat.total)}</span></div>
+        {qty > 1 && <div className="text-[10px] text-[var(--text3)] text-right">НӨАТгүй нэгж: {fmt(displayVat.unitExclVat)}</div>}
       </div>
       {sidesEnabled && sides === 'double' && (
         <div className="text-[9px] text-amber-500 mt-1">▣ Хоёр талын хэвлэл тооцоологдсон</div>
