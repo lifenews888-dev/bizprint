@@ -71,6 +71,10 @@ const SERVICE_CONTENT_TYPES: Record<string, { key: string; label: string; icon: 
 
 // Flatten for backward compat
 const CONTENT_TYPES = Object.values(SERVICE_CONTENT_TYPES).flat()
+type ServiceType = keyof typeof SERVICE_CONTENT_TYPES
+
+const toServiceType = (value?: string): ServiceType =>
+  value === 'prepress' || value === 'live' || value === 'ai' ? value : 'social'
 
 const STATUS_MAP: Record<string, { label: string; color: string }> = {
   draft: { label: 'Ноорог', color: '#6B7280' },
@@ -86,6 +90,59 @@ const STATUS_MAP: Record<string, { label: string; color: string }> = {
 
 const STEPS = ['Нээлттэй', 'Creator олдсон', 'Хийгдэж буй', 'Илгээсэн', 'Батлагдсан', 'Дууссан']
 const STEP_KEYS = ['open', 'assigned', 'in_progress', 'submitted', 'approved', 'completed']
+
+interface CreatorRequest {
+  id: string
+  title: string
+  description?: string
+  status: string
+  content_type?: string
+  package?: string
+  quantity?: number
+  creator_name?: string
+  created_at: string
+  budget?: number | string
+  deliverable_urls?: string[]
+}
+
+interface CreatorPackage {
+  id: string
+  name: string
+  service_type?: ServiceType | 'ugc'
+  duration_months?: number
+  is_popular?: boolean
+  price?: number | string
+  discount_price?: number | string
+  discount_label?: string
+  description?: string
+  content_count?: number | string
+  features?: string[]
+  brand_boost?: string
+  has_brand_boost?: boolean
+  brand_boost_description?: string
+}
+
+interface TopCreator {
+  user_id: string
+  full_name?: string
+  rating?: number
+  rating_count?: number
+  capabilities?: string[]
+}
+
+interface UploadResponse {
+  url?: string
+}
+
+interface CreateRequestResponse {
+  id?: string
+}
+
+interface PaymentInfo {
+  qr_image?: string
+  invoice_no?: string
+  amount?: number | string
+}
 
 function StepIndicator({ status }: { status: string }) {
   const idx = STEP_KEYS.indexOf(status)
@@ -112,16 +169,16 @@ function StepIndicator({ status }: { status: string }) {
 
 export default function CustomerUgcPage() {
   const router = useRouter()
-  const [requests, setRequests] = useState<any[]>([])
+  const [requests, setRequests] = useState<CreatorRequest[]>([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [tab, setTab] = useState<'all' | 'active' | 'done'>('all')
   const [pageView, setPageView] = useState<'marketplace' | 'orders'>('marketplace')
-  const [topCreators, setTopCreators] = useState<any[]>([])
+  const [topCreators, setTopCreators] = useState<TopCreator[]>([])
 
   /* Form state */
-  const [serviceType, setServiceType] = useState<'social' | 'prepress' | 'live' | 'ai'>('social')
+  const [serviceType, setServiceType] = useState<ServiceType>('social')
   const [mode, setMode] = useState<'piece' | 'package'>('piece')
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
@@ -133,7 +190,7 @@ export default function CustomerUgcPage() {
   const [step, setStep] = useState(1)
 
   /* DB packages */
-  const [dbPackages, setDbPackages] = useState<any[]>([])
+  const [dbPackages, setDbPackages] = useState<CreatorPackage[]>([])
   const [pkgDurationTab, setPkgDurationTab] = useState<1 | 3>(1)
 
   /* File upload */
@@ -146,7 +203,7 @@ export default function CustomerUgcPage() {
   const [revisionModal, setRevisionModal] = useState<{ id: string; notes: string } | null>(null)
 
   const load = () => {
-    apiFetch<any[]>('/creator/my-requests')
+    apiFetch<CreatorRequest[]>('/creator/my-requests')
       .then(d => setRequests(Array.isArray(d) ? d : []))
       .catch(() => setRequests([]))
       .finally(() => setLoading(false))
@@ -161,18 +218,18 @@ export default function CustomerUgcPage() {
 
   /* Load packages + top creators from DB */
   useEffect(() => {
-    apiFetch<any[]>('/creator/packages', { auth: false })
+    apiFetch<CreatorPackage[]>('/creator/packages', { auth: false })
       .then(d => {
         const arr = Array.isArray(d) ? d : []
         setDbPackages(arr)
         if (arr.length > 0 && !selectedPkgId) {
-          const popular = arr.find((p: any) => p.is_popular)
+          const popular = arr.find((p) => p.is_popular)
           if (popular) setSelectedPkgId(popular.id)
           else setSelectedPkgId(arr[0].id)
         }
       })
       .catch(() => {})
-    apiFetch<any[]>('/creator/top-creators?limit=6', { auth: false })
+    apiFetch<TopCreator[]>('/creator/top-creators?limit=6', { auth: false })
       .then(d => setTopCreators(Array.isArray(d) ? d : []))
       .catch(() => {})
   }, [])
@@ -205,7 +262,7 @@ export default function CustomerUgcPage() {
       const form = new FormData()
       form.append('file', file)
       try {
-        const res = await apiUpload<any>('/upload', form)
+        const res = await apiUpload<UploadResponse>('/upload', form)
         if (res?.url) urls.push(res.url)
       } catch { /* ignore */ }
     }
@@ -216,14 +273,14 @@ export default function CustomerUgcPage() {
 
   const [createdRequestId, setCreatedRequestId] = useState<string>('')
   const [paymentMethod, setPaymentMethod] = useState<string>('qpay')
-  const [paymentInfo, setPaymentInfo] = useState<any>(null)
+  const [paymentInfo, setPaymentInfo] = useState<PaymentInfo | null>(null)
   const [payProcessing, setPayProcessing] = useState(false)
 
   const handleSubmit = async () => {
     if (!title.trim() || !description.trim()) return alert('Гарчиг, тайлбар бичнэ үү')
     setSubmitting(true)
     try {
-      const result = await apiFetch<any>('/creator/requests', {
+      const result = await apiFetch<CreateRequestResponse>('/creator/requests', {
         method: 'POST',
         body: JSON.stringify({
           title,
@@ -240,8 +297,9 @@ export default function CustomerUgcPage() {
       })
       setCreatedRequestId(result?.id || '')
       setStep(4) // Go to payment step
-    } catch (e: any) {
-      alert(e.message || 'Алдаа гарлаа')
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : ''
+      alert(message || 'Алдаа гарлаа')
     }
     setSubmitting(false)
   }
@@ -254,7 +312,10 @@ export default function CustomerUgcPage() {
       })
       setApproveModal(null)
       load()
-    } catch (e: any) { alert(e.message || 'Алдаа') }
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : ''
+      alert(message || 'Алдаа')
+    }
   }
 
   const requestRevision = async (id: string, notes: string) => {
@@ -266,7 +327,10 @@ export default function CustomerUgcPage() {
       })
       setRevisionModal(null)
       load()
-    } catch (e: any) { alert(e.message || 'Алдаа') }
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : ''
+      alert(message || 'Алдаа')
+    }
   }
 
   const activeStatuses = ['open', 'assigned', 'in_progress', 'submitted', 'revision']
@@ -411,7 +475,7 @@ export default function CustomerUgcPage() {
                 })}
                 {/* UGC packages (legacy) */}
                 {dbPackages.filter(p => !p.service_type || p.service_type === 'ugc').length > 0 && (
-                  <button onClick={() => setServiceType('social' as any)}
+                  <button onClick={() => setServiceType('social')}
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-[var(--surface)] text-[var(--text2)] border border-[var(--border)]">
                     🎬 UGC ({dbPackages.filter(p => !p.service_type || p.service_type === 'ugc').length})
                   </button>
@@ -432,7 +496,7 @@ export default function CustomerUgcPage() {
                   const svc = SERVICES.find(s => s.key === pkg.service_type) || SERVICES[0]
                   return (
                     <div key={pkg.id} className={`bg-[var(--surface)] border-2 rounded-2xl overflow-hidden transition-all hover:shadow-lg cursor-pointer ${pkg.is_popular ? 'border-[#3B82F6]' : 'border-[var(--border)]'}`}
-                      onClick={() => { setMode('package'); setServiceType(pkg.service_type as any || 'social'); setSelectedPkgId(pkg.id); setShowForm(true); setStep(2) }}>
+                      onClick={() => { setMode('package'); setServiceType(toServiceType(pkg.service_type)); setSelectedPkgId(pkg.id); setShowForm(true); setStep(2) }}>
                       {pkg.is_popular && <div className="bg-[#3B82F6] text-white text-[10px] font-bold text-center py-1">Эрэлттэй</div>}
                       <div className="p-5">
                         <div className="flex items-center justify-between mb-2">
@@ -652,11 +716,11 @@ export default function CustomerUgcPage() {
                   </div>
                 </div>
                 {/* Deliverable files */}
-                {showDeliverables && r.deliverable_urls?.length > 0 && (
+                {showDeliverables && (r.deliverable_urls?.length ?? 0) > 0 && (
                   <div className="mt-3 pt-3 border-t border-[var(--border)]">
                     <div className="text-[11px] font-bold text-[var(--text2)] mb-2">Хүлээлгэж өгсөн файлууд:</div>
                     <div className="flex gap-2 flex-wrap">
-                      {r.deliverable_urls.map((url: string, i: number) => (
+                      {(r.deliverable_urls ?? []).map((url, i) => (
                         <a key={i} href={url} target="_blank" rel="noreferrer" download
                           className="text-[11px] text-[#3B82F6] bg-[#3B82F6]/10 px-3 py-1.5 rounded-lg hover:bg-[#3B82F6]/20 transition-colors inline-flex items-center gap-1">
                           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
@@ -1156,12 +1220,15 @@ export default function CustomerUgcPage() {
                         if (!createdRequestId) return
                         setPayProcessing(true)
                         try {
-                          const res = await apiFetch<any>(`/creator/requests/${createdRequestId}/pay`, {
+                          const res = await apiFetch<PaymentInfo>(`/creator/requests/${createdRequestId}/pay`, {
                             method: 'POST',
                             body: JSON.stringify({ method: paymentMethod }),
                           })
                           setPaymentInfo(res)
-                        } catch (e: any) { alert(e.message || 'Алдаа') }
+                        } catch (e: unknown) {
+                          const message = e instanceof Error ? e.message : ''
+                          alert(message || 'Алдаа')
+                        }
                         setPayProcessing(false)
                       }} disabled={payProcessing}
                         className="w-full py-3.5 bg-[#FF6B00] text-white rounded-xl text-sm font-bold hover:bg-[#E55D00] disabled:opacity-50">

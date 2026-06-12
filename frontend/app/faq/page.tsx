@@ -2,6 +2,26 @@
 import { useState, useEffect } from 'react'
 import { apiFetch } from '@/lib/api'
 
+interface FaqItem {
+  category: string
+  q: string
+  a: string
+}
+
+interface FaqMetadataItem {
+  category?: string
+  question?: string
+  answer?: string
+}
+
+interface FaqPageResponse {
+  metadata?: {
+    hero_title?: string
+    hero_desc?: string
+    faq_items?: FaqMetadataItem[]
+  }
+}
+
 const CATEGORIES = [
   { key: 'order', label: 'Захиалга', icon: '📦' },
   { key: 'payment', label: 'Төлбөр', icon: '💳' },
@@ -11,7 +31,7 @@ const CATEGORIES = [
   { key: 'other', label: 'Бусад', icon: '❓' },
 ]
 
-const DEFAULT_FAQ: { category: string; q: string; a: string }[] = [
+const DEFAULT_FAQ: FaqItem[] = [
   { category: 'order', q: 'Хэрхэн захиалга өгөх вэ?', a: 'Бүтээгдэхүүн сонгоод, файлаа оруулж, тоо ширхэг зааж захиалга өгнө. AI автоматаар үнэ тооцоолж, хамгийн тохиромжтой үйлдвэрийг сонгоно.' },
   { category: 'order', q: 'Захиалгын хамгийн бага тоо хэд вэ?', a: 'Бүтээгдэхүүнээс хамааран ялгаатай. Нэрийн хуудас 50 ширхэгээс, флаер 100 ширхэгээс, баннер 1 ширхэгээс захиалж болно.' },
   { category: 'order', q: 'Захиалгаа хэрхэн хянах вэ?', a: 'Захиалга өгсний дараа Dashboard → Захиалгууд хэсгээс бодит цагийн статусыг хянах боломжтой.' },
@@ -48,14 +68,16 @@ export default function FaqPage() {
   const [hero, setHero] = useState(DEFAULT_HERO)
 
   useEffect(() => {
-    apiFetch<any>('/pages/faq', { auth: false })
+    apiFetch<FaqPageResponse>('/pages/faq', { auth: false })
       .then(page => {
         if (page?.metadata) {
           const m = page.metadata
-          if (m.hero_title) setHero(h => ({ ...h, hero_title: m.hero_title }))
-          if (m.hero_desc) setHero(h => ({ ...h, hero_desc: m.hero_desc }))
+          const heroTitle = m.hero_title
+          const heroDesc = m.hero_desc
+          if (heroTitle) setHero(h => ({ ...h, hero_title: heroTitle }))
+          if (heroDesc) setHero(h => ({ ...h, hero_desc: heroDesc }))
           if (m.faq_items?.length) {
-            setFaqData(m.faq_items.map((f: any) => ({
+            setFaqData(m.faq_items.map(f => ({
               category: f.category || 'other',
               q: f.question || '',
               a: f.answer || '',

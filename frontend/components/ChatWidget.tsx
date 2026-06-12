@@ -14,16 +14,64 @@ interface Msg {
   createdAt?: string
 }
 
-function getUser() {
+interface ChatUser {
+  id?: string
+  full_name?: string
+  name?: string
+  email?: string
+  role?: string
+}
+
+interface ChatRoom {
+  room_id: string
+  participant_names?: string[]
+  last_message?: string
+  last_message_at?: string
+  unread_count?: number
+}
+
+interface RawChatMessage {
+  room_id?: string
+  sender_id?: string
+  senderId?: string
+  sender_name?: string
+  senderName?: string
+  message?: string
+  content?: string
+  file_url?: string
+  created_at?: string
+  createdAt?: string
+}
+
+interface JoinedPayload {
+  rooms?: ChatRoom[]
+}
+
+interface NotifyPayload {
+  type?: string
+  sender_id?: string
+}
+
+interface UploadResponse {
+  url?: string
+  file_url?: string
+  path?: string
+  filename?: string
+}
+
+function getUser(): ChatUser | null {
   if (typeof window === 'undefined') return null
-  try { return JSON.parse(localStorage.getItem('user') || 'null') } catch { return null }
+  try {
+    const parsed: unknown = JSON.parse(localStorage.getItem('user') || 'null')
+    return parsed && typeof parsed === 'object' ? parsed as ChatUser : null
+  } catch { return null }
 }
 function getToken() {
   if (typeof window === 'undefined') return ''
   return localStorage.getItem('access_token') || localStorage.getItem('token') || ''
 }
 
-function parseMsg(raw: any, myId: string): Msg {
+function parseMsg(raw: RawChatMessage, myId: string): Msg {
   const senderId = raw.sender_id || raw.senderId || ''
   const content = raw.message || raw.content || ''
   let type: Msg['type'] = 'text'
@@ -63,7 +111,7 @@ function formatTime(dateStr?: string) {
 export default function ChatWidget() {
   const [open, setOpen] = useState(false)
   const [unread, setUnread] = useState(0)
-  const [rooms, setRooms] = useState<any[]>([])
+  const [rooms, setRooms] = useState<ChatRoom[]>([])
   const [activeRoom, setActiveRoom] = useState<string | null>(null)
   const [messages, setMessages] = useState<Msg[]>([])
   const [input, setInput] = useState('')
@@ -85,11 +133,14 @@ export default function ChatWidget() {
     const u = getUser()
     userRef.current = u
     if (!u?.id) return
+    const currentUserId = u.id
+    const currentUserName = u.full_name || u.name || u.email || ''
+    const currentUserRole = u.role || 'customer'
 
     const s = io(`${API_URL}/chat`, {
       transports: ['websocket', 'polling'],
       auth: { token: getToken() },
-      query: { userId: u.id, userName: u.full_name || u.name || u.email, role: u.role || 'customer' },
+      query: { userId: currentUserId, userName: currentUserName, role: currentUserRole },
       reconnection: true,
       reconnectionDelay: 2000,
     })
@@ -97,7 +148,7 @@ export default function ChatWidget() {
 
     s.on('connect', () => {
       setConnected(true)
-      s.emit('join', { userId: u.id, userName: u.full_name || u.name || u.email, role: u.role })
+      s.emit('join', { userId: currentUserId, userName: currentUserName, role: currentUserRole })
     })
     s.on('disconnect', () => setConnected(false))
     s.on('connect_error', (err) => {
@@ -106,21 +157,22 @@ export default function ChatWidget() {
     })
 
     // Room list
-    s.on('room_list', (data: any[]) => { if (Array.isArray(data)) setRooms(data) })
-    s.on('joined', (data: any) => { if (data?.rooms) setRooms(data.rooms) })
+    s.on('room_list', (data: ChatRoom[]) => { if (Array.isArray(data)) setRooms(data) })
+    s.on('joined', (data: JoinedPayload) => { if (data?.rooms) setRooms(data.rooms) })
 
     // Fetch rooms via REST too
-    apiFetch<any[]>(`/chat/rooms/user/${u.id}`).then(d => {
+    apiFetch<ChatRoom[]>(`/chat/rooms/user/${currentUserId}`).then(d => {
       if (Array.isArray(d) && d.length) setRooms(d)
     }).catch(() => {})
 
-    s.on('room_created', (room: any) => {
+    s.on('room_created', (room: ChatRoom) => {
       setRooms(prev => prev.some(r => r.room_id === room.room_id) ? prev : [room, ...prev])
     })
 
     // Incoming message (listen to BOTH event names)
-    const handleIncoming = (raw: any) => {
+    const handleIncoming = (raw: RawChatMessage) => {
       const roomId = raw.room_id
+      if (!roomId) return
       const senderId = raw.sender_id || raw.senderId
       const senderName = raw.sender_name || raw.senderName || ''
       const content = raw.message || raw.content || ''
@@ -133,13 +185,13 @@ export default function ChatWidget() {
       ))
 
       // If viewing this room, add message directly
-      if (activeRoomRef.current === roomId && senderId !== u.id) {
-        const msg = parseMsg(raw, u.id)
+      if (activeRoomRef.current === roomId && senderId !== currentUserId) {
+        const msg = parseMsg(raw, currentUserId)
         setMessages(prev => [...prev, msg])
       }
 
       // Unread + notification if from someone else
-      if (senderId !== u.id) {
+      if (senderId !== currentUserId) {
         setUnread(prev => prev + 1)
         // Browser notification
         if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
@@ -157,8 +209,8 @@ export default function ChatWidget() {
     s.on('new_message', handleIncoming)
 
     // Admin notifications
-    s.on('notify', (data: any) => {
-      if (data?.type === 'chat' && data.sender_id !== u.id) {
+    s.on('notify', (data: NotifyPayload) => {
+      if (data?.type === 'chat' && data.sender_id !== currentUserId) {
         setUnread(prev => prev + 1)
       }
     })
@@ -183,7 +235,7 @@ export default function ChatWidget() {
     setView('chat')
     setMessages([])
 
-    apiFetch<any[]>(`/chat/messages/${roomId}?limit=50`).then(d => {
+    apiFetch<RawChatMessage[]>(`/chat/messages/${roomId}?limit=50`).then(d => {
       if (Array.isArray(d)) setMessages(d.map(m => parseMsg(m, u?.id || '')))
     }).catch(() => {})
 
@@ -214,8 +266,8 @@ export default function ChatWidget() {
     setUploading(true)
     try {
       const fd = new FormData(); fd.append('file', file)
-      const data = await apiUpload<any>('/upload/file', fd)
-      const url = data.url || `${API_URL}/uploads/${data.filename}`
+      const data = await apiUpload<UploadResponse>('/upload/file', fd)
+      const url = data.url || data.file_url || data.path || `${API_URL}/uploads/${data.filename}`
       const isImage = file.type.startsWith('image/')
       const msgText = isImage ? `[IMAGE]${url}` : `[FILE]${file.name}|${url}`
 
@@ -237,7 +289,7 @@ export default function ChatWidget() {
 
   const toggle = () => { setOpen(!open); if (!open) setUnread(0) }
 
-  const otherName = (room: any) => {
+  const otherName = (room?: ChatRoom) => {
     const u = userRef.current
     const myName = u?.full_name || u?.name || u?.email
     return room?.participant_names?.find((n: string) => n !== myName) || room?.participant_names?.[0] || 'Чат'

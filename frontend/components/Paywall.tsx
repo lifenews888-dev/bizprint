@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 
 const FONT = "'DM Sans','Segoe UI',system-ui,sans-serif"
@@ -11,6 +12,54 @@ interface Props {
   title?: string
   description?: string
   icon?: string
+}
+
+interface SubscriptionPlan {
+  id: string
+  tier: string
+  name: string
+  price_monthly: number | string
+  is_popular?: boolean
+  [key: string]: unknown
+}
+
+interface CurrentSubscription {
+  plan?: SubscriptionPlan | null
+}
+
+const asRecord = (value: unknown): Record<string, unknown> =>
+  value !== null && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {}
+
+const stringValue = (value: unknown, fallback = ''): string => {
+  if (typeof value === 'string') return value
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value)
+  return fallback
+}
+
+const normalizePlan = (value: unknown): SubscriptionPlan | null => {
+  const plan = asRecord(value)
+  const id = stringValue(plan.id)
+  const tier = stringValue(plan.tier)
+  const name = stringValue(plan.name)
+  if (!id || !tier || !name) return null
+
+  return {
+    ...plan,
+    id,
+    tier,
+    name,
+    price_monthly: typeof plan.price_monthly === 'number' || typeof plan.price_monthly === 'string' ? plan.price_monthly : 0,
+    is_popular: plan.is_popular === true,
+  }
+}
+
+const normalizePlans = (value: unknown): SubscriptionPlan[] =>
+  Array.isArray(value) ? value.map(normalizePlan).filter((plan): plan is SubscriptionPlan => !!plan) : []
+
+const normalizeCurrent = (value: unknown): CurrentSubscription | null => {
+  const current = asRecord(value)
+  if (Object.keys(current).length === 0) return null
+  return { plan: normalizePlan(current.plan) }
 }
 
 const FEATURE_INFO: Record<string, { title: string; description: string; icon: string }> = {
@@ -43,22 +92,22 @@ const FEATURE_INFO: Record<string, { title: string; description: string; icon: s
 
 export default function Paywall({ feature, title, description, icon }: Props) {
   const router = useRouter()
-  const [plans, setPlans] = useState<any[]>([])
-  const [current, setCurrent] = useState<any>(null)
+  const [plans, setPlans] = useState<SubscriptionPlan[]>([])
+  const [current, setCurrent] = useState<CurrentSubscription | null>(null)
   const [loading, setLoading] = useState(true)
 
   const info = FEATURE_INFO[feature] || { title: title || 'Функц', description: description || '', icon: icon || '🔒' }
 
   useEffect(() => {
     const token = localStorage.getItem('access_token') || localStorage.getItem('token')
-    const headers: any = token ? { Authorization: `Bearer ${token}` } : {}
+    const headers: HeadersInit = token ? { Authorization: `Bearer ${token}` } : {}
     const sf = (p: string) => fetch(`${API}${p}`, { headers }).then(r => r.ok ? r.json() : null).catch(() => null)
     Promise.all([
       sf('/subscription/plans'),
       token ? sf('/subscription/my') : Promise.resolve(null),
     ]).then(([p, c]) => {
-      setPlans(Array.isArray(p) ? p : [])
-      setCurrent(c)
+      setPlans(normalizePlans(p))
+      setCurrent(normalizeCurrent(c))
     }).finally(() => setLoading(false))
   }, [])
 
@@ -80,7 +129,7 @@ export default function Paywall({ feature, title, description, icon }: Props) {
   const upgradePlans = plans.filter(p => {
     const idx = tierOrder.indexOf(p.tier)
     if (idx <= currentIdx) return false
-    if (limitKey) return (p as any)[limitKey] > 0
+    if (limitKey) return Number(p[limitKey]) > 0
     return true
   })
 
@@ -102,7 +151,7 @@ export default function Paywall({ feature, title, description, icon }: Props) {
         <span style={{ fontSize: 14, fontWeight: 700, color: O }}>{current?.plan?.name || 'Үнэгүй'}</span>
         {limitKey && (
           <span style={{ fontSize: 12, color: '#9CA3AF' }}>
-            ({(current?.plan as any)?.[limitKey] || 0} хязгаар)
+            ({Number(current?.plan?.[limitKey] || 0)} хязгаар)
           </span>
         )}
       </div>
@@ -110,7 +159,7 @@ export default function Paywall({ feature, title, description, icon }: Props) {
       {/* Upgrade options */}
       {upgradePlans.length > 0 ? (
         <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.min(upgradePlans.length, 3)}, 1fr)`, gap: 16, marginBottom: 24 }}>
-          {upgradePlans.map((plan: any) => (
+          {upgradePlans.map((plan) => (
             <div key={plan.id} style={{
               background: '#fff', borderRadius: 16, padding: 24,
               border: plan.is_popular ? `2px solid ${O}` : '1px solid #E5E7EB',
@@ -128,7 +177,7 @@ export default function Paywall({ feature, title, description, icon }: Props) {
               {/* What they get */}
               {limitKey && (
                 <div style={{ fontSize: 13, color: '#059669', fontWeight: 600, marginBottom: 12 }}>
-                  {(plan as any)[limitKey]} {info.title}
+                  {Number(plan[limitKey])} {info.title}
                 </div>
               )}
 
@@ -152,7 +201,7 @@ export default function Paywall({ feature, title, description, icon }: Props) {
       )}
 
       <div style={{ fontSize: 12, color: '#9CA3AF' }}>
-        Бүх багцуудыг <a href="/dashboard/customer/subscription" style={{ color: O, textDecoration: 'underline' }}>эндээс</a> харна уу
+        Бүх багцуудыг <Link href="/dashboard/customer/subscription" style={{ color: O, textDecoration: 'underline' }}>эндээс</Link> харна уу
       </div>
     </div>
   )

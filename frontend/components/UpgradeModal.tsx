@@ -19,8 +19,23 @@ interface Props {
   featureKey?: string
   current?: number
   max?: number
-  suggestedPlan?: any
-  addons?: any[]
+  suggestedPlan?: SuggestedPlan
+  addons?: SubscriptionAddon[]
+}
+
+interface SuggestedPlan {
+  id: string
+  name: string
+  price_monthly: number | string
+  [key: string]: number | string | undefined
+}
+
+interface SubscriptionAddon {
+  id: string
+  name: string
+  feature_key: string
+  bonus_amount: number | string
+  price: number | string
 }
 
 export default function UpgradeModal({ isOpen, onClose, featureKey, current, max, suggestedPlan, addons }: Props) {
@@ -181,7 +196,7 @@ export default function UpgradeModal({ isOpen, onClose, featureKey, current, max
 
         {tab === 'addon' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            {relevantAddons.map((addon: any) => (
+            {relevantAddons.map((addon) => (
               <div key={addon.id} style={{
                 border: '1px solid var(--border, #E5E7EB)', borderRadius: 14, padding: '18px 20px',
                 display: 'flex', justifyContent: 'space-between', alignItems: 'center',

@@ -16,7 +16,31 @@ interface GalleryImage {
   sort_order: number
   is_active: boolean
   created_at: string
+  category?: string
+  description?: string
+  is_featured?: boolean
 }
+
+interface UploadedImage {
+  url?: string
+  publicId?: string
+  width?: number
+  height?: number
+}
+
+interface UploadImagesResponse {
+  images?: UploadedImage[]
+  urls?: string[]
+}
+
+interface GalleryCategory {
+  parent_id?: string | null
+  is_active?: boolean
+  name_mn?: string
+  name?: string
+}
+
+const errorMessage = (err: unknown, fallback: string) => err instanceof Error ? err.message : fallback
 
 export default function AdminGalleryPage() {
   const [images, setImages] = useState<GalleryImage[]>([])
@@ -59,10 +83,10 @@ export default function AdminGalleryPage() {
         const txt = await res.text().catch(() => '')
         throw new Error(`Upload failed (${res.status}): ${txt || res.statusText}`)
       }
-      const data = await res.json()
+      const data = await res.json() as UploadImagesResponse
       // New shape: data.images = [{ url, publicId, width, height }]
       // Fallback to old shape: data.urls = [string]
-      const uploaded: any[] = Array.isArray(data?.images)
+      const uploaded: UploadedImage[] = Array.isArray(data?.images)
         ? data.images
         : (data?.urls || []).map((url: string) => ({ url, publicId: '', width: 0, height: 0 }))
       for (let i = 0; i < uploaded.length; i++) {
@@ -87,9 +111,9 @@ export default function AdminGalleryPage() {
         }
       }
       await load()
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error('Upload error:', e)
-      setUploadError(e?.message || 'Зураг оруулахад алдаа гарлаа')
+      setUploadError(errorMessage(e, 'Зураг оруулахад алдаа гарлаа'))
     } finally {
       setUploading(false)
     }
@@ -118,23 +142,23 @@ export default function AdminGalleryPage() {
   const [galleryCats, setGalleryCats] = useState<string[]>([])
 
   useEffect(() => {
-    apiFetch<any>('/categories', { auth: false })
+    apiFetch<GalleryCategory[]>('/categories', { auth: false })
       .then(cats => {
         if (!Array.isArray(cats)) return
-        const roots = cats.filter((c: any) => !c.parent_id && c.is_active)
-        const names = roots.map((c: any) => c.name_mn || c.name).filter(Boolean).sort()
+        const roots = cats.filter(c => !c.parent_id && c.is_active)
+        const names = roots.map(c => c.name_mn || c.name).filter((name): name is string => Boolean(name)).sort()
         if (names.length > 0) setGalleryCats([...names, 'Бусад'])
       })
       .catch(() => setGalleryCats(['Нэрийн хуудас', 'Флаер', 'Баннер', 'Хаяг', 'Ном', 'Хайрцаг', 'Стикер', 'Бусад']))
   }, [])
 
-  const startEdit = (img: GalleryImage & { category?: string; description?: string; is_featured?: boolean }) => {
+  const startEdit = (img: GalleryImage) => {
     setEditingId(img.id)
     setEditCaption(img.caption || '')
     setEditAlt(img.alt || '')
-    setEditCategory((img as any).category || '')
-    setEditDescription((img as any).description || '')
-    setEditFeatured((img as any).is_featured || false)
+    setEditCategory(img.category || '')
+    setEditDescription(img.description || '')
+    setEditFeatured(img.is_featured || false)
   }
 
   const saveEdit = async () => {
@@ -181,7 +205,7 @@ export default function AdminGalleryPage() {
         <div className="text-center py-20">
           <div className="text-5xl mb-4 opacity-30">🖼️</div>
           <div className="text-[var(--text2)] font-semibold mb-2">Галерей хоосон байна</div>
-          <p className="text-sm text-[var(--text3)]">Дээрх "Зураг оруулах" товчийг дарж эхлээрэй</p>
+          <p className="text-sm text-[var(--text3)]">Дээрх &quot;Зураг оруулах&quot; товчийг дарж эхлээрэй</p>
         </div>
       ) : (
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
@@ -217,14 +241,14 @@ export default function AdminGalleryPage() {
                   </div>
                 </div>
               </div>
-              {(img as any).is_featured && (
+              {img.is_featured && (
                 <span className="absolute top-2 left-2 z-10 text-[9px] font-bold bg-[#FF6B00] text-white px-2 py-0.5 rounded">⭐ Онцлох</span>
               )}
               {/* Info */}
               <div className="p-2.5">
                 <div className="text-xs font-semibold text-[var(--text)] truncate">{img.caption || img.alt || 'Тайлбаргүй'}</div>
                 <div className="text-[10px] text-[var(--text3)] mt-0.5 flex items-center gap-1.5">
-                  {(img as any).category && <span className="bg-[var(--surface2)] px-1.5 py-0.5 rounded">{(img as any).category}</span>}
+                  {img.category && <span className="bg-[var(--surface2)] px-1.5 py-0.5 rounded">{img.category}</span>}
                   <span>{img.width}×{img.height} · {img.format}</span>
                 </div>
               </div>

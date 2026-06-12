@@ -1,6 +1,6 @@
 'use client'
 import Link from 'next/link'
-import { useEffect, useState } from 'react'
+import { useSyncExternalStore } from 'react'
 
 interface ProGateProps {
   feature: string
@@ -16,11 +16,26 @@ const PLAN_LEVELS: Record<string, number> = {
   business: 3,
 }
 
-function getUserPlan(): string {
-  if (typeof window === 'undefined') return 'free'
+const subscribeStorage = (onStoreChange: () => void) => {
+  if (typeof window === 'undefined') return () => {}
+  window.addEventListener('storage', onStoreChange)
+  window.addEventListener('bizprint-storage', onStoreChange)
+  return () => {
+    window.removeEventListener('storage', onStoreChange)
+    window.removeEventListener('bizprint-storage', onStoreChange)
+  }
+}
+
+const getUserSnapshot = () =>
+  typeof window === 'undefined' ? null : localStorage.getItem('user') || ''
+
+const getServerUserSnapshot = () => null
+
+function getUserPlan(snapshot: string | null): string | null {
+  if (snapshot === null) return null
   try {
-    const user = JSON.parse(localStorage.getItem('user') || '{}')
-    return user.subscription_plan || user.plan || 'free'
+    const user = JSON.parse(snapshot || '{}') as Record<string, unknown>
+    return String(user.subscription_plan || user.plan || 'free')
   } catch {
     return 'free'
   }
@@ -33,16 +48,11 @@ const PLAN_LABEL: Record<string, string> = {
 }
 
 export default function ProGate({ feature, description, children, plan = 'basic' }: ProGateProps) {
-  const [userPlan, setUserPlan] = useState('free')
-  const [mounted, setMounted] = useState(false)
-
-  useEffect(() => {
-    setUserPlan(getUserPlan())
-    setMounted(true)
-  }, [])
+  const userSnapshot = useSyncExternalStore(subscribeStorage, getUserSnapshot, getServerUserSnapshot)
+  const userPlan = getUserPlan(userSnapshot)
 
   // Prevent hydration mismatch — render children on server
-  if (!mounted) return <>{children}</>
+  if (userPlan === null) return <>{children}</>
 
   const hasAccess = PLAN_LEVELS[userPlan] >= PLAN_LEVELS[plan]
   if (hasAccess) return <>{children}</>

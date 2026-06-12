@@ -13,12 +13,46 @@ const STATUS_MAP: Record<string, { label: string; color: string; bg: string }> =
   cancelled: { label: 'Цуцлагдсан', color: '#6B7280', bg: '#F3F4F6' },
 }
 
-function PaymentTimeline({ payments }: { payments: any[] }) {
+interface PaymentHistoryItem {
+  id: string
+  orderNumber?: string
+  orderId?: string
+  amount?: number | string
+  currency?: string
+  paidAt?: string
+  heldAt?: string
+  releasedAt?: string
+  invoice_id?: string
+  status_steps?: { step: string; at?: string }[]
+}
+
+interface InvoiceItem {
+  id: string
+  invoice_number?: string
+  status: string
+  issued_at?: string
+  paid_at?: string
+  subtotal?: number | string
+  tax_amount?: number | string
+  total_amount?: number | string
+  metadata?: {
+    product_name?: string
+    quantity?: number | string
+    payment_method?: string
+    invoice_code?: string
+  }
+  order?: {
+    product_name?: string
+    quantity?: number | string
+  }
+}
+
+function PaymentTimeline({ payments }: { payments: PaymentHistoryItem[] }) {
   if (!payments || !payments.length) return null
   return (
     <div style={{ marginTop: 32 }}>
       <h3 style={{ marginBottom: 16, fontSize: 18, color: 'var(--text, #111)' }}>Escrow History</h3>
-      {payments.map((p: any) => (
+      {payments.map((p) => (
         <div key={p.id} style={{ background: 'var(--surface, #fff)', border: '1px solid var(--border, #E5E7EB)', borderRadius: 8, padding: 16, marginBottom: 12 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
             <span style={{ color: ORANGE, fontWeight: 600 }}>#{p.orderNumber || (p.orderId || '').slice(0, 8)}</span>
@@ -53,36 +87,39 @@ function PaymentTimeline({ payments }: { payments: any[] }) {
 }
 
 export default function InvoicesPage() {
-  const [invoices, setInvoices] = useState<any[]>([])
+  const [invoices, setInvoices] = useState<InvoiceItem[]>([])
   const [loading, setLoading] = useState(true)
-  const [selected, setSelected] = useState<any>(null)
-  const [history, setHistory] = useState<Record<string, any>>({})
-  const [payHistory, setPayHistory] = useState<any[]>([])
+  const [selected, setSelected] = useState<InvoiceItem | null>(null)
+  const [history, setHistory] = useState<Record<string, PaymentHistoryItem>>({})
+  const [payHistory, setPayHistory] = useState<PaymentHistoryItem[]>([])
 
   useEffect(() => {
     const token = localStorage.getItem('access_token') || localStorage.getItem('token')
-    if (!token) { setLoading(false); return }
+    if (!token) {
+      const timer = window.setTimeout(() => setLoading(false), 0)
+      return () => window.clearTimeout(timer)
+    }
 
     fetch(`${API}/api/payment/invoices/my`, { headers: { Authorization: `Bearer ${token}` } })
       .then(r => (r.ok ? r.json() : []))
-      .then(d => setInvoices(Array.isArray(d) ? d : []))
+      .then((d: unknown) => setInvoices(Array.isArray(d) ? d as InvoiceItem[] : []))
       .catch(() => {})
       .finally(() => setLoading(false))
 
     // Payment history (escrow timeline source)
     fetch(`${API}/api/payment/history`, { headers: { Authorization: `Bearer ${token}` } })
       .then(r => (r.ok ? r.json() : []))
-      .then((d: any[]) => {
-        const list = Array.isArray(d) ? d : []
+      .then((d: unknown) => {
+        const list = Array.isArray(d) ? d as PaymentHistoryItem[] : []
         setPayHistory(list)
-        const map: Record<string, any> = {}
+        const map: Record<string, PaymentHistoryItem> = {}
         list.forEach(h => { if (h?.invoice_id) map[h.invoice_id] = h })
         setHistory(map)
       })
       .catch(() => {})
   }, [])
 
-  const fmt = (n: number) => `${Math.round(Number(n)).toLocaleString()}₮`
+  const fmt = (n?: number | string) => `${Math.round(Number(n || 0)).toLocaleString()}₮`
 
   if (loading) {
     return (
@@ -244,7 +281,7 @@ export default function InvoicesPage() {
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {invoices.map((inv: any) => {
+          {invoices.map((inv) => {
             const st = STATUS_MAP[inv.status] || STATUS_MAP.draft
             return (
               <div

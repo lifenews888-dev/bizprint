@@ -13,10 +13,8 @@
 
 declare global {
   interface Window {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    gtag?: (...args: any[]) => void
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    fbq?: (...args: any[]) => void
+    gtag?: (...args: unknown[]) => void
+    fbq?: (...args: unknown[]) => void
   }
 }
 

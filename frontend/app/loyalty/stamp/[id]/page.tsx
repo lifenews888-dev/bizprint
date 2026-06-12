@@ -5,13 +5,46 @@ import { useParams } from 'next/navigation'
 const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'
 const F = "'DM Sans','Segoe UI',system-ui,sans-serif"
 
+interface LoyaltyProgram {
+  name?: string
+  description?: string
+  logo_url?: string
+  accent_color?: string
+  reward_description?: string
+  required_stamps?: number
+}
+
+interface LoyaltyCard {
+  current_stamps?: number
+  total_stamps?: number
+  rewards?: number
+}
+
+interface MarketingItem {
+  type?: 'banner' | 'promo' | 'product' | string
+  image_url?: string
+  title?: string
+  description?: string
+  message?: string
+  button_text?: string
+  button_link?: string
+}
+
+interface ScanResult {
+  rewardEarned?: boolean
+  alreadyScanned?: boolean
+  message?: string
+  card?: LoyaltyCard
+  marketing?: MarketingItem[]
+}
+
 export default function StampPage() {
-  const { id } = useParams()
-  const [program, setProgram] = useState<any>(null)
+  const { id } = useParams<{ id: string }>()
+  const [program, setProgram] = useState<LoyaltyProgram | null>(null)
   const [loading, setLoading] = useState(true)
   const [phone, setPhone] = useState('')
   const [submitting, setSubmitting] = useState(false)
-  const [result, setResult] = useState<any>(null)
+  const [result, setResult] = useState<ScanResult | null>(null)
   const [stage, setStage] = useState<'input' | 'result' | 'reward'>('input')
 
   useEffect(() => {
@@ -30,7 +63,7 @@ export default function StampPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ campaign_id: id, phone }),
-      }).then(r => r.json())
+      }).then(r => r.json() as Promise<ScanResult>)
       setResult(res)
       setStage(res.rewardEarned ? 'reward' : 'result')
     } catch { setResult({ message: 'Алдаа гарлаа' }) }
@@ -57,7 +90,7 @@ export default function StampPage() {
   const stamps = card?.current_stamps ?? 0
   const totalStamps = card?.total_stamps ?? 0
   const rewards = card?.rewards ?? 0
-  const required = program.required_stamps
+  const required = Math.max(1, program.required_stamps || 1)
 
   return (
     <div style={{ minHeight: '100vh', background: '#FAFAFA', fontFamily: F, display: 'flex', flexDirection: 'column' }}>
@@ -222,12 +255,12 @@ export default function StampPage() {
   )
 }
 
-function MarketingBlock({ items, accent }: { items?: any[]; accent: string }) {
+function MarketingBlock({ items, accent }: { items?: MarketingItem[]; accent: string }) {
   if (!items || items.length === 0) return null
   return (
     <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
       <div style={{ fontSize: 12, color: '#9CA3AF', textAlign: 'center', textTransform: 'uppercase', letterSpacing: '0.1em' }}>Санал болгох</div>
-      {items.map((m: any, i: number) => {
+      {items.map((m, i) => {
         if (m.type === 'banner') return (
           <div key={i} style={{ borderRadius: 14, overflow: 'hidden', border: '1px solid #E5E7EB', background: '#fff' }}>
             {m.image_url && <img src={m.image_url} alt="" style={{ width: '100%', height: 140, objectFit: 'cover' }} />}

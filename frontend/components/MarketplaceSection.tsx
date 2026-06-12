@@ -6,17 +6,32 @@ import { apiFetch } from '@/lib/api'
 const F = "'Segoe UI',system-ui,sans-serif"
 const LEVEL_COLORS: Record<string, string> = { starter: '#6B7280', pro: '#3B82F6', expert: '#8B5CF6', elite: '#FF6B00' }
 
+interface CreatorSummary {
+  creator_id: string
+  name: string
+  level?: string
+  rankScore?: number
+  completedJobs?: number
+}
+
+interface CreatorPackage {
+  name: string
+  content_count: number
+  duration_months: number
+  price: number
+}
+
 export default function MarketplaceSection() {
   const router = useRouter()
-  const [creators, setCreators] = useState<any[]>([])
-  const [packages, setPackages] = useState<any[]>([])
+  const [creators, setCreators] = useState<CreatorSummary[]>([])
+  const [packages, setPackages] = useState<CreatorPackage[]>([])
   const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     Promise.all([
-      apiFetch<any[]>('/creator/leaderboard?limit=6').catch(() => []),
-      apiFetch<any[]>('/creator/packages').catch(() => []),
+      apiFetch<CreatorSummary[]>('/creator/leaderboard?limit=6').catch(() => []),
+      apiFetch<CreatorPackage[]>('/creator/packages').catch(() => []),
     ]).then(([c, p]) => {
       setCreators(Array.isArray(c) ? c : [])
       setPackages(Array.isArray(p) ? p : [])
@@ -65,7 +80,8 @@ export default function MarketplaceSection() {
         ) : (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(200px,1fr))', gap: 12 }}>
             {creators.map((c, i) => {
-              const lvlColor = LEVEL_COLORS[c.level] || '#6B7280'
+              const level = c.level || 'starter'
+              const lvlColor = LEVEL_COLORS[level] || '#6B7280'
               return (
                 <div key={`${c.creator_id}-${i}`} onClick={() => router.push(`/creators/${c.creator_id}`)}
                   style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, padding: 16, cursor: 'pointer', transition: 'all .2s' }}
@@ -76,7 +92,7 @@ export default function MarketplaceSection() {
                     <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'linear-gradient(135deg,#8B5CF6,#EC4899)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 700 }}>{c.name?.charAt(0)?.toUpperCase()}</div>
                     <div>
                       <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', fontFamily: F }}>{c.name}</div>
-                      <span style={{ fontSize: 9, fontWeight: 700, padding: '1px 6px', borderRadius: 99, background: lvlColor + '15', color: lvlColor }}>{(c.level || 'starter').charAt(0).toUpperCase() + (c.level || 'starter').slice(1)}</span>
+                      <span style={{ fontSize: 9, fontWeight: 700, padding: '1px 6px', borderRadius: 99, background: lvlColor + '15', color: lvlColor }}>{level.charAt(0).toUpperCase() + level.slice(1)}</span>
                     </div>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'var(--text3)', fontFamily: F }}>
@@ -98,7 +114,7 @@ export default function MarketplaceSection() {
             { name: 'UGC Starter', content_count: 4, duration_months: 1, price: 720000 },
             { name: 'UGC Business', content_count: 8, duration_months: 1, price: 1500000 },
             { name: 'UGC Pro', content_count: 12, duration_months: 1, price: 2500000 },
-          ]).map((p: any, i: number) => (
+          ]).map((p, i) => (
             <div key={i} onClick={() => router.push('/dashboard/customer/ugc')}
               style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 14, padding: 20, cursor: 'pointer', transition: 'all .2s' }}
               onMouseEnter={e => { e.currentTarget.style.borderColor = '#FF6B00'; e.currentTarget.style.transform = 'translateY(-2px)' }}

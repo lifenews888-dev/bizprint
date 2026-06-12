@@ -54,7 +54,7 @@ export default function PaperTypesPage() {
       .finally(() => setLoading(false))
   }, [])
 
-  useEffect(() => { load() }, [load])
+  useEffect(() => { void Promise.resolve().then(load) }, [load])
 
   const openCreate = () => { setEditId(null); setForm({ ...emptyForm }); setDialog(true) }
   const openEdit = (it: PaperType) => { setEditId(it.id!); setForm({ ...it }); setDialog(true) }
@@ -63,8 +63,8 @@ export default function PaperTypesPage() {
     if (!form.name_mn.trim()) { toast.error('Нэр оруулна уу'); return }
     setSaving(true)
     try {
-      if (editId) await apiFetch(`/paper-types/${editId}`, { method: 'PATCH', body: form as any })
-      else await apiFetch('/paper-types', { method: 'POST', body: form as any })
+      if (editId) await apiFetch(`/paper-types/${editId}`, { method: 'PATCH', body: { ...form } })
+      else await apiFetch('/paper-types', { method: 'POST', body: { ...form } })
       toast.success('Хадгалагдлаа')
       setDialog(false); load()
     } catch { toast.error('Алдаа гарлаа') }
@@ -80,7 +80,7 @@ export default function PaperTypesPage() {
   const seedDefaults = async () => {
     if (!confirm(`Default ${DEFAULT_SEED.length} цаасны төрөл нэмэх үү?`)) return
     try {
-      for (const p of DEFAULT_SEED) await apiFetch('/paper-types', { method: 'POST', body: p as any })
+      for (const p of DEFAULT_SEED) await apiFetch('/paper-types', { method: 'POST', body: { ...p } })
       toast.success('Default утгууд нэмэгдлээ'); load()
     } catch { toast.error('Алдаа') }
   }

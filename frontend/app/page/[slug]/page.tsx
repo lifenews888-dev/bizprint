@@ -1,7 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { useParams } from 'next/navigation'
-import { notFound } from 'next/navigation'
 import DOMPurify from 'dompurify'
 
 const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'
@@ -12,8 +11,32 @@ function sanitizeHtml(html: string): string {
 }
 
 interface PageData {
-  id: string; title: string; slug: string; content: string
-  template: string; thumbnail: string; metadata: any; is_published: boolean
+  id?: string; title: string; slug?: string; content?: string
+  template?: string; thumbnail?: string; metadata?: PageMetadata; is_published?: boolean
+}
+
+interface PageMetadata {
+  services?: PageService[]
+  subtitle?: string
+  [key: string]: unknown
+}
+
+interface PageService {
+  icon?: string
+  title?: string
+  description?: string
+}
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null
+
+const isPageData = (value: unknown): value is PageData =>
+  isRecord(value) && typeof value.title === 'string'
+
+const pageFromPayload = (payload: unknown): PageData | null => {
+  if (isPageData(payload)) return payload
+  if (isRecord(payload) && isPageData(payload.data)) return payload.data
+  return null
 }
 
 export default function DynamicPage() {
@@ -22,8 +45,9 @@ export default function DynamicPage() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    fetch(`${API}/api/pages/${slug}`).then(r => r.ok ? r.json() : null)
-      .then(d => { setPage(d?.data || d); setLoading(false) })
+    fetch(`${API}/api/pages/${slug}`)
+      .then(async r => r.ok ? pageFromPayload(await r.json() as unknown) : null)
+      .then(d => { setPage(d); setLoading(false) })
       .catch(() => setLoading(false))
   }, [slug])
 
@@ -72,7 +96,7 @@ function ServicesTemplate({ page }: { page: PageData }) {
       <h1 style={{ fontSize: 28, fontWeight: 800, marginBottom: 8, textAlign: 'center' }}>{page.title}</h1>
       {page.content && <p style={{ textAlign: 'center', color: '#888', marginBottom: 32 }}>{page.content}</p>}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: 16 }}>
-        {services.map((s: any, i: number) => (
+        {services.map((s, i) => (
           <div key={i} style={{ background: '#fff', borderRadius: 12, padding: 20, border: '1px solid #e5e7eb' }}>
             <div style={{ fontSize: 28, marginBottom: 8 }}>{s.icon || '📦'}</div>
             <h3 style={{ fontSize: 16, fontWeight: 700, marginBottom: 6 }}>{s.title}</h3>

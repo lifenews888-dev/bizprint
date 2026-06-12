@@ -4,6 +4,48 @@ import { apiFetch } from '@/lib/api'
 import { useEffect, useState } from 'react'
 
 type Tab = 'letter-prices' | 'materials' | 'margins' | 'finishings' | 'machines'
+type UpdateValue = string | number | boolean
+
+type LetterPrice = {
+  id: string
+  size_cm: number
+  price_per_letter: number
+  material_type?: string
+  is_active?: boolean
+}
+type MaterialPrice = {
+  id: string
+  key: string
+  name: string
+  category?: string
+  rate_per_m2: number
+  waste_factor?: number
+  is_active?: boolean
+}
+type MarginPrice = {
+  id: string
+  key: string
+  name: string
+  margin_rate: number
+  is_active?: boolean
+}
+type FinishingPrice = {
+  id: string
+  key: string
+  name: string
+  cost_per_m2: number
+  time_hours_per_m2?: number
+  is_active?: boolean
+}
+type MachinePrice = {
+  id: string
+  key: string
+  name: string
+  machine_type?: string
+  speed_m2_per_hour?: number
+  hourly_rate: number
+  is_active?: boolean
+}
 
 const TABS: { key: Tab; label: string; hint: string }[] = [
   { key: 'letter-prices', label: '🔤 Үсэгний үнэ', hint: 'Товгор үсэгний хэмжээ тус бүрийн үнэ' },
@@ -79,15 +121,15 @@ const btn = (bg: string, color = '#fff'): React.CSSProperties => ({
 // ─── Tab: Letter Prices ────────────────────────────────────
 
 function LetterPricesTab({ showToast }: { showToast: (m: string) => void }) {
-  const [rows, setRows] = useState<any[]>([])
+  const [rows, setRows] = useState<LetterPrice[]>([])
   const [loading, setLoading] = useState(true)
   const [draft, setDraft] = useState({ size_cm: '', price_per_letter: '', material_type: 'acrylic' })
 
   const load = () => {
     setLoading(true)
-    apiFetch<any[]>('/pricing-catalog/letter-prices').then(setRows).catch(() => setRows([])).finally(() => setLoading(false))
+    apiFetch<LetterPrice[]>('/pricing-catalog/letter-prices').then(setRows).catch(() => setRows([])).finally(() => setLoading(false))
   }
-  useEffect(() => { load() }, [])
+  useEffect(() => { void Promise.resolve().then(load) }, [])
 
   const save = async () => {
     const size_cm = Number(draft.size_cm)
@@ -102,8 +144,8 @@ function LetterPricesTab({ showToast }: { showToast: (m: string) => void }) {
     load()
   }
 
-  const update = async (row: any, field: string, value: any) => {
-    const body: any = { [field]: field === 'size_cm' || field === 'price_per_letter' ? Number(value) : value }
+  const update = async (row: LetterPrice, field: keyof LetterPrice, value: UpdateValue) => {
+    const body = { [field]: field === 'size_cm' || field === 'price_per_letter' ? Number(value) : value }
     await apiFetch(`/pricing-catalog/letter-prices/${row.id}`, { method: 'PATCH', body })
     showToast('Шинэчлэгдлээ')
     load()
@@ -183,15 +225,15 @@ function LetterPricesTab({ showToast }: { showToast: (m: string) => void }) {
 // ─── Tab: Materials ────────────────────────────────────────
 
 function MaterialsTab({ showToast }: { showToast: (m: string) => void }) {
-  const [rows, setRows] = useState<any[]>([])
+  const [rows, setRows] = useState<MaterialPrice[]>([])
   const [loading, setLoading] = useState(true)
   const [draft, setDraft] = useState({ key: '', name: '', category: 'signage', rate_per_m2: '', waste_factor: '0.1' })
 
   const load = () => {
     setLoading(true)
-    apiFetch<any[]>('/pricing-catalog/materials').then(setRows).catch(() => setRows([])).finally(() => setLoading(false))
+    apiFetch<MaterialPrice[]>('/pricing-catalog/materials').then(setRows).catch(() => setRows([])).finally(() => setLoading(false))
   }
-  useEffect(() => { load() }, [])
+  useEffect(() => { void Promise.resolve().then(load) }, [])
 
   const save = async () => {
     if (!draft.key || !draft.name || !draft.rate_per_m2) return showToast('Бүх талбар шаардлагатай')
@@ -208,7 +250,7 @@ function MaterialsTab({ showToast }: { showToast: (m: string) => void }) {
     load()
   }
 
-  const update = async (row: any, field: string, value: any) => {
+  const update = async (row: MaterialPrice, field: keyof MaterialPrice, value: UpdateValue) => {
     await apiFetch(`/pricing-catalog/materials/${row.id}`, {
       method: 'PATCH',
       body: { [field]: ['rate_per_m2', 'waste_factor'].includes(field) ? Number(value) : value },
@@ -292,11 +334,11 @@ function MaterialsTab({ showToast }: { showToast: (m: string) => void }) {
 // ─── Tab: Margins ──────────────────────────────────────────
 
 function MarginsTab({ showToast }: { showToast: (m: string) => void }) {
-  const [rows, setRows] = useState<any[]>([])
+  const [rows, setRows] = useState<MarginPrice[]>([])
   const [draft, setDraft] = useState({ key: '', name: '', margin_rate: '' })
 
-  const load = () => apiFetch<any[]>('/pricing-catalog/margins').then(setRows).catch(() => setRows([]))
-  useEffect(() => { load() }, [])
+  const load = () => apiFetch<MarginPrice[]>('/pricing-catalog/margins').then(setRows).catch(() => setRows([]))
+  useEffect(() => { void Promise.resolve().then(load) }, [])
 
   const save = async () => {
     if (!draft.key || !draft.name || !draft.margin_rate) return showToast('Бүх талбар шаардлагатай')
@@ -307,7 +349,7 @@ function MarginsTab({ showToast }: { showToast: (m: string) => void }) {
     showToast('Нэмэгдлээ'); setDraft({ key: '', name: '', margin_rate: '' }); load()
   }
 
-  const update = async (r: any, f: string, v: any) => {
+  const update = async (r: MarginPrice, f: keyof MarginPrice, v: UpdateValue) => {
     await apiFetch(`/pricing-catalog/margins/${r.id}`, { method: 'PATCH', body: { [f]: f === 'margin_rate' ? Number(v) : v } })
     showToast('Шинэчлэгдлээ'); load()
   }
@@ -360,11 +402,11 @@ function MarginsTab({ showToast }: { showToast: (m: string) => void }) {
 // ─── Tab: Finishings ───────────────────────────────────────
 
 function FinishingsTab({ showToast }: { showToast: (m: string) => void }) {
-  const [rows, setRows] = useState<any[]>([])
+  const [rows, setRows] = useState<FinishingPrice[]>([])
   const [draft, setDraft] = useState({ key: '', name: '', cost_per_m2: '', time_hours_per_m2: '0.3' })
 
-  const load = () => apiFetch<any[]>('/pricing-catalog/finishings').then(setRows).catch(() => setRows([]))
-  useEffect(() => { load() }, [])
+  const load = () => apiFetch<FinishingPrice[]>('/pricing-catalog/finishings').then(setRows).catch(() => setRows([]))
+  useEffect(() => { void Promise.resolve().then(load) }, [])
 
   const save = async () => {
     if (!draft.key || !draft.name || !draft.cost_per_m2) return showToast('Бүх талбар шаардлагатай')
@@ -380,7 +422,7 @@ function FinishingsTab({ showToast }: { showToast: (m: string) => void }) {
     showToast('Нэмэгдлээ'); setDraft({ key: '', name: '', cost_per_m2: '', time_hours_per_m2: '0.3' }); load()
   }
 
-  const update = async (r: any, f: string, v: any) => {
+  const update = async (r: FinishingPrice, f: keyof FinishingPrice, v: UpdateValue) => {
     await apiFetch(`/pricing-catalog/finishings/${r.id}`, {
       method: 'PATCH',
       body: { [f]: ['cost_per_m2', 'time_hours_per_m2'].includes(f) ? Number(v) : v },
@@ -434,11 +476,11 @@ function FinishingsTab({ showToast }: { showToast: (m: string) => void }) {
 // ─── Tab: Machines ─────────────────────────────────────────
 
 function MachinesTab({ showToast }: { showToast: (m: string) => void }) {
-  const [rows, setRows] = useState<any[]>([])
+  const [rows, setRows] = useState<MachinePrice[]>([])
   const [draft, setDraft] = useState({ key: '', name: '', machine_type: 'cnc', speed_m2_per_hour: '', hourly_rate: '' })
 
-  const load = () => apiFetch<any[]>('/pricing-catalog/machines').then(setRows).catch(() => setRows([]))
-  useEffect(() => { load() }, [])
+  const load = () => apiFetch<MachinePrice[]>('/pricing-catalog/machines').then(setRows).catch(() => setRows([]))
+  useEffect(() => { void Promise.resolve().then(load) }, [])
 
   const save = async () => {
     if (!draft.key || !draft.name || !draft.hourly_rate) return showToast('Бүх талбар шаардлагатай')
@@ -454,7 +496,7 @@ function MachinesTab({ showToast }: { showToast: (m: string) => void }) {
     showToast('Нэмэгдлээ'); setDraft({ key: '', name: '', machine_type: 'cnc', speed_m2_per_hour: '', hourly_rate: '' }); load()
   }
 
-  const update = async (r: any, f: string, v: any) => {
+  const update = async (r: MachinePrice, f: keyof MachinePrice, v: UpdateValue) => {
     await apiFetch(`/pricing-catalog/machines/${r.id}`, {
       method: 'PATCH',
       body: { [f]: ['speed_m2_per_hour', 'hourly_rate'].includes(f) ? Number(v) : v },

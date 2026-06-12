@@ -7,7 +7,12 @@ interface NotificationItem {
   type: string
   title: string
   message: string
-  data?: any
+  data?: {
+    action?: string
+    order_id?: string | number
+    design_request_id?: string | number
+    [key: string]: unknown
+  }
   is_read: boolean
   created_at: string
 }

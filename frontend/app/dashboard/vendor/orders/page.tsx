@@ -71,10 +71,10 @@ export default function VendorOrdersPage() {
 
   const load = useCallback(async () => {
     try {
-      const data = await apiFetch<any>('/orders/vendor/me')
+      const data = await apiFetch<VendorOrder[]>('/orders/vendor/me')
       setOrders(Array.isArray(data) ? data : [])
-    } catch (e: any) {
-      setError(e?.message || 'Захиалгыг ачаалж чадсангүй')
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Захиалгыг ачаалж чадсангүй')
     } finally {
       setLoading(false)
     }
@@ -103,8 +103,8 @@ export default function VendorOrdersPage() {
         body: { status: toStatus },
       })
       await load()
-    } catch (e: any) {
-      setError(e?.message || 'Статус солих үед алдаа гарлаа')
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Статус солих үед алдаа гарлаа')
     } finally {
       setBusy(null)
     }

@@ -1,10 +1,22 @@
 'use client'
 import { apiFetch } from '@/lib/api'
+import { storeAuthSession } from '@/lib/auth-session'
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import Link from 'next/link'
+import { useRouter, useSearchParams } from 'next/navigation'
+
+interface LoginResponse {
+  access_token?: string
+  refresh_token?: string
+  expires_in?: number
+  user?: {
+    role?: string
+  }
+}
 
 export default function LoginPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPass, setShowPass] = useState(false)
@@ -21,14 +33,16 @@ export default function LoginPage() {
     if (!email || !password) { setError('Имэйл эсвэл утас, нууц үг оруулна уу'); return }
     setLoading(true); setError('')
     try {
-      const data = await apiFetch<any>('/auth/login', {
+      const data = await apiFetch<LoginResponse>('/auth/login', {
         method: 'POST', body: { email, password }, auth: false,
       })
       if (data.access_token) {
-        localStorage.setItem('access_token', data.access_token)
-        localStorage.setItem('token', data.access_token)
-        if (data.refresh_token) localStorage.setItem('refresh_token', data.refresh_token)
-        localStorage.setItem('user', JSON.stringify(data.user))
+        storeAuthSession(data)
+        const next = searchParams.get('next')
+        if (next?.startsWith('/') && !next.startsWith('//')) {
+          router.push(next)
+          return
+        }
         const role = data.user?.role
         if (role === 'superadmin' || role === 'admin') router.push('/admin')
         else if (role === 'vendor') router.push('/dashboard/vendor')
@@ -37,7 +51,7 @@ export default function LoginPage() {
         else if (role === 'courier') router.push('/courier')
         else router.push('/dashboard')
       } else { setError('Имэйл эсвэл нууц үг буруу байна') }
-    } catch (err: any) { setError(err?.message || 'Серверт холбогдож чадсангүй') }
+    } catch (err: unknown) { setError(err instanceof Error ? err.message : 'Серверт холбогдож чадсангүй') }
     setLoading(false)
   }
 
@@ -56,9 +70,9 @@ export default function LoginPage() {
         </svg>
 
         <div style={{ position: 'relative', zIndex: 1 }}>
-          <a href="/" style={{ fontSize: '22px', fontWeight: 700, color: '#F1F5F9', textDecoration: 'none' }}>
+          <Link href="/" style={{ fontSize: '22px', fontWeight: 700, color: '#F1F5F9', textDecoration: 'none' }}>
             <span style={{ color: 'var(--orange)' }}>Biz</span>Print
-          </a>
+          </Link>
         </div>
 
         <div style={{ position: 'relative', zIndex: 1 }}>
@@ -107,9 +121,9 @@ export default function LoginPage() {
 
           {/* Mobile лого */}
           <div className="show-mobile" style={{ marginBottom: 32, textAlign: 'center' }}>
-            <a href="/" style={{ fontSize: '22px', fontWeight: 700, color: '#F1F5F9', textDecoration: 'none' }}>
+            <Link href="/" style={{ fontSize: '22px', fontWeight: 700, color: '#F1F5F9', textDecoration: 'none' }}>
               <span style={{ color: 'var(--orange)' }}>Biz</span>Print
-            </a>
+            </Link>
           </div>
 
           <div style={{ marginBottom: '32px' }}>

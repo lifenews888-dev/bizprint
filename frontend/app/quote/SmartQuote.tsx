@@ -20,13 +20,74 @@ const PRODUCT_TYPES = [
 
 const LETTER_SIZES = [20, 30, 40, 50, 60, 70, 80, 100]
 
+interface TextLine {
+  text: string
+  size: number
+  label: string
+}
+
+interface SmartQuoteUser {
+  id: string
+  full_name?: string
+  email?: string
+  phone?: string
+}
+
+interface SmartQuoteLineItem {
+  label?: string
+  total?: number | string
+}
+
+interface SmartQuoteOption {
+  tier?: string
+  material?: string
+  delivery_days?: number | string
+  price?: number | string
+}
+
+interface SmartQuoteResult {
+  error?: string
+  total_price?: number
+  subtotal?: number
+  vat?: number
+  unit_price?: number
+  machine_type?: string
+  production_speed?: string
+  line_items?: SmartQuoteLineItem[]
+  ai?: {
+    recommendation?: string
+    upsell?: string[]
+  }
+  options?: SmartQuoteOption[]
+}
+
+interface UploadResponse {
+  file_url?: string
+}
+
+interface SavedSmartQuote {
+  quote?: {
+    id?: string
+  }
+  id?: string
+}
+
+const isSmartQuoteUser = (value: unknown): value is SmartQuoteUser => {
+  if (!value || typeof value !== 'object') return false
+  const user = value as Partial<SmartQuoteUser>
+  return typeof user.id === 'string'
+}
+
+const errorMessage = (error: unknown, fallback: string) =>
+  error instanceof Error && error.message ? error.message : fallback
+
 export default function SmartQuote() {
   const router = useRouter()
   const [ordering, setOrdering] = useState(false)
   const [orderError, setOrderError] = useState('')
   const [productType, setProductType] = useState('tovgor')
   // 3 tier text system: Том / Дунд / Жижиг
-  const [textLines, setTextLines] = useState([
+  const [textLines, setTextLines] = useState<TextLine[]>([
     { text: '', size: 50, label: 'Том' },
     { text: '', size: 30, label: 'Дунд' },
     { text: '', size: 15, label: 'Жижиг' },
@@ -37,14 +98,21 @@ export default function SmartQuote() {
   const [quantity, setQuantity] = useState(1)
   const [urgency, setUrgency] = useState('normal')
   const [lit, setLit] = useState(false)
-  const [result, setResult] = useState<any>(null)
+  const [result, setResult] = useState<SmartQuoteResult | null>(null)
   const [errorMsg, setErrorMsg] = useState('')
   const [loading, setLoading] = useState(false)
   const [showPreview, setShowPreview] = useState(false)
-  const [user, setUser] = useState<any>(null)
+  const [user, setUser] = useState<SmartQuoteUser | null>(null)
 
   useEffect(() => {
-    try { const u = JSON.parse(localStorage.getItem('user') || 'null'); if (u?.id) setUser(u) } catch {}
+    let userTimer: number | undefined
+    try {
+      const parsed: unknown = JSON.parse(localStorage.getItem('user') || 'null')
+      if (isSmartQuoteUser(parsed)) userTimer = window.setTimeout(() => setUser(parsed), 0)
+    } catch {}
+    return () => {
+      if (userTimer) window.clearTimeout(userTimer)
+    }
   }, [])
 
   const isTovgor = productType === 'tovgor'
@@ -72,7 +140,7 @@ export default function SmartQuote() {
       setLoading(true)
       setErrorMsg('')
       // Multi-line тооцоолол: мөр бүрийн үсгийн тоо × тухайн хэмжээний үнэ
-      apiFetch<any>('/smart-quote/calculate', {
+      apiFetch<SmartQuoteResult>('/smart-quote/calculate', {
         method: 'POST',
         auth: false,
         body: {
@@ -95,8 +163,8 @@ export default function SmartQuote() {
         if (r.error) { setErrorMsg(r.error); setResult(null); return }
         if (!r.total_price && r.total_price !== 0) { setErrorMsg('Үнийн мэдээлэл дутуу ирлээ. Админ: /admin/pricing-catalog дээрээс үнэ тохируул.'); setResult(null); return }
         setResult(r)
-      }).catch((e: any) => {
-        setErrorMsg(e?.message || 'Серверт холбогдож чадсангүй')
+      }).catch((e: unknown) => {
+        setErrorMsg(errorMessage(e, 'Серверт холбогдож чадсангүй'))
         setResult(null)
       }).finally(() => setLoading(false))
     }, 400)
@@ -171,7 +239,7 @@ export default function SmartQuote() {
                 <div style={{ padding: '8px 12px', background: '#FFF7ED', borderRadius: 8, border: '1px solid #FFEDD5', marginBottom: 12, fontSize: 11 }}>
                   {activeLines.map((l, i) => (
                     <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '2px 0' }}>
-                      <span style={{ color: '#888' }}>{l.label}: "{l.text}" ({l.text.replace(/\s/g, '').length} үсэг × {l.size}см)</span>
+                      <span style={{ color: '#888' }}>{l.label}: &ldquo;{l.text}&rdquo; ({l.text.replace(/\s/g, '').length} үсэг × {l.size}см)</span>
                     </div>
                   ))}
                   <div style={{ borderTop: '1px solid #FFEDD5', marginTop: 4, paddingTop: 4, fontWeight: 700, color: '#FF6B00' }}>
@@ -190,7 +258,7 @@ export default function SmartQuote() {
                     setLogoUrl(URL.createObjectURL(file))
                     try {
                       const fd = new FormData(); fd.append('file', file)
-                      const res = await apiUpload<any>('/upload/file', fd)
+                      const res = await apiUpload<UploadResponse>('/upload/file', fd)
                       if (res?.file_url) setLogoUrl(res.file_url.startsWith('http') ? res.file_url : `${API_URL}${res.file_url}`)
                     } catch {}
                   }} />
@@ -258,7 +326,7 @@ export default function SmartQuote() {
                 const grand = Number(result.total_price || sub + vatAmt)
                 return (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 6, fontSize: 13 }}>
-                    {lineItems.length > 0 ? lineItems.map((item: any, i: number) => (
+                    {lineItems.length > 0 ? lineItems.map((item, i) => (
                       <Row key={i} label={item.label || `Item ${i + 1}`} value={`₮${Number(item.total || 0).toLocaleString()}`} />
                     )) : isTovgor ? activeLines.map((l, i) => {
                       const c = l.text.replace(/\s/g, '').length
@@ -293,7 +361,7 @@ export default function SmartQuote() {
                     if (ordering || !result) return
                     setOrdering(true); setOrderError('')
                     try {
-                      const saved: any = await apiFetch('/smart-quote', {
+                      const saved = await apiFetch<SavedSmartQuote>('/smart-quote', {
                         method: 'POST',
                         body: {
                           product_type: productType, sign_text: signText,
@@ -315,8 +383,8 @@ export default function SmartQuote() {
                       const quoteId = saved?.quote?.id || saved?.id
                       if (!quoteId) throw new Error('Үнийн санал хадгалж чадсангүй')
                       router.push(`/checkout?quote_id=${quoteId}`)
-                    } catch (e: any) {
-                      setOrderError(e?.message || 'Захиалга үүсгэж чадсангүй')
+                    } catch (e: unknown) {
+                      setOrderError(errorMessage(e, 'Захиалга үүсгэж чадсангүй'))
                       setOrdering(false)
                     }
                   }}
@@ -349,7 +417,7 @@ export default function SmartQuote() {
           {result?.options && (
             <div style={{ background: '#fff', borderRadius: 14, border: '1px solid #E5E7EB', padding: 20 }}>
               <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 10 }}>📊 Сонголтууд</div>
-              {result.options.map((opt: any, i: number) => {
+              {result.options.map((opt, i) => {
                 const c = ['#6B7280', '#FF6B00', '#8B5CF6'][i]
                 const l = ['Economy', 'Standard', 'Premium'][i]
                 return (
@@ -377,7 +445,7 @@ export default function SmartQuote() {
             isLetterBased: true, letterSize: l.size, letterCount: l.text.replace(/\s/g, '').length,
           })) : [{
             product: PRODUCT_TYPES.find(p => p.key === productType)?.label || '', text: signText || '—',
-            width, height, unit: 'м', qty: quantity, unitPrice: result.unit_price, total: result.subtotal,
+            width, height, unit: 'м', qty: quantity, unitPrice: Number(result.unit_price || 0), total: Number(result.subtotal || 0),
           }],
           logoUrl: logoUrl || undefined, logoItem: logoUrl ? { width: logoWidthCm, height: logoHeightCm, unit: 'см', price: logoPrice } : null,
           customerName: user?.full_name || '', customerEmail: user?.email || '', customerPhone: user?.phone || '',

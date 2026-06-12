@@ -4,10 +4,32 @@ import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { API_URL } from '@/lib/api'
 
+interface TrackingTimelineStep {
+  status: string
+  icon?: string
+  label?: string
+  active?: boolean
+  completed?: boolean
+  date?: string
+}
+
+interface TrackingResult {
+  found?: boolean
+  order_id?: string
+  order_number?: string
+  status_icon?: string
+  status_label?: string
+  product_name?: string
+  quantity?: number | string
+  total_price?: number | string
+  created_at?: string
+  timeline?: TrackingTimelineStep[]
+}
+
 function TrackContent() {
   const params = useSearchParams()
   const [orderNum, setOrderNum] = useState(params.get('order') || '')
-  const [tracking, setTracking] = useState<any>(null)
+  const [tracking, setTracking] = useState<TrackingResult | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -19,7 +41,7 @@ function TrackContent() {
     setTracking(null)
     try {
       const res = await fetch(`${API_URL}/api/orders/track/${encodeURIComponent(orderNum.trim())}`)
-      const data = await res.json()
+      const data: TrackingResult = await res.json()
       if (data.found === false || !data.order_id) {
         setError('Захиалга олдсонгүй. Дугаараа шалгаад дахин оролдоно уу.')
       } else {
@@ -36,6 +58,8 @@ function TrackContent() {
   useEffect(() => {
     if (params.get('order')) search()
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const timeline = tracking?.timeline || []
 
   return (
     <div style={{ maxWidth: 640, margin: '0 auto', padding: '48px 20px' }}>
@@ -98,8 +122,8 @@ function TrackContent() {
               {/* Vertical line */}
               <div style={{ position: 'absolute', left: 15, top: 0, bottom: 0, width: 2, background: 'var(--border)' }} />
 
-              {tracking.timeline?.map((step: any, i: number) => (
-                <div key={step.status} style={{ display: 'flex', alignItems: 'flex-start', gap: 14, marginBottom: i < tracking.timeline.length - 1 ? 20 : 0, position: 'relative' }}>
+              {timeline.map((step, i) => (
+                <div key={step.status} style={{ display: 'flex', alignItems: 'flex-start', gap: 14, marginBottom: i < timeline.length - 1 ? 20 : 0, position: 'relative' }}>
                   {/* Dot */}
                   <div style={{
                     position: 'absolute', left: -28 + 6, width: 20, height: 20, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12, zIndex: 1, flexShrink: 0,

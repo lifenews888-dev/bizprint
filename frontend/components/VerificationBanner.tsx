@@ -1,7 +1,8 @@
 'use client'
-import { ShieldAlert, Clock, XCircle, CheckCircle } from 'lucide-react'
+import { ShieldAlert, Clock, XCircle } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 
-const STATUS_CONFIG: Record<string, { icon: any; bg: string; border: string; text: string; label: string; desc: string }> = {
+const STATUS_CONFIG: Record<string, { icon: LucideIcon; bg: string; border: string; text: string; label: string; desc: string }> = {
   pending: {
     icon: Clock, bg: 'bg-amber-50 dark:bg-amber-900/20', border: 'border-amber-200 dark:border-amber-800',
     text: 'text-amber-700 dark:text-amber-300', label: 'Баталгаажуулалт хүлээгдэж байна',

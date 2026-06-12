@@ -128,10 +128,18 @@ function AlertsPanel({ summary, products, vendors }: { summary: Summary | null; 
    MAIN PAGE
    ═══════════════════════════════════════════ */
 type Period = '7d' | '30d' | '90d' | 'custom'
+type GroupBy = 'day' | 'week' | 'month'
+type ProductTab = 'profit' | 'revenue' | 'loss'
+
+const GROUP_BY_OPTIONS = ['day', 'week', 'month'] as const
+
+function groupByValue(value: string): GroupBy {
+  return GROUP_BY_OPTIONS.includes(value as GroupBy) ? value as GroupBy : 'day'
+}
 
 export default function AdminReportsPage() {
   const [period, setPeriod] = useState<Period>('30d')
-  const [groupBy, setGroupBy] = useState<'day' | 'week' | 'month'>('day')
+  const [groupBy, setGroupBy] = useState<GroupBy>('day')
   const [loading, setLoading] = useState(true)
   const [summary, setSummary] = useState<Summary | null>(null)
   const [timeSeries, setTimeSeries] = useState<TimePoint[]>([])
@@ -140,7 +148,7 @@ export default function AdminReportsPage() {
   const [customers, setCustomers] = useState<CustomerRow[]>([])
   const [cashflow, setCashflow] = useState<Cashflow | null>(null)
   const [visibleSeries, setVisibleSeries] = useState<Set<string>>(new Set(['revenue', 'cost', 'profit']))
-  const [productTab, setProductTab] = useState<'profit' | 'revenue' | 'loss'>('profit')
+  const [productTab, setProductTab] = useState<ProductTab>('profit')
 
   const getDateRange = useCallback(() => {
     const end = new Date()
@@ -274,7 +282,7 @@ export default function AdminReportsPage() {
               </button>
             ))}
             {/* Group by */}
-            <select value={groupBy} onChange={e => setGroupBy(e.target.value as any)}
+            <select value={groupBy} onChange={e => setGroupBy(groupByValue(e.target.value))}
               className="text-xs font-medium text-[#555] border border-[#E5E7EB] rounded-lg px-2 py-1 outline-none" style={{ appearance: 'auto' }}>
               <option value="day">Өдөр</option>
               <option value="week">Долоо хоног</option>
@@ -294,12 +302,12 @@ export default function AdminReportsPage() {
             <h2 className="text-lg font-bold text-[#111]">Бүтээгдэхүүн</h2>
           </div>
           <div className="flex border-b border-[#E5E7EB]">
-            {[
+            {([
               { key: 'profit', label: 'Ашгаар' },
               { key: 'revenue', label: 'Орлогоор' },
               { key: 'loss', label: '🚨 Алдагдалтай' },
-            ].map(t => (
-              <button key={t.key} onClick={() => setProductTab(t.key as any)}
+            ] as Array<{ key: ProductTab; label: string }>).map(t => (
+              <button key={t.key} onClick={() => setProductTab(t.key)}
                 className={`flex-1 py-2.5 text-xs font-semibold text-center border-b-2 transition-colors ${
                   productTab === t.key ? 'border-[#FF6B00] text-[#FF6B00]' : 'border-transparent text-[#999] hover:text-[#555]'
                 }`}>

@@ -25,10 +25,14 @@ export default function HeroSlider({ slides }: { slides: Slide[] }) {
   const next = useCallback(() => setCurrent(p => (p + 1) % slides.length), [slides.length])
 
   useEffect(() => {
-    setLoaded(true)
-    if (slides.length <= 1) return
-    const t = setInterval(next, 6000)
-    return () => clearInterval(t)
+    const loadedTimer = window.setTimeout(() => setLoaded(true), 0)
+    if (slides.length <= 1) return () => window.clearTimeout(loadedTimer)
+
+    const t = window.setInterval(next, 6000)
+    return () => {
+      window.clearTimeout(loadedTimer)
+      window.clearInterval(t)
+    }
   }, [slides.length, next])
 
   if (!slides.length) return null

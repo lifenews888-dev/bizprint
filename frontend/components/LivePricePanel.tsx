@@ -146,7 +146,7 @@ export default function LivePricePanel({
       {data?.options && !loading && (
         <div>
           <div style={{ fontSize: 11, color: '#888', marginBottom: 6 }}>Сонголтууд</div>
-          {data.options.map((opt: any) => (
+          {data.options.map((opt) => (
             <div key={opt.tier} style={{ padding: '8px 10px', borderRadius: 8, border: `1px solid ${opt.tier === 'standard' ? '#FF6B00' : '#2a2a4a'}`, background: opt.tier === 'standard' ? '#FF6B0010' : '#1a1a2e', marginBottom: 6 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <span style={{ fontSize: 12, fontWeight: 600, color: '#fff', textTransform: 'capitalize' }}>{opt.tier}</span>

@@ -1,6 +1,7 @@
 'use client'
 import { useMemo } from 'react'
 import { VChart } from '@visactor/react-vchart'
+import type { ISpec } from '@visactor/vchart'
 import { useChartTheme } from '@/lib/use-chart-theme'
 import { BRAND } from '@/lib/vchart-theme'
 
@@ -25,7 +26,7 @@ export default function GaugeChart({
     ? value > 80 ? BRAND.danger : value > 60 ? BRAND.warning : BRAND.success
     : color || BRAND.primary
 
-  const spec = useMemo((): any => ({
+  const spec = useMemo<ISpec>(() => ({
     type: 'gauge',
     data: [{ id: 'data', values: [{ value }] }],
     valueField: 'value',

@@ -10,6 +10,8 @@ interface ImportResult {
   preview: { name: string; category: string; product_type: string; price: number; status: string }[]
 }
 
+const errorMessage = (err: unknown, fallback: string) => err instanceof Error ? err.message : fallback
+
 export default function AdminImportPage() {
   const [file, setFile] = useState<File | null>(null)
   const [dragging, setDragging] = useState(false)
@@ -29,8 +31,8 @@ export default function AdminImportPage() {
       fd.append('file', f)
       const data = await apiFetch<ImportResult>('/excel/import', { method: 'POST', body: fd })
       setResult(data)
-    } catch (e: any) {
-      setError(e.message || 'Алдаа гарлаа')
+    } catch (e: unknown) {
+      setError(errorMessage(e, 'Алдаа гарлаа'))
     }
     setLoading(false)
   }

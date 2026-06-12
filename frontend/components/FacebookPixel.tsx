@@ -2,10 +2,13 @@
 import { useEffect, Suspense } from 'react'
 import { usePathname, useSearchParams } from 'next/navigation'
 
+type FacebookPixelParam = string | number | boolean | string[] | undefined
+type FacebookPixelPayload = Record<string, FacebookPixelParam>
+
 declare global {
   interface Window {
-    fbq?: (...args: any[]) => void
-    _fbq?: any
+    fbq?: (...args: unknown[]) => void
+    _fbq?: (...args: unknown[]) => void
   }
 }
 
@@ -134,7 +137,7 @@ export const fbPixel = {
     }
   },
 
-  custom: (eventName: string, data?: Record<string, any>) => {
+  custom: (eventName: string, data?: FacebookPixelPayload) => {
     if (typeof window !== 'undefined' && window.fbq) {
       window.fbq('trackCustom', eventName, data)
     }
@@ -142,7 +145,7 @@ export const fbPixel = {
 }
 
 // Backwards-compat alias
-export const fbTrack = (event: string, data?: Record<string, any>) => {
+export const fbTrack = (event: string, data?: FacebookPixelPayload) => {
   if (typeof window !== 'undefined' && window.fbq) {
     window.fbq('track', event, data)
   }

@@ -33,30 +33,92 @@ const PRIORITY_COLOR: Record<string, string> = { low: '#94A3B8', normal: '#3B82F
 const PRIORITY_LABEL: Record<string, string> = { low: 'Бага', normal: 'Энгийн', high: 'Өндөр', urgent: 'Яаралтай' }
 
 const ALL_STATUSES = Object.keys(STATUS_LABEL)
-const fmt = (n: number) => n?.toLocaleString?.() ?? '0'
+const fmt = (n?: number | string | null) => Number(n || 0).toLocaleString()
+
+type AdminOrder = {
+  id: string
+  status: string
+  priority?: string
+  customer_name?: string
+  customer_email?: string
+  customer_phone?: string
+  product_name?: string
+  factory_id?: string
+  quantity?: number | string
+  unit_price?: number | string
+  total_price?: number | string
+  width_mm?: number | string
+  height_mm?: number | string
+  paper_gsm?: number | string
+  finishing?: string
+  payment_status?: string
+  deadline?: string
+  created_at?: string
+  is_delayed?: boolean
+  notes?: string
+}
+
+type OrderMetric = { count?: number; value?: number }
+type OrderKpi = {
+  total_orders?: number
+  total_revenue?: number
+  pending?: OrderMetric
+  production?: OrderMetric
+  completed?: OrderMetric
+  delayed?: OrderMetric
+  today?: OrderMetric
+  urgent?: OrderMetric
+}
+type OrderAlerts = {
+  total_alerts?: number
+  delayed?: OrderMetric
+  no_vendor?: OrderMetric
+  urgent?: OrderMetric
+  stale?: OrderMetric
+  file_pending?: OrderMetric
+}
+type Vendor = { id: string; company_name?: string; load_status?: string }
+type TimelineItem = { status?: string; label?: string; date?: string; completed?: boolean }
+type OrderTimelineResponse = { timeline?: TimelineItem[] }
+type GateCheck = { status?: string; detail?: string }
+type GateFileResult = {
+  filename?: string
+  score: number
+  risk?: string
+  checks?: Record<string, GateCheck>
+  blocking_issues?: string[]
+  warnings?: string[]
+}
+type ProductionGateResult = {
+  total_files?: number
+  checked?: number
+  production_ready?: boolean
+  summary?: string
+  results?: GateFileResult[]
+}
 
 export default function AdminOrdersPage() {
-  const [orders, setOrders] = useState<any[]>([])
-  const [kpi, setKpi] = useState<any>(null)
-  const [alerts, setAlerts] = useState<any>(null)
+  const [orders, setOrders] = useState<AdminOrder[]>([])
+  const [kpi, setKpi] = useState<OrderKpi | null>(null)
+  const [alerts, setAlerts] = useState<OrderAlerts | null>(null)
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState('')
   const [search, setSearch] = useState('')
   const [selected, setSelected] = useState<Set<string>>(new Set())
-  const [detail, setDetail] = useState<any>(null)
-  const [timeline, setTimeline] = useState<any[]>([])
-  const [vendors, setVendors] = useState<any[]>([])
+  const [detail, setDetail] = useState<AdminOrder | null>(null)
+  const [timeline, setTimeline] = useState<TimelineItem[]>([])
+  const [vendors, setVendors] = useState<Vendor[]>([])
   const [bulkAction, setBulkAction] = useState('')
-  const [gateResult, setGateResult] = useState<any>(null)
+  const [gateResult, setGateResult] = useState<ProductionGateResult | null>(null)
   const [gateLoading, setGateLoading] = useState(false)
 
   const load = useCallback(async () => {
     try {
       const [o, k, a, v] = await Promise.all([
-        apiFetch('/orders'),
-        apiFetch('/orders/ops/summary').catch(() => null),
-        apiFetch('/orders/ops/alerts').catch(() => null),
-        apiFetch('/vendors').catch(() => []),
+        apiFetch<AdminOrder[]>('/orders'),
+        apiFetch<OrderKpi>('/orders/ops/summary').catch(() => null),
+        apiFetch<OrderAlerts>('/orders/ops/alerts').catch(() => null),
+        apiFetch<Vendor[]>('/vendors').catch(() => []),
       ])
       setOrders(Array.isArray(o) ? o : [])
       setKpi(k)
@@ -74,19 +136,19 @@ export default function AdminOrdersPage() {
   const updateStatus = async (id: string, status: string) => {
     await apiFetch(`/orders/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) })
     load()
-    if (detail?.id === id) setDetail((p: any) => p ? { ...p, status } : null)
+    if (detail?.id === id) setDetail(p => p ? { ...p, status } : null)
   }
 
-  const openDetail = async (order: any) => {
+  const openDetail = async (order: AdminOrder) => {
     setDetail(order)
     setGateResult(null)
     try {
-      const tl = await apiFetch(`/orders/${order.id}/timeline`)
-      setTimeline((tl as any)?.timeline || [])
+      const tl = await apiFetch<OrderTimelineResponse>(`/orders/${order.id}/timeline`)
+      setTimeline(tl?.timeline || [])
     } catch { setTimeline([]) }
     // Auto-load gate check
     try {
-      const g = await apiFetch(`/order-files/gate/order/${order.id}`)
+      const g = await apiFetch<ProductionGateResult>(`/order-files/gate/order/${order.id}`)
       setGateResult(g)
     } catch { setGateResult(null) }
   }
@@ -94,7 +156,7 @@ export default function AdminOrdersPage() {
   const runGateCheck = async (orderId: string) => {
     setGateLoading(true)
     try {
-      const g = await apiFetch(`/order-files/gate/order/${orderId}`)
+      const g = await apiFetch<ProductionGateResult>(`/order-files/gate/order/${orderId}`)
       setGateResult(g)
     } catch {} finally { setGateLoading(false) }
   }
@@ -150,6 +212,7 @@ export default function AdminOrdersPage() {
 
   const stLabel = (s: string) => STATUS_LABEL[s] || s
   const stColor = (s: string) => STATUS_COLOR[s] || '#888'
+  const detailPriorityKey = detail?.priority || 'normal'
 
   // ── CSV / Excel export ───────────────────────────────────────────────
   const handleExport = async (format: 'csv' | 'excel') => {
@@ -219,14 +282,14 @@ export default function AdminOrdersPage() {
       )}
 
       {/* ALERTS */}
-      {alerts && alerts.total_alerts > 0 && (
+      {alerts && (alerts.total_alerts || 0) > 0 && (
         <div className="flex flex-wrap items-center gap-5 rounded-xl border border-red-200 bg-red-50 dark:bg-red-500/10 px-5 py-3.5 mb-5">
           <span className="text-sm font-bold text-red-600">🔥 Анхааруулга ({alerts.total_alerts})</span>
-          {alerts.delayed?.count > 0 && <span className="text-sm text-red-600">⏰ Хоцорсон: {alerts.delayed.count}</span>}
-          {alerts.no_vendor?.count > 0 && <span className="text-sm text-red-600">🏭 Vendor-гүй: {alerts.no_vendor.count}</span>}
-          {alerts.urgent?.count > 0 && <span className="text-sm text-red-600">🚨 Яаралтай: {alerts.urgent.count}</span>}
-          {alerts.stale?.count > 0 && <span className="text-sm text-red-600">⚠️ Хөдөлгөөнгүй: {alerts.stale.count}</span>}
-          {alerts.file_pending?.count > 0 && <span className="text-sm text-red-600">📁 Файл хүлээж: {alerts.file_pending.count}</span>}
+          {(alerts.delayed?.count || 0) > 0 && <span className="text-sm text-red-600">⏰ Хоцорсон: {alerts.delayed?.count}</span>}
+          {(alerts.no_vendor?.count || 0) > 0 && <span className="text-sm text-red-600">🏭 Vendor-гүй: {alerts.no_vendor?.count}</span>}
+          {(alerts.urgent?.count || 0) > 0 && <span className="text-sm text-red-600">🚨 Яаралтай: {alerts.urgent?.count}</span>}
+          {(alerts.stale?.count || 0) > 0 && <span className="text-sm text-red-600">⚠️ Хөдөлгөөнгүй: {alerts.stale?.count}</span>}
+          {(alerts.file_pending?.count || 0) > 0 && <span className="text-sm text-red-600">📁 Файл хүлээж: {alerts.file_pending?.count}</span>}
         </div>
       )}
 
@@ -290,7 +353,8 @@ export default function AdminOrdersPage() {
               <tr><td colSpan={11} style={{ padding: 40, textAlign: 'center', color: 'var(--text2)' }}>Захиалга байхгүй</td></tr>
             ) : filtered.map(o => {
               const isDelayed = o.is_delayed || (o.deadline && new Date(o.deadline) < new Date() && !['completed', 'cancelled', 'delivered'].includes(o.status))
-              const vendorName = vendors.find((v: any) => v.id === o.factory_id)?.company_name
+              const vendorName = vendors.find(v => v.id === o.factory_id)?.company_name
+              const priorityKey = o.priority || 'normal'
               return (
                 <tr key={o.id} className="ord-row" style={{ borderTop: '1px solid var(--border)', cursor: 'pointer', background: isDelayed ? '#FEF2F220' : undefined }} onClick={() => openDetail(o)}>
                   <td style={{ padding: '8px 12px' }} onClick={e => e.stopPropagation()}>
@@ -319,8 +383,8 @@ export default function AdminOrdersPage() {
                     </span>
                   </td>
                   <td style={{ padding: '8px 12px' }}>
-                    <span style={{ fontSize: 10, padding: '2px 6px', borderRadius: 4, background: (PRIORITY_COLOR[o.priority] || '#94A3B8') + '18', color: PRIORITY_COLOR[o.priority] || '#94A3B8', fontWeight: 600 }}>
-                      {PRIORITY_LABEL[o.priority] || 'Энгийн'}
+                    <span style={{ fontSize: 10, padding: '2px 6px', borderRadius: 4, background: (PRIORITY_COLOR[priorityKey] || '#94A3B8') + '18', color: PRIORITY_COLOR[priorityKey] || '#94A3B8', fontWeight: 600 }}>
+                      {PRIORITY_LABEL[priorityKey] || 'Энгийн'}
                     </span>
                   </td>
                   <td style={{ padding: '8px 12px', fontSize: 11 }}>
@@ -355,7 +419,7 @@ export default function AdminOrdersPage() {
                     <span style={{ fontSize: 12, fontFamily: 'monospace', color: 'var(--text3)' }}>#{detail.id?.slice(0, 12)}</span>
                     <span style={{ fontSize: 10, padding: '2px 10px', borderRadius: 99, background: stColor(detail.status) + '15', color: stColor(detail.status), fontWeight: 600 }}>{stLabel(detail.status)}</span>
                     {detail.is_delayed && <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 99, background: '#FEE2E2', color: '#DC2626', fontWeight: 700 }}>🔴 ХОЦОРСОН</span>}
-                    <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 4, background: (PRIORITY_COLOR[detail.priority] || '#94A3B8') + '15', color: PRIORITY_COLOR[detail.priority] || '#94A3B8', fontWeight: 600 }}>{PRIORITY_LABEL[detail.priority] || 'Энгийн'}</span>
+                    <span style={{ fontSize: 10, padding: '2px 8px', borderRadius: 4, background: (PRIORITY_COLOR[detailPriorityKey] || '#94A3B8') + '15', color: PRIORITY_COLOR[detailPriorityKey] || '#94A3B8', fontWeight: 600 }}>{PRIORITY_LABEL[detailPriorityKey] || 'Энгийн'}</span>
                   </div>
                   <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 2 }}>{detail.product_name || 'Захиалга'}</div>
                   <div style={{ fontSize: 13, color: 'var(--text2)' }}>
@@ -402,13 +466,13 @@ export default function AdminOrdersPage() {
                     style={{ padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border)', fontSize: 13, flex: 1 }}
                   >
                     <option value="">— Vendor сонгох —</option>
-                    {vendors.map((v: any) => (
+                    {vendors.map(v => (
                       <option key={v.id} value={v.id}>{v.company_name} ({v.load_status || 'available'})</option>
                     ))}
                   </select>
                   {detail.factory_id && (
                     <span style={{ fontSize: 12, color: '#10B981', fontWeight: 600 }}>
-                      ✓ {vendors.find((v: any) => v.id === detail.factory_id)?.company_name || detail.factory_id.slice(0, 8)}
+                      ✓ {vendors.find(v => v.id === detail.factory_id)?.company_name || detail.factory_id.slice(0, 8)}
                     </span>
                   )}
                 </div>
@@ -452,7 +516,10 @@ export default function AdminOrdersPage() {
                     </div>
 
                     {/* Per-file results */}
-                    {gateResult.results?.map((r: any, i: number) => (
+                    {gateResult.results?.map((r, i) => {
+                      const blockingIssues = r.blocking_issues || []
+                      const warnings = r.warnings || []
+                      return (
                       <div key={i} style={{ padding: '10px 16px', borderBottom: '1px solid var(--border)' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
                           <span style={{ fontSize: 12, fontWeight: 600 }}>📄 {r.filename}</span>
@@ -468,7 +535,7 @@ export default function AdminOrdersPage() {
                         {/* Checks Grid */}
                         {r.checks && (
                           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 12px' }}>
-                            {Object.entries(r.checks).map(([key, val]: [string, any]) => {
+                            {Object.entries(r.checks).map(([key, val]) => {
                               const icon = val.status === 'pass' ? '✅' : val.status === 'fail' ? '❌' : val.status === 'warning' ? '⚠️' : 'ℹ️'
                               const color = val.status === 'pass' ? '#16A34A' : val.status === 'fail' ? '#DC2626' : val.status === 'warning' ? '#D97706' : '#64748B'
                               const labels: Record<string, string> = {
@@ -490,24 +557,25 @@ export default function AdminOrdersPage() {
                         )}
 
                         {/* Blocking issues */}
-                        {r.blocking_issues?.length > 0 && (
+                        {blockingIssues.length > 0 && (
                           <div style={{ marginTop: 8, padding: '6px 10px', background: '#FEE2E2', borderRadius: 6 }}>
-                            {r.blocking_issues.map((issue: string, j: number) => (
+                            {blockingIssues.map((issue: string, j: number) => (
                               <div key={j} style={{ fontSize: 11, color: '#DC2626', fontWeight: 500 }}>❌ {issue}</div>
                             ))}
                           </div>
                         )}
 
                         {/* Warnings */}
-                        {r.warnings?.length > 0 && (
+                        {warnings.length > 0 && (
                           <div style={{ marginTop: 6, padding: '6px 10px', background: '#FEF3C7', borderRadius: 6 }}>
-                            {r.warnings.map((w: string, j: number) => (
+                            {warnings.map((w: string, j: number) => (
                               <div key={j} style={{ fontSize: 11, color: '#92400E' }}>⚠️ {w}</div>
                             ))}
                           </div>
                         )}
                       </div>
-                    ))}
+                      )
+                    })}
                   </div>
                 )}
               </div>
@@ -517,10 +585,10 @@ export default function AdminOrdersPage() {
                 <div style={{ marginBottom: 20 }}>
                   <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8, color: 'var(--text2)' }}>Түүх (Timeline)</div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 0, paddingLeft: 12 }}>
-                    {timeline.map((t: any, i: number) => (
+                    {timeline.map((t, i) => (
                       <div key={i} style={{ display: 'flex', gap: 12, position: 'relative', paddingBottom: i < timeline.length - 1 ? 16 : 0 }}>
                         {i < timeline.length - 1 && <div style={{ position: 'absolute', left: 5, top: 14, bottom: -2, width: 2, background: 'var(--border)' }} />}
-                        <div style={{ width: 12, height: 12, borderRadius: '50%', background: t.completed ? stColor(t.status) : 'var(--border)', flexShrink: 0, marginTop: 2, border: '2px solid var(--surface)', zIndex: 1 }} />
+                        <div style={{ width: 12, height: 12, borderRadius: '50%', background: t.completed ? stColor(t.status || '') : 'var(--border)', flexShrink: 0, marginTop: 2, border: '2px solid var(--surface)', zIndex: 1 }} />
                         <div>
                           <div style={{ fontSize: 13, fontWeight: 500 }}>{t.label}</div>
                           <div style={{ fontSize: 11, color: 'var(--text3)' }}>{t.date ? new Date(t.date).toLocaleString('mn-MN') : ''}</div>
@@ -570,7 +638,7 @@ export default function AdminOrdersPage() {
                   {Object.entries(PRIORITY_LABEL).map(([k, v]) => (
                     <button key={k} onClick={async () => {
                       await apiFetch(`/orders/${detail.id}/status`, { method: 'PATCH', body: JSON.stringify({ priority: k }) })
-                      setDetail((p: any) => p ? { ...p, priority: k } : null)
+                      setDetail(p => p ? { ...p, priority: k } : null)
                       load()
                     }} style={{
                       padding: '6px 14px', borderRadius: 6, border: detail.priority === k ? `2px solid ${PRIORITY_COLOR[k]}` : '1px solid var(--border)',

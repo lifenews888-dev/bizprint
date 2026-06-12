@@ -1,8 +1,10 @@
 'use client'
 import { useMemo } from 'react'
 import { VChart } from '@visactor/react-vchart'
+import type { ISpec } from '@visactor/vchart'
 import { useChartTheme } from '@/lib/use-chart-theme'
 import { SERIES_COLORS, fmtCurrency } from '@/lib/vchart-theme'
+import { datumNumber, datumString } from './chart-utils'
 
 interface DonutChartProps {
   data: { label: string; value: number; color?: string }[]
@@ -23,10 +25,10 @@ export default function DonutChart({
 }: DonutChartProps) {
   const { tokens } = useChartTheme()
 
-  const spec = useMemo(() => {
+  const spec = useMemo<ISpec>(() => {
     const colors = data.map((d, i) => d.color || SERIES_COLORS[i % SERIES_COLORS.length])
 
-    const result: any = {
+    return {
       type: 'pie',
       data: [{ id: 'data', values: data }],
       valueField: 'value',
@@ -49,8 +51,11 @@ export default function DonutChart({
         mark: {
           content: [
             {
-              key: (datum: any) => datum?.label || '',
-              value: (datum: any) => currency ? fmtCurrency(datum?.value || 0) : String(datum?.value || 0),
+              key: (datum: unknown) => datumString(datum, 'label'),
+              value: (datum: unknown) => {
+                const value = datumNumber(datum, 'value')
+                return currency ? fmtCurrency(value) : String(value)
+              },
             },
           ],
         },
@@ -58,24 +63,21 @@ export default function DonutChart({
       background: 'transparent',
       padding: 0,
       animationAppear: { duration: 600 },
-    }
-
-    if (centerText) {
-      result.indicator = {
-        visible: true,
-        trigger: 'none',
-        title: {
-          style: { text: centerText, fontSize: 22, fontWeight: 800, fill: tokens.text },
-        },
-        ...(centerLabel ? {
-          content: {
-            style: { text: centerLabel, fontSize: 11, fill: tokens.text3 },
+      ...(centerText ? {
+        indicator: {
+          visible: true,
+          trigger: 'none',
+          title: {
+            style: { text: centerText, fontSize: 22, fontWeight: 800, fill: tokens.text },
           },
-        } : {}),
-      }
+          ...(centerLabel ? {
+            content: {
+              style: { text: centerLabel, fontSize: 11, fill: tokens.text3 },
+            },
+          } : {}),
+        },
+      } : {}),
     }
-
-    return result
   }, [data, currency, innerRadius, centerText, centerLabel, tokens])
 
   return (

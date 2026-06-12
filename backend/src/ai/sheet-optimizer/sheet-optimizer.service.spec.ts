@@ -1,59 +1,37 @@
-import { Injectable } from '@nestjs/common'
+import { SheetOptimizerService } from './sheet-optimizer.service';
 
-@Injectable()
-export class SheetOptimizerService {
+describe('SheetOptimizerService', () => {
+  let service: SheetOptimizerService;
 
-  optimize(body: any) {
+  beforeEach(() => {
+    service = new SheetOptimizerService();
+  });
 
-    const sheetW = body.sheet_width_mm
-    const sheetH = body.sheet_height_mm
+  it('calculates a deterministic sheet layout for a candidate sheet', () => {
+    const result = service.optimizeItem(
+      {
+        width_mm: 30,
+        height_mm: 20,
+        quantity: 9,
+        bleed_mm: 0,
+        gutter_mm: 0,
+      },
+      {
+        allow_landscape: false,
+        candidate_sheets: [
+          { name: 'TestSheet', width_mm: 100, height_mm: 60, gripper_mm: 0, tail_mm: 0 },
+        ],
+      },
+    );
 
-    const itemW = body.item_width_mm
-    const itemH = body.item_height_mm
-
-    const bleed = body.bleed_mm ?? 3
-    const gap = body.gap_mm ?? 5
-
-    const w = itemW + bleed * 2
-    const h = itemH + bleed * 2
-
-    const cols = Math.floor(sheetW / (w + gap))
-    const rows = Math.floor(sheetH / (h + gap))
-
-    const total = cols * rows
-
-    const rotatedCols = Math.floor(sheetW / (h + gap))
-    const rotatedRows = Math.floor(sheetH / (w + gap))
-
-    const rotatedTotal = rotatedCols * rotatedRows
-
-    let best = {
-      orientation: 'normal',
-      cols,
-      rows,
-      total
-    }
-
-    if (rotatedTotal > total) {
-      best = {
-        orientation: 'rotated',
-        cols: rotatedCols,
-        rows: rotatedRows,
-        total: rotatedTotal
-      }
-    }
-
-    const sheetArea = sheetW * sheetH
-    const usedArea = best.total * itemW * itemH
-
-    const waste = sheetArea - usedArea
-    const wastePercent = (waste / sheetArea) * 100
-
-    return {
-      layout: best,
-      waste_percent: Number(wastePercent.toFixed(2))
-    }
-
-  }
-
-}
+    expect(result).toEqual(expect.objectContaining({
+      sheet: expect.objectContaining({ name: 'TestSheet' }),
+      orientation: 'portrait',
+      columns: 3,
+      rows: 3,
+      items_per_sheet: 9,
+      sheet_count: 1,
+      utilization_pct: 90,
+    }));
+  });
+});

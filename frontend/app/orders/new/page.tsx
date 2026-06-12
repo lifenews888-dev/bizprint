@@ -11,6 +11,79 @@ import {
   PRICING_CONTRACT_VERSION,
 } from '@/lib/pricing/snapshot'
 
+interface OrderSize {
+  label: string
+  w: number
+  h: number
+}
+
+interface VolumeDiscount {
+  min_qty: number
+  discount_percent: number
+}
+
+interface OrderConfig {
+  product_type: string
+  name_mn: string
+  icon?: string
+  sizes: OrderSize[]
+  materials: string[]
+  materials_mn?: string[]
+  finishing_options: string[]
+  finishing_options_mn?: string[]
+  min_qty: number
+  base_rate?: number
+  double_side_multiplier?: number
+  overhead_rate?: number
+  platform_rate?: number
+  ink_cost_per_500?: number
+  finishing_cost_each?: number
+  volume_discounts?: VolumeDiscount[]
+}
+
+interface EstimateBreakdown {
+  material?: number
+  print?: number
+  finishing?: number
+  overhead?: number
+  platform?: number
+  vat?: number
+}
+
+interface EstimateMeta {
+  materialRateM2?: number
+  printRateM2?: number
+  sideMultiplier?: number
+  backendTotal?: number
+}
+
+interface OrderEstimate {
+  total: number
+  unitPrice: number
+  discount?: number
+  originalTotal?: number | null
+  source?: string
+  breakdown?: EstimateBreakdown | null
+  meta?: EstimateMeta | null
+}
+
+interface SavedUser {
+  full_name?: string
+  name?: string
+  username?: string
+  phone?: string
+  email?: string
+  company_name?: string
+  company?: string
+}
+
+interface InquiryResponse {
+  id?: string
+  inquiry_number?: string
+  message?: string
+  error?: string
+}
+
 // ─── Static Mongolian label tables ─────────────────────────
 
 const COLOR_MODES = [
@@ -26,7 +99,7 @@ const SIDES = [
 
 const QTY_PRESETS = [50, 100, 250, 500, 1000, 2000, 5000]
 
-const FALLBACK_ORDER_CONFIGS = [
+const FALLBACK_ORDER_CONFIGS: OrderConfig[] = [
   {
     product_type: 'business-card',
     name_mn: 'Нэрийн хуудас',
@@ -164,18 +237,18 @@ const lookupLabel = (key: string, keys: string[] | undefined, labels: string[] |
   return staticMap[key] || key
 }
 
-const findConfig = (configs: any[], productType: string) =>
-  configs.find((c: any) => c.product_type === productType)
+const findConfig = (configs: OrderConfig[], productType: string) =>
+  configs.find(c => c.product_type === productType)
 
-const getSizeLabelFromParam = (config: any, sizeParam: string | null): string => {
+const getSizeLabelFromParam = (config: OrderConfig | null | undefined, sizeParam: string | null): string => {
   if (!config || !sizeParam) return ''
   const normalized = sizeParam.toLowerCase().replace('×', 'x')
-  const byLabel = (config.sizes || []).find((s: any) => String(s.label).toLowerCase().replace('×', 'x') === normalized)
+  const byLabel = (config.sizes || []).find(s => String(s.label).toLowerCase().replace('×', 'x') === normalized)
   if (byLabel) return byLabel.label
 
   const [w, h] = normalized.split('x').map((n: string) => Number(n))
   if (!w || !h) return ''
-  return (config.sizes || []).find((s: any) => Number(s.w) === w && Number(s.h) === h)?.label || ''
+  return (config.sizes || []).find(s => Number(s.w) === w && Number(s.h) === h)?.label || ''
 }
 
 const parseFinishingParam = (value: string | null) =>
@@ -189,13 +262,19 @@ function EstimateSourceDetails({
   serverPricingLoading = false,
   serverPricingError = '',
 }: {
-  estimate: any
+  estimate: OrderEstimate | null
   serverPricingLoading?: boolean
   serverPricingError?: string
 }) {
   if (!estimate?.breakdown) return null
 
   const materialPrint = Number(estimate.breakdown.material || 0) + Number(estimate.breakdown.print || 0)
+  const materialRateM2 = Number(estimate.meta?.materialRateM2 || 0)
+  const printRateM2 = Number(estimate.meta?.printRateM2 || 0)
+  const sideMultiplier = Number(estimate.meta?.sideMultiplier || 1)
+  const backendTotal = Number(estimate.meta?.backendTotal || 0)
+  const finishingTotal = Number(estimate.breakdown.finishing || 0)
+  const vatTotal = Number(estimate.breakdown.vat || 0)
 
   return (
     <div className="mt-3 border-t border-orange-200/70 dark:border-orange-800/70 pt-3 text-xs text-gray-500 dark:text-gray-400 space-y-1.5">
@@ -218,36 +297,36 @@ function EstimateSourceDetails({
           <span className="font-medium text-gray-700 dark:text-gray-300">{materialPrint.toLocaleString()}₮</span>
         </div>
       )}
-      {estimate.meta?.materialRateM2 > 0 && (
+      {materialRateM2 > 0 && (
         <div className="flex justify-between gap-3">
           <span>Материалын тариф</span>
-          <span className="font-medium text-gray-700 dark:text-gray-300">{Number(estimate.meta.materialRateM2).toLocaleString()}₮/м²</span>
+          <span className="font-medium text-gray-700 dark:text-gray-300">{materialRateM2.toLocaleString()}₮/м²</span>
         </div>
       )}
-      {estimate.meta?.printRateM2 > 0 && (
+      {printRateM2 > 0 && (
         <div className="flex justify-between gap-3">
           <span>Хэвлэх тариф</span>
           <span className="font-medium text-gray-700 dark:text-gray-300">
-            {Number(estimate.meta.printRateM2).toLocaleString()}₮/м²{estimate.meta.sideMultiplier > 1 ? ` × ${estimate.meta.sideMultiplier}` : ''}
+            {printRateM2.toLocaleString()}₮/м²{sideMultiplier > 1 ? ` × ${sideMultiplier}` : ''}
           </span>
         </div>
       )}
-      {estimate.breakdown.finishing > 0 && (
+      {finishingTotal > 0 && (
         <div className="flex justify-between gap-3">
           <span>Боловсруулалт</span>
-          <span className="font-medium text-gray-700 dark:text-gray-300">{Number(estimate.breakdown.finishing).toLocaleString()}₮</span>
+          <span className="font-medium text-gray-700 dark:text-gray-300">{finishingTotal.toLocaleString()}₮</span>
         </div>
       )}
-      {estimate.breakdown.vat > 0 && (
+      {vatTotal > 0 && (
         <div className="flex justify-between gap-3">
           <span>НӨАТ</span>
-          <span className="font-medium text-gray-700 dark:text-gray-300">{Number(estimate.breakdown.vat).toLocaleString()}₮</span>
+          <span className="font-medium text-gray-700 dark:text-gray-300">{vatTotal.toLocaleString()}₮</span>
         </div>
       )}
-      {estimate.source === 'server' && Number(estimate.meta?.backendTotal || 0) > 0 && (
+      {estimate.source === 'server' && backendTotal > 0 && (
         <div className="flex justify-between gap-3 border-t border-orange-200/70 pt-1.5 font-semibold text-gray-800 dark:border-orange-800/70 dark:text-gray-200">
           <span>Backend нийт</span>
-          <span>{Number(estimate.meta.backendTotal).toLocaleString()}₮</span>
+          <span>{backendTotal.toLocaleString()}₮</span>
         </div>
       )}
     </div>
@@ -276,8 +355,8 @@ function NewOrderPage() {
   const [step, setStep] = useState(1)
   const [customW, setCustomW] = useState(0)
   const [customH, setCustomH] = useState(0)
-  const [configs, setConfigs] = useState<any[]>(FALLBACK_ORDER_CONFIGS)
-  const [activeConfig, setActiveConfig] = useState<any>(fallbackActiveConfig)
+  const [configs, setConfigs] = useState<OrderConfig[]>(FALLBACK_ORDER_CONFIGS)
+  const [activeConfig, setActiveConfig] = useState<OrderConfig>(fallbackActiveConfig)
 
   const [spec, setSpec] = useState({
     productId: params.get('productId') || '',
@@ -301,7 +380,7 @@ function NewOrderPage() {
 
   useEffect(() => {
     try {
-      const savedUser = JSON.parse(localStorage.getItem('user') || '{}')
+      const savedUser = JSON.parse(localStorage.getItem('user') || '{}') as SavedUser
       const queryName = params.get('customer_name') || params.get('name') || ''
       const queryPhone = params.get('phone') || params.get('customer_phone') || ''
       const queryEmail = params.get('email') || params.get('customer_email') || ''
@@ -324,14 +403,14 @@ function NewOrderPage() {
   const [submitRequestId, setSubmitRequestId] = useState('')
   const [submitRequestIdCopied, setSubmitRequestIdCopied] = useState(false)
   const [result, setResult] = useState<{ id: string; number: string } | null>(null)
-  const [serverEstimate, setServerEstimate] = useState<any>(null)
+  const [serverEstimate, setServerEstimate] = useState<OrderEstimate | null>(null)
   const [serverPricingLoading, setServerPricingLoading] = useState(false)
   const [serverPricingError, setServerPricingError] = useState('')
 
   // Fetch quote configs from admin API
   useEffect(() => {
     fetch(`${API_URL}/api/cms/quote-config`)
-      .then(r => r.json())
+      .then(r => r.ok ? r.json() as Promise<OrderConfig[]> : null)
       .then(data => {
         const nextConfigs = Array.isArray(data) && data.length > 0 ? data : FALLBACK_ORDER_CONFIGS
         setConfigs(nextConfigs)
@@ -366,7 +445,7 @@ function NewOrderPage() {
   const getFinishingLabel = (f: string) =>
     lookupLabel(f, activeConfig?.finishing_options, activeConfig?.finishing_options_mn, FINISHING_LABELS)
 
-  const selSize = sizes.find((s: any) => s.label === spec.sizeLabel)
+  const selSize = sizes.find(s => s.label === spec.sizeLabel)
   const isCustom = selSize?.w === 0
 
   const toggleFin = (v: string) => setSpec(p => ({
@@ -384,7 +463,7 @@ function NewOrderPage() {
   }
 
   // Calculate estimated price using active config
-  const calcEstimate = () => {
+  const calcEstimate = (): OrderEstimate | null => {
     const widthMm = isCustom ? clampWideDimensionMm(customW, 0) : clampWideDimensionMm(selSize?.w, 0)
     const heightMm = isCustom ? clampWideDimensionMm(customH, 0) : clampWideDimensionMm(selSize?.h, 0)
     const quantity = clampOrderQuantity(spec.quantity, activeConfig?.min_qty || 1)
@@ -422,8 +501,8 @@ function NewOrderPage() {
 
     const discounts = activeConfig.volume_discounts || []
     const activeDisc = discounts
-      .filter((d: any) => quantity >= d.min_qty)
-      .sort((a: any, b: any) => b.min_qty - a.min_qty)[0]
+      .filter(d => quantity >= d.min_qty)
+      .sort((a, b) => b.min_qty - a.min_qty)[0]
 
     const discounted = activeDisc
       ? Math.round(total * (1 - activeDisc.discount_percent / 100))
@@ -501,6 +580,7 @@ function NewOrderPage() {
   const displayUnitPrice = estimateSource === 'server'
     ? Math.round(displayTotal / safeOrderQuantity)
     : Number(estimate?.unitPrice || 0)
+  const displayDiscount = Number(estimate?.discount || 0)
   const quoteRetryParams = new URLSearchParams({
     product: spec.category || activeConfig?.product_type || 'flyer',
     size: `${safeWidthMm}x${safeHeightMm}`,
@@ -527,14 +607,15 @@ function NewOrderPage() {
     return getWideSubmitValidationError()
   }
 
-  const getSubmitErrorMessage = (error: any) => {
-    if (error?.name === 'AbortError') {
+  const getSubmitErrorMessage = (error: unknown) => {
+    if (error instanceof DOMException && error.name === 'AbortError') {
       return 'Сервер хариу өгөхөд удаж байна. Интернэт холболтоо шалгаад дахин оролдоно уу.'
     }
-    if (error instanceof TypeError || String(error?.message || '').includes('Failed to fetch')) {
+    const message = error instanceof Error ? error.message : ''
+    if (error instanceof TypeError || message.includes('Failed to fetch')) {
       return 'Сервертэй холбогдож чадсангүй. Түр хүлээгээд дахин оролдох эсвэл 72000444 руу залгана уу.'
     }
-    return error?.message || 'Захиалга илгээж чадсангүй. Дахин оролдоно уу.'
+    return message || 'Захиалга илгээж чадсангүй. Дахин оролдоно уу.'
   }
 
   const createSubmitRequestId = () => {
@@ -636,7 +717,7 @@ function NewOrderPage() {
       })
       setSubmitRequestId(res.headers.get('x-request-id') || requestId)
       const text = await res.text()
-      let data: any = {}
+      let data: InquiryResponse = {}
       try {
         data = text ? JSON.parse(text) : {}
       } catch {
@@ -646,7 +727,8 @@ function NewOrderPage() {
         throw new Error(data?.message || data?.error || `Захиалга илгээхэд алдаа гарлаа (${res.status})`)
       }
       if (data.id) {
-        setResult({ id: data.id, number: data.inquiry_number })
+        const inquiryNumber = data.inquiry_number || data.id
+        setResult({ id: data.id, number: inquiryNumber })
         fbPixel.purchase({
           orderId: data.id,
           value: displayTotal || estimate?.total || 0,
@@ -655,7 +737,7 @@ function NewOrderPage() {
       } else {
         throw new Error('Серверээс захиалгын дугаар ирсэнгүй')
       }
-    } catch (e: any) {
+    } catch (e: unknown) {
       console.error(e)
       setSubmitError(getSubmitErrorMessage(e))
     } finally {
@@ -821,7 +903,7 @@ function NewOrderPage() {
           <div>
             <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Хэмжээ</p>
             <div className="flex flex-wrap gap-1.5">
-              {sizes.map((s: any) => (
+              {sizes.map(s => (
                 <button key={s.label} onClick={() => setSpec(p => ({ ...p, sizeLabel: s.label }))}
                   className={`px-2.5 py-1.5 rounded-lg text-xs transition-colors ${
                     spec.sizeLabel === s.label
@@ -968,8 +1050,8 @@ function NewOrderPage() {
                     <p className="text-sm text-gray-400 line-through">{estimate.originalTotal.toLocaleString()}₮</p>
                   )}
                   <p className="text-2xl font-bold text-orange-500">{displayTotal.toLocaleString()}₮</p>
-                  {estimate.discount > 0 && (
-                    <p className="text-xs text-green-600 font-medium">-{estimate.discount}% хямдрал</p>
+                  {displayDiscount > 0 && (
+                    <p className="text-xs text-green-600 font-medium">-{displayDiscount}% хямдрал</p>
                   )}
                 </div>
                 <div className="text-right text-xs text-gray-400">

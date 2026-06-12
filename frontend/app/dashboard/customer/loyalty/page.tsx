@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
+import Link from 'next/link'
 import { QRCodeSVG } from 'qrcode.react'
 import { apiFetch } from '@/lib/api'
 
@@ -7,21 +8,45 @@ const FONT = "'DM Sans','Segoe UI',system-ui,sans-serif"
 const ORANGE = '#FF6B00'
 const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'
 
+interface LoyaltyProgram {
+  id: string
+  name?: string
+  description?: string
+  accent_color?: string
+  required_stamps: number
+  reward_description?: string
+  reward_type?: string
+  discount_percent?: number
+  logo_url?: string
+}
+
+interface LoyaltyCard {
+  id: string
+  program_id?: string
+  program?: LoyaltyProgram
+  current_stamps: number
+  rewards: number
+  total_stamps: number
+}
+
 export default function MyLoyaltyCards() {
-  const [cards, setCards] = useState<any[]>([])
-  const [programs, setPrograms] = useState<any[]>([])
+  const [cards, setCards] = useState<LoyaltyCard[]>([])
+  const [programs, setPrograms] = useState<LoyaltyProgram[]>([])
   const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState<'my' | 'discover'>('my')
   const [joining, setJoining] = useState<string | null>(null)
 
   useEffect(() => {
     const token = localStorage.getItem('access_token') || localStorage.getItem('token')
-    if (!token) { setLoading(false); return }
+    if (!token) {
+      const timer = setTimeout(() => setLoading(false), 0)
+      return () => clearTimeout(timer)
+    }
     const headers = { Authorization: `Bearer ${token}` }
-    const safeFetch = (path: string) => fetch(`${API}${path}`, { headers }).then(r => r.ok ? r.json() : []).catch(() => [])
+    const safeFetch = <T,>(path: string): Promise<T[]> => fetch(`${API}${path}`, { headers }).then(r => r.ok ? r.json() as Promise<T[]> : []).catch(() => [])
     Promise.all([
-      safeFetch('/loyalty/my'),
-      safeFetch('/loyalty/programs/discover'),
+      safeFetch<LoyaltyCard>('/loyalty/my'),
+      safeFetch<LoyaltyProgram>('/loyalty/programs/discover'),
     ]).then(([c, p]) => {
       setCards(Array.isArray(c) ? c : [])
       setPrograms(Array.isArray(p) ? p : [])
@@ -35,7 +60,7 @@ export default function MyLoyaltyCards() {
       // Refresh cards
       const token = localStorage.getItem('access_token') || localStorage.getItem('token')
       if (token) {
-        const c = await fetch(`${API}/api/loyalty/my`, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json()).catch(() => [])
+        const c = await fetch(`${API}/api/loyalty/my`, { headers: { Authorization: `Bearer ${token}` } }).then(r => r.json() as Promise<LoyaltyCard[]>).catch(() => [])
         setCards(Array.isArray(c) ? c : [])
         setTab('my')
       }
@@ -56,9 +81,9 @@ export default function MyLoyaltyCards() {
           <h1 style={{ fontSize: 22, fontWeight: 700, margin: '0 0 4px' }}>Loyalty картууд</h1>
           <p style={{ color: '#6B7280', fontSize: 14, margin: 0 }}>QR уншуулж тамга цуглуулаарай</p>
         </div>
-        <a href="/loyalty/scan" style={{ padding: '10px 20px', background: ORANGE, color: '#fff', border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 600, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 6 }}>
+        <Link href="/loyalty/scan" style={{ padding: '10px 20px', background: ORANGE, color: '#fff', border: 'none', borderRadius: 10, fontSize: 13, fontWeight: 600, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 6 }}>
           📷 QR скан
-        </a>
+        </Link>
       </div>
 
       {/* Tabs */}
@@ -88,13 +113,13 @@ export default function MyLoyaltyCards() {
               <div style={{ fontSize: 18, fontWeight: 600, color: 'var(--text, #374151)', marginBottom: 8 }}>Loyalty карт байхгүй</div>
               <p style={{ color: '#9CA3AF', fontSize: 14, margin: '0 0 20px' }}>Дэлгүүр, кофе шоп, ресторанд QR уншуулаад loyalty картаа аваарай</p>
               <div style={{ display: 'flex', gap: 10, justifyContent: 'center' }}>
-                <a href="/loyalty/scan" style={{ padding: '10px 24px', background: ORANGE, color: '#fff', borderRadius: 10, fontSize: 14, fontWeight: 600, textDecoration: 'none' }}>📷 QR скан хийх</a>
+                <Link href="/loyalty/scan" style={{ padding: '10px 24px', background: ORANGE, color: '#fff', borderRadius: 10, fontSize: 14, fontWeight: 600, textDecoration: 'none' }}>📷 QR скан хийх</Link>
                 <button onClick={() => setTab('discover')} style={{ padding: '10px 24px', background: 'var(--surface2, #F3F4F6)', color: 'var(--text, #374151)', border: 'none', borderRadius: 10, fontSize: 14, cursor: 'pointer', fontFamily: FONT }}>Программ нээх</button>
               </div>
             </div>
           ) : (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 16 }}>
-              {cards.map((c: any) => {
+              {cards.map(c => {
                 const prog = c.program
                 if (!prog) return null
                 const accent = prog.accent_color || ORANGE
@@ -168,7 +193,7 @@ export default function MyLoyaltyCards() {
             </div>
           ) : (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 16 }}>
-              {availablePrograms.map((prog: any) => {
+              {availablePrograms.map(prog => {
                 const accent = prog.accent_color || ORANGE
                 return (
                   <div key={prog.id} style={{ background: 'var(--surface, #fff)', borderRadius: 16, padding: 20, border: '1px solid var(--border, #E5E7EB)' }}>

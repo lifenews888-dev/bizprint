@@ -32,34 +32,87 @@ const CAP_OPTIONS = [
 
 type Tab = 'account' | 'creator' | 'payout'
 
+interface CreatorModalUser {
+  full_name?: string
+  email?: string
+  phone?: string
+  company?: string
+  address?: string
+  avatar_url?: string
+  is_creator?: boolean
+  creator_display_name?: string
+  creator_bio?: string
+  creator_skills?: string[]
+  creator_capabilities?: string[]
+  creator_delivery_days?: number
+  creator_response_time?: string
+  creator_level?: string
+  [key: string]: unknown
+}
+
+interface AccountForm {
+  full_name: string
+  email: string
+  phone: string
+  company: string
+  address: string
+}
+
+interface CreatorForm {
+  display_name: string
+  bio: string
+  skills: string[]
+  capabilities: string[]
+  delivery_days: number
+  response_time: string
+}
+
+interface CreatorScoreData {
+  score?: number
+  level?: string
+  breakdown?: {
+    rating?: number
+    performance?: number
+    activity?: number
+  }
+}
+
+interface UploadResponse {
+  file_url?: string
+}
+
+const errorMessage = (error: unknown, fallback: string): string =>
+  error instanceof Error && error.message ? error.message : fallback
+
 export default function CreatorProfileModal({
   open, onClose, user, onSave, onUserUpdate,
 }: {
   open: boolean
   onClose: () => void
-  user: any
-  onSave: (data: any) => void
+  user: CreatorModalUser | null
+  onSave: (data: CreatorModalUser) => void
   /** Update user without closing modal (for avatar upload) */
-  onUserUpdate?: (data: any) => void
+  onUserUpdate?: (data: CreatorModalUser) => void
 }) {
   const [tab, setTab] = useState<Tab>('account')
-  const [form, setForm] = useState({ full_name: '', email: '', phone: '', company: '', address: '' })
-  const [creatorForm, setCreatorForm] = useState({
+  const [form, setForm] = useState<AccountForm>({ full_name: '', email: '', phone: '', company: '', address: '' })
+  const [creatorForm, setCreatorForm] = useState<CreatorForm>({
     display_name: '', bio: '', skills: [] as string[], capabilities: [] as string[],
     delivery_days: 3, response_time: '2 цаг',
   })
   const [saving, setSaving] = useState(false)
-  const [scoreData, setScoreData] = useState<any>(null)
+  const [scoreData, setScoreData] = useState<CreatorScoreData | null>(null)
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
   const [avatarUploading, setAvatarUploading] = useState(false)
   const avatarRef = useRef<HTMLInputElement>(null)
 
   const uploadAvatar = async (file: File) => {
+    if (!user) return
     setAvatarUploading(true)
     try {
       const fd = new FormData()
       fd.append('file', file)
-      const res = await apiUpload<any>('/upload/file', fd)
+      const res = await apiUpload<UploadResponse>('/upload/file', fd)
       if (res?.file_url) {
         const fullUrl = res.file_url.startsWith('http') ? res.file_url : `http://localhost:4000${res.file_url}`
         setAvatarUrl(fullUrl)
@@ -70,31 +123,36 @@ export default function CreatorProfileModal({
         if (onUserUpdate) onUserUpdate(updated)
         else onSave(updated)
       }
-    } catch (e: any) { alert(e.message || 'Зураг байршуулах алдаа') }
+    } catch (e: unknown) { alert(errorMessage(e, 'Зураг байршуулах алдаа')) }
     setAvatarUploading(false)
   }
 
   useEffect(() => {
     if (!user) return
+    const timeout = window.setTimeout(() => {
+      setAvatarUrl(user.avatar_url || null)
+      setForm({
+        full_name: user.full_name || '', email: user.email || '',
+        phone: user.phone || '', company: user.company || '', address: user.address || '',
+      })
+      setCreatorForm({
+        display_name: user.creator_display_name || user.full_name || '',
+        bio: user.creator_bio || '',
+        skills: user.creator_skills || [],
+        capabilities: user.creator_capabilities || [],
+        delivery_days: user.creator_delivery_days || 3,
+        response_time: user.creator_response_time || '2 цаг',
+      })
+    }, 0)
+
     if (user.is_creator) {
-      apiFetch<any>('/creator/score').then(d => { if (d?.score !== undefined) setScoreData(d) }).catch(() => {})
+      apiFetch<CreatorScoreData>('/creator/score').then(d => { if (d?.score !== undefined) setScoreData(d) }).catch(() => {})
     }
-    setAvatarUrl(user.avatar_url || null)
-    setForm({
-      full_name: user.full_name || '', email: user.email || '',
-      phone: user.phone || '', company: user.company || '', address: user.address || '',
-    })
-    setCreatorForm({
-      display_name: user.creator_display_name || user.full_name || '',
-      bio: user.creator_bio || '',
-      skills: user.creator_skills || [],
-      capabilities: user.creator_capabilities || [],
-      delivery_days: user.creator_delivery_days || 3,
-      response_time: user.creator_response_time || '2 цаг',
-    })
+
+    return () => window.clearTimeout(timeout)
   }, [user, open])
 
-  if (!open) return null
+  if (!open || !user) return null
 
   const toggleSkill = (key: string) => {
     setCreatorForm(f => ({
@@ -111,6 +169,7 @@ export default function CreatorProfileModal({
   }
 
   const save = async () => {
+    if (!user) return
     setSaving(true)
     try {
       if (tab === 'account') {
@@ -202,7 +261,7 @@ export default function CreatorProfileModal({
             ].map(f => (
               <div key={f.key}>
                 <label style={{ fontSize: 12, fontWeight: 600, color: 'var(--text2)', display: 'block', marginBottom: 4 }}>{f.label}</label>
-                <input type={f.type} value={(form as any)[f.key] || ''} onChange={e => setForm(p => ({ ...p, [f.key]: e.target.value }))}
+                <input type={f.type} value={form[f.key as keyof AccountForm] || ''} onChange={e => setForm(p => ({ ...p, [f.key as keyof AccountForm]: e.target.value }))}
                   placeholder={f.placeholder} style={inputStyle} />
               </div>
             ))}

@@ -10,23 +10,29 @@
  */
 
 import { useEffect, useState, useCallback } from 'react'
-import { useRealtime } from '../contexts/RealtimeContext'
+import { RealtimePayload, useRealtime } from '../contexts/RealtimeContext'
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000'
 
+interface DesignApprovalData {
+  id?: string
+  status?: string
+  [key: string]: unknown
+}
+
 interface UseDesignApprovalResult {
-  design: any | null
+  design: DesignApprovalData | null
   loading: boolean
   connected: boolean
   refresh: () => void
-  lastEvent: { type: string; data: any } | null
+  lastEvent: { type: string; data: RealtimePayload } | null
 }
 
 export function useDesignApproval(designRequestId: string | null | undefined): UseDesignApprovalResult {
   const { subscribe, joinRoom, leaveRoom, connected, onReconnect } = useRealtime()
-  const [design, setDesign] = useState<any>(null)
+  const [design, setDesign] = useState<DesignApprovalData | null>(null)
   const [loading, setLoading] = useState(true)
-  const [lastEvent, setLastEvent] = useState<{ type: string; data: any } | null>(null)
+  const [lastEvent, setLastEvent] = useState<{ type: string; data: RealtimePayload } | null>(null)
 
   const fetchDesign = useCallback(async () => {
     if (!designRequestId) return
@@ -36,7 +42,7 @@ export function useDesignApproval(designRequestId: string | null | undefined): U
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       })
       if (res.ok) {
-        const data = await res.json()
+        const data = await res.json() as DesignApprovalData
         setDesign(data)
       }
     } catch {}
@@ -50,7 +56,7 @@ export function useDesignApproval(designRequestId: string | null | undefined): U
     joinRoom(room)
     fetchDesign()
 
-    const handleEvent = (type: string) => (data: any) => {
+    const handleEvent = (type: string) => (data: RealtimePayload) => {
       if (data.designRequestId !== designRequestId) return
       setLastEvent({ type, data })
       fetchDesign()

@@ -3,6 +3,7 @@ import { apiFetch, getToken, API_URL } from '@/lib/api'
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useRealtime } from '@/contexts/RealtimeContext'
+import { clearAuthSession } from '@/lib/auth-session'
 import dynamic from 'next/dynamic'
 import CreatorProfileModal from '@/components/CreatorProfileModal'
 import MarketplaceSection from '@/components/MarketplaceSection'
@@ -47,24 +48,107 @@ const stepIdx = (s: string) => {
   return 0
 }
 
+type PayMethod = 'qr' | 'bank' | 'cash'
+
+interface DashboardUser {
+  id?: string
+  role?: string
+  is_creator?: boolean
+  full_name?: string
+  email?: string
+  phone?: string
+  address?: string
+  company?: string
+  avatar_url?: string
+  [key: string]: unknown
+}
+
+interface DashboardOrder {
+  id: string
+  status: string
+  product_name?: string
+  quantity?: number
+  total_price?: number | string
+  created_at: string
+  width_mm?: number | string
+  height_mm?: number | string
+  paper_gsm?: number | string
+  color_mode?: string
+  finishing?: string
+  [key: string]: unknown
+}
+
+interface DashboardQuote {
+  id: string
+  quote_number?: string
+  status?: string
+  product_name?: string
+  product_subtype?: string
+  quantity?: number
+  total_price?: number | string
+  unit_price?: number | string
+  width_mm?: number | string
+  height_mm?: number | string
+  paper_gsm?: number | string
+  color_mode?: string
+  created_at?: string
+  valid_until?: string
+  [key: string]: unknown
+}
+
+interface DashboardProduct {
+  id: string
+  name?: string
+  image_url?: string
+  price?: number | string
+}
+
+interface TicketMessage {
+  sender?: string
+  content?: string
+}
+
+interface SupportTicket {
+  id: string
+  ticket_number?: string
+  subject?: string
+  status?: string
+  created_at: string
+  messages?: TicketMessage[]
+}
+
+interface OrderFromQuoteResponse extends Partial<DashboardOrder> {
+  data?: DashboardOrder
+}
+
+interface PaymentCreateResponse {
+  qrImage?: string
+  invoiceNo?: string
+  expiresAt?: string
+}
+
+interface PaymentStatusResponse {
+  status?: number | string
+}
+
 export default function DashboardPage() {
   const router = useRouter()
   const { joinRoom, subscribe } = useRealtime()
-  const [user, setUser] = useState<any>(null)
-  const [orders, setOrders] = useState<any[]>([])
-  const [quotes, setQuotes] = useState<any[]>([])
-  const [products, setProducts] = useState<any[]>([])
+  const [user, setUser] = useState<DashboardUser | null>(null)
+  const [orders, setOrders] = useState<DashboardOrder[]>([])
+  const [quotes, setQuotes] = useState<DashboardQuote[]>([])
+  const [products, setProducts] = useState<DashboardProduct[]>([])
   const [loading, setLoading] = useState(true)
   const [section, setSection] = useState('orders')
   const [selQ, setSelQ] = useState<Set<string>>(new Set())
-  const [detailOrder, setDetailOrder] = useState<any>(null)
+  const [detailOrder, setDetailOrder] = useState<DashboardOrder | null>(null)
   const [showProfile, setShowProfile] = useState(false)
   const [profileForm, setProfileForm] = useState({ full_name: '', email: '', phone: '', address: '', company: '' })
   const [toast, setToast] = useState('')
   const [qFilter, setQFilter] = useState('all')
   const [showProposal, setShowProposal] = useState(false)
   const [showPayment, setShowPayment] = useState(false)
-  const [payMethod, setPayMethod] = useState<'qr'|'bank'|'cash'>('qr')
+  const [payMethod, setPayMethod] = useState<PayMethod>('qr')
   const [qrInfo, setQrInfo] = useState<{invoiceNo:string; qrImage:string; expiresAt?:string}|null>(null)
   const [payLoading, setPayLoading] = useState(false)
   const [ordering, setOrdering] = useState(false)
@@ -77,10 +161,10 @@ export default function DashboardPage() {
   const [ticketQuoteId, setTicketQuoteId] = useState('')
   const [ticketSending, setTicketSending] = useState(false)
   const [dashMode, setDashMode] = useState<'customer' | 'creator'>('customer')
-  const [myTickets, setMyTickets] = useState<any[]>([])
+  const [myTickets, setMyTickets] = useState<SupportTicket[]>([])
 
   const loadMyTickets = () => {
-    apiFetch<any>('/customer/support/my-tickets')
+    apiFetch<SupportTicket[]>('/customer/support/my-tickets')
       .then(d => setMyTickets(Array.isArray(d) ? d : [])).catch(() => {})
   }
 
@@ -88,7 +172,7 @@ export default function DashboardPage() {
     if (!ticketSubject || !ticketMessage || ticketSending) return
     setTicketSending(true)
     try {
-      await apiFetch<any>('/customer/support', {
+      await apiFetch<void>('/customer/support', {
         method: 'POST',
         body: { subject: ticketSubject, message: ticketMessage, quote_id: ticketQuoteId || undefined },
       })
@@ -104,7 +188,7 @@ export default function DashboardPage() {
   useEffect(() => {
     const ud = localStorage.getItem('user'); const tk = getToken()
     if (!ud || !tk) { router.push('/login'); return }
-    const u = JSON.parse(ud)
+    const u = JSON.parse(ud) as DashboardUser
     // Role-based redirect
     if (u.role === 'admin' || u.role === 'superadmin') { router.push('/admin'); return }
     if (u.role === 'designer') { router.push('/designer'); return }
@@ -125,30 +209,30 @@ export default function DashboardPage() {
     joinRoom(`user:${u.id}`)
     setLoading(true)
     Promise.all([
-      apiFetch<any>('/orders/customer/'+u.id).catch(()=>[]),
-      apiFetch<any>('/quote/my').catch(()=>[]),
-      apiFetch<any>('/products').catch(()=>[]),
+      apiFetch<DashboardOrder[]>('/orders/customer/'+u.id).catch(()=>[]),
+      apiFetch<DashboardQuote[]>('/quote/my').catch(()=>[]),
+      apiFetch<DashboardProduct[]>('/products').catch(()=>[]),
     ]).then(([o,q,p]) => {
       setOrders(Array.isArray(o)?o:[]); setQuotes(Array.isArray(q)?q:[]); setProducts(Array.isArray(p)?p:[])
     }).finally(() => setLoading(false))
     // Load support tickets
-    apiFetch<any>('/customer/support/my-tickets').then(d=>setMyTickets(Array.isArray(d)?d:[])).catch(()=>{})
+    apiFetch<SupportTicket[]>('/customer/support/my-tickets').then(d=>setMyTickets(Array.isArray(d)?d:[])).catch(()=>{})
   }, [])
 
   // ── Realtime: design & zoom events ────────────────────────────────────────
   useEffect(() => {
     if (!user?.id) return
     const unsubs = [
-      subscribe('DESIGN_ZOOM_CREATED', (p: any) => {
+      subscribe('DESIGN_ZOOM_CREATED', () => {
         show('📹 Zoom уулзалт товлогдлоо! Имэйлийг шалгаарай.')
         // Reload orders to refresh status
-        apiFetch<any>('/orders/customer/'+user.id).then(o => setOrders(Array.isArray(o)?o:[])).catch(()=>{})
+        apiFetch<DashboardOrder[]>('/orders/customer/'+user.id).then(o => setOrders(Array.isArray(o)?o:[])).catch(()=>{})
       }),
       subscribe('DESIGN_APPROVED', () => {
-        apiFetch<any>('/orders/customer/'+user.id).then(o => setOrders(Array.isArray(o)?o:[])).catch(()=>{})
+        apiFetch<DashboardOrder[]>('/orders/customer/'+user.id).then(o => setOrders(Array.isArray(o)?o:[])).catch(()=>{})
       }),
       subscribe('DESIGN_FILE_UPLOADED', () => {
-        apiFetch<any>('/orders/customer/'+user.id).then(o => setOrders(Array.isArray(o)?o:[])).catch(()=>{})
+        apiFetch<DashboardOrder[]>('/orders/customer/'+user.id).then(o => setOrders(Array.isArray(o)?o:[])).catch(()=>{})
       }),
     ]
     return () => unsubs.forEach(u => u())
@@ -169,17 +253,17 @@ export default function DashboardPage() {
     setOrdering(true); setPayLoading(true); setQrInfo(null)
     try {
       // 1) Бүх сонгосон quote-уудаас захиалга үүсгэх
-      let lastOrder: any = null
+      let lastOrder: Partial<DashboardOrder> | null = null
       let combinedTotal = 0
       for (const q of selectedQuotesList) {
-        const orderData = await apiFetch<any>("/orders/from-quote", { method:"POST", body: { quote_id: q.id, payment_method: payMethod } })
+        const orderData = await apiFetch<OrderFromQuoteResponse>("/orders/from-quote", { method:"POST", body: { quote_id: q.id, payment_method: payMethod } })
         lastOrder = orderData?.data || orderData
         combinedTotal += Number(lastOrder?.total_price || q.total_price || 0)
       }
       const orderId = lastOrder?.id
 
       // 2) Payment create — нийлбэр дүнгээр
-      const payRes = await apiFetch<any>(`/payment/create`, {
+      const payRes = await apiFetch<PaymentCreateResponse>(`/payment/create`, {
         method: 'POST',
         body: { orderId, amount: combinedTotal, method: payMethod },
       })
@@ -196,11 +280,11 @@ export default function DashboardPage() {
       }
       setSelQ(new Set())
       // refresh
-      const o = await apiFetch<any>("/orders/customer/"+user?.id).catch(()=>[])
-      const q2 = await apiFetch<any>('/quote/my').catch(()=>[])
+      const o = await apiFetch<DashboardOrder[]>("/orders/customer/"+user?.id).catch(()=>[])
+      const q2 = await apiFetch<DashboardQuote[]>('/quote/my').catch(()=>[])
       setOrders(Array.isArray(o)?o:[]); setQuotes(Array.isArray(q2)?q2:[])
     } catch (err) {
-      show("Алдаа гарлаа: " + ((err as any)?.message || ''))
+      show("Алдаа гарлаа: " + (err instanceof Error ? err.message : ''))
     } finally {
       setOrdering(false); setPayLoading(false)
     }
@@ -209,12 +293,12 @@ export default function DashboardPage() {
   const pollStatus = async (invoiceNo: string) => {
     const timer = setInterval(async () => {
       try {
-        const data = await apiFetch<any>(`/payment/status/${invoiceNo}`)
+        const data = await apiFetch<PaymentStatusResponse>(`/payment/status/${invoiceNo}`)
         if (data?.status === 1 || data?.status === 'PAID' || data?.status === 'paid') {
           clearInterval(timer)
           show('Төлбөр амжилттай!')
           setShowPayment(false); setQrInfo(null)
-          const o = await apiFetch<any>("/orders/customer/"+user?.id).catch(()=>[]); setOrders(Array.isArray(o)?o:[])
+          const o = await apiFetch<DashboardOrder[]>("/orders/customer/"+user?.id).catch(()=>[]); setOrders(Array.isArray(o)?o:[])
         }
       } catch {}
     }, 5000)
@@ -229,10 +313,10 @@ export default function DashboardPage() {
   const orderFromQuotes = async () => {
     if (ordering) return; setOrdering(true); try {
     if (selQ.size === 0) return
-    for (const qid of selQ) { try { await apiFetch<any>('/orders/from-quote', { method: 'POST', body: { quote_id: qid } }) } catch {} }
+    for (const qid of selQ) { try { await apiFetch<OrderFromQuoteResponse>('/orders/from-quote', { method: 'POST', body: { quote_id: qid } }) } catch {} }
     show(selQ.size + ' захиалга үүсгэгдлээ!'); setSelQ(new Set())
-    const o = await apiFetch<any>('/orders/customer/'+user?.id).catch(()=>[])
-    const q = await apiFetch<any>('/quote/my').catch(()=>[])
+    const o = await apiFetch<DashboardOrder[]>('/orders/customer/'+user?.id).catch(()=>[])
+    const q = await apiFetch<DashboardQuote[]>('/quote/my').catch(()=>[])
     setOrders(Array.isArray(o)?o:[]); setQuotes(Array.isArray(q)?q:[]); setSection('orders')
     } finally { setOrdering(false) }
   }
@@ -264,7 +348,7 @@ export default function DashboardPage() {
     if (!email) return
     setQuotesLoading(true)
     try {
-      const data = await apiFetch<any>('/quote/guest?email=' + encodeURIComponent(email))
+      const data = await apiFetch<DashboardQuote[]>('/quote/guest?email=' + encodeURIComponent(email))
       setQuotes(Array.isArray(data) ? data : [])
       setQuoteEmail(email)
     } catch { setQuotes([]) }
@@ -329,7 +413,7 @@ export default function DashboardPage() {
           )}
           <button onClick={()=>router.push('/')} style={{ width:'100%', display:'flex', alignItems:'center', gap:9, padding:'8px 10px', borderRadius:8, border:'none', background:'transparent', color:'var(--text4)', cursor:'pointer', fontSize:13, fontFamily:"'Segoe UI',system-ui,sans-serif", marginBottom:2 }}>↗ Сайт харах</button>
           {user?.role==='admin'&&<button onClick={()=>router.push('/admin')} style={{ width:'100%', display:'flex', alignItems:'center', gap:9, padding:'8px 10px', borderRadius:8, border:'none', background:'rgba(255,107,0,0.08)', color:'#FF6B00', cursor:'pointer', fontSize:13, fontFamily:"'Segoe UI',system-ui,sans-serif", marginBottom:2, fontWeight:500 }}>⚙️ Admin Panel</button>}
-          <button onClick={()=>{localStorage.clear();router.push('/')}} style={{ width:'100%', display:'flex', alignItems:'center', gap:9, padding:'8px 10px', borderRadius:8, border:'none', background:'transparent', color:'var(--text4)', cursor:'pointer', fontSize:13, fontFamily:"'Segoe UI',system-ui,sans-serif" }}>🚪 Гарах</button>
+          <button onClick={()=>{clearAuthSession();router.push('/')}} style={{ width:'100%', display:'flex', alignItems:'center', gap:9, padding:'8px 10px', borderRadius:8, border:'none', background:'transparent', color:'var(--text4)', cursor:'pointer', fontSize:13, fontFamily:"'Segoe UI',system-ui,sans-serif" }}>🚪 Гарах</button>
         </div>
       </div>
 
@@ -511,13 +595,13 @@ export default function DashboardPage() {
             </div>
             {myTickets.length===0?(<div style={{ border:'2px dashed var(--border)', borderRadius:16, padding:'60px 24px', textAlign:'center' }}><div style={{ fontSize:48, marginBottom:12 }}>🎫</div><div style={{ fontSize:20, fontWeight:600, marginBottom:6 }}>Тикет байхгүй</div><div style={{ fontSize:14, color:'var(--text2)' }}>Асуулт байвал тикет нээнэ үү</div></div>):(
               <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
-                {myTickets.map(t=>{const sc:Record<string,{l:string;c:string;b:string}>={OPEN:{l:'Нээлттэй',c:'#FF6B00',b:'#FFF7ED'},IN_PROGRESS:{l:'Шийдвэрлэж буй',c:'#2563EB',b:'#DBEAFE'},RESOLVED:{l:'Шийдсэн',c:'#059669',b:'#D1FAE5'},CLOSED:{l:'Хаагдсан',c:'#6B7280',b:'#F3F4F6'}};const s=sc[t.status]||{l:t.status,c:'#6B7280',b:'#F3F4F6'};return(
+                {myTickets.map(t=>{const sc:Record<string,{l:string;c:string;b:string}>={OPEN:{l:'Нээлттэй',c:'#FF6B00',b:'#FFF7ED'},IN_PROGRESS:{l:'Шийдвэрлэж буй',c:'#2563EB',b:'#DBEAFE'},RESOLVED:{l:'Шийдсэн',c:'#059669',b:'#D1FAE5'},CLOSED:{l:'Хаагдсан',c:'#6B7280',b:'#F3F4F6'}};const s=sc[t.status ?? '']||{l:t.status || 'UNKNOWN',c:'#6B7280',b:'#F3F4F6'};return(
                   <div key={t.id} style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:14, padding:'18px 22px' }}>
                     <div style={{ display:'flex', justifyContent:'space-between', alignItems:'start' }}>
                       <div><div style={{ fontSize:12, color:'var(--text3)', fontFamily:"'DM Sans',sans-serif", marginBottom:4 }}>{t.ticket_number}</div><div style={{ fontSize:16, fontWeight:600, marginBottom:4 }}>{t.subject}</div><div style={{ fontSize:12, color:'var(--text3)', fontFamily:"'DM Sans',sans-serif" }}>{new Date(t.created_at).toLocaleDateString()}</div></div>
                       <span style={{ fontSize:11, padding:'3px 10px', borderRadius:99, background:s.b, color:s.c, fontWeight:600, fontFamily:"'DM Sans',sans-serif" }}>{s.l}</span>
                     </div>
-                    {t.messages && t.messages.length > 0 && (<div style={{ marginTop:12, paddingTop:12, borderTop:'1px solid #F5F5F4' }}>{t.messages.slice(-2).map((m:any,i:number)=>(<div key={i} style={{ fontSize:13, color:'var(--text2)', marginBottom:4 }}><span style={{ fontWeight:600, color:m.sender==='admin'?'#FF6B00':'#1C1917' }}>{m.sender}:</span> {m.content?.slice(0,100)}{m.content?.length>100?'...':''}</div>))}</div>)}
+                    {t.messages && t.messages.length > 0 && (<div style={{ marginTop:12, paddingTop:12, borderTop:'1px solid #F5F5F4' }}>{t.messages.slice(-2).map((m: TicketMessage,i:number)=>(<div key={i} style={{ fontSize:13, color:'var(--text2)', marginBottom:4 }}><span style={{ fontWeight:600, color:m.sender==='admin'?'#FF6B00':'#1C1917' }}>{m.sender}:</span> {m.content?.slice(0,100)}{(m.content?.length ?? 0)>100?'...':''}</div>))}</div>)}
                   </div>
                 )})}
               </div>
@@ -560,8 +644,8 @@ export default function DashboardPage() {
 
       {/* ═══ PROFILE MODAL ═══ */}
       <CreatorProfileModal open={showProfile} onClose={() => setShowProfile(false)} user={user}
-        onUserUpdate={(updated: any) => { setUser(updated); setProfileForm({ full_name: updated.full_name || '', email: updated.email || '', phone: updated.phone || '', address: updated.address || '', company: updated.company || '' }) }}
-        onSave={(updated: any) => { setUser(updated); setProfileForm({ full_name: updated.full_name || '', email: updated.email || '', phone: updated.phone || '', address: updated.address || '', company: updated.company || '' }); show('Профайл хадгалагдлаа ✅'); setShowProfile(false) }} />
+        onUserUpdate={(updated: DashboardUser) => { setUser(updated); setProfileForm({ full_name: updated.full_name || '', email: updated.email || '', phone: updated.phone || '', address: updated.address || '', company: updated.company || '' }) }}
+        onSave={(updated: DashboardUser) => { setUser(updated); setProfileForm({ full_name: updated.full_name || '', email: updated.email || '', phone: updated.phone || '', address: updated.address || '', company: updated.company || '' }); show('Профайл хадгалагдлаа ✅'); setShowProfile(false) }} />
 
       {showProposal && (<div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.5)', backdropFilter:'blur(4px)', zIndex:1000, display:'flex', alignItems:'center', justifyContent:'center' }} onClick={()=>setShowProposal(false)}><div style={{ background:'var(--surface)', borderRadius:20, width:'100%', maxWidth:720, maxHeight:'90vh', overflow:'auto', boxShadow:'0 24px 80px rgba(0,0,0,0.2)' }} onClick={e=>e.stopPropagation()}>
         <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'20px 28px', borderBottom:'1px solid #E7E5E4' }}><div style={{ fontSize:18, fontWeight:700 }}>Үнийн санал — Proposal</div><div style={{ display:'flex', gap:8 }}><button onClick={()=>{const w=window.open('','','width=800,height=600');if(w){w.document.write('<html><head><title>BizPrint Proposal</title><style>body{font-family:Arial,sans-serif;padding:40px;color:#1C1917}table{width:100%;border-collapse:collapse}th,td{padding:10px 14px;text-align:left;border-bottom:1px solid #E7E5E4}th{background:#F5F5F4;font-size:12px;font-weight:600;color:#78716C}</style></head><body>'+document.getElementById("ppdf")?.innerHTML+'</body></html>');w.document.close();w.print()}}} style={{ background:'#1C1917', color:'#fff', border:'none', padding:'9px 20px', borderRadius:99, fontSize:13, fontWeight:600, cursor:'pointer' }}>🖨️ Хэвлэх</button><button onClick={()=>{const el=document.getElementById('ppdf');if(!el)return;const blob=new Blob(['<html><head><meta charset=utf-8><title>BizPrint Proposal</title><style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Arial,sans-serif;padding:48px;color:#1C1917}table{width:100%;border-collapse:collapse}th{padding:10px 14px;text-align:left;font-size:11px;font-weight:600;color:#78716C;border-bottom:2px solid #E7E5E4;background:#F9F9F8}td{padding:10px 14px;font-size:13px;border-bottom:1px solid #F0F0EE}td:last-child,th:last-child{text-align:right}</style></head><body>'+el.innerHTML+'</body></html>'],{type:'text/html'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='BizPrint-Proposal-'+new Date().toISOString().slice(0,10)+'.html';a.click()}} style={{ background:'#059669', color:'#fff', border:'none', padding:'9px 20px', borderRadius:99, fontSize:13, fontWeight:600, cursor:'pointer' }}>📥 Татах</button><button onClick={()=>setShowProposal(false)} style={{ background:'var(--surface2)', border:'none', color:'var(--text2)', width:32, height:32, borderRadius:10, cursor:'pointer', fontSize:16, display:'flex', alignItems:'center', justifyContent:'center' }}>x</button></div></div>
@@ -577,7 +661,7 @@ export default function DashboardPage() {
       {showPayment && (<div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.5)', backdropFilter:'blur(4px)', zIndex:1001, display:'flex', alignItems:'center', justifyContent:'center' }} onClick={()=>setShowPayment(false)}><div style={{ background:'var(--surface)', borderRadius:20, width:'100%', maxWidth:460, boxShadow:'0 24px 80px rgba(0,0,0,0.2)' }} onClick={e=>e.stopPropagation()}>
         <div style={{ padding:'24px 28px 16px', borderBottom:'1px solid #E7E5E4' }}><div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:12 }}><div style={{ fontSize:20, fontWeight:700 }}>Төлбөр төлөх</div><button onClick={()=>setShowPayment(false)} style={{ background:'var(--surface2)', border:'none', color:'var(--text2)', width:32, height:32, borderRadius:10, cursor:'pointer', fontSize:16, display:'flex', alignItems:'center', justifyContent:'center' }}>x</button></div><div style={{ background:'#1C1917', borderRadius:12, padding:'16px 20px', color:'#fff' }}><div style={{ fontSize:12, color:'var(--text3)' }}>{selectedQuotesList.length} үнийн санал · НӨАТ-тэй</div><div style={{ fontSize:28, fontWeight:700, marginTop:4 }}>{Math.round(selTotal*1.1).toLocaleString()}T</div></div></div>
         <div style={{ padding:'20px 28px' }}>
-          <div style={{ display:'flex', flexDirection:'column', gap:8, marginBottom:16 }}>{[{k:'qr',l:'TDB QR',d:'QR код уншуулж төлөх',i:'phone',t:'Санал болгож буй'},{k:'bank',l:'Банк шилжүүлэг',d:'Дансруу шилжүүлэх',i:'bank',t:null},{k:'cash',l:'Бэлэн мөнгө',d:'Хүргэлтийн үед төлөх',i:'cash',t:null}].map(m=><div key={m.k} onClick={()=>setPayMethod(m.k as any)} style={{ border:payMethod===m.k?'2px solid #FF6B00':'1px solid #E7E5E4', borderRadius:12, padding:'14px 16px', cursor:'pointer', display:'flex', alignItems:'center', gap:12, background:payMethod===m.k?'#FFF7ED':'#fff' }}><div style={{ fontSize:24 }}>{m.k==='qr'?'📱':m.k==='bank'?'🏦':'💵'}</div><div style={{ flex:1 }}><div style={{ display:'flex', alignItems:'center', gap:6 }}><span style={{ fontSize:14, fontWeight:600 }}>{m.l}</span>{m.t&&<span style={{ fontSize:9, padding:'2px 6px', borderRadius:99, background:'#DCFCE7', color:'#059669', fontWeight:600 }}>{m.t}</span>}</div><div style={{ fontSize:12, color:'var(--text3)' }}>{m.d}</div></div><div style={{ width:20, height:20, borderRadius:'50%', border:payMethod===m.k?'6px solid #FF6B00':'2px solid #D6D3D1' }}/></div>)}</div>
+          <div style={{ display:'flex', flexDirection:'column', gap:8, marginBottom:16 }}>{[{k:'qr',l:'TDB QR',d:'QR код уншуулж төлөх',i:'phone',t:'Санал болгож буй'},{k:'bank',l:'Банк шилжүүлэг',d:'Дансруу шилжүүлэх',i:'bank',t:null},{k:'cash',l:'Бэлэн мөнгө',d:'Хүргэлтийн үед төлөх',i:'cash',t:null}].map(m=><div key={m.k} onClick={()=>setPayMethod(m.k as PayMethod)} style={{ border:payMethod===m.k?'2px solid #FF6B00':'1px solid #E7E5E4', borderRadius:12, padding:'14px 16px', cursor:'pointer', display:'flex', alignItems:'center', gap:12, background:payMethod===m.k?'#FFF7ED':'#fff' }}><div style={{ fontSize:24 }}>{m.k==='qr'?'📱':m.k==='bank'?'🏦':'💵'}</div><div style={{ flex:1 }}><div style={{ display:'flex', alignItems:'center', gap:6 }}><span style={{ fontSize:14, fontWeight:600 }}>{m.l}</span>{m.t&&<span style={{ fontSize:9, padding:'2px 6px', borderRadius:99, background:'#DCFCE7', color:'#059669', fontWeight:600 }}>{m.t}</span>}</div><div style={{ fontSize:12, color:'var(--text3)' }}>{m.d}</div></div><div style={{ width:20, height:20, borderRadius:'50%', border:payMethod===m.k?'6px solid #FF6B00':'2px solid #D6D3D1' }}/></div>)}</div>
           {payMethod==='bank'&&<div style={{ background:'#FAFAF8', borderRadius:12, padding:'14px 18px', marginBottom:16, fontSize:13 }}>{[{l:'Банк',v:'Худалдаа Хөгжлийн Банк (ХХБ)'},{l:'IBAN',v:'220004000'},{l:'Данс',v:'453304134'},{l:'Эзэмшигч',v:'ЮүЭмБи Верто ХХК'},{l:'Гүйлгээний утга',v:'BP-'+String(Date.now()).slice(-6)}].map(r=><div key={r.l} style={{ display:'flex', justifyContent:'space-between', padding:'5px 0', borderBottom:'1px solid #E7E5E4' }}><span style={{ color:'var(--text3)' }}>{r.l}</span><span style={{ fontWeight:600 }}>{r.v}</span></div>)}</div>}
           {payMethod==='qr' && qrInfo && (
             <div style={{ textAlign:'center', marginBottom:16 }}>

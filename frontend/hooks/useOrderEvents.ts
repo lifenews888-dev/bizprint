@@ -20,7 +20,7 @@
  */
 
 import { useEffect } from 'react'
-import { useRealtime } from '@/contexts/RealtimeContext'
+import { RealtimePayload, useRealtime } from '@/contexts/RealtimeContext'
 
 const DEFAULT_EVENTS = [
   'ORDER_CREATED',
@@ -31,7 +31,7 @@ const DEFAULT_EVENTS = [
 
 interface Options {
   rooms: string[]
-  onChange: (event?: string, data?: any) => void
+  onChange: (event?: string, data?: RealtimePayload) => void
   events?: string[]
   /** Disable until prerequisites (e.g. user.id) are loaded. */
   enabled?: boolean
@@ -48,7 +48,7 @@ export function useOrderEvents({ rooms, onChange, events = DEFAULT_EVENTS, enabl
     validRooms.forEach(r => joinRoom(r))
 
     const unsubs = events.map(ev =>
-      subscribe(ev, (data: any) => onChange(ev, data)),
+      subscribe(ev, data => onChange(ev, data)),
     )
     // Re-fetch on socket reconnect so we don't miss anything that happened
     // while disconnected.

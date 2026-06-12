@@ -45,6 +45,9 @@ export interface PricingResult {
   options?: { tier: string; price: number; delivery_days: number; description: string }[]
 }
 
+const errorMessage = (error: unknown, fallback: string) =>
+  error instanceof Error && error.message ? error.message : fallback
+
 export function usePricing(config: PricingConfig) {
   const [data, setData] = useState<PricingResult | null>(null)
   const [loading, setLoading] = useState(false)
@@ -78,9 +81,9 @@ export function usePricing(config: PricingConfig) {
         auth: false,  // pricing doesn't need auth
       })
       setData(result as PricingResult)
-    } catch (e: any) {
-      if (e.name !== 'AbortError') {
-        setError(e.message || 'Үнэ тооцоолоход алдаа гарлаа')
+    } catch (e: unknown) {
+      if (!(e instanceof Error) || e.name !== 'AbortError') {
+        setError(errorMessage(e, 'Үнэ тооцоолоход алдаа гарлаа'))
       }
     } finally {
       setLoading(false)

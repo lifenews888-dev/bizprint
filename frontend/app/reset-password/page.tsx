@@ -29,6 +29,13 @@ function getPasswordStrength(pw: string): { score: number; label: string; color:
   return { score: 4, label: 'Хүчтэй', color: '#10B981' }
 }
 
+interface ResetTokenValidation {
+  valid?: boolean
+}
+
+const errorMessage = (error: unknown) =>
+  error instanceof Error && error.message ? error.message : 'Алдаа гарлаа'
+
 function ResetPasswordInner() {
   const searchParams = useSearchParams()
   const router = useRouter()
@@ -47,8 +54,8 @@ function ResetPasswordInner() {
 
   useEffect(() => {
     if (!token) { setValidating(false); return }
-    apiFetch(`/auth/validate-reset-token/${token}`, { auth: false })
-      .then((res: any) => setValid(res?.valid === true))
+    apiFetch<ResetTokenValidation>(`/auth/validate-reset-token/${token}`, { auth: false })
+      .then(res => setValid(res?.valid === true))
       .catch(() => setValid(false))
       .finally(() => setValidating(false))
   }, [token])
@@ -63,9 +70,10 @@ function ResetPasswordInner() {
       setDone(true)
       toast.success('Нууц үг амжилттай шинэчлэгдлээ!')
       setTimeout(() => router.push('/login'), 3000)
-    } catch (err: any) {
-      setError(err.message || 'Алдаа гарлаа')
-      toast.error(err.message || 'Алдаа гарлаа')
+    } catch (err: unknown) {
+      const message = errorMessage(err)
+      setError(message)
+      toast.error(message)
     } finally { setLoading(false) }
   }
 

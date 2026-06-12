@@ -5,20 +5,43 @@ import { AdminPageHeader } from '@/components/admin/AdminPageHeader'
 import { AdminDataTable, type Column } from '@/components/admin/AdminDataTable'
 import { Badge } from '@/components/ui/badge'
 
+type InvitationUser = {
+  full_name?: string
+  email?: string
+}
+
+type Invitation = {
+  id: string
+  title?: string
+  user?: InvitationUser
+  type?: string
+  status?: string
+  view_count?: number
+}
+
+type InvitationStats = {
+  total?: number
+  active?: number
+  totalGuests?: number
+  attending?: number
+}
+
+type InvitationsResponse = [Invitation[], number]
+
 export default function AdminInvitations() {
-  const [invitations, setInvitations] = useState<any[]>([])
-  const [stats, setStats] = useState<any>(null)
+  const [invitations, setInvitations] = useState<Invitation[]>([])
+  const [stats, setStats] = useState<InvitationStats | null>(null)
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     Promise.all([
-      apiFetch('/admin/invitations').then((r: any) => { setInvitations(r[0]); setTotal(r[1]) }),
-      apiFetch('/admin/invitations/stats').then(setStats),
+      apiFetch<InvitationsResponse>('/admin/invitations').then(r => { setInvitations(r[0]); setTotal(r[1]) }),
+      apiFetch<InvitationStats>('/admin/invitations/stats').then(setStats),
     ]).catch(() => {}).finally(() => setLoading(false))
   }, [])
 
-  const columns: Column<any>[] = [
+  const columns: Column<Invitation>[] = [
     { key: 'title', label: 'Гарчиг', render: row => <span className="font-medium text-foreground">{row.title}</span> },
     { key: 'user', label: 'Хэрэглэгч', render: row => <span className="text-muted-foreground">{row.user?.full_name || row.user?.email}</span> },
     { key: 'type', label: 'Төрөл', className: 'text-center', render: row => <span className="text-muted-foreground">{row.type}</span> },

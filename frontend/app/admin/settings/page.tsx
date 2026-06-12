@@ -7,9 +7,11 @@ import { useState, useEffect } from 'react'
    ═══════════════════════════════════════════ */
 interface SettingDef {
   key: string; label: string; type: 'number' | 'boolean' | 'string' | 'select' | 'json'
-  desc?: string; default_value: any; options?: string[]; min?: number; max?: number; unit?: string; sensitive?: boolean
+  desc?: string; default_value: SettingValue; options?: string[]; min?: number; max?: number; unit?: string; sensitive?: boolean
 }
 interface SettingGroup { key: string; label: string; icon: string; color: string; settings: SettingDef[] }
+type SettingValue = string | number | boolean
+interface SettingRecord { key: string; value: SettingValue }
 
 const SETTING_GROUPS: SettingGroup[] = [
   { key: 'pricing', label: 'Үнэ & Татвар', icon: '💰', color: '#FF6B00', settings: [
@@ -69,7 +71,7 @@ const SETTING_GROUPS: SettingGroup[] = [
 
 /* ═══ MAIN PAGE ═══ */
 export default function AdminSettingsPage() {
-  const [settings, setSettings] = useState<Record<string, any>>({})
+  const [settings, setSettings] = useState<Record<string, SettingValue>>({})
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [activeGroup, setActiveGroup] = useState('pricing')
@@ -78,8 +80,8 @@ export default function AdminSettingsPage() {
 
   // Load all settings from API
   useEffect(() => {
-    apiFetch<any[]>('/settings').then(d => {
-      const map: Record<string, any> = {}
+    apiFetch<SettingRecord[]>('/settings').then(d => {
+      const map: Record<string, SettingValue> = {}
       if (Array.isArray(d)) d.forEach(s => { map[s.key] = s.value })
       // Fill defaults for missing keys
       SETTING_GROUPS.forEach(g => g.settings.forEach(s => {
@@ -97,7 +99,7 @@ export default function AdminSettingsPage() {
     }).catch(() => {}).finally(() => setLoading(false))
   }, [])
 
-  function updateSetting(key: string, value: any) {
+  function updateSetting(key: string, value: SettingValue) {
     setSettings(prev => ({ ...prev, [key]: value }))
     setChanged(prev => new Set(prev).add(key))
   }
@@ -195,16 +197,16 @@ export default function AdminSettingsPage() {
                     <div className="flex-shrink-0 w-[200px] flex items-center justify-end gap-2">
                       {/* Boolean toggle */}
                       {s.type === 'boolean' && (
-                        <button onClick={() => updateSetting(s.key, !value)}
-                          className={`w-12 h-7 rounded-full transition-colors flex-shrink-0 relative ${value ? 'bg-[#FF6B00]' : 'bg-[#D1D5DB]'}`}>
-                          <div className={`w-5 h-5 bg-white rounded-full shadow absolute top-1 transition-all ${value ? 'left-6' : 'left-1'}`} />
+                        <button onClick={() => updateSetting(s.key, !Boolean(value))}
+                          className={`w-12 h-7 rounded-full transition-colors flex-shrink-0 relative ${Boolean(value) ? 'bg-[#FF6B00]' : 'bg-[#D1D5DB]'}`}>
+                          <div className={`w-5 h-5 bg-white rounded-full shadow absolute top-1 transition-all ${Boolean(value) ? 'left-6' : 'left-1'}`} />
                         </button>
                       )}
 
                       {/* Number input */}
                       {s.type === 'number' && (
                         <div className="flex items-center gap-1.5">
-                          <input type="number" value={value} min={s.min} max={s.max}
+                          <input type="number" value={Number(value)} min={s.min} max={s.max}
                             onChange={e => updateSetting(s.key, Number(e.target.value))}
                             className="w-24 px-2.5 py-1.5 border border-[#E5E7EB] rounded-lg text-sm text-right outline-none focus:border-[#FF6B00] transition-colors" />
                           {s.unit && <span className="text-xs text-[#888] font-medium">{s.unit}</span>}
@@ -213,14 +215,14 @@ export default function AdminSettingsPage() {
 
                       {/* String input */}
                       {s.type === 'string' && (
-                        <input value={value} onChange={e => updateSetting(s.key, e.target.value)}
+                        <input value={String(value)} onChange={e => updateSetting(s.key, e.target.value)}
                           className="w-48 px-2.5 py-1.5 border border-[#E5E7EB] rounded-lg text-sm outline-none focus:border-[#FF6B00] transition-colors"
                           type={s.sensitive ? 'password' : 'text'} />
                       )}
 
                       {/* Select */}
                       {s.type === 'select' && (
-                        <select value={value} onChange={e => updateSetting(s.key, e.target.value)}
+                        <select value={String(value)} onChange={e => updateSetting(s.key, e.target.value)}
                           className="px-2.5 py-1.5 border border-[#E5E7EB] rounded-lg text-sm outline-none focus:border-[#FF6B00]" style={{ appearance: 'auto' }}>
                           {s.options?.map(o => <option key={o} value={o}>{o}</option>)}
                         </select>

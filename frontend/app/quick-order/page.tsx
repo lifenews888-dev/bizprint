@@ -11,6 +11,17 @@ interface PrintType {
   price: string
 }
 
+interface QuoteConfig {
+  product_type?: string
+  name_mn?: string
+  icon?: string
+  base_rate?: number | string
+  min_qty?: number | string
+}
+
+const isQuoteConfig = (value: unknown): value is QuoteConfig =>
+  typeof value === 'object' && value !== null
+
 // Static fallback used while API loads or if it errors out
 const FALLBACK_TYPES: PrintType[] = [
   { id: 'flyer', name: 'Флаер', icon: '📄', price: '89,000₮-аас' },
@@ -32,9 +43,9 @@ export default function QuickOrderPage() {
   useEffect(() => {
     fetch(`${API_URL}/api/cms/quote-config`)
       .then(r => r.json())
-      .then((data: any[]) => {
+      .then((data: unknown) => {
         if (!Array.isArray(data) || data.length === 0) return
-        const mapped: PrintType[] = data.map(c => {
+        const mapped: PrintType[] = data.filter(isQuoteConfig).map(c => {
           // Compute "from" price from base_rate × min_qty when no sample exists
           const base = Number(c.base_rate) || 0
           const minQty = Number(c.min_qty) || 100
@@ -45,13 +56,13 @@ export default function QuickOrderPage() {
             ? `${estPrice.toLocaleString()}₮-аас`
             : 'Үнэ авах'
           return {
-            id: c.product_type,
-            name: c.name_mn,
+            id: c.product_type || 'custom',
+            name: c.name_mn || c.product_type || 'Бүтээгдэхүүн',
             icon: c.icon || '📦',
             price: priceLabel,
           }
         })
-        setPrintTypes(mapped)
+        if (mapped.length > 0) setPrintTypes(mapped)
       })
       .catch(() => {})
   }, [])
@@ -88,9 +99,9 @@ export default function QuickOrderPage() {
       <div style={{ maxWidth: 480, width: '100%' }}>
         {/* Header */}
         <div style={{ textAlign: 'center', marginBottom: 32 }}>
-          <a href="/" style={{ textDecoration: 'none' }}>
+          <Link href="/" style={{ textDecoration: 'none' }}>
             <span style={{ fontSize: 22, fontWeight: 800 }}><span style={{ color: '#FF6B00' }}>Biz</span><span style={{ color: 'var(--text)' }}>Print</span></span>
-          </a>
+          </Link>
           <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--text)', marginTop: 12 }}>Хурдан захиалга</h1>
           <p style={{ fontSize: 13, color: 'var(--text3)', marginTop: 4 }}>3 алхамд захиалга өгнө</p>
 

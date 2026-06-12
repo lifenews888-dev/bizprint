@@ -5,11 +5,51 @@ import { useParams } from 'next/navigation'
 const FONT = "'DM Sans','Segoe UI',system-ui,sans-serif"
 const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'
 
+interface PublicProduct {
+  id: string
+  product_name?: string
+  category?: string
+  accent_color?: string
+  bg_color?: string
+  price?: number | string
+  main_image_url?: string
+  gallery_urls?: string[]
+  video_url?: string
+  company_logo_url?: string
+  company_name?: string
+  company_phone?: string
+  company_website?: string
+  brand?: string
+  description?: string
+  features?: string[]
+  specifications?: Record<string, string>
+  sku?: string
+  scan_count?: number
+  view_count?: number
+  reorder_count?: number
+  show_reviews?: boolean
+  show_reorder_button?: boolean
+  cta_text?: string
+  reorder_url?: string
+}
+
+interface ProductReview {
+  id: string
+  reviewer_name?: string
+  rating?: number | string
+  comment?: string
+}
+
+interface ReviewStats {
+  average?: number
+  count?: number
+}
+
 export default function PublicProductQr() {
-  const { slug } = useParams()
-  const [product, setProduct] = useState<any>(null)
-  const [reviews, setReviews] = useState<any[]>([])
-  const [reviewStats, setReviewStats] = useState<any>(null)
+  const { slug } = useParams<{ slug: string }>()
+  const [product, setProduct] = useState<PublicProduct | null>(null)
+  const [reviews, setReviews] = useState<ProductReview[]>([])
+  const [reviewStats, setReviewStats] = useState<ReviewStats | null>(null)
   const [loading, setLoading] = useState(true)
   const [showReviewForm, setShowReviewForm] = useState(false)
   const [reviewForm, setReviewForm] = useState({ reviewer_name: '', rating: 5, comment: '' })
@@ -26,13 +66,13 @@ export default function PublicProductQr() {
 
   useEffect(() => {
     fetch(`${API}/api/p/${slug}`)
-      .then(r => r.ok ? r.json() : null)
+      .then(r => r.ok ? r.json() as Promise<PublicProduct> : null)
       .then(async p => {
         if (!p) { setLoading(false); return }
         setProduct(p)
         const [revs, stats] = await Promise.all([
-          fetch(`${API}/api/p/${p.id}/reviews`).then(r => r.json()).catch(() => []),
-          fetch(`${API}/api/p/${p.id}/reviews/stats`).then(r => r.json()).catch(() => null),
+          fetch(`${API}/api/p/${p.id}/reviews`).then(r => r.ok ? r.json() as Promise<ProductReview[]> : []).catch(() => []),
+          fetch(`${API}/api/p/${p.id}/reviews/stats`).then(r => r.ok ? r.json() as Promise<ReviewStats> : null).catch(() => null),
         ])
         setReviews(Array.isArray(revs) ? revs : [])
         setReviewStats(stats)
@@ -47,7 +87,7 @@ export default function PublicProductQr() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(reviewForm),
-    }).then(r => r.json())
+    }).then(r => r.json() as Promise<ProductReview>)
     setReviews([rev, ...reviews])
     setShowReviewForm(false)
     setReviewForm({ reviewer_name: '', rating: 5, comment: '' })
@@ -100,7 +140,8 @@ export default function PublicProductQr() {
 
   const accent = product.accent_color || '#FF6B00'
   const price = Number(product.price)
-  const allImages = [product.main_image_url, ...(product.gallery_urls || [])].filter(Boolean)
+  const allImages = [product.main_image_url, ...(product.gallery_urls || [])].filter((url): url is string => Boolean(url))
+  const features = Array.isArray(product.features) ? product.features : []
   const avgRating = reviewStats?.average || 0
   const reviewCount = reviewStats?.count || 0
 
@@ -142,7 +183,7 @@ export default function PublicProductQr() {
         {/* Thumbnails */}
         {allImages.length > 1 && (
           <div style={{ display: 'flex', gap: 6, padding: '8px 16px', overflowX: 'auto' }}>
-            {allImages.map((url: string, i: number) => (
+            {allImages.map((url, i) => (
               <img key={i} src={url} alt="" onClick={() => setLightboxIdx(i)} style={{
                 width: 56, height: 56, objectFit: 'cover', borderRadius: 8, cursor: 'pointer', flexShrink: 0,
                 border: '2px solid transparent',
@@ -212,10 +253,10 @@ export default function PublicProductQr() {
             <div>
               {product.description && <p style={{ fontSize: 15, color: '#4B5563', lineHeight: 1.7, margin: '0 0 20px' }}>{product.description}</p>}
 
-              {product.features?.length > 0 && (
+              {features.length > 0 && (
                 <div style={{ marginBottom: 20 }}>
                   <h3 style={{ fontSize: 15, fontWeight: 600, margin: '0 0 10px' }}>Онцлогууд</h3>
-                  {product.features.map((f: string, i: number) => (
+                  {features.map((f, i) => (
                     <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}>
                       <div style={{ width: 20, height: 20, borderRadius: 6, background: `${accent}15`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, color: accent, fontWeight: 700, flexShrink: 0 }}>✓</div>
                       <span style={{ fontSize: 14, color: '#4B5563' }}>{f}</span>
@@ -298,7 +339,7 @@ export default function PublicProductQr() {
               )}
 
               {/* Review list */}
-              {reviews.map((r: any) => (
+              {reviews.map(r => (
                 <div key={r.id} style={{ background: '#fff', borderRadius: 12, padding: 16, border: '1px solid #E5E7EB', marginBottom: 8 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
                     <span style={{ fontWeight: 600, fontSize: 14, color: '#1F2937' }}>{r.reviewer_name}</span>

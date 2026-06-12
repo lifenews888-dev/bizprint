@@ -24,6 +24,14 @@ interface QuoteConfig {
   volume_discounts: Array<{ min_qty: number; discount_percent: number }>
 }
 
+interface SeedQuoteConfigResponse {
+  seeded?: number
+}
+
+function errorMessage(error: unknown) {
+  return error instanceof Error ? error.message : ''
+}
+
 export default function AdminQuoteConfigPage() {
   const [configs, setConfigs] = useState<QuoteConfig[]>([])
   const [selected, setSelected] = useState<QuoteConfig | null>(null)
@@ -33,7 +41,7 @@ export default function AdminQuoteConfigPage() {
   const load = async () => {
     setLoading(true)
     try {
-      const data = await apiFetch<any>('/cms/quote-config', { auth: false })
+      const data = await apiFetch<QuoteConfig[]>('/cms/quote-config', { auth: false })
       setConfigs(Array.isArray(data) ? data : [])
     } catch {}
     setLoading(false)
@@ -43,11 +51,11 @@ export default function AdminQuoteConfigPage() {
 
   const seed = async () => {
     try {
-      const res = await apiFetch<any>('/cms/quote-config/seed')
+      const res = await apiFetch<SeedQuoteConfigResponse>('/cms/quote-config/seed')
       alert(`${res?.seeded || 0} төрөл нэмэгдлээ`)
       load()
-    } catch (e: any) {
-      alert('Алдаа: ' + (e.message || ''))
+    } catch (e: unknown) {
+      alert('Алдаа: ' + errorMessage(e))
     }
   }
 
@@ -61,14 +69,14 @@ export default function AdminQuoteConfigPage() {
       })
       await load()
       alert('Хадгалагдлаа ✅')
-    } catch (e: any) {
-      alert('Алдаа: ' + (e.message || ''))
+    } catch (e: unknown) {
+      alert('Алдаа: ' + errorMessage(e))
     } finally {
       setSaving(false)
     }
   }
 
-  const upd = (key: string, val: any) =>
+  const upd = <K extends keyof QuoteConfig>(key: K, val: QuoteConfig[K]) =>
     setSelected(p => p ? { ...p, [key]: val } : p)
 
   return (
@@ -132,7 +140,7 @@ export default function AdminQuoteConfigPage() {
 
                 {/* Pricing inputs */}
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 20 }}>
-                  {[
+                  {([
                     { k: 'base_rate', label: 'Base rate (₮)' },
                     { k: 'min_qty', label: 'Хамгийн бага тираж' },
                     { k: 'double_side_multiplier', label: '2 тал үржүүлэгч', step: 0.01 },
@@ -141,11 +149,11 @@ export default function AdminQuoteConfigPage() {
                     { k: 'ink_cost_per_500', label: 'Бэхний зардал/500ш' },
                     { k: 'finishing_cost_each', label: 'Finishing/сонголт' },
                     { k: 'sort_order', label: 'Эрэмбэ' },
-                  ].map(f => (
+                  ] as const).map(f => (
                     <div key={f.k}>
                       <label style={{ fontSize: 11, color: 'var(--text3)', display: 'block', marginBottom: 4 }}>{f.label}</label>
-                      <input type="number" step={f.step || 1}
-                        value={(selected as any)[f.k] ?? ''}
+                      <input type="number" step={'step' in f ? f.step : 1}
+                        value={selected[f.k] ?? ''}
                         onChange={e => upd(f.k, parseFloat(e.target.value) || 0)}
                         style={{ width: '100%', padding: '8px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface2)', fontSize: 13, color: 'var(--text)', outline: 'none', boxSizing: 'border-box' }} />
                     </div>

@@ -3,6 +3,7 @@ import { apiFetch, getToken } from '@/lib/api'
 import { CLIENT_PRICING_SNAPSHOT_VERSION, PRICING_CONTRACT_VERSION } from '@/lib/pricing/snapshot'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
+import Link from 'next/link'
 
 const F = "'DM Sans','Segoe UI',system-ui,sans-serif"
 const O = '#FF6B00'
@@ -24,9 +25,107 @@ function Stars({ rating }: { rating: number }) {
   )
 }
 
+interface ProductVariant {
+  id: string
+  type?: string
+  attribute?: string
+  value?: string
+  label?: string
+  name?: string
+}
 
-function VariantSelector({ productId, onSelect }: { productId: string; onSelect?: (v: any) => void }) {
-  const [variants, setVariants] = useState<any[]>([]);
+type AttributeOption = string | number | { value?: string | number; label?: string; name?: string }
+
+interface ProductAttribute {
+  id?: string
+  name: string
+  name_mn?: string
+  type?: string
+  required?: boolean
+  options?: AttributeOption[] | { values?: AttributeOption[] }
+}
+
+interface DimensionsOption {
+  width?: number
+  height?: number
+}
+
+type SelectedOption = string | number | DimensionsOption
+
+interface ShopProduct {
+  id?: string
+  slug?: string
+  category?: string
+  product_type?: string
+  type?: string
+  name?: string
+  name_mn?: string
+  thumbnail_url?: string
+  images?: string[]
+  base_price?: number | string
+  width_mm?: number
+  height_mm?: number
+  lead_time_days?: number
+  min_quantity?: number
+  rating?: number
+  description?: string
+}
+
+interface PriceResult {
+  total?: number
+  unit_price?: number
+  breakdown?: Record<string, number | string>
+}
+
+interface UploadResult {
+  file_url?: string
+  quote?: {
+    total_price?: number
+    unit_price?: number
+  }
+  preflight?: {
+    risk?: string
+    score?: number
+    issues?: string[]
+  }
+  surcharge?: {
+    total_amount?: number
+  }
+}
+
+interface Creator {
+  id: string
+  avatar_url?: string
+  display_name?: string
+  full_name?: string
+  rating?: number
+  specialties?: string[]
+  starting_price?: number | string
+}
+
+interface CreatorsResponse {
+  data?: Creator[]
+}
+
+const optionValues = (options: ProductAttribute['options']): AttributeOption[] => {
+  if (Array.isArray(options)) return options
+  return Array.isArray(options?.values) ? options.values : []
+}
+
+const optionLabel = (option: AttributeOption): string => {
+  if (typeof option === 'string' || typeof option === 'number') return String(option)
+  return String(option.value ?? option.label ?? option.name ?? '')
+}
+
+const dimensionsValue = (value: SelectedOption | undefined): DimensionsOption =>
+  value && typeof value === 'object' ? value : {}
+
+const errorMessage = (error: unknown, fallback: string) =>
+  error instanceof Error && error.message ? error.message : fallback
+
+
+function VariantSelector({ productId, onSelect }: { productId: string; onSelect?: (v: ProductVariant) => void }) {
+  const [variants, setVariants] = useState<ProductVariant[]>([]);
   const [selected, setSelected] = useState<string | null>(null);
 
   useEffect(() => {
@@ -43,7 +142,7 @@ function VariantSelector({ productId, onSelect }: { productId: string; onSelect?
   const sizes = variants.filter(v => v.type === 'size' || v.attribute === 'size');
   const others = variants.filter(v => v.type !== 'color' && v.type !== 'size' && v.attribute !== 'color' && v.attribute !== 'size');
 
-  const handleSelect = (v: any) => {
+  const handleSelect = (v: ProductVariant) => {
     setSelected(v.id);
     onSelect?.(v);
   };
@@ -62,7 +161,7 @@ function VariantSelector({ productId, onSelect }: { productId: string; onSelect?
         <div style={{ marginBottom: 12 }}>
           <div style={{ color: '#aaa', fontSize: 12, marginBottom: 6 }}>Color</div>
           <div style={{ display: 'flex', flexWrap: 'wrap' }}>
-            {colors.map((v: any) => (
+            {colors.map(v => (
               <button key={v.id} onClick={() => handleSelect(v)} style={{
                 ...btnStyle(v.id),
                 width: 28, height: 28, padding: 0, borderRadius: '50%',
@@ -77,7 +176,7 @@ function VariantSelector({ productId, onSelect }: { productId: string; onSelect?
         <div style={{ marginBottom: 12 }}>
           <div style={{ color: '#aaa', fontSize: 12, marginBottom: 6 }}>Size</div>
           <div style={{ display: 'flex', flexWrap: 'wrap' }}>
-            {sizes.map((v: any) => (
+            {sizes.map(v => (
               <button key={v.id} onClick={() => handleSelect(v)} style={btnStyle(v.id)}>
                 {v.label ?? v.value}
               </button>
@@ -89,7 +188,7 @@ function VariantSelector({ productId, onSelect }: { productId: string; onSelect?
         <div style={{ marginBottom: 12 }}>
           <div style={{ color: '#aaa', fontSize: 12, marginBottom: 6 }}>Options</div>
           <div style={{ display: 'flex', flexWrap: 'wrap' }}>
-            {others.map((v: any) => (
+            {others.map(v => (
               <button key={v.id} onClick={() => handleSelect(v)} style={btnStyle(v.id)}>
                 {v.label ?? v.value ?? v.name}
               </button>
@@ -104,26 +203,26 @@ export default function ProductConfiguratorPage() {
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
 
-  const [product, setProduct] = useState<any>(null)
-  const [attributes, setAttributes] = useState<any[]>([])
+  const [product, setProduct] = useState<ShopProduct | null>(null)
+  const [attributes, setAttributes] = useState<ProductAttribute[]>([])
   const [loading, setLoading] = useState(true)
   const [activeImg, setActiveImg] = useState(0)
   const [toast, setToast] = useState('')
 
   // Config state
-  const [selectedOptions, setSelectedOptions] = useState<Record<string, any>>({})
+  const [selectedOptions, setSelectedOptions] = useState<Record<string, SelectedOption>>({})
   const [quantity, setQuantity] = useState(100)
   const [activeTier, setActiveTier] = useState<number | null>(1)
 
   // Price state
-  const [priceResult, setPriceResult] = useState<any>(null)
+  const [priceResult, setPriceResult] = useState<PriceResult | null>(null)
   const [priceLoading, setPriceLoading] = useState(false)
   const priceTimer = useRef<NodeJS.Timeout | null>(null)
   const [showBreakdown, setShowBreakdown] = useState(false)
 
   // Upload state
   const [uploadFile, setUploadFile] = useState<File | null>(null)
-  const [uploadResult, setUploadResult] = useState<any>(null)
+  const [uploadResult, setUploadResult] = useState<UploadResult | null>(null)
   const [uploading, setUploading] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -132,7 +231,7 @@ export default function ProductConfiguratorPage() {
 
   // Tab
   const [tab, setTab] = useState<'config' | 'upload'>('config')
-  const [creators, setCreators] = useState<any[]>([])
+  const [creators, setCreators] = useState<Creator[]>([])
 
   const show = (m: string) => { setToast(m); setTimeout(() => setToast(''), 2500) }
 
@@ -141,9 +240,9 @@ export default function ProductConfiguratorPage() {
     if (!id) return
     setLoading(true)
     Promise.all([
-      apiFetch<any>(`/products/${id}`, { auth: false }).catch(() => null),
-      apiFetch<any>(`/product-attributes?product_id=${id}`, { auth: false }).catch(() => []),
-      apiFetch<any>('/creators?is_active=true&featured=true&limit=6', { auth: false }).catch(() => []),
+      apiFetch<ShopProduct | null>(`/products/${id}`, { auth: false }).catch(() => null),
+      apiFetch<ProductAttribute[]>(`/product-attributes?product_id=${id}`, { auth: false }).catch(() => []),
+      apiFetch<Creator[] | CreatorsResponse>('/creators?is_active=true&featured=true&limit=6', { auth: false }).catch(() => []),
     ]).then(([p, attrs, creatorList]) => {
       // Book/offset бүтээгдэхүүнийг BookPriceCalculator-тэй хуудас руу redirect
       if (p && (p.category === 'book' || p.category === 'offset' || p.product_type === 'book' ||
@@ -156,11 +255,11 @@ export default function ProductConfiguratorPage() {
       const attrList = Array.isArray(attrs) ? attrs : []
       setAttributes(attrList)
       setCreators(Array.isArray(creatorList) ? creatorList : (creatorList?.data || []))
-      const defaults: Record<string, any> = {}
-      attrList.forEach((a: any) => {
-        const opts = Array.isArray(a.options) ? a.options : (a.options?.values ?? [])
+      const defaults: Record<string, SelectedOption> = {}
+      attrList.forEach(a => {
+        const opts = optionValues(a.options)
         if (a.type === 'dimensions') defaults[a.name] = { width: 90, height: 50 }
-        else if (opts.length > 0) defaults[a.name] = opts[0]
+        else if (opts.length > 0) defaults[a.name] = optionLabel(opts[0])
       })
       setSelectedOptions(defaults)
     }).finally(() => setLoading(false))
@@ -174,14 +273,15 @@ export default function ProductConfiguratorPage() {
     priceTimer.current = setTimeout(async () => {
       try {
         const sizeAttr = attributes.find(a => a.type === 'dimensions' || a.name?.toLowerCase().includes('хэмжээ'))
+        const selectedSize = sizeAttr ? dimensionsValue(selectedOptions[sizeAttr.name]) : {}
         const body = {
           product_type: product.category || product.type,
           quantity,
-          width_mm: selectedOptions[sizeAttr?.name]?.width || product.width_mm || 90,
-          height_mm: selectedOptions[sizeAttr?.name]?.height || product.height_mm || 50,
+          width_mm: selectedSize.width || product.width_mm || 90,
+          height_mm: selectedSize.height || product.height_mm || 50,
           apply_vat: true,
         }
-        const res = await apiFetch<any>('/pricing-catalog/quote', { method: 'POST', body, auth: false })
+        const res = await apiFetch<PriceResult>('/pricing-catalog/quote', { method: 'POST', body, auth: false })
         setPriceResult(res)
       } catch {}
       setPriceLoading(false)
@@ -199,7 +299,7 @@ export default function ProductConfiguratorPage() {
       const fd = new FormData()
       fd.append('file', file)
       fd.append('quantity', String(quantity))
-      const res = await apiFetch<any>('/ai/smart-quote/from-pdf', { method: 'POST', body: fd })
+      const res = await apiFetch<UploadResult>('/ai/smart-quote/from-pdf', { method: 'POST', body: fd })
       setUploadResult(res)
     } catch {}
     setUploading(false)
@@ -263,20 +363,20 @@ export default function ProductConfiguratorPage() {
       })
       show('Сагсанд нэмэгдлээ ✓')
       return true
-    } catch (err: any) {
-      show(err.message || 'Алдаа гарлаа')
+    } catch (err: unknown) {
+      show(errorMessage(err, 'Алдаа гарлаа'))
       return false
     } finally {
       setAddingToCart(false)
     }
   }
 
-  const getRiskColor = (risk: string) => ({ LOW: '#10B981', MEDIUM: '#F59E0B', HIGH: '#EF4444', CRITICAL: '#DC2626' }[risk] || '#888')
+  const getRiskColor = (risk?: string) => ({ LOW: '#10B981', MEDIUM: '#F59E0B', HIGH: '#EF4444', CRITICAL: '#DC2626' }[risk || ''] || '#888')
   const fmt = (n: number) => `₮${Math.round(n).toLocaleString()}`
 
-  const images = product ? [product.thumbnail_url, ...(product.images || [])].filter(Boolean) : []
-  const displayPrice = uploadResult?.quote?.total_price ?? priceResult?.total ?? product?.base_price
-  const unitPrice = uploadResult?.quote?.unit_price ?? priceResult?.unit_price ?? (displayPrice ? displayPrice / quantity : 0)
+  const images = product ? [product.thumbnail_url, ...(product.images || [])].filter((img): img is string => Boolean(img)) : []
+  const displayPrice = Number(uploadResult?.quote?.total_price ?? priceResult?.total ?? product?.base_price ?? 0) || 0
+  const unitPrice = Number(uploadResult?.quote?.unit_price ?? priceResult?.unit_price ?? (displayPrice ? displayPrice / quantity : 0)) || 0
 
   if (loading) return (
     <div style={{ fontFamily: F, maxWidth: 1200, margin: '0 auto', padding: '40px 20px', display: 'flex', gap: 40 }}>
@@ -293,6 +393,10 @@ export default function ProductConfiguratorPage() {
     </div>
   )
 
+  const productName = product.name_mn || product.name || 'Бүтээгдэхүүн'
+  const dimensionAttr = attributes.find(a => a.type === 'dimensions')
+  const dimensionSelection = dimensionAttr ? dimensionsValue(selectedOptions[dimensionAttr.name]) : {}
+
   return (
     <div style={{ fontFamily: F, background: '#F8F8F5', minHeight: '100vh' }}>
       {/* Toast */}
@@ -301,9 +405,9 @@ export default function ProductConfiguratorPage() {
       {/* Breadcrumb */}
       <div style={{ background: '#fff', borderBottom: '1px solid #EBEBEB' }}>
         <div style={{ maxWidth: 1200, margin: '0 auto', padding: '12px 20px', fontSize: 13, color: '#888', display: 'flex', gap: 8, alignItems: 'center' }}>
-          <a href="/" style={{ color: '#888', textDecoration: 'none' }}>Нүүр</a><span>›</span>
-          <a href="/shop" style={{ color: '#888', textDecoration: 'none' }}>Дэлгүүр</a><span>›</span>
-          <span style={{ color: '#111', fontWeight: 500 }}>{product.name}</span>
+          <Link href="/" style={{ color: '#888', textDecoration: 'none' }}>Нүүр</Link><span>›</span>
+          <Link href="/shop" style={{ color: '#888', textDecoration: 'none' }}>Дэлгүүр</Link><span>›</span>
+          <span style={{ color: '#111', fontWeight: 500 }}>{productName}</span>
         </div>
       </div>
 
@@ -313,7 +417,7 @@ export default function ProductConfiguratorPage() {
         <div>
           <div style={{ borderRadius: 16, overflow: 'hidden', background: '#fff', border: '1px solid #EBEBEB', height: 420, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 12, position: 'relative' }}>
             {images.length > 0
-              ? <img src={images[activeImg]} alt={product.name} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+              ? <img src={images[activeImg]} alt={productName} style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
               : <span style={{ fontSize: 80 }}>🖨️</span>}
             {/* Live config badge */}
             <div style={{ position: 'absolute', top: 12, left: 12, background: 'rgba(0,0,0,0.7)', color: '#fff', padding: '4px 12px', borderRadius: 20, fontSize: 11, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -339,7 +443,7 @@ export default function ProductConfiguratorPage() {
                 { icon: '⏱️', label: 'Хүргэлт', value: `${product.lead_time_days || 3} хоног` },
                 { icon: '📦', label: 'Хамгийн бага', value: `${product.min_quantity || 1} ш` },
                 { icon: '🏭', label: 'Төрөл', value: product.type === 'PRINT' ? 'Хэвлэл' : 'Бэлэн' },
-                { icon: '📐', label: 'Хэмжээ', value: `${selectedOptions[attributes.find(a => a.type === 'dimensions')?.name]?.width || 90}×${selectedOptions[attributes.find(a => a.type === 'dimensions')?.name]?.height || 50}мм` },
+                { icon: '📐', label: 'Хэмжээ', value: `${dimensionSelection.width || 90}×${dimensionSelection.height || 50}мм` },
               ].map(item => (
                 <div key={item.label} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                   <span style={{ fontSize: 16 }}>{item.icon}</span>
@@ -358,8 +462,8 @@ export default function ProductConfiguratorPage() {
           {/* Header */}
           <div style={{ marginBottom: 20 }}>
             <div style={{ fontSize: 11, fontWeight: 700, color: O, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>{product.category || 'Хэвлэл'}</div>
-            <h1 style={{ fontSize: 26, fontWeight: 800, color: '#111', margin: '0 0 8px', lineHeight: 1.2 }}>{product.name}</h1>
-            {product.rating != null && <Stars rating={product.rating} />}
+            <h1 style={{ fontSize: 26, fontWeight: 800, color: '#111', margin: '0 0 8px', lineHeight: 1.2 }}>{productName}</h1>
+            {product.rating != null && <Stars rating={Number(product.rating)} />}
             {product.description && <p style={{ fontSize: 14, color: '#666', lineHeight: 1.6, margin: '10px 0 0' }}>{product.description}</p>}
           </div>
 
@@ -384,8 +488,8 @@ export default function ProductConfiguratorPage() {
           {tab === 'config' && (
             <>
               {/* Dynamic Attributes */}
-              {attributes.map((attr: any) => {
-                const options = Array.isArray(attr.options) ? attr.options : (attr.options?.values ?? [])
+              {attributes.map(attr => {
+                const options = optionValues(attr.options)
                 if (!options.length && attr.type !== 'dimensions') return null
                 return (
                   <div key={attr.id || attr.name} style={{ marginBottom: 18 }}>
@@ -395,15 +499,15 @@ export default function ProductConfiguratorPage() {
                     </div>
                     {attr.type === 'dimensions' ? (
                       <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                        <input type="number" placeholder="Өргөн" value={selectedOptions[attr.name]?.width || ''} onChange={e => setSelectedOptions(p => ({ ...p, [attr.name]: { ...p[attr.name], width: Number(e.target.value) } }))} style={inputStyle} />
+                        <input type="number" placeholder="Өргөн" value={dimensionsValue(selectedOptions[attr.name]).width || ''} onChange={e => setSelectedOptions(p => ({ ...p, [attr.name]: { ...dimensionsValue(p[attr.name]), width: Number(e.target.value) } }))} style={inputStyle} />
                         <span style={{ color: '#888', fontSize: 16, fontWeight: 300 }}>×</span>
-                        <input type="number" placeholder="Өндөр" value={selectedOptions[attr.name]?.height || ''} onChange={e => setSelectedOptions(p => ({ ...p, [attr.name]: { ...p[attr.name], height: Number(e.target.value) } }))} style={inputStyle} />
+                        <input type="number" placeholder="Өндөр" value={dimensionsValue(selectedOptions[attr.name]).height || ''} onChange={e => setSelectedOptions(p => ({ ...p, [attr.name]: { ...dimensionsValue(p[attr.name]), height: Number(e.target.value) } }))} style={inputStyle} />
                         <span style={{ fontSize: 13, color: '#888' }}>мм</span>
                       </div>
                     ) : (
                       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                        {options.map((opt: any) => {
-                          const val = typeof opt === 'object' ? opt.value || opt.label || opt : opt
+                        {options.map(opt => {
+                          const val = optionLabel(opt)
                           const isActive = selectedOptions[attr.name] === val
                           return (
                             <button key={val} onClick={() => setSelectedOptions(p => ({ ...p, [attr.name]: val }))} style={{
@@ -481,12 +585,12 @@ export default function ProductConfiguratorPage() {
                           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
                             <span style={{ fontSize: 13, fontWeight: 700 }}>Чанарын шалгалт</span>
                             <span style={{ padding: '2px 10px', borderRadius: 20, fontSize: 12, fontWeight: 700, background: `${getRiskColor(uploadResult.preflight.risk)}15`, color: getRiskColor(uploadResult.preflight.risk) }}>
-                              {uploadResult.preflight.score}/100
+                              {uploadResult.preflight.score ?? 0}/100
                             </span>
                           </div>
-                          {uploadResult.preflight.issues?.length > 0 && (
+                          {(uploadResult.preflight.issues?.length ?? 0) > 0 && (
                             <div style={{ background: '#FEF2F2', borderRadius: 8, padding: '8px 12px' }}>
-                              {uploadResult.preflight.issues.slice(0, 4).map((issue: string, i: number) => (
+                              {(uploadResult.preflight.issues || []).slice(0, 4).map((issue, i) => (
                                 <div key={i} style={{ fontSize: 12, color: '#DC2626', marginBottom: 2 }}>⚠ {issue}</div>
                               ))}
                             </div>
@@ -500,8 +604,8 @@ export default function ProductConfiguratorPage() {
                             <div style={{ fontSize: 12, color: '#059669' }}>AI тооцоолсон үнэ</div>
                             <div style={{ fontSize: 22, fontWeight: 800, color: '#059669' }}>{fmt(uploadResult.quote.total_price)}</div>
                           </div>
-                          {uploadResult.surcharge?.total_amount > 0 && (
-                            <div style={{ fontSize: 12, color: '#F59E0B', fontWeight: 600 }}>+{fmt(uploadResult.surcharge.total_amount)} нэмэгдэл</div>
+                          {(uploadResult.surcharge?.total_amount ?? 0) > 0 && (
+                            <div style={{ fontSize: 12, color: '#F59E0B', fontWeight: 600 }}>+{fmt(uploadResult.surcharge?.total_amount ?? 0)} нэмэгдэл</div>
                           )}
                         </div>
                       )}
@@ -531,7 +635,7 @@ export default function ProductConfiguratorPage() {
               {priceLoading && <span style={{ fontSize: 12, color: O }}>Тооцоолж байна...</span>}
             </div>
             <div style={{ fontSize: 34, fontWeight: 800, color: O, letterSpacing: '-0.5px' }}>
-              {priceLoading ? '—' : displayPrice != null ? fmt(displayPrice) : '—'}
+              {priceLoading ? '—' : displayPrice > 0 ? fmt(displayPrice) : '—'}
             </div>
             {unitPrice > 0 && !priceLoading && (
               <div style={{ fontSize: 13, color: '#888', marginTop: 2 }}>
@@ -549,7 +653,7 @@ export default function ProductConfiguratorPage() {
                 </button>
                 {showBreakdown && (
                   <div style={{ marginTop: 8, background: 'rgba(255,255,255,0.6)', borderRadius: 8, padding: '10px 14px' }}>
-                    {Object.entries(priceResult.breakdown).map(([key, val]: [string, any]) => (
+                    {Object.entries(priceResult.breakdown).map(([key, val]) => (
                       <div key={key} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: '#666', padding: '3px 0' }}>
                         <span>{key}</span>
                         <span style={{ fontWeight: 600 }}>{typeof val === 'number' ? fmt(val) : String(val)}</span>
@@ -578,7 +682,7 @@ export default function ProductConfiguratorPage() {
               borderRadius: 12, fontSize: 15, fontWeight: 700, cursor: addingToCart ? 'not-allowed' : 'pointer', fontFamily: F,
               opacity: addingToCart ? 0.6 : 1,
             }}>
-              {addingToCart ? 'Нэмж байна...' : `Захиалах — ${displayPrice != null ? fmt(displayPrice) : '...'}`}
+              {addingToCart ? 'Нэмж байна...' : `Захиалах — ${displayPrice > 0 ? fmt(displayPrice) : '...'}`}
             </button>
           </div>
 
@@ -609,15 +713,15 @@ export default function ProductConfiguratorPage() {
               Мэргэшсэн дизайнерууд таны захиалгад зориулж эх бэлтгэл хийнэ
             </p>
           </div>
-          <a href="/creators" style={{ fontSize: 12, color: '#FF6B00', textDecoration: 'none', fontWeight: 600 }}>
+          <Link href="/creators" style={{ fontSize: 12, color: '#FF6B00', textDecoration: 'none', fontWeight: 600 }}>
             Бүгдийг харах →
-          </a>
+          </Link>
         </div>
 
         {creators.length > 0 ? (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 12 }}>
-            {creators.map((creator: any) => (
-              <a key={creator.id} href={`/creators/${creator.id}`}
+            {creators.map(creator => (
+              <Link key={creator.id} href={`/creators/${creator.id}`}
                 style={{ textDecoration: 'none', display: 'block', border: '1px solid var(--border)', borderRadius: 12, padding: 14, background: 'var(--surface)', transition: 'border-color 0.15s' }}
                 onMouseOver={e => (e.currentTarget.style.borderColor = '#FF6B00')}
                 onMouseOut={e => (e.currentTarget.style.borderColor = 'var(--border)')}>
@@ -632,28 +736,28 @@ export default function ProductConfiguratorPage() {
                     <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {creator.display_name || creator.full_name}
                     </div>
-                    {creator.rating > 0 && (
+                    {Number(creator.rating || 0) > 0 && (
                       <div style={{ fontSize: 10, color: '#F59E0B' }}>
-                        {'★'.repeat(Math.round(creator.rating))} {Number(creator.rating).toFixed(1)}
+                        {'★'.repeat(Math.round(Number(creator.rating || 0)))} {Number(creator.rating || 0).toFixed(1)}
                       </div>
                     )}
                   </div>
                 </div>
-                {creator.specialties?.length > 0 && (
+                {(creator.specialties || []).length > 0 && (
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-                    {creator.specialties.slice(0, 2).map((s: string) => (
+                    {(creator.specialties || []).slice(0, 2).map(s => (
                       <span key={s} style={{ fontSize: 9, padding: '2px 6px', borderRadius: 99, background: 'rgba(255,107,0,0.1)', color: '#FF6B00' }}>
                         {s}
                       </span>
                     ))}
                   </div>
                 )}
-                {creator.starting_price > 0 && (
+                {Number(creator.starting_price || 0) > 0 && (
                   <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 6 }}>
                     Эхлэх үнэ: <strong style={{ color: '#FF6B00' }}>₮{Number(creator.starting_price).toLocaleString()}</strong>
                   </div>
                 )}
-              </a>
+              </Link>
             ))}
           </div>
         ) : (
@@ -663,13 +767,13 @@ export default function ProductConfiguratorPage() {
               { icon: '📐', title: 'Хэвлэлийн макет', desc: 'Print-ready эх бэлтгэл', price: '₮30,000-аас' },
               { icon: '✍️', title: 'Бичвэр & Контент', desc: 'Маркетингийн текст', price: '₮20,000-аас' },
             ].map(s => (
-              <a key={s.title} href="/creators"
+              <Link key={s.title} href="/creators"
                 style={{ textDecoration: 'none', border: '1px solid var(--border)', borderRadius: 12, padding: 14, background: 'var(--surface)', display: 'block' }}>
                 <div style={{ fontSize: 24, marginBottom: 8 }}>{s.icon}</div>
                 <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', marginBottom: 4 }}>{s.title}</div>
                 <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 6 }}>{s.desc}</div>
                 <div style={{ fontSize: 11, color: '#FF6B00', fontWeight: 600 }}>{s.price}</div>
-              </a>
+              </Link>
             ))}
           </div>
         )}

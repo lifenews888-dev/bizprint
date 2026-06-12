@@ -59,15 +59,29 @@ interface Props {
   onSelect: (url: string) => void
 }
 
+interface CmsPage {
+  id: string | number
+  title: string
+  slug: string
+  is_published?: boolean
+}
+
+const isCmsPage = (value: unknown): value is CmsPage => {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) return false
+  const page = value as Record<string, unknown>
+  const hasId = typeof page.id === 'string' || typeof page.id === 'number'
+  return hasId && typeof page.title === 'string' && typeof page.slug === 'string'
+}
+
 export function PageSelector({ onSelect }: Props) {
-  const [pages, setPages] = useState<any[]>([])
+  const [pages, setPages] = useState<CmsPage[]>([])
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState('')
 
   useEffect(() => {
     if (!open) return
-    apiFetch<any>('/pages/all').then(d => {
-      if (Array.isArray(d)) setPages(d.filter(p => p.is_published !== false))
+    apiFetch<unknown>('/pages/all').then(d => {
+      if (Array.isArray(d)) setPages(d.filter(isCmsPage).filter(p => p.is_published !== false))
     }).catch(() => {})
   }, [open])
 

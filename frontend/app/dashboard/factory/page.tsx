@@ -82,13 +82,13 @@ export default function FactoryDashboardPage() {
     const token = getToken();
     if (!token) { router.push('/login'); return; }
     Promise.all([
-      apiFetch<any>('/production/summary').catch(() => ({
+      apiFetch<DashboardStats['production']>('/production/summary').catch(() => ({
         queued: 0, printing: 0, finishing: 0, completedToday: 0, rushJobs: 0, avgCompletionHours: 0,
       })),
-      apiFetch<any>('/warehouse/summary').catch(() => ({
+      apiFetch<DashboardStats['warehouse']>('/warehouse/summary').catch(() => ({
         totalItems: 0, lowStockCount: 0, totalValue: 0, recentMovements: 0,
       })),
-      apiFetch<any>('/qa/summary').catch(() => ({
+      apiFetch<DashboardStats['qa']>('/qa/summary').catch(() => ({
         totalChecks: 0, passedRate: 0, openNcls: 0, criticalNcls: 0,
       })),
     ]).then(([production, warehouse, qa]) => {

@@ -2,6 +2,7 @@
 import { apiFetch, getToken } from '@/lib/api'
 import { CLIENT_PRICING_SNAPSHOT_VERSION, PRICING_CONTRACT_VERSION } from '@/lib/pricing/snapshot'
 import { useEffect, useMemo, useState } from 'react'
+import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import ProductCard from '@/components/ProductCard'
 
@@ -27,9 +28,23 @@ const FALLBACK_LABELS: Record<string, { label: string; icon: string }> = {
 }
 
 type Product = {
-  id: string; name: string; price?: number; base_price?: number; sale_price?: number
-  category?: string; thumbnail_url?: string; description?: string; name_mn?: string
-  vendor_name?: string; rating?: number; slug?: string; pricing_mode?: string
+  id: string; name?: string | null; price?: number | string | null; base_price?: number | string | null; sale_price?: number | string | null
+  category?: string | null; thumbnail_url?: string | null; description?: string | null; name_mn?: string | null
+  vendor_name?: string | null; rating?: number; slug?: string | null; pricing_mode?: string | null
+  images?: string[] | null; is_out_of_stock?: boolean; stock_quantity?: number | null
+  badge?: string | null; is_bestseller?: boolean; is_featured?: boolean; video_url?: string | null
+  requires_dimensions?: boolean; min_quantity?: number; lead_time_days?: number
+}
+
+interface ShopUser {
+  id?: string
+}
+
+interface ShopCategory {
+  slug?: string
+  name?: string
+  name_mn?: string
+  icon?: string
 }
 
 const FALLBACK_PRODUCTS = [
@@ -45,7 +60,7 @@ export default function ShopPageInner() {
   const dealsOnly = search.get('deals') === 'true'
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
-  const [user, setUser] = useState<any>(null)
+  const [user, setUser] = useState<ShopUser | null>(null)
   const [toast, setToast] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
   const [dbCategories, setDbCategories] = useState<Record<string, { label: string; icon: string }>>({})
@@ -54,11 +69,13 @@ export default function ShopPageInner() {
   useEffect(() => {
     const controller = new AbortController()
     const timeout = window.setTimeout(() => controller.abort(), 6000)
+    const loadingTimer = window.setTimeout(() => {
+      setLoading(true)
+      setProductLoadFailed(false)
+    }, 0)
     let cancelled = false
 
-    setLoading(true)
-    setProductLoadFailed(false)
-    apiFetch<any>('/products', { auth: false, signal: controller.signal })
+    apiFetch<Product[]>('/products', { auth: false, signal: controller.signal })
       .then(d => {
         if (!cancelled) setProducts(Array.isArray(d) ? d : [])
       })
@@ -73,23 +90,25 @@ export default function ShopPageInner() {
         if (!cancelled) setLoading(false)
       })
 
-    apiFetch<any>('/categories', { auth: false }).then(cats => {
+    apiFetch<ShopCategory[]>('/categories', { auth: false }).then(cats => {
       if (Array.isArray(cats)) {
         const map: Record<string, { label: string; icon: string }> = {}
-        cats.forEach((c: any) => {
-          if (c.slug) map[c.slug] = { label: c.name_mn || c.name, icon: c.icon || '📦' }
-          if (c.name) map[c.name.toLowerCase()] = { label: c.name_mn || c.name, icon: c.icon || '📦' }
+        cats.forEach(c => {
+          const label = c.name_mn || c.name || c.slug || 'Ангилал'
+          if (c.slug) map[c.slug] = { label, icon: c.icon || '📦' }
+          if (c.name) map[c.name.toLowerCase()] = { label, icon: c.icon || '📦' }
         })
         setDbCategories(map)
       }
     }).catch(() => {})
 
     const token = getToken()
-    if (token) apiFetch<any>('/auth/me').then(u => u?.id && setUser(u)).catch(() => {})
+    if (token) apiFetch<ShopUser>('/auth/me').then(u => u?.id && setUser(u)).catch(() => {})
 
     return () => {
       cancelled = true
       window.clearTimeout(timeout)
+      window.clearTimeout(loadingTimer)
       controller.abort()
     }
   }, [])
@@ -139,7 +158,7 @@ export default function ShopPageInner() {
     const { unitPrice, totalPrice, pricingEngine, pricingSnapshot } = buildCartPricing(product)
     if (unitPrice <= 0) { alert('Үнийн мэдээлэл дутуу байна'); return }
     try {
-      await apiFetch<any>('/cart/items', {
+      await apiFetch<void>('/cart/items', {
         method: 'POST',
         body: {
           product_id: productId,
@@ -203,7 +222,7 @@ export default function ShopPageInner() {
 
       {/* Category pills */}
       <section id="products" style={{ maxWidth: 1200, margin: '0 auto' }} className="shop-cats">
-        <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 4, scrollbarWidth: 'none' as any }}>
+        <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 4, scrollbarWidth: 'none' }}>
           {categories.map(c => {
             const isActive = catFilter === c
             const info = { ...FALLBACK_LABELS, ...dbCategories }[c]
@@ -271,7 +290,7 @@ export default function ShopPageInner() {
           <div style={{ padding: 60, textAlign: 'center' }}>
             <div style={{ fontSize: 48, marginBottom: 12 }}>🔍</div>
             <p style={{ color: 'var(--text3)', fontSize: 14, marginBottom: 16 }}>Бүтээгдэхүүн олдсонгүй</p>
-            <a href="/shop" style={{ color: '#FF6B00', fontSize: 13, fontWeight: 600 }}>Бүгдийг харах →</a>
+            <Link href="/shop" style={{ color: '#FF6B00', fontSize: 13, fontWeight: 600 }}>Бүгдийг харах →</Link>
           </div>
         ) : (
           <div className="shop-grid">

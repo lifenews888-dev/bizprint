@@ -19,7 +19,8 @@ export interface ChatRoom {
 
 export type MessageType = 'text' | 'image' | 'file' | 'system'
 export type MessageStatus = 'sending' | 'sent' | 'delivered' | 'read'
-export type UserRole = 'admin' | 'superadmin' | 'customer' | 'designer' | 'vendor' | 'factory' | 'courier' | 'sales'
+const USER_ROLES = ['admin', 'superadmin', 'customer', 'designer', 'vendor', 'factory', 'courier', 'sales'] as const
+export type UserRole = (typeof USER_ROLES)[number]
 
 export interface ChatMessage {
   id: string
@@ -42,15 +43,97 @@ export interface CreateRoomParams {
   orderId?: string
 }
 
+export interface ChatUser {
+  id: string
+  email: string
+  full_name?: string
+  name: string
+  role: string
+  [key: string]: unknown
+}
+
+type RawRecord = Record<string, unknown>
+
+type UploadResponse = {
+  url?: string
+  filename?: string
+}
+
+const asRecord = (value: unknown): RawRecord =>
+  value && typeof value === 'object' && !Array.isArray(value) ? value as RawRecord : {}
+
+const stringValue = (value: unknown, fallback = ''): string => {
+  if (typeof value === 'string') return value
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value)
+  return fallback
+}
+
+const stringArray = (value: unknown): string[] =>
+  Array.isArray(value) ? value.map(item => stringValue(item)).filter(Boolean) : []
+
+const normalizeMessageType = (value: unknown): MessageType => {
+  const type = stringValue(value)
+  return ['text', 'image', 'file', 'system'].includes(type) ? type as MessageType : 'text'
+}
+
+export const normalizeUserRole = (value: unknown): UserRole => {
+  const role = stringValue(value)
+  return USER_ROLES.includes(role as UserRole) ? role as UserRole : 'customer'
+}
+
+export const normalizeRooms = (value: unknown): ChatRoom[] => {
+  if (!Array.isArray(value)) return []
+
+  return value
+    .map(item => {
+      const room = asRecord(item)
+      const roomId = stringValue(room.room_id ?? room.roomId ?? room.id)
+      return {
+        room_id: roomId,
+        type: stringValue(room.type, 'support'),
+        order_id: stringValue(room.order_id ?? room.orderId) || undefined,
+        participants: stringArray(room.participants),
+        participant_names: stringArray(room.participant_names ?? room.participantNames),
+        last_message: stringValue(room.last_message ?? room.lastMessage) || undefined,
+        last_message_at: stringValue(room.last_message_at ?? room.lastMessageAt) || undefined,
+        unread_count: Number(room.unread_count ?? room.unreadCount ?? 0) || 0,
+      }
+    })
+    .filter(room => room.room_id)
+}
+
+export const normalizeUsers = (value: unknown): ChatUser[] => {
+  if (!Array.isArray(value)) return []
+
+  return value
+    .map(item => {
+      const user = asRecord(item)
+      const email = stringValue(user.email)
+      const fullName = stringValue(user.full_name ?? user.fullName)
+      const name = stringValue(user.name) || fullName || email || 'User'
+      return {
+        ...user,
+        id: stringValue(user.id ?? user._id),
+        email,
+        full_name: fullName || undefined,
+        name,
+        role: stringValue(user.role, 'customer'),
+      }
+    })
+    .filter(user => user.id)
+}
+
 /* ═══ Message normalization ═══ */
 /** Convert raw backend message to our structured ChatMessage */
-export function normalizeMessage(raw: any): ChatMessage {
-  const id = raw.id?.toString() || raw._id || crypto.randomUUID()
-  const content = raw.message || raw.content || raw.text || ''
-  const fileUrl = raw.file_url || raw.fileUrl || ''
+export function normalizeMessage(rawInput: unknown): ChatMessage {
+  const raw = asRecord(rawInput)
+  const idValue = raw.id ?? raw._id
+  const id = idValue !== undefined && idValue !== null ? String(idValue) : crypto.randomUUID()
+  const content = stringValue(raw.message) || stringValue(raw.content) || stringValue(raw.text)
+  const fileUrl = stringValue(raw.file_url) || stringValue(raw.fileUrl)
 
   // Detect type from legacy format or explicit field
-  let type: MessageType = (raw.msg_type || raw.type || 'text') as MessageType
+  let type = normalizeMessageType(raw.msg_type ?? raw.type)
   let file: ChatMessage['file'] | undefined
 
   if (content.startsWith('[IMAGE]')) {
@@ -70,16 +153,16 @@ export function normalizeMessage(raw: any): ChatMessage {
 
   return {
     id,
-    room_id: raw.room_id || '',
+    room_id: stringValue(raw.room_id),
     type,
     content: type === 'system' ? content.replace('[SYSTEM]', '') : (type === 'text' ? content : ''),
     file,
-    sender_id: raw.sender_id || raw.senderId || '',
-    sender_name: raw.sender_name || raw.senderName || '',
-    sender_role: (raw.sender_role || raw.senderRole || 'customer') as UserRole,
-    created_at: raw.created_at || raw.createdAt || new Date().toISOString(),
-    status: raw.is_read ? 'read' : 'sent',
-    reply_to: raw.reply_to,
+    sender_id: stringValue(raw.sender_id) || stringValue(raw.senderId),
+    sender_name: stringValue(raw.sender_name) || stringValue(raw.senderName),
+    sender_role: normalizeUserRole(raw.sender_role ?? raw.senderRole),
+    created_at: stringValue(raw.created_at) || stringValue(raw.createdAt) || new Date().toISOString(),
+    status: raw.is_read === true ? 'read' : 'sent',
+    reply_to: stringValue(raw.reply_to) || undefined,
   }
 }
 
@@ -121,8 +204,8 @@ export function disconnectSocket() {
 /* ═══ REST API ═══ */
 export async function fetchRooms(userId: string): Promise<ChatRoom[]> {
   try {
-    const data = await apiFetch<any>(`/chat/rooms/user/${userId}`)
-    return Array.isArray(data) ? data : []
+    const data = await apiFetch<unknown>(`/chat/rooms/user/${userId}`)
+    return normalizeRooms(data)
   } catch {
     return []
   }
@@ -130,17 +213,17 @@ export async function fetchRooms(userId: string): Promise<ChatRoom[]> {
 
 export async function fetchMessages(roomId: string, limit = 50): Promise<ChatMessage[]> {
   try {
-    const data = await apiFetch<any[]>(`/chat/messages/${roomId}?limit=${limit}`)
+    const data = await apiFetch<unknown>(`/chat/messages/${roomId}?limit=${limit}`)
     return (Array.isArray(data) ? data : []).map(normalizeMessage)
   } catch {
     return []
   }
 }
 
-export async function fetchUsers(): Promise<any[]> {
+export async function fetchUsers(): Promise<ChatUser[]> {
   try {
-    const data = await apiFetch<any[]>('/admin/users')
-    return Array.isArray(data) ? data : []
+    const data = await apiFetch<unknown>('/admin/users')
+    return normalizeUsers(data)
   } catch {
     return []
   }
@@ -149,8 +232,9 @@ export async function fetchUsers(): Promise<any[]> {
 export async function uploadFile(file: File): Promise<{ url: string; filename: string }> {
   const fd = new FormData()
   fd.append('file', file)
-  const data = await apiUpload<any>('/upload/file', fd)
-  return { url: data.url || `${API_URL}/uploads/${data.filename}`, filename: data.filename || file.name }
+  const data = await apiUpload<UploadResponse>('/upload/file', fd)
+  const filename = data.filename || file.name
+  return { url: data.url || `${API_URL}/uploads/${filename}`, filename }
 }
 
 /* ═══ Role config ═══ */

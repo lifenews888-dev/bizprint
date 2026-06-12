@@ -42,16 +42,61 @@ const AUTOMATION_TEMPLATES = [
 const fmt = (n: number) => '₮' + n.toLocaleString()
 
 /* ═══ MAIN PAGE ═══ */
+type MarketingTab = 'overview' | 'campaigns' | 'segments' | 'automation' | 'coupons' | 'ugc'
+
+type OrderSummary = {
+  id?: string
+  status?: string
+  payment_status?: string
+  total_price?: number | string
+  created_at?: string
+  customer_id?: string
+}
+
+type MarketingCampaignForm = {
+  name: string
+  type: string
+  code: string
+  discount_percent: number
+  start_date: string
+  end_date: string
+  is_active: boolean
+  description: string
+  target_segment: string
+  channels: string[]
+  min_order_amount: number
+  max_uses: number
+  per_user_limit: number
+}
+
+type MarketingCampaign = MarketingCampaignForm & {
+  id: string
+}
+
+type AdminUser = {
+  id?: string
+  created_at?: string
+}
+
+type AutomationTemplate = typeof AUTOMATION_TEMPLATES[number]
+
+type AutomationState = {
+  active: boolean
+  channel: string
+  message: string
+}
+
 export default function AdminMarketingPage() {
-  const [orders, setOrders] = useState<any[]>([])
-  const [campaigns, setCampaigns] = useState<any[]>([])
-  const [users, setUsers] = useState<any[]>([])
+  const [orders, setOrders] = useState<OrderSummary[]>([])
+  const [campaigns, setCampaigns] = useState<MarketingCampaign[]>([])
+  const [users, setUsers] = useState<AdminUser[]>([])
+  const [now] = useState(() => Date.now())
   const [loading, setLoading] = useState(true)
-  const [tab, setTab] = useState<'overview' | 'campaigns' | 'segments' | 'automation' | 'coupons' | 'ugc'>('overview')
+  const [tab, setTab] = useState<MarketingTab>('overview')
   const [showForm, setShowForm] = useState(false)
-  const [editing, setEditing] = useState<any>(null)
-  const [automationStates, setAutomationStates] = useState<Record<string, { active: boolean; channel: string; message: string }>>({})
-  const [editingAuto, setEditingAuto] = useState<any>(null)
+  const [editing, setEditing] = useState<MarketingCampaign | null>(null)
+  const [automationStates, setAutomationStates] = useState<Record<string, AutomationState>>({})
+  const [editingAuto, setEditingAuto] = useState<AutomationTemplate | null>(null)
 
   // Form state
   const [form, setForm] = useState({
@@ -64,16 +109,19 @@ export default function AdminMarketingPage() {
   const load = async () => {
     setLoading(true)
     const [o, c, u] = await Promise.all([
-      apiFetch<any>('/orders').catch(() => []),
-      apiFetch<any>('/marketing/campaigns').catch(() => []),
-      apiFetch<any>('/admin/users').catch(() => []),
+      apiFetch<OrderSummary[]>('/orders').catch(() => []),
+      apiFetch<MarketingCampaign[]>('/marketing/campaigns').catch(() => []),
+      apiFetch<AdminUser[]>('/admin/users').catch(() => []),
     ])
     setOrders(Array.isArray(o) ? o : [])
     setCampaigns(Array.isArray(c) ? c : [])
     setUsers(Array.isArray(u) ? u : [])
     setLoading(false)
   }
-  useEffect(() => { load() }, [])
+  useEffect(() => {
+    const timer = window.setTimeout(() => { load() }, 0)
+    return () => window.clearTimeout(timer)
+  }, [])
 
   const resetForm = () => {
     setEditing(null); setShowForm(false)
@@ -83,23 +131,28 @@ export default function AdminMarketingPage() {
   const save = async () => {
     const method = editing?.id ? 'PATCH' : 'POST'
     const url = editing?.id ? `/marketing/campaigns/${editing.id}` : `/marketing/campaigns`
-    await apiFetch<any>(url, { method, body: JSON.stringify(form), headers: { 'Content-Type': 'application/json' } }).catch(() => {})
+    await apiFetch<MarketingCampaign>(url, { method, body: JSON.stringify(form), headers: { 'Content-Type': 'application/json' } }).catch(() => {})
     resetForm(); load()
   }
 
-  const del = async (id: string) => { if (confirm('Устгах уу?')) { await apiFetch<any>(`/marketing/campaigns/${id}`, { method: 'DELETE' }).catch(() => {}); load() } }
-  const toggle = async (c: any) => { await apiFetch<any>(`/marketing/campaigns/${c.id}`, { method: 'PATCH', body: JSON.stringify({ is_active: !c.is_active }), headers: { 'Content-Type': 'application/json' } }).catch(() => {}); load() }
+  const del = async (id: string) => { if (confirm('Устгах уу?')) { await apiFetch<void>(`/marketing/campaigns/${id}`, { method: 'DELETE' }).catch(() => {}); load() } }
+  const toggle = async (c: MarketingCampaign) => { await apiFetch<MarketingCampaign>(`/marketing/campaigns/${c.id}`, { method: 'PATCH', body: JSON.stringify({ is_active: !c.is_active }), headers: { 'Content-Type': 'application/json' } }).catch(() => {}); load() }
 
   /* ── Stats ── */
   const stats = useMemo(() => {
     const revenue = orders.filter(o => o.status !== 'CANCELLED').reduce((s, o) => s + Number(o.total_price || 0), 0)
-    const thisMonth = orders.filter(o => { const d = new Date(o.created_at); const now = new Date(); return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear() })
+    const currentDate = new Date(now)
+    const thisMonth = orders.filter(o => {
+      if (!o.created_at) return false
+      const d = new Date(o.created_at)
+      return d.getMonth() === currentDate.getMonth() && d.getFullYear() === currentDate.getFullYear()
+    })
     const active = campaigns.filter(c => c.is_active)
     const totalDiscount = campaigns.reduce((s, c) => s + Number(c.discount_percent || 0), 0)
 
     // Segments
-    const sevenDaysAgo = Date.now() - 7 * 86400000
-    const newUsers = users.filter(u => new Date(u.created_at).getTime() > sevenDaysAgo).length
+    const sevenDaysAgo = now - 7 * 86400000
+    const newUsers = users.filter(u => u.created_at && new Date(u.created_at).getTime() > sevenDaysAgo).length
     const customerOrders: Record<string, number> = {}
     orders.forEach(o => { customerOrders[o.customer_id || ''] = (customerOrders[o.customer_id || ''] || 0) + 1 })
     const returning = Object.values(customerOrders).filter(c => c > 1).length
@@ -109,7 +162,7 @@ export default function AdminMarketingPage() {
       avgDiscount: campaigns.length > 0 ? Math.round(totalDiscount / campaigns.length) : 0,
       newUsers, returning, totalUsers: users.length,
     }
-  }, [orders, campaigns, users])
+  }, [orders, campaigns, users, now])
 
   const TABS = [
     { key: 'overview' as const, label: '📊 Тойм', count: undefined },

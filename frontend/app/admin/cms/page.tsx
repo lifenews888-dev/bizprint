@@ -7,10 +7,12 @@ import { toast as sonnerToast } from 'sonner'
 
 type Setting = { id: string; key: string; value: string; group: string; label: string }
 type MegaMenuItem = {
+  [key: string]: unknown;
   id: string; nav_label: string; nav_url: string; nav_type: string;
   is_active: boolean; sort_order: number; columns?: string; featured?: string
 }
 type FooterColumn = { title: string; links: { label: string; url: string }[] }
+type HelpCard = { title: string; cta: string; url: string; icon: string }
 type FeatureItem = { icon: string; title: string; desc: string }
 type StatItem = { value: string; label: string }
 
@@ -125,7 +127,7 @@ export default function AdminCmsPage() {
 
   const loadSettings = useCallback(async () => {
     try {
-      const data = await apiFetch<any>('/cms/settings')
+      const data = await apiFetch<Setting[]>('/cms/settings')
       const items: Setting[] = Array.isArray(data) ? data : []
       const map = items.reduce<Record<string, string>>((acc, s) => {
         acc[s.key] = s.value ?? ''
@@ -139,12 +141,15 @@ export default function AdminCmsPage() {
 
   const loadMenu = useCallback(async () => {
     try {
-      const data = await apiFetch<any>('/cms/mega-menu')
+      const data = await apiFetch<MegaMenuItem[]>('/cms/mega-menu')
       setMenuItems(Array.isArray(data) ? data : [])
     } catch { /* ignore */ }
   }, [])
 
-  useEffect(() => { loadSettings(); loadMenu() }, [loadSettings, loadMenu])
+  useEffect(() => {
+    const timer = window.setTimeout(() => { loadSettings(); loadMenu() }, 0)
+    return () => window.clearTimeout(timer)
+  }, [loadSettings, loadMenu])
 
   const f = (key: string) => form[key] ?? ''
   const sf = (key: string, val: string) => setForm(p => ({ ...p, [key]: val }))
@@ -154,7 +159,7 @@ export default function AdminCmsPage() {
   const saveBulk = async (keys: string[]) => {
     const items = keys.map(key => ({ key, value: form[key] ?? '' }))
     try {
-      await apiFetch<any>(`/cms/settings/bulk`, {
+      await apiFetch(`/cms/settings/bulk`, {
         method: 'POST', body: { items },
       })
       sonnerToast.success('Амжилттай хадгалагдлаа')
@@ -170,7 +175,7 @@ export default function AdminCmsPage() {
     const url = editingMenuId ? `/cms/mega-menu/${editingMenuId}` : `/cms/mega-menu`
     const method = editingMenuId ? 'PUT' : 'POST'
     try {
-      await apiFetch<any>(url, { method, body: menuForm })
+      await apiFetch<MegaMenuItem>(url, { method, body: menuForm })
       setMenuForm(null)
       setEditingMenuId(null)
       setToast('Амжилттай хадгалагдлаа!')
@@ -182,12 +187,12 @@ export default function AdminCmsPage() {
 
   const deleteMenuItem = async (id: string) => {
     if (!confirm('Устгах уу?')) return
-    await apiFetch<any>(`/cms/mega-menu/${id}`, { method: 'DELETE' })
+    await apiFetch(`/cms/mega-menu/${id}`, { method: 'DELETE' })
     loadMenu()
   }
 
   const updateSortOrder = async (id: string, sort_order: number) => {
-    await apiFetch<any>(`/cms/mega-menu/${id}`, {
+    await apiFetch<MegaMenuItem>(`/cms/mega-menu/${id}`, {
       method: 'PUT', body: { sort_order },
     })
     loadMenu()
@@ -352,7 +357,7 @@ export default function AdminCmsPage() {
                   </td>
                   <td style={{ padding: '8px 14px' }}>
                     <Toggle label="" value={item.is_active} onChange={async (v) => {
-                      await apiFetch<any>(`/cms/mega-menu/${item.id}`, {
+                      await apiFetch<MegaMenuItem>(`/cms/mega-menu/${item.id}`, {
                         method: 'PUT', body: { is_active: v },
                       })
                       loadMenu()
@@ -387,10 +392,10 @@ export default function AdminCmsPage() {
     ]
 
     // Help cards helpers
-    const getHelpCards = (): { title: string; cta: string; url: string; icon: string }[] => {
+    const getHelpCards = (): HelpCard[] => {
       try { return JSON.parse(form.footer_help_cards || '[]') } catch { return [] }
     }
-    const setHelpCards = (cards: any[]) => sf('footer_help_cards', JSON.stringify(cards))
+    const setHelpCards = (cards: HelpCard[]) => sf('footer_help_cards', JSON.stringify(cards))
 
     // Payment helpers
     const ALL_PAYMENTS = ['visa', 'mastercard', 'qpay', 'socialpay', 'monpay']

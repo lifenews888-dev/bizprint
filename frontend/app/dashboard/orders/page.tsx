@@ -19,20 +19,47 @@ const TABS = [
 
 const ACTIVE_STATUSES = ['draft', 'quotation_sent', 'confirmed', 'pending_file', 'file_review', 'in_production', 'finishing', 'dispatched', 'delivered']
 
+interface OrderFileAnalysisIssue { severity?: string; message?: string }
+interface OrderFileAnalysis { score?: number; summary?: string; issues?: OrderFileAnalysisIssue[] }
+interface OrderFile {
+  id: string
+  mime_type?: string
+  filename?: string
+  version?: number
+  size?: number
+  status?: string
+  is_final?: boolean
+  url?: string
+  file_type?: string
+  analysis?: OrderFileAnalysis
+}
+interface UploadResult { message?: string; analysis?: OrderFileAnalysis }
+interface CustomerOrder {
+  id: string
+  status: string
+  paper_gsm?: number | string
+  color_mode?: string
+  sides?: string
+  finishing?: string
+  notes?: string
+  [key: string]: unknown
+}
+interface StoredUser { id?: string }
+
 // File upload widget for orders requiring print files
-function FileUploadWidget({ order, onUploadComplete }: { order: any; onUploadComplete: () => void }) {
+function FileUploadWidget({ order, onUploadComplete }: { order: CustomerOrder; onUploadComplete: () => void }) {
   const fileRef = useRef<HTMLInputElement>(null)
   const [uploading, setUploading] = useState(false)
   const [dragOver, setDragOver] = useState(false)
-  const [result, setResult] = useState<any>(null)
+  const [result, setResult] = useState<UploadResult | null>(null)
   const [error, setError] = useState('')
-  const [files, setFiles] = useState<any[]>([])
+  const [files, setFiles] = useState<OrderFile[]>([])
 
   const canUpload = ['pending_file', 'file_rejected'].includes(order.status)
 
   // Load existing files for this order
   useEffect(() => {
-    apiFetch<any[]>(`/orders/${order.id}/files`)
+    apiFetch<OrderFile[]>(`/orders/${order.id}/files`)
       .then(d => setFiles(Array.isArray(d) ? d : []))
       .catch(() => {})
   }, [order.id])
@@ -44,14 +71,14 @@ function FileUploadWidget({ order, onUploadComplete }: { order: any; onUploadCom
     try {
       const fd = new FormData()
       fd.append('file', file)
-      const res = await apiUpload<any>(`/orders/${order.id}/upload-file`, fd)
+      const res = await apiUpload<UploadResult>(`/orders/${order.id}/upload-file`, fd)
       setResult(res)
       // Refresh files list
-      const updatedFiles = await apiFetch<any[]>(`/orders/${order.id}/files`).catch(() => [])
+      const updatedFiles = await apiFetch<OrderFile[]>(`/orders/${order.id}/files`).catch(() => [])
       setFiles(Array.isArray(updatedFiles) ? updatedFiles : [])
       onUploadComplete()
-    } catch (e: any) {
-      setError(e.message || 'Файл оруулахад алдаа гарлаа')
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Файл оруулахад алдаа гарлаа')
     } finally {
       setUploading(false)
     }
@@ -83,7 +110,7 @@ function FileUploadWidget({ order, onUploadComplete }: { order: any; onUploadCom
       {files.length > 0 && (
         <div style={{ marginBottom: 16 }}>
           <div style={{ fontSize: 13, fontWeight: 700, color: '#333', marginBottom: 8 }}>Оруулсан файлууд:</div>
-          {files.map((f: any) => (
+          {files.map(f => (
             <div key={f.id} style={{
               display: 'flex', alignItems: 'center', gap: 12, padding: '8px 12px',
               background: '#F9FAFB', borderRadius: 8, marginBottom: 6,
@@ -94,16 +121,16 @@ function FileUploadWidget({ order, onUploadComplete }: { order: any; onUploadCom
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 13, fontWeight: 600 }}>{f.filename}</div>
                 <div style={{ fontSize: 11, color: '#888' }}>
-                  v{f.version} · {(f.size / 1024).toFixed(0)}KB
+                  v{f.version ?? 1} · {((f.size ?? 0) / 1024).toFixed(0)}KB
                   {f.analysis?.score != null && ` · Оноо: ${f.analysis.score}/100`}
                 </div>
               </div>
               <span style={{
                 fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 99,
-                background: (statusColors[f.status] || '#888') + '18',
-                color: statusColors[f.status] || '#888',
+                background: (statusColors[f.status ?? ''] || '#888') + '18',
+                color: statusColors[f.status ?? ''] || '#888',
               }}>
-                {statusLabels[f.status] || f.status}
+                {statusLabels[f.status ?? ''] || f.status || 'unknown'}
               </span>
               {f.is_final && (
                 <span style={{
@@ -112,19 +139,19 @@ function FileUploadWidget({ order, onUploadComplete }: { order: any; onUploadCom
                 }}>FINAL</span>
               )}
               {/* Татах товч */}
-              <a href={f.url?.startsWith('http') ? f.url : `${API_URL}${f.url}`} target="_blank" rel="noopener"
+              <a href={f.url?.startsWith('http') ? f.url : `${API_URL}${f.url ?? ''}`} target="_blank" rel="noopener"
                 style={{ fontSize: 11, color: '#3B82F6', textDecoration: 'none', fontWeight: 600, padding: '4px 8px' }}
                 download>↓ Татах</a>
             </div>
           ))}
           {/* Print-ready файл тусгай хэсэг */}
-          {files.some((f: any) => f.file_type === 'print_ready') && (
+          {files.some(f => f.file_type === 'print_ready') && (
             <div style={{ marginTop: 8, padding: 12, background: '#F0FDF4', borderRadius: 10, border: '1px solid #BBF7D0' }}>
               <div style={{ fontSize: 12, fontWeight: 700, color: '#10B981', marginBottom: 6 }}>📄 Хэвлэлийн файлууд бэлэн</div>
-              {files.filter((f: any) => f.file_type === 'print_ready').map((f: any) => (
-                <a key={f.id} href={f.url?.startsWith('http') ? f.url : `${API_URL}${f.url}`} target="_blank" rel="noopener" download
+              {files.filter(f => f.file_type === 'print_ready').map(f => (
+                <a key={f.id} href={f.url?.startsWith('http') ? f.url : `${API_URL}${f.url ?? ''}`} target="_blank" rel="noopener" download
                   style={{ display: 'block', fontSize: 12, color: '#059669', textDecoration: 'none', padding: '4px 0' }}>
-                  📥 {f.filename} ({(f.size / 1024).toFixed(0)}KB)
+                  📥 {f.filename} ({((f.size ?? 0) / 1024).toFixed(0)}KB)
                 </a>
               ))}
             </div>
@@ -181,23 +208,23 @@ function FileUploadWidget({ order, onUploadComplete }: { order: any; onUploadCom
           {result?.analysis && (
             <div style={{
               marginTop: 12, padding: 16, borderRadius: 10,
-              background: result.analysis.score >= 80 ? '#ECFDF5' : result.analysis.score >= 60 ? '#FFFBEB' : '#FEF2F2',
-              border: `1px solid ${result.analysis.score >= 80 ? '#A7F3D0' : result.analysis.score >= 60 ? '#FDE68A' : '#FECACA'}`,
+              background: (result.analysis.score ?? 0) >= 80 ? '#ECFDF5' : (result.analysis.score ?? 0) >= 60 ? '#FFFBEB' : '#FEF2F2',
+              border: `1px solid ${(result.analysis.score ?? 0) >= 80 ? '#A7F3D0' : (result.analysis.score ?? 0) >= 60 ? '#FDE68A' : '#FECACA'}`,
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
                 <span style={{ fontSize: 20 }}>
-                  {result.analysis.score >= 80 ? '\u2705' : result.analysis.score >= 60 ? '\u26A0\uFE0F' : '\u274C'}
+                  {(result.analysis.score ?? 0) >= 80 ? '\u2705' : (result.analysis.score ?? 0) >= 60 ? '\u26A0\uFE0F' : '\u274C'}
                 </span>
                 <div>
                   <div style={{ fontSize: 14, fontWeight: 700 }}>
-                    PDF шинжилгээ: {result.analysis.score}/100
+                    PDF шинжилгээ: {result.analysis.score ?? 0}/100
                   </div>
                   <div style={{ fontSize: 12, color: '#666' }}>{result.analysis.summary}</div>
                 </div>
               </div>
-              {result.analysis.issues?.length > 0 && (
+              {(result.analysis.issues?.length ?? 0) > 0 && (
                 <div style={{ fontSize: 12, color: '#666', marginTop: 4 }}>
-                  {result.analysis.issues.map((i: any, idx: number) => (
+                  {(result.analysis.issues ?? []).map((i, idx) => (
                     <div key={idx} style={{ marginTop: 4 }}>
                       <span style={{
                         color: i.severity === 'error' ? '#DC2626' : i.severity === 'warning' ? '#D97706' : '#6B7280',
@@ -245,22 +272,28 @@ function FileUploadWidget({ order, onUploadComplete }: { order: any; onUploadCom
 
 export default function OrdersPage() {
   const router = useRouter()
-  const [orders, setOrders] = useState<any[]>([])
+  const [orders, setOrders] = useState<CustomerOrder[]>([])
   const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState('all')
   const [expanded, setExpanded] = useState<string | null>(null)
   const [userId, setUserId] = useState<string>('')
 
   const load = useCallback(() => {
-    apiFetch<any[]>('/orders/my')
+    apiFetch<CustomerOrder[]>('/orders/my')
       .then(d => setOrders(Array.isArray(d) ? d : []))
       .catch(() => setOrders([]))
       .finally(() => setLoading(false))
   }, [])
 
   useEffect(() => {
-    try { const u = JSON.parse(localStorage.getItem('user') || 'null'); if (u?.id) setUserId(u.id) } catch {}
-    load()
+    const timer = setTimeout(() => {
+      try {
+        const u = JSON.parse(localStorage.getItem('user') || 'null') as StoredUser | null
+        if (u?.id) setUserId(u.id)
+      } catch {}
+      load()
+    }, 0)
+    return () => clearTimeout(timer)
   }, [load])
 
   // Live updates: re-fetch the list whenever any of the user's orders
@@ -370,7 +403,7 @@ export default function OrdersPage() {
                       <FileUploadWidget
                         order={order}
                         onUploadComplete={() => {
-                          apiFetch<any[]>('/orders/my')
+                          apiFetch<CustomerOrder[]>('/orders/my')
                             .then(d => setOrders(Array.isArray(d) ? d : []))
                             .catch(() => {})
                         }}

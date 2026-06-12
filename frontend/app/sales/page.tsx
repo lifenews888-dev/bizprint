@@ -58,6 +58,21 @@ interface SalesCommissionRow {
   created_at: string
 }
 
+const isUser = (value: unknown): value is User => {
+  if (!value || typeof value !== 'object') return false
+  const user = value as Partial<User>
+  return typeof user.id === 'string' && typeof user.role === 'string'
+}
+
+const parseStoredUser = (raw: string): User | null => {
+  try {
+    const parsed: unknown = JSON.parse(raw)
+    return isUser(parsed) ? parsed : null
+  } catch {
+    return null
+  }
+}
+
 const ST_MN: Record<string, string> = {
   pending: '\u0425\u04af\u043b\u044d\u044d\u0433\u0434\u044d\u0436 \u0431\u0430\u0439\u043d\u0430',
   paid: '\u0422\u04e9\u043b\u04e9\u0433\u0434\u0441\u04e9\u043d',
@@ -109,10 +124,10 @@ export default function SalesDashboard() {
 
   const loadStats = useCallback(() => {
     Promise.all([
-      apiFetch<any>('/referral/my').catch(() => null),
-      apiFetch<any>('/commission/sales/me').catch(() => []),
-      apiFetch<any>('/commission/sales/me/summary').catch(() => null),
-      apiFetch<any>('/commission/sales/leaderboard').catch(() => []),
+      apiFetch<ReferralData | null>('/referral/my').catch(() => null),
+      apiFetch<SalesCommissionRow[]>('/commission/sales/me').catch(() => []),
+      apiFetch<SalesSummary | null>('/commission/sales/me/summary').catch(() => null),
+      apiFetch<LeaderboardRow[]>('/commission/sales/leaderboard').catch(() => []),
     ]).then(([ref, comms, sum, board]) => {
       if (ref) setReferral(ref)
       setCommissions(Array.isArray(comms) ? comms : [])
@@ -134,10 +149,12 @@ export default function SalesDashboard() {
     const ud = localStorage.getItem('user')
     const tk = getToken()
     if (!ud || !tk) { router.push('/login'); return }
-    const u = JSON.parse(ud)
-    setUser(u)
+    const u = parseStoredUser(ud)
+    if (!u) { router.push('/login'); return }
+    const userTimer = window.setTimeout(() => setUser(u), 0)
     loadStats()
-  }, [authLoading, loadStats])
+    return () => window.clearTimeout(userTimer)
+  }, [authLoading, loadStats, router])
 
   // Live updates: refresh whenever an attributed order is paid or finished
   // so the agent sees their commission update without a refresh.

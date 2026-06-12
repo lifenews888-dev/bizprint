@@ -8,14 +8,44 @@ const ENTITY_LABELS: Record<string, string> = {
   digital_card: 'Дижитал карт', invitation: 'Урилга', product_qr: 'Бүтээгдэхүүн QR', quote: 'Үнийн санал',
 }
 
+interface AnalyticsStats {
+  dailyTotals?: DailyTotal[]
+  overview?: OverviewMetric[]
+  deviceBreakdown?: DeviceMetric[]
+  topEntities?: TopEntityMetric[]
+}
+
+interface DailyTotal {
+  date?: string
+  count?: number | string
+}
+
+interface OverviewMetric {
+  entity_type: string
+  total_events?: number | string
+  unique_entities?: number | string
+}
+
+interface DeviceMetric {
+  device?: string
+  count?: number | string
+}
+
+interface TopEntityMetric {
+  entity_type: string
+  entity_id?: string
+  count?: number | string
+}
+
 export default function AdminAnalytics() {
-  const [stats, setStats] = useState<any>(null)
+  const [stats, setStats] = useState<AnalyticsStats | null>(null)
   const [days, setDays] = useState(30)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    setLoading(true)
-    apiFetch(`/analytics/platform?days=${days}`).then(setStats).catch(() => {}).finally(() => setLoading(false))
+    const timer = window.setTimeout(() => setLoading(true), 0)
+    apiFetch<AnalyticsStats>(`/analytics/platform?days=${days}`).then(setStats).catch(() => {}).finally(() => setLoading(false))
+    return () => window.clearTimeout(timer)
   }, [days])
 
   if (loading) return (
@@ -28,7 +58,10 @@ export default function AdminAnalytics() {
     </div>
   )
 
-  const chartData = (stats?.dailyTotals || []).map((d: any) => ({ date: d.date?.slice(5), count: Number(d.count) }))
+  const overview = stats?.overview || []
+  const deviceBreakdown = stats?.deviceBreakdown || []
+  const topEntities = stats?.topEntities || []
+  const chartData = (stats?.dailyTotals || []).map((d) => ({ date: d.date?.slice(5) || '', count: Number(d.count) }))
 
   return (
     <div className="p-4 md:p-6">
@@ -41,9 +74,9 @@ export default function AdminAnalytics() {
       </AdminPageHeader>
 
       {/* Overview */}
-      {stats?.overview && (
+      {overview.length > 0 && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-          {stats.overview.map((o: any) => (
+          {overview.map((o) => (
             <div key={o.entity_type} className="rounded-xl border border-border bg-card p-5 text-center">
               <div className="text-2xl font-bold text-primary">{Number(o.total_events).toLocaleString()}</div>
               <div className="text-sm text-muted-foreground mt-1">{ENTITY_LABELS[o.entity_type] || o.entity_type}</div>
@@ -58,7 +91,7 @@ export default function AdminAnalytics() {
         <div className="rounded-xl border border-border bg-card p-5 mb-6">
           <h3 className="text-base font-semibold text-foreground mb-4">Өдрийн идэвхжил</h3>
           <VBarChart
-            data={chartData.map((d: any) => ({ label: d.date, value: d.count }))}
+            data={chartData.map((d) => ({ label: d.date, value: d.count }))}
             height={180}
             color="#FF6B00"
             gradient
@@ -68,10 +101,10 @@ export default function AdminAnalytics() {
 
       {/* Device + Top entities */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {stats?.deviceBreakdown?.length > 0 && (
+        {deviceBreakdown.length > 0 && (
           <div className="rounded-xl border border-border bg-card p-5">
             <h3 className="text-sm font-semibold text-foreground mb-3">Төхөөрөмж</h3>
-            {stats.deviceBreakdown.map((d: any) => (
+            {deviceBreakdown.map((d) => (
               <div key={d.device} className="flex justify-between py-2 border-b border-border/50 text-sm">
                 <span className="text-muted-foreground">{d.device || 'unknown'}</span>
                 <span className="font-semibold text-foreground">{d.count}</span>
@@ -79,10 +112,10 @@ export default function AdminAnalytics() {
             ))}
           </div>
         )}
-        {stats?.topEntities?.length > 0 && (
+        {topEntities.length > 0 && (
           <div className="rounded-xl border border-border bg-card p-5">
             <h3 className="text-sm font-semibold text-foreground mb-3">Топ entities</h3>
-            {stats.topEntities.slice(0, 10).map((e: any, i: number) => (
+            {topEntities.slice(0, 10).map((e, i) => (
               <div key={i} className="flex justify-between py-1.5 border-b border-border/50 text-sm">
                 <span className="text-muted-foreground">{ENTITY_LABELS[e.entity_type] || e.entity_type} #{e.entity_id?.slice(0, 8)}</span>
                 <span className="font-semibold text-foreground">{e.count}</span>
@@ -92,7 +125,7 @@ export default function AdminAnalytics() {
         )}
       </div>
 
-      {!stats?.overview?.length && (
+      {overview.length === 0 && (
         <div className="rounded-xl border border-border bg-card p-12 text-center">
           <div className="text-5xl mb-4">📊</div>
           <div className="text-lg font-semibold text-foreground">Аналитик мэдээлэл байхгүй</div>

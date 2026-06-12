@@ -5,8 +5,132 @@ import { useRealtime } from './RealtimeContext'
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4000'
 
+interface SettingsMap extends Record<string, unknown> {
+  maintenance_mode?: boolean | string
+  site_name?: string
+  site_logo_url?: string
+  site_phone?: string
+  site_email?: string
+  site_facebook?: string
+  site_twitter?: string
+  site_instagram?: string
+  site_linkedin?: string
+  site_tiktok?: string
+  site_youtube?: string
+  site_pinterest?: string
+  site_primary_color?: string
+  header_logo_url?: string
+  header_show_search?: boolean | string
+  header_show_login?: boolean | string
+  header_cta_text?: string
+  header_cta_url?: string
+  header_announcement?: string
+  header_announcement_active?: boolean | string
+  header_announcement_color?: string
+  footer_logo_url?: string
+  footer_description?: string
+  footer_copyright?: string
+  footer_location?: string
+  footer_columns?: unknown
+  footer_show_social?: boolean | string
+  footer_show_location?: boolean | string
+  footer_help_cards?: unknown
+  footer_payments?: unknown
+  chatbot_embed_code?: string
+  header_quick_links?: unknown
+  hero_title?: string
+  hero_subtitle?: string
+  hero_cta_primary_text?: string
+  hero_cta_primary_url?: string
+  hero_cta_secondary_text?: string
+  hero_cta_secondary_url?: string
+  qr_price_yearly: number
+}
+
+export interface MegaMenuLink {
+  label?: string
+  url?: string
+  desc?: string
+  name?: string
+  link?: string
+  description?: string
+  badge?: string
+  [key: string]: unknown
+}
+
+export interface MegaMenuCategory {
+  items?: MegaMenuLink[]
+  [key: string]: unknown
+}
+
+export interface MegaMenuColumn {
+  title?: string
+  icon?: string
+  color?: string
+  items?: MegaMenuLink[]
+  categories?: MegaMenuCategory[]
+  [key: string]: unknown
+}
+
+export interface MegaMenuFeatured {
+  badge?: string
+  title?: string
+  description?: string
+  cta_text?: string
+  cta_url?: string
+  bg_color?: string
+  [key: string]: unknown
+}
+
+export interface MegaMenuItem {
+  id?: string
+  nav_label?: string
+  nav_url?: string
+  nav_type?: string
+  is_active?: boolean
+  sort_order?: number
+  columns?: MegaMenuColumn[] | null
+  featured?: MegaMenuFeatured | null
+  [key: string]: unknown
+}
+
+export interface MegaMenuPromo {
+  is_ai?: boolean
+  title?: string
+  description?: string
+  cta_text?: string
+  link?: string
+  bg_color?: string
+  [key: string]: unknown
+}
+
+export interface MegaMenuV2Data {
+  columns: MegaMenuColumn[]
+  promos: MegaMenuPromo[]
+}
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  value !== null && typeof value === 'object' && !Array.isArray(value)
+
+const stringValue = (value: unknown, fallback = ''): string =>
+  typeof value === 'string' ? value : fallback
+
+const toMegaMenuItems = (value: unknown): MegaMenuItem[] =>
+  Array.isArray(value) ? value.filter(isRecord).map(item => item as MegaMenuItem) : []
+
+const toMegaMenuV2 = (value: unknown): MegaMenuV2Data | null => {
+  if (!isRecord(value)) return null
+  const columns = Array.isArray(value.columns)
+    ? value.columns.filter(isRecord).map(column => column as MegaMenuColumn)
+    : []
+  const promos = Array.isArray(value.promos)
+    ? value.promos.filter(isRecord).map(promo => promo as MegaMenuPromo)
+    : []
+  return { columns, promos }
+}
+
 // Default settings fallback
-const DEFAULT_SETTINGS: Record<string, any> = {
+const DEFAULT_SETTINGS: SettingsMap = {
   // site
   site_name: 'BizPrint',
   site_logo_url: '',
@@ -17,6 +141,7 @@ const DEFAULT_SETTINGS: Record<string, any> = {
   site_instagram: 'https://instagram.com/bizprint.mn',
   site_youtube: 'https://youtube.com/@bizprint',
   site_primary_color: '#FF6B00',
+  qr_price_yearly: 49000,
   // header
   header_logo_url: '',
   header_show_search: true,
@@ -98,7 +223,7 @@ const DEFAULT_SETTINGS: Record<string, any> = {
   ],
 }
 
-const DEFAULT_MEGA_MENU = [
+const DEFAULT_MEGA_MENU: MegaMenuItem[] = [
   {
     id: '1', nav_label: 'Бүтээгдэхүүн', nav_url: '/shop', nav_type: 'MEGA', is_active: true, sort_order: 1,
     columns: [
@@ -119,14 +244,9 @@ const DEFAULT_MEGA_MENU = [
   { id: '5', nav_label: 'Захиалга өгөх', nav_url: '/orders/new', nav_type: 'LINK', is_active: true, sort_order: 5, columns: null, featured: null },
 ]
 
-interface MegaMenuV2Data {
-  columns: any[]
-  promos: any[]
-}
-
 interface SiteSettingsContextType {
-  settings: Record<string, any>
-  megaMenu: any[]
+  settings: SettingsMap
+  megaMenu: MegaMenuItem[]
   megaMenuV2: MegaMenuV2Data | null
   loading: boolean
   refetch: () => void
@@ -141,8 +261,8 @@ const SiteSettingsContext = createContext<SiteSettingsContextType>({
 })
 
 export function SiteSettingsProvider({ children }: { children: ReactNode }) {
-  const [settings, setSettings] = useState<Record<string, any>>(DEFAULT_SETTINGS)
-  const [megaMenu, setMegaMenu] = useState<any[]>(DEFAULT_MEGA_MENU)
+  const [settings, setSettings] = useState<SettingsMap>(DEFAULT_SETTINGS)
+  const [megaMenu, setMegaMenu] = useState<MegaMenuItem[]>(DEFAULT_MEGA_MENU)
   const [megaMenuV2, setMegaMenuV2] = useState<MegaMenuV2Data | null>(null)
   const [loading, setLoading] = useState(true)
   const { subscribe, onReconnect } = useRealtime()
@@ -153,13 +273,15 @@ export function SiteSettingsProvider({ children }: { children: ReactNode }) {
       fetch(`${API}/api/cms/mega-menu/public`).then(r => r.ok ? r.json() : null).catch(() => null),
       fetch(`${API}/api/mega-menu/public`).then(r => r.ok ? r.json() : null).catch(() => null),
     ]).then(([s, m, v2]) => {
+      const legacyMenu = toMegaMenuItems(m)
+      const v2Menu = toMegaMenuV2(v2)
       // V2 mega menu → convert to unified megaMenu format
       // Use V2 only if columns actually have categories with items inside
-      const v2HasContent = v2 && v2.columns?.some((c: any) =>
-        c.title && (c.categories || []).some((cat: any) => (cat.items || []).length > 0)
+      const v2HasContent = v2Menu?.columns.some(c =>
+        stringValue(c.title) && (c.categories || []).some(cat => (cat.items || []).length > 0)
       )
-      if (v2HasContent) {
-        setMegaMenuV2(v2)
+      if (v2HasContent && v2Menu) {
+        setMegaMenuV2(v2Menu)
         // Build a unified "Бүтээгдэхүүн" mega nav item from V2 data
         const v2MegaItem = {
           id: 'v2-products',
@@ -168,44 +290,44 @@ export function SiteSettingsProvider({ children }: { children: ReactNode }) {
           nav_type: 'MEGA',
           is_active: true,
           sort_order: 0,
-          columns: v2.columns.map((col: any) => ({
-            title: col.title,
-            icon: col.icon,
-            color: col.color,
-            items: (col.categories || []).flatMap((cat: any) =>
-              (cat.items || []).map((item: any) => ({
-                label: item.name,
-                url: item.link,
-                desc: item.description,
-                badge: item.badge,
+          columns: v2Menu.columns.map(col => ({
+            title: stringValue(col.title),
+            icon: stringValue(col.icon),
+            color: stringValue(col.color),
+            items: (col.categories || []).flatMap(cat =>
+              (cat.items || []).map(item => ({
+                label: stringValue(item.name),
+                url: stringValue(item.link),
+                desc: stringValue(item.description),
+                badge: stringValue(item.badge) || undefined,
               }))
             ),
           })),
-          featured: v2.promos?.[0] ? {
-            badge: v2.promos[0].is_ai ? '⚡ AI' : 'ШИНЭ',
-            title: v2.promos[0].title,
-            description: v2.promos[0].description,
-            cta_text: v2.promos[0].cta_text || 'Дэлгэрэнгүй',
-            cta_url: v2.promos[0].link || '/quote?tab=ai',
-            bg_color: v2.promos[0].bg_color || '#0f172a',
+          featured: v2Menu.promos[0] ? {
+            badge: v2Menu.promos[0].is_ai ? '⚡ AI' : 'ШИНЭ',
+            title: stringValue(v2Menu.promos[0].title),
+            description: stringValue(v2Menu.promos[0].description),
+            cta_text: stringValue(v2Menu.promos[0].cta_text, 'Дэлгэрэнгүй'),
+            cta_url: stringValue(v2Menu.promos[0].link, '/quote?tab=ai'),
+            bg_color: stringValue(v2Menu.promos[0].bg_color, '#0f172a'),
           } : null,
         }
         // Use DEFAULT_MEGA_MENU for non-MEGA items (cleaned up nav)
         const otherItems = DEFAULT_MEGA_MENU
-          .filter((item: any) => item.nav_type !== 'MEGA')
-          .map((item: any, idx: number) => ({ ...item, sort_order: idx + 1 }))
+          .filter(item => item.nav_type !== 'MEGA')
+          .map((item, idx) => ({ ...item, sort_order: idx + 1 }))
         setMegaMenu([v2MegaItem, ...otherItems])
       }
       // No V2 but legacy CMS items exist — use them directly
-      else if (Array.isArray(m) && m.length > 0) {
+      else if (legacyMenu.length > 0) {
         // DB-ийн бүх active item-ийг ашиглана
-        const dbItems = m.filter((item: any) => item.is_active !== false)
+        const dbItems = legacyMenu.filter(item => item.is_active !== false)
         if (dbItems.length > 0) {
           setMegaMenu(dbItems)
         }
       }
       if (s && typeof s === 'object') {
-        const filtered: Record<string, any> = {}
+        const filtered: Partial<SettingsMap> & Record<string, unknown> = {}
         for (const [key, val] of Object.entries(s)) {
           if (val !== null && val !== undefined && val !== '') {
             filtered[key] = val
@@ -213,41 +335,50 @@ export function SiteSettingsProvider({ children }: { children: ReactNode }) {
         }
 
         // Map legacy CMS fields → Frontend expected fields (only if not already set by bulk save)
-        if (filtered.phone && !filtered.site_phone) filtered.site_phone = filtered.phone
-        if (filtered.email && !filtered.site_email) filtered.site_email = filtered.email
-        if (filtered.facebook && !filtered.site_facebook) filtered.site_facebook = filtered.facebook
-        if (filtered.instagram && !filtered.site_instagram) filtered.site_instagram = filtered.instagram
+        const phone = stringValue(filtered.phone)
+        const email = stringValue(filtered.email)
+        const facebook = stringValue(filtered.facebook)
+        const instagram = stringValue(filtered.instagram)
+        if (phone && !filtered.site_phone) filtered.site_phone = phone
+        if (email && !filtered.site_email) filtered.site_email = email
+        if (facebook && !filtered.site_facebook) filtered.site_facebook = facebook
+        if (instagram && !filtered.site_instagram) filtered.site_instagram = instagram
 
         // Map footer sub-object (legacy format — don't override bulk-saved values)
-        if (filtered.footer && typeof filtered.footer === 'object') {
+        if (isRecord(filtered.footer)) {
           const f = filtered.footer
-          if (f.description && !filtered.footer_description) filtered.footer_description = f.description
-          if (f.copyright && !filtered.footer_copyright) filtered.footer_copyright = f.copyright
+          const footerDescription = stringValue(f.description)
+          const footerCopyright = stringValue(f.copyright)
+          if (footerDescription && !filtered.footer_description) filtered.footer_description = footerDescription
+          if (footerCopyright && !filtered.footer_copyright) filtered.footer_copyright = footerCopyright
           if (f.columns && !filtered.footer_columns) filtered.footer_columns = f.columns
-          if (f.socials) {
-            f.socials.forEach((soc: any) => {
+          if (Array.isArray(f.socials)) {
+            f.socials.filter(isRecord).forEach(soc => {
               if (soc.enabled && soc.url) {
-                const key = `site_${soc.platform}`
+                const key = `site_${stringValue(soc.platform)}`
                 if (!filtered[key]) filtered[key] = soc.url
               }
             })
           }
-          if (f.branches?.[0]) {
-            if (!filtered.footer_location) filtered.footer_location = f.branches[0].address
-            if (!filtered.site_phone) filtered.site_phone = f.branches[0].phone
+          const firstBranch = Array.isArray(f.branches) && isRecord(f.branches[0]) ? f.branches[0] : null
+          if (firstBranch) {
+            const branchAddress = stringValue(firstBranch.address)
+            const branchPhone = stringValue(firstBranch.phone)
+            if (branchAddress && !filtered.footer_location) filtered.footer_location = branchAddress
+            if (branchPhone && !filtered.site_phone) filtered.site_phone = branchPhone
           }
         }
 
         setSettings(prev => {
           const next = { ...prev, ...filtered }
           // Sync CSS variable
-          if (typeof document !== 'undefined' && next.site_primary_color) {
+          if (typeof document !== 'undefined' && typeof next.site_primary_color === 'string') {
             document.documentElement.style.setProperty('--primary-color', next.site_primary_color)
           }
           return next
         })
       }
-      if (Array.isArray(m) && m.length > 0) setMegaMenu(m)
+      if (!v2HasContent && legacyMenu.length > 0) setMegaMenu(legacyMenu)
     }).finally(() => setLoading(false))
   }, [])
 
@@ -257,18 +388,19 @@ export function SiteSettingsProvider({ children }: { children: ReactNode }) {
 
     // Subscribe to /sync namespace CMS events
     const unsubs = [
-      subscribe('SETTINGS_UPDATED', ({ key, value }: { key: string; value: any }) => {
+      subscribe('SETTINGS_UPDATED', ({ key, value }) => {
         if (key && value !== undefined && value !== null && value !== '') {
           setSettings(prev => ({ ...prev, [key]: value }))
         }
       }),
-      subscribe('SETTINGS_BULK_UPDATED', ({ settings: updated }: { settings: Record<string, any> }) => {
+      subscribe('SETTINGS_BULK_UPDATED', ({ settings: updated }) => {
         if (updated && typeof updated === 'object') {
           setSettings(prev => ({ ...prev, ...updated }))
         }
       }),
-      subscribe('MENU_UPDATED', ({ menu }: { menu: any[] }) => {
-        if (Array.isArray(menu) && menu.length > 0) setMegaMenu(menu)
+      subscribe('MENU_UPDATED', ({ menu }) => {
+        const menuItems = toMegaMenuItems(menu)
+        if (menuItems.length > 0) setMegaMenu(menuItems)
       }),
       // Re-fetch on reconnect (in case we missed updates while disconnected)
       onReconnect(fetchSettings),

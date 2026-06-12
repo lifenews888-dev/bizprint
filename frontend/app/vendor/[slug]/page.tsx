@@ -3,14 +3,42 @@ import Link from 'next/link'
 
 interface Props { params: Promise<{ slug: string }> }
 
-async function getVendor(slug: string) {
+interface VendorCapability {
+  id?: string
+  product_type?: string
+  name?: string
+  max_quantity?: number | string
+  lead_time_days?: number | string
+}
+
+interface VendorProfile {
+  id: string
+  company_name?: string
+  slug?: string
+  description?: string
+  logo_url?: string
+  district?: string
+  phone?: string
+  contact_email?: string
+  total_orders?: number
+  rating?: number | string
+  capacity_per_day?: number | string
+  current_load?: number | string
+  services?: string[]
+  machine_types?: string[]
+  vendor_capabilities?: VendorCapability[]
+  capabilities?: VendorCapability[]
+  metrics?: Record<string, unknown>
+}
+
+async function getVendor(slug: string): Promise<VendorProfile | null> {
   try {
     const base = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'
     const res = await fetch(`${base}/api/vendors/slug/${encodeURIComponent(slug)}`, {
       next: { revalidate: 300 },
     })
     if (!res.ok) return null
-    const data = await res.json()
+    const data: VendorProfile = await res.json()
     if (!data || !data.id) return null
     return data
   } catch {
@@ -46,6 +74,8 @@ export default async function VendorStorePage({ params }: Props) {
   }
 
   const caps = vendor.vendor_capabilities || vendor.capabilities || []
+  const services = vendor.services || []
+  const machineTypes = vendor.machine_types || []
   const metrics = vendor.metrics || {}
 
   return (
@@ -122,13 +152,13 @@ export default async function VendorStorePage({ params }: Props) {
       </div>
 
       {/* Services */}
-      {(vendor.services?.length > 0 || vendor.machine_types?.length > 0) && (
+      {(services.length > 0 || machineTypes.length > 0) && (
         <div style={{ marginBottom: 24 }}>
           <h2 style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)', marginBottom: 12 }}>
             Үйлчилгээ
           </h2>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-            {(vendor.services || []).map((s: string) => (
+            {services.map((s: string) => (
               <span key={s} style={{
                 padding: '6px 12px', borderRadius: 20, fontSize: 12,
                 background: 'rgba(255,107,0,0.08)', border: '1px solid rgba(255,107,0,0.2)', color: '#FF6B00',
@@ -136,7 +166,7 @@ export default async function VendorStorePage({ params }: Props) {
                 {s}
               </span>
             ))}
-            {(vendor.machine_types || []).map((m: string) => (
+            {machineTypes.map((m: string) => (
               <span key={m} style={{
                 padding: '6px 12px', borderRadius: 20, fontSize: 12,
                 background: 'var(--surface2)', border: '1px solid var(--border)', color: 'var(--text3)',
@@ -155,7 +185,7 @@ export default async function VendorStorePage({ params }: Props) {
             Чадвар
           </h2>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 12 }}>
-            {caps.map((cap: any) => (
+            {caps.map(cap => (
               <div key={cap.id} style={{
                 padding: 16, border: '1px solid var(--border)',
                 borderRadius: 12, background: 'var(--surface)',

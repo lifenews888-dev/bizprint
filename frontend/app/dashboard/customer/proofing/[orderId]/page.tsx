@@ -31,7 +31,7 @@ export default function ProofingPage() {
   const containerRef = useRef<HTMLDivElement>(null);
 
   const load = useCallback(async () => {
-    const vers = await apiFetch<any>(`/proofing/${orderId}/versions`).catch(() => []);
+    const vers = await apiFetch<ProofVersion[]>(`/proofing/${orderId}/versions`).catch(() => []);
     const list = Array.isArray(vers) ? vers : [];
     setVersions(list);
     if (list.length > 0) {
@@ -41,7 +41,10 @@ export default function ProofingPage() {
     }
   }, [orderId]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    const timer = setTimeout(load, 0);
+    return () => clearTimeout(timer);
+  }, [load]);
 
   const selectVersion = (v: ProofVersion) => {
     setCurrent(v);

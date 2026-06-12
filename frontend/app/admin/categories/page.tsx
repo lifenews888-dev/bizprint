@@ -15,6 +15,8 @@ interface Category {
   parent_id: string | null
   sort_order: number
   is_active: boolean
+  show_in_mega_menu?: boolean
+  menu_group?: string
   children?: Category[]
 }
 
@@ -101,15 +103,13 @@ export default function AdminCategoriesPage() {
   const [selProduct, setSelProduct] = useState('')
   const [toast, setToast] = useState('')
 
-  useEffect(() => { fetchAll() }, [])
-
   async function fetchAll() {
     setLoading(true)
     try {
       const [cData, tData, pData] = await Promise.all([
-        apiFetch<any>('/categories').catch(() => []),
-        apiFetch<any>('/categories/tree').catch(() => []),
-        apiFetch<any>('/products').catch(() => []),
+        apiFetch<Category[]>('/categories').catch(() => []),
+        apiFetch<Category[]>('/categories/tree').catch(() => []),
+        apiFetch<Product[]>('/products').catch(() => []),
       ])
       setCategories(Array.isArray(cData) ? cData : [])
       setTree(Array.isArray(tData) ? tData : [])
@@ -120,10 +120,15 @@ export default function AdminCategoriesPage() {
 
   async function fetchAttrs(pid: string) {
     try {
-      const r = await apiFetch<any>('/products/'+pid+'/attributes')
-      setAttributes(r)
+      const r = await apiFetch<ProductAttribute[]>('/products/'+pid+'/attributes')
+      setAttributes(Array.isArray(r) ? r : [])
     } catch { setAttributes([]) }
   }
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => fetchAll(), 0)
+    return () => window.clearTimeout(timer)
+  }, [])
 
   function showToast(msg: string) { setToast(msg); setTimeout(()=>setToast(''), 3000) }
 
@@ -132,7 +137,7 @@ export default function AdminCategoriesPage() {
   }
   function openCatEdit(c: Category) {
     setCatEdit(c)
-    setCatForm({ name:c.name, name_mn:c.name_mn||'', slug:c.slug||'', description:c.description||'', icon:c.icon||'📦', color:c.color||'#FF6B00', parent_id:c.parent_id, sort_order:c.sort_order||0, is_active:c.is_active, show_in_mega_menu:(c as any).show_in_mega_menu||false, menu_group:(c as any).menu_group||'' })
+    setCatForm({ name:c.name, name_mn:c.name_mn||'', slug:c.slug||'', description:c.description||'', icon:c.icon||'📦', color:c.color||'#FF6B00', parent_id:c.parent_id, sort_order:c.sort_order||0, is_active:c.is_active, show_in_mega_menu:c.show_in_mega_menu||false, menu_group:c.menu_group||'' })
     setCatModal(true)
   }
   async function saveCat() {
@@ -141,18 +146,18 @@ export default function AdminCategoriesPage() {
     const body = {...catForm, slug: catForm.slug || slugify(catForm.name)}
     try {
       const path = catEdit ? `/categories/${catEdit.id}` : '/categories'
-      await apiFetch<any>(path, { method: catEdit?'PATCH':'POST', body: body })
+      await apiFetch<Category>(path, { method: catEdit?'PATCH':'POST', body: body })
       showToast(catEdit?'Засагдлаа':'Нэмэгдлээ'); setCatModal(false); fetchAll()
     } catch { showToast('Алдаа гарлаа') }
     setCatSaving(false)
   }
   async function deleteCat(id: string) {
     if (!confirm('Устгах уу?')) return
-    await apiFetch<any>('/categories/'+id, { method:'DELETE'})
+    await apiFetch('/categories/'+id, { method:'DELETE'})
     showToast('Устгагдлаа'); fetchAll()
   }
   async function toggleActive(c: Category) {
-    await apiFetch<any>('/categories/'+c.id, { method:'PATCH', body: {is_active: !c.is_active} })
+    await apiFetch<Category>('/categories/'+c.id, { method:'PATCH', body: {is_active: !c.is_active} })
     fetchAll()
   }
 
@@ -169,14 +174,14 @@ export default function AdminCategoriesPage() {
     setAttrSaving(true)
     try {
       const path = attrEdit ? `/products/${attrForm.product_id}/attributes/${attrEdit.id}` : `/products/${attrForm.product_id}/attributes`
-      await apiFetch<any>(path, { method: attrEdit?'PATCH':'POST', body: attrForm })
+      await apiFetch<ProductAttribute>(path, { method: attrEdit?'PATCH':'POST', body: attrForm })
       showToast(attrEdit?'Засагдлаа':'Нэмэгдлээ'); setAttrModal(false); fetchAttrs(selProduct)
     } catch { showToast('Алдаа гарлаа') }
     setAttrSaving(false)
   }
   async function deleteAttr(a: ProductAttribute) {
     if (!confirm('Устгах уу?')) return
-    await apiFetch<any>('/products/'+a.product_id+'/attributes/'+a.id, { method:'DELETE'})
+    await apiFetch('/products/'+a.product_id+'/attributes/'+a.id, { method:'DELETE'})
     showToast('Устгагдлаа'); fetchAttrs(selProduct)
   }
   function addOption() {
@@ -240,7 +245,7 @@ export default function AdminCategoriesPage() {
                       <div style={{fontWeight:600, fontSize:14}}>{cat.name}</div>
                       {cat.name_mn && <div style={{fontSize:11, color:'var(--text2)'}}>{cat.name_mn}</div>}
                     </div>
-                    {(cat as any).show_in_mega_menu && (
+                    {cat.show_in_mega_menu && (
                       <span style={{ background:'rgba(255,107,0,0.15)', color:'#FF6B00', borderRadius:20, padding:'2px 8px', fontSize:10, fontWeight:600 }}>🧭 Меню</span>
                     )}
                     {(cat.children?.length||0) > 0 && (

@@ -27,26 +27,51 @@ const WORKFLOW_LABELS = ['Захиалга','Төлбөр','Дизайн','Ха�
 interface DashboardData {
   kpis: { total_orders: number; active_orders: number; pending_quotes: number; total_spent: number; completed: number }
   wallet: { balance: number; total_earned: number }
-  recent_orders: any[]
-  active_orders: any[]
-  quotes: any[]
+  recent_orders: CustomerOrder[]
+  active_orders: CustomerOrder[]
+  quotes: CustomerQuote[]
   suggestions: { icon: string; title: string; description: string; action?: string }[]
+}
+
+interface CustomerOrder {
+  id: string
+  status: string
+  product_name?: string
+  quantity?: number
+  created_at: string
+  total_price?: number | string
+}
+
+interface CustomerQuote {
+  id: string
+  product_name?: string
+  quote_number?: string
+  created_at: string
+  total_price?: number | string
+}
+
+interface StoredUser {
+  full_name?: string
 }
 
 export default function CustomerHomePage() {
   const router = useRouter()
   const [data, setData] = useState<DashboardData | null>(null)
-  const [user, setUser] = useState<any>(null)
+  const [user, setUser] = useState<StoredUser | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     const stored = localStorage.getItem('user')
-    if (stored) try { setUser(JSON.parse(stored)) } catch {}
+    const timer = window.setTimeout(() => {
+      if (stored) try { setUser(JSON.parse(stored) as StoredUser) } catch {}
+    }, 0)
 
     apiFetch<DashboardData>('/customer-dashboard/summary')
       .then(d => setData(d))
       .catch(() => {})
       .finally(() => setLoading(false))
+
+    return () => window.clearTimeout(timer)
   }, [])
 
   const greeting = () => {
@@ -233,7 +258,7 @@ function QuickAction({ icon, label, onClick }: { icon: string; label: string; on
   )
 }
 
-function ActiveOrderCard({ order, onClick }: { order: any; onClick: () => void }) {
+function ActiveOrderCard({ order, onClick }: { order: CustomerOrder; onClick: () => void }) {
   const s = STATUS_LABELS[order.status] || { label: order.status, color: '#6B7280' }
   const stageIndex = WORKFLOW.indexOf(order.status)
   const progress = stageIndex >= 0 ? Math.round(((stageIndex + 1) / WORKFLOW.length) * 100) : 10

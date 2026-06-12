@@ -24,8 +24,8 @@ type PricedCartItem = {
   specs?: Record<string, unknown>
 }
 
-const asRecord = (value: unknown): Record<string, any> =>
-  value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, any> : {}
+const asRecord = (value: unknown): Record<string, unknown> =>
+  value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {}
 
 const fmtMoney = (value: number) =>
   new Intl.NumberFormat('mn-MN').format(Math.round(value)) + '₮'

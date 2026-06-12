@@ -24,9 +24,14 @@ export function middleware(request: NextRequest) {
     request.cookies.get('access_token')?.value ||
     request.cookies.get('token')?.value
 
-  // Client-side auth uses localStorage, so we check for the auth cookie
-  // If no cookie, we let client-side handle redirect (localStorage check)
-  // But we add a header to signal the page should verify auth
+  if (!token) {
+    const loginUrl = request.nextUrl.clone()
+    loginUrl.pathname = '/login'
+    loginUrl.search = ''
+    loginUrl.searchParams.set('next', pathname + request.nextUrl.search)
+    return NextResponse.redirect(loginUrl)
+  }
+
   const response = NextResponse.next()
   response.headers.set('X-Auth-Required', 'true')
   return response

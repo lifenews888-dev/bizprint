@@ -26,7 +26,55 @@ interface PageForm {
   is_published: boolean
   thumbnail: string
   sort_order: number
-  metadata: Record<string, any>
+  metadata: PageMetadata
+}
+
+type MetadataItem = {
+  icon?: string
+  title?: string
+  desc?: string
+  description?: string
+  name?: string
+  role?: string
+  avatar?: string
+  bio?: string
+  year?: string
+  value?: string
+  link?: string
+  label?: string
+  url?: string
+  question?: string
+  answer?: string
+  category?: string
+  time?: string
+  price?: string
+}
+
+type PageMetadata = {
+  hero_title?: string
+  hero_desc?: string
+  mission?: string
+  vision?: string
+  subtitle?: string
+  cta_text?: string
+  cta_url?: string
+  map_embed?: string
+  services?: MetadataItem[]
+  values?: MetadataItem[]
+  team?: MetadataItem[]
+  timeline?: MetadataItem[]
+  partners?: string[]
+  info?: MetadataItem[]
+  social?: MetadataItem[]
+  faq_items?: MetadataItem[]
+  zones?: MetadataItem[]
+  policies?: MetadataItem[]
+}
+
+type CmsPage = PageForm & {
+  id: string
+  created_at?: string
+  updated_at?: string
 }
 
 const emptyForm: PageForm = {
@@ -35,9 +83,9 @@ const emptyForm: PageForm = {
 }
 
 export default function AdminPagesPage() {
-  const [items, setItems] = useState<any[]>([])
+  const [items, setItems] = useState<CmsPage[]>([])
   const [loading, setLoading] = useState(true)
-  const [editing, setEditing] = useState<any>(null)
+  const [editing, setEditing] = useState<CmsPage | null>(null)
   const [form, setForm] = useState<PageForm>({ ...emptyForm })
   const [tab, setTab] = useState<'list' | 'edit'>('list')
   const [saving, setSaving] = useState(false)
@@ -45,13 +93,15 @@ export default function AdminPagesPage() {
 
   const load = useCallback(() => {
     setLoading(true)
-    apiFetch<any>('/pages/all')
-      .then(d => setItems(Array.isArray(d) ? d.sort((a: any, b: any) => (a.sort_order || 0) - (b.sort_order || 0)) : []))
+    apiFetch<CmsPage[]>('/pages/all')
+      .then(d => setItems(Array.isArray(d) ? d.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0)) : []))
       .catch(() => setItems([]))
       .finally(() => setLoading(false))
   }, [])
 
-  useEffect(load, [load])
+  useEffect(() => {
+    void Promise.resolve().then(load)
+  }, [load])
 
   const openCreate = () => {
     setEditing(null)
@@ -59,7 +109,7 @@ export default function AdminPagesPage() {
     setTab('edit')
   }
 
-  const openEdit = (item: any) => {
+  const openEdit = (item: CmsPage) => {
     setEditing(item)
     setForm({
       title: item.title || '',
@@ -80,7 +130,7 @@ export default function AdminPagesPage() {
     const method = editing?.id ? 'PATCH' : 'POST'
     const url = editing?.id ? `/pages/${editing.id}` : '/pages'
     try {
-      await apiFetch<any>(url, { method, body: form as any })
+      await apiFetch<CmsPage>(url, { method, body: { ...form } })
       toast.success(editing?.id ? 'Хуудас шинэчлэгдлээ' : 'Хуудас үүсгэгдлээ')
       setTab('list')
       load()
@@ -94,26 +144,26 @@ export default function AdminPagesPage() {
   const del = async (id: string) => {
     if (!confirm('Энэ хуудсыг устгах уу?')) return
     try {
-      await apiFetch<any>(`/pages/${id}`, { method: 'DELETE' })
+      await apiFetch<void>(`/pages/${id}`, { method: 'DELETE' })
       toast.success('Устгагдлаа')
       load()
     } catch { toast.error('Устгахад алдаа') }
   }
 
-  const togglePublish = async (item: any) => {
-    await apiFetch<any>(`/pages/${item.id}`, { method: 'PATCH', body: { is_published: !item.is_published } })
+  const togglePublish = async (item: CmsPage) => {
+    await apiFetch<CmsPage>(`/pages/${item.id}`, { method: 'PATCH', body: { is_published: !item.is_published } })
     toast.success(item.is_published ? 'Нуугдлаа' : 'Нийтлэгдлээ')
     load()
   }
 
   // ─── Metadata helpers for services template ───
-  const services = (form.metadata?.services || []) as any[]
+  const services = form.metadata.services || []
   const addService = () => setForm(f => ({ ...f, metadata: { ...f.metadata, services: [...services, { title: '', description: '', icon: '📌', price: '' }] } }))
   const updateService = (i: number, key: string, val: string) => {
     const next = [...services]; next[i] = { ...next[i], [key]: val }
     setForm(f => ({ ...f, metadata: { ...f.metadata, services: next } }))
   }
-  const removeService = (i: number) => setForm(f => ({ ...f, metadata: { ...f.metadata, services: services.filter((_: any, j: number) => j !== i) } }))
+  const removeService = (i: number) => setForm(f => ({ ...f, metadata: { ...f.metadata, services: services.filter((_, j) => j !== i) } }))
 
   // ─── LIST VIEW ───
   if (tab === 'list') return (
@@ -332,11 +382,11 @@ export default function AdminPagesPage() {
             </div>
             {services.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground text-sm">
-                Үйлчилгээ нэмэхийн тулд "Нэмэх" дарна уу
+                Үйлчилгээ нэмэхийн тулд &quot;Нэмэх&quot; дарна уу
               </div>
             ) : (
               <div className="space-y-3">
-                {services.map((s: any, i: number) => (
+                {services.map((s, i) => (
                   <div key={i} className="grid grid-cols-[40px_1fr_1fr_1fr_32px] gap-2 items-center">
                     <Input value={s.icon || ''} onChange={e => updateService(i, 'icon', e.target.value)}
                       className="text-center text-lg p-1" maxLength={2} />
@@ -403,21 +453,21 @@ export default function AdminPagesPage() {
 
 type MetaProps = { form: PageForm; setForm: React.Dispatch<React.SetStateAction<PageForm>> }
 
-function metaField(_form: PageForm, setForm: MetaProps['setForm'], key: string, value: string) {
+function metaField(_form: PageForm, setForm: MetaProps['setForm'], key: keyof PageMetadata, value: string) {
   setForm(f => ({ ...f, metadata: { ...f.metadata, [key]: value } }))
 }
-function metaArr(form: PageForm): any { return form.metadata || {} }
+function metaArr(form: PageForm): PageMetadata { return form.metadata || {} }
 
 /* ── About ── */
 function AboutMetadata({ form, setForm }: MetaProps) {
   const m = metaArr(form)
-  const values = (m.values || []) as any[]
-  const team = (m.team || []) as any[]
-  const timeline = (m.timeline || []) as any[]
-  const partners = (m.partners || []) as string[]
+  const values = m.values || []
+  const team = m.team || []
+  const timeline = m.timeline || []
+  const partners = m.partners || []
 
-  const setArr = (key: string, arr: any[]) => setForm(f => ({ ...f, metadata: { ...f.metadata, [key]: arr } }))
-  const updateItem = (key: string, arr: any[], i: number, field: string, val: string) => {
+  const setArr = (key: keyof PageMetadata, arr: MetadataItem[] | string[]) => setForm(f => ({ ...f, metadata: { ...f.metadata, [key]: arr } }))
+  const updateItem = (key: keyof PageMetadata, arr: MetadataItem[], i: number, field: keyof MetadataItem, val: string) => {
     const next = [...arr]; next[i] = { ...next[i], [field]: val }; setArr(key, next)
   }
 
@@ -464,12 +514,12 @@ function AboutMetadata({ form, setForm }: MetaProps) {
         </Button>
       </div>
       <div className="space-y-2">
-        {values.map((v: any, i: number) => (
+        {values.map((v, i) => (
           <div key={i} className="grid grid-cols-[40px_1fr_2fr_32px] gap-2 items-center">
             <Input value={v.icon || ''} onChange={e => updateItem('values', values, i, 'icon', e.target.value)} className="text-center text-lg p-1" maxLength={2} />
             <Input value={v.title || ''} onChange={e => updateItem('values', values, i, 'title', e.target.value)} placeholder="Нэр" />
             <Input value={v.desc || ''} onChange={e => updateItem('values', values, i, 'desc', e.target.value)} placeholder="Тайлбар" />
-            <button onClick={() => setArr('values', values.filter((_: any, j: number) => j !== i))} className="text-destructive hover:text-destructive/80 cursor-pointer text-sm">✕</button>
+            <button onClick={() => setArr('values', values.filter((_, j) => j !== i))} className="text-destructive hover:text-destructive/80 cursor-pointer text-sm">✕</button>
           </div>
         ))}
       </div>
@@ -484,13 +534,13 @@ function AboutMetadata({ form, setForm }: MetaProps) {
         </Button>
       </div>
       <div className="space-y-3">
-        {team.map((t: any, i: number) => (
+        {team.map((t, i) => (
           <div key={i} className="grid grid-cols-[40px_1fr_1fr_1.5fr_32px] gap-2 items-center">
             <Input value={t.avatar || ''} onChange={e => updateItem('team', team, i, 'avatar', e.target.value)} className="text-center text-lg p-1" maxLength={2} />
             <Input value={t.name || ''} onChange={e => updateItem('team', team, i, 'name', e.target.value)} placeholder="Нэр" />
             <Input value={t.role || ''} onChange={e => updateItem('team', team, i, 'role', e.target.value)} placeholder="Албан тушаал" />
             <Input value={t.bio || ''} onChange={e => updateItem('team', team, i, 'bio', e.target.value)} placeholder="Товч танилцуулга" />
-            <button onClick={() => setArr('team', team.filter((_: any, j: number) => j !== i))} className="text-destructive hover:text-destructive/80 cursor-pointer text-sm">✕</button>
+            <button onClick={() => setArr('team', team.filter((_, j) => j !== i))} className="text-destructive hover:text-destructive/80 cursor-pointer text-sm">✕</button>
           </div>
         ))}
       </div>
@@ -505,13 +555,13 @@ function AboutMetadata({ form, setForm }: MetaProps) {
         </Button>
       </div>
       <div className="space-y-2">
-        {timeline.map((t: any, i: number) => (
+        {timeline.map((t, i) => (
           <div key={i} className="grid grid-cols-[40px_80px_1fr_1.5fr_32px] gap-2 items-center">
             <Input value={t.icon || ''} onChange={e => updateItem('timeline', timeline, i, 'icon', e.target.value)} className="text-center text-lg p-1" maxLength={2} />
             <Input value={t.year || ''} onChange={e => updateItem('timeline', timeline, i, 'year', e.target.value)} placeholder="Он" />
             <Input value={t.title || ''} onChange={e => updateItem('timeline', timeline, i, 'title', e.target.value)} placeholder="Гарчиг" />
             <Input value={t.desc || ''} onChange={e => updateItem('timeline', timeline, i, 'desc', e.target.value)} placeholder="Тайлбар" />
-            <button onClick={() => setArr('timeline', timeline.filter((_: any, j: number) => j !== i))} className="text-destructive hover:text-destructive/80 cursor-pointer text-sm">✕</button>
+            <button onClick={() => setArr('timeline', timeline.filter((_, j) => j !== i))} className="text-destructive hover:text-destructive/80 cursor-pointer text-sm">✕</button>
           </div>
         ))}
       </div>
@@ -529,7 +579,7 @@ function AboutMetadata({ form, setForm }: MetaProps) {
         {partners.map((p: string, i: number) => (
           <div key={i} className="flex gap-2 items-center">
             <Input value={p} onChange={e => { const next = [...partners]; next[i] = e.target.value; setArr('partners', next) }} placeholder="🏭 Компанийн нэр" className="flex-1" />
-            <button onClick={() => setArr('partners', partners.filter((_: any, j: number) => j !== i))} className="text-destructive hover:text-destructive/80 cursor-pointer text-sm">✕</button>
+            <button onClick={() => setArr('partners', partners.filter((_, j) => j !== i))} className="text-destructive hover:text-destructive/80 cursor-pointer text-sm">✕</button>
           </div>
         ))}
       </div>
@@ -540,11 +590,11 @@ function AboutMetadata({ form, setForm }: MetaProps) {
 /* ── Contact ── */
 function ContactMetadata({ form, setForm }: MetaProps) {
   const m = metaArr(form)
-  const info = (m.info || []) as any[]
-  const social = (m.social || []) as any[]
+  const info = m.info || []
+  const social = m.social || []
 
-  const setArr = (key: string, arr: any[]) => setForm(f => ({ ...f, metadata: { ...f.metadata, [key]: arr } }))
-  const updateItem = (key: string, arr: any[], i: number, field: string, val: string) => {
+  const setArr = (key: keyof PageMetadata, arr: MetadataItem[]) => setForm(f => ({ ...f, metadata: { ...f.metadata, [key]: arr } }))
+  const updateItem = (key: keyof PageMetadata, arr: MetadataItem[], i: number, field: keyof MetadataItem, val: string) => {
     const next = [...arr]; next[i] = { ...next[i], [field]: val }; setArr(key, next)
   }
 
@@ -572,13 +622,13 @@ function ContactMetadata({ form, setForm }: MetaProps) {
         </Button>
       </div>
       <div className="space-y-2">
-        {info.map((item: any, i: number) => (
+        {info.map((item, i) => (
           <div key={i} className="grid grid-cols-[40px_1fr_1.5fr_1.5fr_32px] gap-2 items-center">
             <Input value={item.icon || ''} onChange={e => updateItem('info', info, i, 'icon', e.target.value)} className="text-center text-lg p-1" maxLength={2} />
             <Input value={item.title || ''} onChange={e => updateItem('info', info, i, 'title', e.target.value)} placeholder="Утас" />
             <Input value={item.value || ''} onChange={e => updateItem('info', info, i, 'value', e.target.value)} placeholder="+976 7711-7700" />
             <Input value={item.link || ''} onChange={e => updateItem('info', info, i, 'link', e.target.value)} placeholder="tel:+976... (хоосон ч болно)" className="font-mono text-xs" />
-            <button onClick={() => setArr('info', info.filter((_: any, j: number) => j !== i))} className="text-destructive hover:text-destructive/80 cursor-pointer text-sm">✕</button>
+            <button onClick={() => setArr('info', info.filter((_, j) => j !== i))} className="text-destructive hover:text-destructive/80 cursor-pointer text-sm">✕</button>
           </div>
         ))}
       </div>
@@ -593,12 +643,12 @@ function ContactMetadata({ form, setForm }: MetaProps) {
         </Button>
       </div>
       <div className="space-y-2">
-        {social.map((s: any, i: number) => (
+        {social.map((s, i) => (
           <div key={i} className="grid grid-cols-[40px_1fr_2fr_32px] gap-2 items-center">
             <Input value={s.icon || ''} onChange={e => updateItem('social', social, i, 'icon', e.target.value)} className="text-center text-lg p-1" maxLength={2} />
             <Input value={s.label || ''} onChange={e => updateItem('social', social, i, 'label', e.target.value)} placeholder="Facebook" />
             <Input value={s.url || ''} onChange={e => updateItem('social', social, i, 'url', e.target.value)} placeholder="https://facebook.com/..." className="font-mono text-xs" />
-            <button onClick={() => setArr('social', social.filter((_: any, j: number) => j !== i))} className="text-destructive hover:text-destructive/80 cursor-pointer text-sm">✕</button>
+            <button onClick={() => setArr('social', social.filter((_, j) => j !== i))} className="text-destructive hover:text-destructive/80 cursor-pointer text-sm">✕</button>
           </div>
         ))}
       </div>
@@ -617,8 +667,8 @@ function ContactMetadata({ form, setForm }: MetaProps) {
 /* ── FAQ ── */
 function FaqMetadata({ form, setForm }: MetaProps) {
   const m = metaArr(form)
-  const items = (m.faq_items || []) as any[]
-  const setArr = (arr: any[]) => setForm(f => ({ ...f, metadata: { ...f.metadata, faq_items: arr } }))
+  const items = m.faq_items || []
+  const setArr = (arr: MetadataItem[]) => setForm(f => ({ ...f, metadata: { ...f.metadata, faq_items: arr } }))
 
   return <>
     <div className="rounded-xl border bg-card p-5">
@@ -646,7 +696,7 @@ function FaqMetadata({ form, setForm }: MetaProps) {
         <div className="text-center py-8 text-muted-foreground text-sm">FAQ нэмэхийн тулд &quot;Нэмэх&quot; дарна уу</div>
       ) : (
         <div className="space-y-4">
-          {items.map((item: any, i: number) => (
+          {items.map((item, i) => (
             <div key={i} className="p-3 rounded-lg border bg-background space-y-2">
               <div className="flex items-center gap-2">
                 <span className="text-xs font-bold text-primary w-5">#{i + 1}</span>
@@ -661,7 +711,7 @@ function FaqMetadata({ form, setForm }: MetaProps) {
                 </select>
                 <Input value={item.question || ''} onChange={e => { const next = [...items]; next[i] = { ...next[i], question: e.target.value }; setArr(next) }}
                   placeholder="Асуулт" className="flex-1 font-medium" />
-                <button onClick={() => setArr(items.filter((_: any, j: number) => j !== i))} className="text-destructive hover:text-destructive/80 cursor-pointer text-sm">✕</button>
+                <button onClick={() => setArr(items.filter((_, j) => j !== i))} className="text-destructive hover:text-destructive/80 cursor-pointer text-sm">✕</button>
               </div>
               <textarea value={item.answer || ''} onChange={e => { const next = [...items]; next[i] = { ...next[i], answer: e.target.value }; setArr(next) }}
                 className="w-full min-h-[60px] resize-y rounded-lg border border-input bg-background px-3 py-2 text-sm" placeholder="Хариулт" />
@@ -676,11 +726,11 @@ function FaqMetadata({ form, setForm }: MetaProps) {
 /* ── Delivery ── */
 function DeliveryMetadata({ form, setForm }: MetaProps) {
   const m = metaArr(form)
-  const zones = (m.zones || []) as any[]
-  const policies = (m.policies || []) as any[]
+  const zones = m.zones || []
+  const policies = m.policies || []
 
-  const setArr = (key: string, arr: any[]) => setForm(f => ({ ...f, metadata: { ...f.metadata, [key]: arr } }))
-  const updateItem = (key: string, arr: any[], i: number, field: string, val: string) => {
+  const setArr = (key: keyof PageMetadata, arr: MetadataItem[]) => setForm(f => ({ ...f, metadata: { ...f.metadata, [key]: arr } }))
+  const updateItem = (key: keyof PageMetadata, arr: MetadataItem[], i: number, field: keyof MetadataItem, val: string) => {
     const next = [...arr]; next[i] = { ...next[i], [field]: val }; setArr(key, next)
   }
 
@@ -708,13 +758,13 @@ function DeliveryMetadata({ form, setForm }: MetaProps) {
         </Button>
       </div>
       <div className="space-y-2">
-        {zones.map((z: any, i: number) => (
+        {zones.map((z, i) => (
           <div key={i} className="grid grid-cols-[40px_1fr_1fr_1fr_32px] gap-2 items-center">
             <Input value={z.icon || ''} onChange={e => updateItem('zones', zones, i, 'icon', e.target.value)} className="text-center text-lg p-1" maxLength={2} />
             <Input value={z.name || ''} onChange={e => updateItem('zones', zones, i, 'name', e.target.value)} placeholder="Улаанбаатар" />
             <Input value={z.time || ''} onChange={e => updateItem('zones', zones, i, 'time', e.target.value)} placeholder="1-2 өдөр" />
             <Input value={z.price || ''} onChange={e => updateItem('zones', zones, i, 'price', e.target.value)} placeholder="5,000₮" />
-            <button onClick={() => setArr('zones', zones.filter((_: any, j: number) => j !== i))} className="text-destructive hover:text-destructive/80 cursor-pointer text-sm">✕</button>
+            <button onClick={() => setArr('zones', zones.filter((_, j) => j !== i))} className="text-destructive hover:text-destructive/80 cursor-pointer text-sm">✕</button>
           </div>
         ))}
       </div>
@@ -729,12 +779,12 @@ function DeliveryMetadata({ form, setForm }: MetaProps) {
         </Button>
       </div>
       <div className="space-y-2">
-        {policies.map((p: any, i: number) => (
+        {policies.map((p, i) => (
           <div key={i} className="grid grid-cols-[40px_1fr_2fr_32px] gap-2 items-center">
             <Input value={p.icon || ''} onChange={e => updateItem('policies', policies, i, 'icon', e.target.value)} className="text-center text-lg p-1" maxLength={2} />
             <Input value={p.title || ''} onChange={e => updateItem('policies', policies, i, 'title', e.target.value)} placeholder="Нэр" />
             <Input value={p.desc || ''} onChange={e => updateItem('policies', policies, i, 'desc', e.target.value)} placeholder="Тайлбар" />
-            <button onClick={() => setArr('policies', policies.filter((_: any, j: number) => j !== i))} className="text-destructive hover:text-destructive/80 cursor-pointer text-sm">✕</button>
+            <button onClick={() => setArr('policies', policies.filter((_, j) => j !== i))} className="text-destructive hover:text-destructive/80 cursor-pointer text-sm">✕</button>
           </div>
         ))}
       </div>

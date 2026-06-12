@@ -16,6 +16,20 @@ interface TextElement {
 
 type CanvasElement = TextElement
 
+interface TemplateResponse {
+  title?: string
+  title_mn?: string
+  canvas_data?: {
+    elements?: CanvasElement[]
+    bg?: string
+  }
+}
+
+interface UploadResponse {
+  file_url?: string
+  url?: string
+}
+
 const CARD_W = 90
 const CARD_H = 54
 const SCALE = 4
@@ -52,14 +66,15 @@ function EditorContent() {
   useEffect(() => {
     if (!templateId) return
     fetch(`${API_URL}/api/templates/${templateId}`)
-      .then(r => r.json())
+      .then(r => r.ok ? r.json() as Promise<TemplateResponse> : null)
       .then(data => {
         if (data?.canvas_data) {
           const cd = data.canvas_data
-          if (cd.elements) setElements(cd.elements.filter((e: any) => e.type === 'text'))
+          if (cd.elements) setElements(cd.elements.filter(e => e.type === 'text'))
           if (cd.bg) setBg(cd.bg)
         }
-        if (data?.title_mn || data?.title) setTemplateName(data.title_mn || data.title)
+        const title = data?.title_mn || data?.title
+        if (title) setTemplateName(title)
       })
       .catch(() => {})
   }, [templateId])
@@ -132,7 +147,7 @@ function EditorContent() {
       const tok = (typeof window !== 'undefined') ? (localStorage.getItem('access_token') || localStorage.getItem('token')) : null
       const upRes = await fetch(`${API_URL}/api/upload/file`, { method: 'POST', body: fd, headers: tok ? { Authorization: `Bearer ${tok}` } : {} })
       if (!upRes.ok) throw new Error('Зураг хадгалж чадсангүй')
-      const upData = await upRes.json()
+      const upData = await upRes.json() as UploadResponse
       const rawUrl: string = upData.file_url || upData.url || ''
       if (!rawUrl) throw new Error('Файлын URL ирсэнгүй')
       const fileUrl = rawUrl.startsWith('http') ? rawUrl : `${API_URL}${rawUrl.startsWith('/') ? '' : '/'}${rawUrl}`
@@ -144,8 +159,8 @@ function EditorContent() {
       if (!verRes.ok) throw new Error('Хувилбар хадгалж чадсангүй')
       setSaveMsg({ text: '✅ Хувилбар хадгалагдлаа', ok: true })
       setTimeout(() => router.push(`/dashboard/customer/design/${designRequestId}`), 800)
-    } catch (e: any) {
-      setSaveMsg({ text: e?.message || 'Алдаа гарлаа', ok: false })
+    } catch (e: unknown) {
+      setSaveMsg({ text: e instanceof Error ? e.message : 'Алдаа гарлаа', ok: false })
     } finally { setSaving(false) }
   }, [designRequestId, saving, renderToBlob, router])
 

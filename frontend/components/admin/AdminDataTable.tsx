@@ -27,7 +27,19 @@ interface Props<T> {
   loading?: boolean
 }
 
-export function AdminDataTable<T extends Record<string, any>>({
+const rowKey = (row: Record<string, unknown>, index: number) => {
+  const id = row.id
+  return typeof id === 'string' || typeof id === 'number' ? id : index
+}
+
+const cellValue = (value: unknown): React.ReactNode => {
+  if (value === null || value === undefined || value === '') return '—'
+  if (typeof value === 'string' || typeof value === 'number') return value
+  if (typeof value === 'boolean') return value ? 'true' : 'false'
+  return String(value)
+}
+
+export function AdminDataTable<T extends Record<string, unknown>>({
   data, columns, searchKeys, searchPlaceholder = 'Хайх...', filterNode,
   emptyIcon = '📋', emptyText = 'Мэдээлэл байхгүй', onRowClick, loading,
 }: Props<T>) {
@@ -92,7 +104,7 @@ export function AdminDataTable<T extends Record<string, any>>({
           <TableBody>
             {filtered.map((row, idx) => (
               <TableRow
-                key={(row as any).id || idx}
+                key={rowKey(row, idx)}
                 onClick={onRowClick ? () => onRowClick(row) : undefined}
                 className={cn(onRowClick && 'cursor-pointer')}
               >
@@ -100,7 +112,7 @@ export function AdminDataTable<T extends Record<string, any>>({
                   <TableCell key={col.key} className={cn('text-sm', col.className)}>
                     {col.render
                       ? col.render(row, idx)
-                      : (row[col.key] ?? '—')
+                      : cellValue(row[col.key])
                     }
                   </TableCell>
                 ))}

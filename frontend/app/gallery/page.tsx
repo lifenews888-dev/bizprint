@@ -2,6 +2,36 @@
 import { useState, useEffect } from 'react'
 import { API_URL } from '@/lib/api'
 
+interface GalleryItem {
+  id: number | string
+  title: string
+  category: string
+  image: string
+  description: string
+  featured?: boolean
+}
+
+interface CategoryResponse {
+  parent_id?: string | number | null
+  is_active?: boolean
+  name_mn?: string
+  name?: string
+}
+
+interface GalleryResponse {
+  id?: number | string
+  caption?: string
+  alt?: string
+  title?: string
+  name?: string
+  category?: string
+  url?: string
+  image_url?: string
+  image?: string
+  description?: string
+  is_featured?: boolean
+}
+
 const FALLBACK_CATEGORIES = ['Бүгд', 'Нэрийн хуудас', 'Флаер', 'Баннер', 'Хаяг', 'Ном', 'Хайрцаг', 'Стикер']
 
 const FALLBACK_GALLERY = [
@@ -35,27 +65,27 @@ const FALLBACK_GALLERY = [
 
 export default function GalleryPage() {
   const [cat, setCat] = useState('Бүгд')
-  const [lightbox, setLightbox] = useState<any>(null)
-  const [gallery, setGallery] = useState(FALLBACK_GALLERY)
+  const [lightbox, setLightbox] = useState<GalleryItem | null>(null)
+  const [gallery, setGallery] = useState<GalleryItem[]>(FALLBACK_GALLERY)
   const [categories, setCategories] = useState<string[]>(FALLBACK_CATEGORIES)
 
   // Fetch categories from system
   useEffect(() => {
-    fetch(`${API_URL}/api/categories`).then(r => r.json())
-      .then((cats: any[]) => {
+    fetch(`${API_URL}/api/categories`).then(r => r.ok ? r.json() as Promise<CategoryResponse[]> : null)
+      .then(cats => {
         if (!Array.isArray(cats)) return
         const roots = cats.filter(c => !c.parent_id && c.is_active)
-        const names = roots.map(c => c.name_mn || c.name).filter(Boolean).sort()
+        const names = roots.map(c => c.name_mn || c.name).filter((name): name is string => Boolean(name)).sort()
         if (names.length > 0) setCategories(['Бүгд', ...names])
       }).catch(() => {})
   }, [])
 
   // Fetch admin-uploaded images, merge with fallback if few
   useEffect(() => {
-    fetch(`${API_URL}/api/gallery`).then(r => r.json())
-      .then((data: any[]) => {
+    fetch(`${API_URL}/api/gallery`).then(r => r.ok ? r.json() as Promise<GalleryResponse[]> : null)
+      .then(data => {
         if (!Array.isArray(data) || data.length === 0) return
-        const mapped = data.map((g, i) => ({
+        const mapped: GalleryItem[] = data.map((g, i) => ({
           id: g.id || i,
           title: g.caption || g.alt || g.title || g.name || '',
           category: g.category || '',
@@ -101,7 +131,7 @@ export default function GalleryPage() {
               <div className="gallery-overlay" style={{ position: 'absolute', inset: 0, background: 'linear-gradient(transparent 40%, rgba(0,0,0,0.6))', opacity: 0, transition: 'opacity 0.3s', display: 'flex', alignItems: 'flex-end', padding: 12 }}>
                 <span style={{ color: '#fff', fontSize: 12, fontWeight: 600 }}>Дэлгэрэнгүй үзэх</span>
               </div>
-              {(g as any).featured && (
+              {g.featured && (
                 <span style={{ position: 'absolute', top: 8, left: 8, fontSize: 10, fontWeight: 700, background: '#FF6B00', color: '#fff', padding: '3px 8px', borderRadius: 6 }}>Онцлох</span>
               )}
             </div>

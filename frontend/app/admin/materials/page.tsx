@@ -23,6 +23,9 @@ interface Summary {
   lowStockPapers: PaperStock[]; totalStockValue: number;
 }
 
+type MaterialFormData = Partial<PaperStock & InkProfile & FinishingOption> & Record<string, string | number | boolean | undefined>;
+type MaterialModal = { open: boolean; mode: 'create' | 'edit'; data: MaterialFormData };
+
 const PAPER_SIZES = ['A6', 'A5', 'A4', 'A3', 'A2', 'A1', 'SRA3', 'custom'];
 const GSM_OPTIONS = [70, 80, 100, 115, 130, 150, 170, 200, 250, 300, 350, 400, 510];
 const INK_TYPES = ['CMYK', 'Pantone', 'UV', 'water_based', 'digital_toner'];
@@ -39,7 +42,7 @@ export default function AdminMaterialsPage() {
   const [inks, setInks] = useState<InkProfile[]>([]);
   const [finishingList, setFinishingList] = useState<FinishingOption[]>([]);
   const [summary, setSummary] = useState<Summary | null>(null);
-  const [modal, setModal] = useState<{ open: boolean; mode: 'create' | 'edit'; data: any }>({ open: false, mode: 'create', data: {} });
+  const [modal, setModal] = useState<MaterialModal>({ open: false, mode: 'create', data: {} });
   const [saving, setSaving] = useState(false);
   const [seeding, setSeeding] = useState(false);
   const [search, setSearch] = useState('');
@@ -48,10 +51,10 @@ export default function AdminMaterialsPage() {
 
   const load = useCallback(async () => {
     const [p, i, f, s] = await Promise.all([
-      apiFetch<any>('/materials/paper').catch(() => []),
-      apiFetch<any>('/materials/ink').catch(() => []),
-      apiFetch<any>('/materials/finishing').catch(() => []),
-      apiFetch<any>('/materials/summary').catch(() => null),
+      apiFetch<PaperStock[]>('/materials/paper').catch(() => []),
+      apiFetch<InkProfile[]>('/materials/ink').catch(() => []),
+      apiFetch<FinishingOption[]>('/materials/finishing').catch(() => []),
+      apiFetch<Summary | null>('/materials/summary').catch(() => null),
     ]);
     setPapers(Array.isArray(p) ? p : []);
     setInks(Array.isArray(i) ? i : []);
@@ -59,7 +62,10 @@ export default function AdminMaterialsPage() {
     if (s) setSummary(s);
   }, []);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    const timer = window.setTimeout(() => { load(); }, 0);
+    return () => window.clearTimeout(timer);
+  }, [load]);
 
   const filteredPapers = useMemo(() => {
     let list = papers;
@@ -79,7 +85,7 @@ export default function AdminMaterialsPage() {
   }, [finishingList, search]);
 
   const openCreate = () => {
-    const defaults: Record<Tab, any> = {
+    const defaults: Record<Tab, MaterialFormData> = {
       paper: { size: 'A4', weightGsm: 130, pricePerSheet: 120, stockQty: 1000, reorderLevel: 100, isActive: true },
       ink: { type: 'CMYK', coverageRateMlPerM2: 2.5, pricePerLiter: 45000, isActive: true },
       finishing: { type: 'laminate', setupCost: 5000, unitPrice: 80, timePerUnitMinutes: 0.1, isActive: true },
@@ -87,7 +93,7 @@ export default function AdminMaterialsPage() {
     setModal({ open: true, mode: 'create', data: defaults[tab] });
   };
 
-  const openEdit = (item: any) => setModal({ open: true, mode: 'edit', data: { ...item } });
+  const openEdit = (item: PaperStock | InkProfile | FinishingOption) => setModal({ open: true, mode: 'edit', data: { ...item } });
 
   const save = async () => {
     setSaving(true);
@@ -367,7 +373,7 @@ export default function AdminMaterialsPage() {
                   {[{ label: 'Үнэ/хуудас (₮)', key: 'pricePerSheet' }, { label: 'Нөөц (ш)', key: 'stockQty' }].map(f => (
                     <div key={f.key}>
                       <label className="block text-xs mb-1" style={{ color: 'var(--text3)' }}>{f.label}</label>
-                      <input type="number" value={modal.data[f.key]} onChange={e => setModal(m => ({ ...m, data: { ...m.data, [f.key]: +e.target.value } }))}
+                      <input type="number" value={Number(modal.data[f.key] ?? 0)} onChange={e => setModal(m => ({ ...m, data: { ...m.data, [f.key]: +e.target.value } }))}
                         className="w-full rounded-lg px-3 py-2 text-sm" style={{ border: '1px solid var(--border)', background: 'transparent', color: 'var(--text)' }} />
                     </div>
                   ))}
@@ -398,7 +404,7 @@ export default function AdminMaterialsPage() {
                   {[{ label: 'Зарцуулалт мл/м²', key: 'coverageRateMlPerM2' }, { label: 'Үнэ/литр (₮)', key: 'pricePerLiter' }].map(f => (
                     <div key={f.key}>
                       <label className="block text-xs mb-1" style={{ color: 'var(--text3)' }}>{f.label}</label>
-                      <input type="number" value={modal.data[f.key]} onChange={e => setModal(m => ({ ...m, data: { ...m.data, [f.key]: +e.target.value } }))}
+                      <input type="number" value={Number(modal.data[f.key] ?? 0)} onChange={e => setModal(m => ({ ...m, data: { ...m.data, [f.key]: +e.target.value } }))}
                         className="w-full rounded-lg px-3 py-2 text-sm" style={{ border: '1px solid var(--border)', background: 'transparent', color: 'var(--text)' }} />
                     </div>
                   ))}
@@ -422,7 +428,7 @@ export default function AdminMaterialsPage() {
                   {[{ label: 'Setup (₮)', key: 'setupCost' }, { label: 'Нэгж үнэ (₮)', key: 'unitPrice' }, { label: 'Хугацаа (мин)', key: 'timePerUnitMinutes' }].map(f => (
                     <div key={f.key}>
                       <label className="block text-xs mb-1" style={{ color: 'var(--text3)' }}>{f.label}</label>
-                      <input type="number" value={modal.data[f.key]} onChange={e => setModal(m => ({ ...m, data: { ...m.data, [f.key]: +e.target.value } }))}
+                      <input type="number" value={Number(modal.data[f.key] ?? 0)} onChange={e => setModal(m => ({ ...m, data: { ...m.data, [f.key]: +e.target.value } }))}
                         className="w-full rounded-lg px-3 py-2 text-sm" style={{ border: '1px solid var(--border)', background: 'transparent', color: 'var(--text)' }} />
                     </div>
                   ))}

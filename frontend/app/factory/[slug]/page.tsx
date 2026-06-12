@@ -4,17 +4,30 @@ import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { API_URL } from '@/lib/api'
 
+interface Vendor {
+  id: string
+  company_name?: string
+  logo_url?: string
+  verified?: boolean
+  address?: string
+  district?: string
+  rating?: number | string
+  total_orders?: number
+  services?: string[]
+  description?: string
+}
+
 export default function VendorDetailPage() {
   const { slug } = useParams<{ slug: string }>()
   const router = useRouter()
-  const [vendor, setVendor] = useState<any>(null)
+  const [vendor, setVendor] = useState<Vendor | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     fetch(`${API_URL}/api/vendors`)
-      .then(r => r.json())
+      .then(r => r.ok ? r.json() as Promise<Vendor[]> : null)
       .then(data => {
-        const v = Array.isArray(data) ? data.find((v: any) => v.company_name?.toLowerCase().replace(/\s+/g, '-') === slug || v.id === slug) : null
+        const v = Array.isArray(data) ? data.find(v => v.company_name?.toLowerCase().replace(/\s+/g, '-') === slug || v.id === slug) ?? null : null
         setVendor(v)
         setLoading(false)
       })
@@ -30,6 +43,8 @@ export default function VendorDetailPage() {
       <Link href="/factory" style={{ color: '#FF6B00', textDecoration: 'none' }}>← Буцах</Link>
     </div>
   )
+
+  const services = Array.isArray(vendor.services) ? vendor.services : []
 
   return (
     <div style={{ maxWidth: 700, margin: '0 auto', padding: '32px 20px' }}>
@@ -53,11 +68,11 @@ export default function VendorDetailPage() {
           </div>
         </div>
 
-        {vendor.services?.length > 0 && (
+        {services.length > 0 && (
           <div style={{ padding: 24, borderBottom: '1px solid var(--border)' }}>
             <h2 style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)', marginBottom: 10 }}>Үйлчилгээ</h2>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-              {vendor.services.map((s: string) => <span key={s} style={{ padding: '4px 12px', borderRadius: 8, background: 'var(--surface2)', fontSize: 12, color: 'var(--text2)' }}>{s}</span>)}
+              {services.map(s => <span key={s} style={{ padding: '4px 12px', borderRadius: 8, background: 'var(--surface2)', fontSize: 12, color: 'var(--text2)' }}>{s}</span>)}
             </div>
           </div>
         )}

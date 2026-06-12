@@ -12,6 +12,8 @@ interface B2BCompany {
   members?: B2BMember[];
   createdAt: string;
 }
+type B2BCompanyFormKey = 'name' | 'registrationNo' | 'phone' | 'email' | 'address' | 'discountRate';
+
 interface B2BMember {
   id: string; userId: string; role: string;
   monthlyBudget?: number; budgetUsed: number;
@@ -37,16 +39,19 @@ export default function AdminB2BPage() {
   const [search, setSearch] = useState('');
 
   const load = useCallback(async () => {
-    const data = await apiFetch<any>('/b2b/companies').catch(() => []);
+    const data = await apiFetch<B2BCompany[]>('/b2b/companies').catch(() => []);
     setCompanies(Array.isArray(data) ? data : []);
   }, []);
 
   const loadCompany = async (id: string) => {
-    const data = await apiFetch<any>(`/b2b/companies/${id}`).catch(() => null);
+    const data = await apiFetch<B2BCompany | null>(`/b2b/companies/${id}`).catch(() => null);
     if (data) setSelected(data);
   };
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    const timer = window.setTimeout(() => load(), 0);
+    return () => window.clearTimeout(timer);
+  }, [load]);
 
   const save = async () => {
     setSaving(true);
@@ -88,6 +93,15 @@ export default function AdminB2BPage() {
 
   const creditPct = (c: B2BCompany) =>
     c.creditLimit > 0 ? Math.min(100, Math.round((Number(c.creditUsed) / Number(c.creditLimit)) * 100)) : 0;
+
+  const companyFields: { label: string; key: B2BCompanyFormKey; type: string }[] = [
+    { label: 'Нэр', key: 'name', type: 'text' },
+    { label: 'Регистр', key: 'registrationNo', type: 'text' },
+    { label: 'Утас', key: 'phone', type: 'text' },
+    { label: 'Э-мэйл', key: 'email', type: 'email' },
+    { label: 'Хаяг', key: 'address', type: 'text' },
+    { label: 'Хөнгөлөлт (%)', key: 'discountRate', type: 'number' },
+  ];
 
   return (
     <div className="flex h-full min-h-screen">
@@ -246,17 +260,10 @@ export default function AdminB2BPage() {
               {modal.data.id ? 'Засах' : 'Шинэ компани'}
             </h2>
             <div className="space-y-4">
-              {[
-                { label: 'Нэр', key: 'name', type: 'text' },
-                { label: 'Регистр', key: 'registrationNo', type: 'text' },
-                { label: 'Утас', key: 'phone', type: 'text' },
-                { label: 'Э-мэйл', key: 'email', type: 'email' },
-                { label: 'Хаяг', key: 'address', type: 'text' },
-                { label: 'Хөнгөлөлт (%)', key: 'discountRate', type: 'number' },
-              ].map(f => (
+              {companyFields.map(f => (
                 <div key={f.key}>
                   <label className="block text-xs mb-1" style={{ color: 'var(--text3)' }}>{f.label}</label>
-                  <input type={f.type} value={(modal.data as any)[f.key] ?? ''}
+                  <input type={f.type} value={modal.data[f.key] ?? ''}
                     onChange={e => setModal(m => ({ ...m, data: { ...m.data, [f.key]: f.type === 'number' ? +e.target.value : e.target.value } }))}
                     className="w-full rounded-lg px-3 py-2 text-sm focus:outline-none"
                     style={{ border: '1px solid var(--border)', background: 'transparent', color: 'var(--text)' }} />

@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect, useCallback } from 'react'
+import type { ReactNode } from 'react'
 import { apiFetch } from '@/lib/api'
 import { AdminPageHeader } from '@/components/admin/AdminPageHeader'
 import { Button } from '@/components/ui/button'
@@ -22,8 +23,90 @@ import {
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 
+type MegaMenuTab = 'nav' | 'columns' | 'promos' | 'quicklinks' | 'features' | 'background'
+type QuickLink = { label: string; url: string; icon: string; color: string }
+type FeatureStripItem = { icon: string; title: string; desc: string }
+type NavSubItem = { label: string; url: string }
+type NavColumn = { items?: NavSubItem[] }
+type NavItem = {
+  id: string
+  nav_label?: string
+  nav_url?: string
+  nav_type?: string
+  is_active?: boolean
+  sort_order?: number
+  columns?: NavColumn[]
+}
+type MegaMenuItem = {
+  id: string
+  name?: string
+  link?: string
+  icon?: string
+  description?: string
+  badge?: string
+  type?: string
+  order?: number
+}
+type MegaMenuCategory = {
+  id: string
+  name?: string
+  slug?: string
+  image_url?: string
+  order?: number
+  is_featured?: boolean
+  items?: MegaMenuItem[]
+}
+type MegaMenuColumn = {
+  id: string
+  title?: string
+  icon?: string
+  color?: string
+  order?: number
+  categories?: MegaMenuCategory[]
+}
+type MegaMenuPromo = {
+  id: string
+  title?: string
+  description?: string
+  type?: string
+  link?: string
+  cta_text?: string
+  bg_color?: string
+  priority?: number
+  is_active?: boolean
+}
+type MegaMenu = {
+  id: string
+  version?: number | string
+  is_active?: boolean
+  columns?: MegaMenuColumn[]
+  promos?: MegaMenuPromo[]
+}
+type BgTheme = {
+  mode: string
+  main: string
+  heroGlow: boolean
+  glowColor: string
+  glowOpacity: number
+  sections: { feature: string; categories: string; products: string; cta: string }
+}
+type CmsPublicSettings = {
+  header_quick_links?: string | QuickLink[]
+  feature_strip?: string | FeatureStripItem[]
+  homepage_bg_theme?: string | Partial<BgTheme>
+}
+type DbCategory = {
+  id: string
+  name?: string
+  name_mn?: string
+  slug?: string
+  image_url?: string
+  children?: DbCategory[]
+}
+type ReorderItem = { id: string; order: number }
+
 // ─── Sortable wrapper ───
-function SortableRow({ id, children }: { id: string; children: (props: { listeners: any; attributes: any; isDragging: boolean }) => React.ReactNode }) {
+function SortableRow({ id, children }: { id: string; children: (props: { listeners: ReturnType<typeof useSortable>['listeners']; attributes: ReturnType<typeof useSortable>['attributes']; isDragging: boolean }) => ReactNode }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id })
   return (
     <div ref={setNodeRef} style={{ transform: CSS.Transform.toString(transform), transition, zIndex: isDragging ? 50 : undefined }}>
@@ -33,30 +116,30 @@ function SortableRow({ id, children }: { id: string; children: (props: { listene
 }
 
 export default function MegaMenuManager() {
-  const [menu, setMenu] = useState<any>(null)
+  const [menu, setMenu] = useState<MegaMenu | null>(null)
   const [loading, setLoading] = useState(true)
-  const [tab, setTab] = useState<'nav' | 'columns' | 'promos' | 'quicklinks' | 'features' | 'background'>('nav')
+  const [tab, setTab] = useState<MegaMenuTab>('nav')
 
   // Homepage background theme
-  const [bgTheme, setBgTheme] = useState({
+  const [bgTheme, setBgTheme] = useState<BgTheme>({
     mode: 'gradient', main: 'var(--bg)', heroGlow: true, glowColor: '#FF6B00', glowOpacity: 0.04,
     sections: { feature: 'var(--surface)', categories: 'var(--bg)', products: 'var(--bg)', cta: 'var(--bg)' },
   })
 
   // Quick links (header right side shortcuts)
-  const [quickLinks, setQuickLinks] = useState<{ label: string; url: string; icon: string; color: string }[]>([])
+  const [quickLinks, setQuickLinks] = useState<QuickLink[]>([])
   const [qlDialog, setQlDialog] = useState(false)
   const [qlForm, setQlForm] = useState({ label: '', url: '', icon: '', color: '#FF6B00' })
   const [editingQlIdx, setEditingQlIdx] = useState<number | null>(null)
 
   // Feature strip (top bar: Хурдан хүргэлт, 24 цагт бэлэн г.м.)
-  const [featureStrip, setFeatureStrip] = useState<{ icon: string; title: string; desc: string }[]>([])
+  const [featureStrip, setFeatureStrip] = useState<FeatureStripItem[]>([])
   const [fsDialog, setFsDialog] = useState(false)
   const [fsForm, setFsForm] = useState({ icon: '◆', title: '', desc: '' })
   const [editingFsIdx, setEditingFsIdx] = useState<number | null>(null)
 
   // Nav items (old mega_menu table — Products/Services/Shop/Quote etc.)
-  const [navItems, setNavItems] = useState<any[]>([])
+  const [navItems, setNavItems] = useState<NavItem[]>([])
   const [navDialog, setNavDialog] = useState(false)
   const [navForm, setNavForm] = useState({ nav_label: '', nav_url: '', nav_type: 'LINK', is_active: true, sort_order: 0, columns: '[]' })
   const [editingNavId, setEditingNavId] = useState<string | null>(null)
@@ -89,7 +172,7 @@ export default function MegaMenuManager() {
   const [editingPromoId, setEditingPromoId] = useState<string | null>(null)
 
   // DB categories (for auto-fill)
-  const [dbCategories, setDbCategories] = useState<any[]>([])
+  const [dbCategories, setDbCategories] = useState<DbCategory[]>([])
 
   // Expanded columns
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
@@ -102,22 +185,22 @@ export default function MegaMenuManager() {
   const load = useCallback(async () => {
     try {
       const [menus, nav, settings, cats] = await Promise.all([
-        apiFetch<any[]>('/admin/mega-menu').catch(() => []),
-        apiFetch<any[]>('/cms/mega-menu').catch(() => []),
-        apiFetch<any>('/cms/settings/public').catch(() => null),
-        apiFetch<any[]>('/categories/navigation').catch(() => []),
+        apiFetch<MegaMenu[]>('/admin/mega-menu').catch(() => []),
+        apiFetch<NavItem[]>('/cms/mega-menu').catch(() => []),
+        apiFetch<CmsPublicSettings>('/cms/settings/public').catch(() => null),
+        apiFetch<DbCategory[]>('/categories/navigation').catch(() => []),
       ])
       if (Array.isArray(cats)) setDbCategories(cats)
       let activeMenu = menus?.[0]
       if (!activeMenu) {
         // Автоматаар шинэ mega menu үүсгэх
-        activeMenu = await apiFetch<any>('/admin/mega-menu', { method: 'POST', body: { name: 'Main Menu', is_active: true } })
+        activeMenu = await apiFetch<MegaMenu>('/admin/mega-menu', { method: 'POST', body: { name: 'Main Menu', is_active: true } })
       }
       if (activeMenu?.id) {
-        const full = await apiFetch<any>(`/admin/mega-menu/${activeMenu.id}`)
+        const full = await apiFetch<MegaMenu>(`/admin/mega-menu/${activeMenu.id}`)
         setMenu(full)
       }
-      setNavItems(Array.isArray(nav) ? nav.sort((a: any, b: any) => (a.sort_order || 0) - (b.sort_order || 0)) : [])
+      setNavItems(Array.isArray(nav) ? nav.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0)) : [])
       // Load quick links + feature strip from settings
       try {
         const ql = settings?.header_quick_links
@@ -159,12 +242,12 @@ export default function MegaMenuManager() {
     toast.success('Устгагдлаа'); load()
   }
 
-  const toggleNavActive = async (item: any) => {
+  const toggleNavActive = async (item: NavItem) => {
     await apiFetch(`/cms/mega-menu/${item.id}`, { method: 'PUT', body: { is_active: !item.is_active } })
     toast.success(item.is_active ? 'Идэвхгүй болгосон' : 'Идэвхжүүлсэн'); load()
   }
 
-  const editNavItem = (item: any) => {
+  const editNavItem = (item: NavItem) => {
     setEditingNavId(item.id)
     setNavForm({
       nav_label: item.nav_label || '', nav_url: item.nav_url || '', nav_type: item.nav_type || 'LINK',
@@ -175,7 +258,7 @@ export default function MegaMenuManager() {
   }
 
   // Sub-item helpers for DROPDOWN
-  const getSubItems = (item: any): { label: string; url: string }[] => {
+  const getSubItems = (item: NavItem): NavSubItem[] => {
     try { return (item.columns || [])[0]?.items || [] } catch { return [] }
   }
 
@@ -276,8 +359,8 @@ export default function MegaMenuManager() {
     toast.success('Устгагдлаа'); load()
   }
 
-  const editColumn = (col: any) => {
-    setColForm({ title: col.title, icon: col.icon || '', color: col.color || '#FF6B00' })
+  const editColumn = (col: MegaMenuColumn) => {
+    setColForm({ title: col.title || '', icon: col.icon || '', color: col.color || '#FF6B00' })
     setEditingColId(col.id); setColDialog(true)
   }
 
@@ -342,12 +425,12 @@ export default function MegaMenuManager() {
   const handleColumnDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event
     if (!over || active.id === over.id) return
-    const cols = menu.columns.sort((a: any, b: any) => a.order - b.order)
-    const oldIdx = cols.findIndex((c: any) => c.id === active.id)
-    const newIdx = cols.findIndex((c: any) => c.id === over.id)
+    const cols = [...(menu?.columns || [])].sort((a, b) => (a.order || 0) - (b.order || 0))
+    const oldIdx = cols.findIndex(c => c.id === active.id)
+    const newIdx = cols.findIndex(c => c.id === over.id)
     const reordered = arrayMove(cols, oldIdx, newIdx)
-    const items = reordered.map((c: any, i: number) => ({ id: c.id, order: i }))
-    setMenu({ ...menu, columns: reordered.map((c: any, i: number) => ({ ...c, order: i })) })
+    const items: ReorderItem[] = reordered.map((c, i) => ({ id: c.id, order: i }))
+    if (menu) setMenu({ ...menu, columns: reordered.map((c, i) => ({ ...c, order: i })) })
     await apiFetch('/admin/mega-menu/reorder/columns', { method: 'PATCH', body: { items } })
     toast.success('Дараалал хадгалагдлаа')
   }
@@ -378,8 +461,8 @@ export default function MegaMenuManager() {
     </div>
   )
 
-  const columns = (menu.columns || []).sort((a: any, b: any) => a.order - b.order)
-  const promos = (menu.promos || []).sort((a: any, b: any) => a.priority - b.priority)
+  const columns = [...(menu.columns || [])].sort((a, b) => (a.order || 0) - (b.order || 0))
+  const promos = [...(menu.promos || [])].sort((a, b) => (a.priority || 0) - (b.priority || 0))
 
   return (
     <div className="p-4 md:p-6 max-w-[1000px]">
@@ -388,7 +471,7 @@ export default function MegaMenuManager() {
       </AdminPageHeader>
 
       {/* Tabs */}
-      <Tabs value={tab} onValueChange={v => setTab(v as any)} className="mb-5">
+      <Tabs value={tab} onValueChange={v => setTab(v as MegaMenuTab)} className="mb-5">
         <TabsList className="bg-transparent p-0 gap-1">
           <TabsTrigger value="nav" className="rounded-lg px-4 py-2 text-sm font-semibold data-[state=active]:bg-primary data-[state=active]:text-white data-[state=inactive]:bg-muted">
             Навигаци ({navItems.length})
@@ -423,7 +506,7 @@ export default function MegaMenuManager() {
             }}><Plus className="h-4 w-4 mr-1" />Цэс нэмэх</Button>
           </div>
 
-          {navItems.map((item: any) => {
+          {navItems.map(item => {
             const subs = getSubItems(item)
             const isDropdown = item.nav_type === 'DROPDOWN'
             const isMega = item.nav_type === 'MEGA'
@@ -449,7 +532,7 @@ export default function MegaMenuManager() {
                 {/* DROPDOWN sub-items */}
                 {isDropdown && subs.length > 0 && (
                   <div className="border-t border-border/50 bg-muted/30 px-4 py-2">
-                    {subs.map((sub: any, idx: number) => (
+                    {subs.map((sub, idx) => (
                       <div key={idx} className="flex items-center gap-2 py-1.5 group">
                         <span className="text-xs text-muted-foreground/40 w-4">{idx + 1}</span>
                         <span className="text-sm text-foreground/80 flex-1">{sub.label}</span>
@@ -490,7 +573,7 @@ export default function MegaMenuManager() {
 
           {quickLinks.length === 0 && (
             <div className="rounded-xl border border-border bg-card p-10 text-center text-muted-foreground text-sm">
-              Quick link байхгүй. "Линк нэмэх" товч дарна уу.
+              Quick link байхгүй. &quot;Линк нэмэх&quot; товч дарна уу.
             </div>
           )}
 
@@ -642,10 +725,10 @@ export default function MegaMenuManager() {
           </div>
 
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleColumnDragEnd}>
-            <SortableContext items={columns.map((c: any) => c.id)} strategy={verticalListSortingStrategy}>
-              {columns.map((col: any) => {
+            <SortableContext items={columns.map(c => c.id)} strategy={verticalListSortingStrategy}>
+              {columns.map(col => {
                 const isExpanded = expanded.has(col.id)
-                const cats = (col.categories || []).sort((a: any, b: any) => a.order - b.order)
+                const cats = [...(col.categories || [])].sort((a, b) => (a.order || 0) - (b.order || 0))
                 return (
                   <SortableRow key={col.id} id={col.id}>
                     {({ listeners, attributes, isDragging }) => (
@@ -669,8 +752,8 @@ export default function MegaMenuManager() {
                         {/* Expanded: categories + items */}
                         {isExpanded && (
                           <div className="px-4 py-3 bg-muted/30">
-                            {cats.map((cat: any) => {
-                              const items = (cat.items || []).sort((a: any, b: any) => a.order - b.order)
+                            {cats.map(cat => {
+                              const items = [...(cat.items || [])].sort((a, b) => (a.order || 0) - (b.order || 0))
                               return (
                                 <div key={cat.id} className="mb-3 last:mb-0">
                                   <div className="flex items-center gap-2 mb-1.5">
@@ -686,7 +769,7 @@ export default function MegaMenuManager() {
                                       <Button variant="ghost" size="sm" className="h-6 px-1.5 text-destructive" onClick={() => deleteCategory(cat.id)}><Trash2 className="h-3 w-3" /></Button>
                                     </div>
                                   </div>
-                                  {items.map((item: any) => (
+                                  {items.map(item => (
                                     <div key={item.id} className="flex items-center gap-2 pl-4 py-1 text-sm hover:bg-muted/50 rounded transition-colors group">
                                       {item.icon && <DynamicIcon name={item.icon} className="h-3.5 w-3.5 text-muted-foreground" />}
                                       <span className="text-foreground/80">{item.name}</span>
@@ -700,7 +783,7 @@ export default function MegaMenuManager() {
                                       <code className="text-[10px] text-muted-foreground/40 font-mono ml-auto">{item.link}</code>
                                       <Button variant="ghost" size="sm" className="h-5 px-1 opacity-0 group-hover:opacity-100" onClick={() => {
                                         setEditingItemId(item.id); setItemParentCatId(cat.id)
-                                        setItemForm({ name: item.name, link: item.link || '', icon: item.icon || '', description: item.description || '', badge: item.badge || '', type: item.type || 'product' })
+                                        setItemForm({ name: item.name || '', link: item.link || '', icon: item.icon || '', description: item.description || '', badge: item.badge || '', type: item.type || 'product' })
                                         setItemDialog(true)
                                       }}><Pencil className="h-2.5 w-2.5" /></Button>
                                       <Button variant="ghost" size="sm" className="h-5 px-1 opacity-0 group-hover:opacity-100 text-destructive" onClick={() => deleteItem(item.id)}><Trash2 className="h-2.5 w-2.5" /></Button>
@@ -720,15 +803,15 @@ export default function MegaMenuManager() {
                                 for (const cat of dbCategories) {
                                   if (!cat.children?.length) continue
                                   // Create category
-                                  const created = await apiFetch<any>(`/admin/mega-menu/columns/${col.id}/categories`, {
-                                    method: 'POST', body: { name: cat.name_mn || cat.name, slug: cat.slug || '', order: 0 }
+                                  const created = await apiFetch<MegaMenuCategory>(`/admin/mega-menu/columns/${col.id}/categories`, {
+                                    method: 'POST', body: { name: cat.name_mn || cat.name || '', slug: cat.slug || '', order: 0 }
                                   })
                                   // Create items from children
                                   if (created?.id) {
                                     for (const ch of cat.children) {
                                       await apiFetch(`/admin/mega-menu/categories/${created.id}/items`, {
                                         method: 'POST',
-                                        body: { name: ch.name_mn || ch.name, link: `/shop?category=${ch.slug}`, type: 'link', order: 0 }
+                                        body: { name: ch.name_mn || ch.name || '', link: `/shop?category=${ch.slug || ''}`, type: 'link', order: 0 }
                                       })
                                     }
                                   }
@@ -758,7 +841,7 @@ export default function MegaMenuManager() {
               setEditingPromoId(null); setPromoDialog(true)
             }}><Plus className="h-4 w-4 mr-1" /> Промо нэмэх</Button>
           </div>
-          {promos.map((p: any) => (
+          {promos.map(p => (
             <div key={p.id} className="flex items-center gap-3 rounded-xl border border-border bg-card px-4 py-3">
               <div className="w-3 h-3 rounded-full shrink-0" style={{ background: p.bg_color || '#0f172a' }} />
               {p.type === 'AI_QUOTE' && <Sparkles className="h-4 w-4 text-violet-500" />}
@@ -771,7 +854,7 @@ export default function MegaMenuManager() {
               <Badge variant={p.is_active ? 'default' : 'destructive'} className="text-[10px]">{p.is_active ? 'ON' : 'OFF'}</Badge>
               <Button variant="ghost" size="sm" className="h-7 px-2" onClick={() => {
                 setEditingPromoId(p.id)
-                setPromoForm({ title: p.title, description: p.description || '', type: p.type, link: p.link || '', cta_text: p.cta_text || '', bg_color: p.bg_color || '#0f172a' })
+                setPromoForm({ title: p.title || '', description: p.description || '', type: p.type || 'FEATURED', link: p.link || '', cta_text: p.cta_text || '', bg_color: p.bg_color || '#0f172a' })
                 setPromoDialog(true)
               }}><Pencil className="h-3 w-3" /></Button>
               <Button variant="ghost" size="sm" className="h-7 px-2 text-destructive" onClick={() => deletePromo(p.id)}><Trash2 className="h-3 w-3" /></Button>
@@ -812,12 +895,12 @@ export default function MegaMenuManager() {
                   className="w-full mt-1.5 h-9 rounded-md border border-input bg-background px-3 text-sm"
                   value=""
                   onChange={e => {
-                    const cat = dbCategories.find((c: any) => c.id === e.target.value)
-                    if (cat) setCatForm({ name: cat.name_mn || cat.name, slug: cat.slug || '', image_url: cat.image_url || '' })
+                    const cat = dbCategories.find(c => c.id === e.target.value)
+                    if (cat) setCatForm({ name: cat.name_mn || cat.name || '', slug: cat.slug || '', image_url: cat.image_url || '' })
                   }}
                 >
                   <option value="">-- Сонгох эсвэл доор гараар бичих --</option>
-                  {dbCategories.map((c: any) => (
+                  {dbCategories.map(c => (
                     <option key={c.id} value={c.id}>{c.name_mn || c.name}{c.children?.length ? ` (${c.children.length} дэд)` : ''}</option>
                   ))}
                 </select>

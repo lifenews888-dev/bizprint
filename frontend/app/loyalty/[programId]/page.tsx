@@ -5,11 +5,63 @@ import { apiFetch, getToken } from '@/lib/api'
 
 const FONT = "'DM Sans','Segoe UI',system-ui,sans-serif"
 
+interface LoyaltyProgram {
+  accent_color?: string
+  description?: string
+  discount_percent?: number
+  logo_url?: string
+  name?: string
+  required_stamps?: number
+  reward_description?: string
+  reward_type?: string
+  vendor?: {
+    full_name?: string
+  }
+}
+
+interface LoyaltyCard {
+  current_stamps?: number
+  rewards?: number
+  total_stamps?: number
+}
+
+interface LoyaltyHistoryItem {
+  id: string
+  action?: string
+  note?: string
+  created_at?: string
+}
+
+interface LoyaltyMyResponse {
+  program?: LoyaltyProgram
+  card?: LoyaltyCard
+}
+
+interface LoyaltyActionResponse {
+  card?: LoyaltyCard
+  message?: string
+  rewardEarned?: boolean
+}
+
+function getErrorMessage(error: unknown) {
+  if (!(error instanceof Error)) return ''
+  try {
+    const parsed = JSON.parse(error.message) as { message?: string }
+    return parsed.message || error.message
+  } catch {
+    return error.message
+  }
+}
+
+function formatHistoryDate(value?: string) {
+  return value ? new Date(value).toLocaleDateString('mn-MN') : ''
+}
+
 export default function LoyaltyPage() {
-  const { programId } = useParams()
-  const [program, setProgram] = useState<any>(null)
-  const [card, setCard] = useState<any>(null)
-  const [history, setHistory] = useState<any[]>([])
+  const { programId } = useParams<{ programId: string }>()
+  const [program, setProgram] = useState<LoyaltyProgram | null>(null)
+  const [card, setCard] = useState<LoyaltyCard | null>(null)
+  const [history, setHistory] = useState<LoyaltyHistoryItem[]>([])
   const [loading, setLoading] = useState(true)
   const [stamping, setStamping] = useState(false)
   const [redeeming, setRedeeming] = useState(false)
@@ -24,13 +76,13 @@ export default function LoyaltyPage() {
   const loadData = async () => {
     try {
       if (isLoggedIn) {
-        const data = await apiFetch(`/loyalty/my/${programId}`)
-        setProgram((data as any).program)
-        setCard((data as any).card)
-        const hist = await apiFetch(`/loyalty/history/${programId}`).catch(() => [])
-        setHistory(hist as any[])
+        const data = await apiFetch<LoyaltyMyResponse>(`/loyalty/my/${programId}`)
+        setProgram(data.program || null)
+        setCard(data.card || null)
+        const hist = await apiFetch<LoyaltyHistoryItem[]>(`/loyalty/history/${programId}`).catch(() => [])
+        setHistory(Array.isArray(hist) ? hist : [])
       } else {
-        const prog = await apiFetch(`/loyalty/program/${programId}`, { auth: false })
+        const prog = await apiFetch<LoyaltyProgram>(`/loyalty/program/${programId}`, { auth: false })
         setProgram(prog)
       }
     } catch {
@@ -45,13 +97,13 @@ export default function LoyaltyPage() {
     setStamping(true)
     setMessage(null)
     try {
-      const res: any = await apiFetch('/loyalty/scan', { method: 'POST', body: { program_id: programId } })
-      setCard(res.card)
-      setMessage({ text: res.message, type: 'success' })
+      const res = await apiFetch<LoyaltyActionResponse>('/loyalty/scan', { method: 'POST', body: { program_id: programId } })
+      setCard(res.card || null)
+      setMessage({ text: res.message || 'Амжилттай', type: 'success' })
       if (res.rewardEarned) setShowReward(true)
       loadData()
-    } catch (e: any) {
-      const msg = (() => { try { return JSON.parse(e.message)?.message } catch { return e.message } })()
+    } catch (e: unknown) {
+      const msg = getErrorMessage(e)
       setMessage({ text: msg || 'Алдаа гарлаа', type: 'error' })
     } finally {
       setStamping(false)
@@ -62,12 +114,12 @@ export default function LoyaltyPage() {
     setRedeeming(true)
     setMessage(null)
     try {
-      const res: any = await apiFetch('/loyalty/redeem', { method: 'POST', body: { program_id: programId } })
-      setCard(res.card)
-      setMessage({ text: res.message, type: 'success' })
+      const res = await apiFetch<LoyaltyActionResponse>('/loyalty/redeem', { method: 'POST', body: { program_id: programId } })
+      setCard(res.card || null)
+      setMessage({ text: res.message || 'Амжилттай', type: 'success' })
       loadData()
-    } catch (e: any) {
-      const msg = (() => { try { return JSON.parse(e.message)?.message } catch { return e.message } })()
+    } catch (e: unknown) {
+      const msg = getErrorMessage(e)
       setMessage({ text: msg || 'Алдаа гарлаа', type: 'error' })
     } finally {
       setRedeeming(false)
@@ -94,7 +146,7 @@ export default function LoyaltyPage() {
   const accent = program.accent_color || '#FF6B00'
   const stamps = card?.current_stamps || 0
   const rewards = card?.rewards || 0
-  const required = program.required_stamps
+  const required = Math.max(1, program.required_stamps || 1)
   const totalStamps = card?.total_stamps || 0
 
   return (
@@ -231,14 +283,14 @@ export default function LoyaltyPage() {
         {history.length > 0 && (
           <div style={{ background: '#fff', borderRadius: 16, padding: 20, border: '1px solid #E5E7EB' }}>
             <h3 style={{ fontSize: 15, fontWeight: 600, margin: '0 0 12px', color: '#1F2937' }}>Түүх</h3>
-            {history.slice(0, 10).map((log: any) => (
+            {history.slice(0, 10).map((log) => (
               <div key={log.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 0', borderBottom: '1px solid #F3F4F6', fontSize: 13 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <span>{log.action === 'stamp' ? '\u2B50' : '\u{1F381}'}</span>
                   <span style={{ color: '#374151' }}>{log.action === 'stamp' ? 'Тамга' : 'Шагнал'}</span>
                   {log.note && <span style={{ color: '#9CA3AF' }}>— {log.note}</span>}
                 </div>
-                <span style={{ color: '#9CA3AF', fontSize: 12 }}>{new Date(log.created_at).toLocaleDateString('mn-MN')}</span>
+                <span style={{ color: '#9CA3AF', fontSize: 12 }}>{formatHistoryDate(log.created_at)}</span>
               </div>
             ))}
           </div>

@@ -18,12 +18,24 @@ const DEFAULTS = {
   ],
 }
 
+interface DeliveryZone { icon: string; name: string; time: string; price: string }
+interface DeliveryPolicy { icon: string; title: string; desc: string }
+interface DeliveryContent {
+  hero_title: string
+  hero_desc: string
+  zones: DeliveryZone[]
+  policies: DeliveryPolicy[]
+}
+interface DeliveryPageResponse {
+  metadata?: Partial<DeliveryContent>
+}
+
 export default function DeliveryPage() {
-  const [d, setD] = useState(DEFAULTS)
+  const [d, setD] = useState<DeliveryContent>(DEFAULTS)
   const [loaded, setLoaded] = useState(false)
 
   useEffect(() => {
-    apiFetch<any>('/pages/delivery', { auth: false })
+    apiFetch<DeliveryPageResponse>('/pages/delivery', { auth: false })
       .then(page => {
         if (page?.metadata) {
           const m = page.metadata
@@ -58,7 +70,7 @@ export default function DeliveryPage() {
       <div style={{ marginBottom: 40 }}>
         <h2 style={{ fontSize: 20, fontWeight: 700, color: 'var(--text)', marginBottom: 16, textAlign: 'center' }}>Хүргэлтийн бүсүүд</h2>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16 }}>
-          {d.zones.map((z: any) => (
+          {d.zones.map(z => (
             <div key={z.name} style={{ padding: 24, borderRadius: 16, background: 'var(--surface)', border: '1px solid var(--border)', textAlign: 'center' }}>
               <div style={{ fontSize: 36, marginBottom: 8 }}>{z.icon}</div>
               <h3 style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', marginBottom: 4 }}>{z.name}</h3>
@@ -73,7 +85,7 @@ export default function DeliveryPage() {
       <div style={{ marginBottom: 40 }}>
         <h2 style={{ fontSize: 20, fontWeight: 700, color: 'var(--text)', marginBottom: 16, textAlign: 'center' }}>Хүргэлтийн нөхцөл</h2>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          {d.policies.map((p: any) => (
+          {d.policies.map(p => (
             <div key={p.title} style={{ display: 'flex', gap: 16, alignItems: 'flex-start', padding: 20, borderRadius: 12, background: 'var(--surface)', border: '1px solid var(--border)' }}>
               <div style={{ width: 48, height: 48, borderRadius: 12, background: 'rgba(255,107,0,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, flexShrink: 0 }}>{p.icon}</div>
               <div>

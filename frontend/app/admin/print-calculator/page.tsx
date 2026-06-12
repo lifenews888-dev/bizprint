@@ -13,6 +13,10 @@ import {
 } from './pricing-engine'
 
 const fmt = (n: number) => '₮' + Math.round(n).toLocaleString('mn-MN')
+type NumericConstantKey = {
+  [K in keyof PricingConstants]: PricingConstants[K] extends number ? K : never
+}[keyof PricingConstants]
+const colorModeFrom = (value: string): CalcInput['colorMode'] => value === 'bw' ? 'bw' : 'color'
 
 // ─── Main Page ───────────────────────────────────────────────────
 
@@ -40,7 +44,7 @@ export default function PrintCalculatorPage() {
   const [overrides, setOverrides] = useState<Record<string, number>>({})
   const [editingKey, setEditingKey] = useState<string | null>(null)
 
-  const set = (k: keyof CalcInput, v: any) => setInput(prev => ({ ...prev, [k]: v }))
+  const set = <K extends keyof CalcInput>(k: K, v: CalcInput[K]) => setInput(prev => ({ ...prev, [k]: v }))
 
   // Calculate result
   const result: CalcResult = useMemo(() => calculate(input, constants), [input, constants])
@@ -142,7 +146,7 @@ export default function PrintCalculatorPage() {
             <div className="grid grid-cols-2 gap-4 mt-4">
               <SelectField label="Өнгө" value={input.colorMode}
                 options={[{ value: 'color', label: 'Өнгөт (4+4)' }, { value: 'bw', label: 'Хар цагаан (1+1)' }]}
-                onChange={v => set('colorMode', v)} />
+                onChange={v => set('colorMode', colorModeFrom(v))} />
               <SelectField label="Хавтаслалт" value={input.bindingType}
                 options={[{ value: '', label: 'Байхгүй' }, ...Object.keys(constants.bindingPrices).map(k => ({ value: k, label: k }))]}
                 onChange={v => set('bindingType', v)} />
@@ -164,7 +168,7 @@ export default function PrintCalculatorPage() {
                   onChange={v => set('coverGsm', +v)} />
                 <SelectField label="Хавтас өнгө" value={input.coverColorMode}
                   options={[{ value: 'color', label: 'Өнгөт' }, { value: 'bw', label: 'Хар цагаан' }]}
-                  onChange={v => set('coverColorMode', v)} />
+                  onChange={v => set('coverColorMode', colorModeFrom(v))} />
               </div>
             )}
           </div>
@@ -293,10 +297,12 @@ function EditableLineItem({ line, isEditing, onStartEdit, onSave, onCancel, onRe
 
   useEffect(() => {
     if (isEditing) {
-      setVal(String(line.amount))
-      setTimeout(() => inputRef.current?.select(), 50)
+      void Promise.resolve().then(() => {
+        setVal(String(line.amount))
+        setTimeout(() => inputRef.current?.select(), 50)
+      })
     }
-  }, [isEditing])
+  }, [isEditing, line.amount])
 
   if (isEditing) {
     return (
@@ -341,14 +347,7 @@ function EditableLineItem({ line, isEditing, onStartEdit, onSave, onCancel, onRe
 function AdminSettings({ constants, setConstants }: {
   constants: PricingConstants; setConstants: (c: PricingConstants) => void
 }) {
-  const upd = (path: string, value: any) => {
-    const next = JSON.parse(JSON.stringify(constants))
-    const parts = path.split('.')
-    let target = next
-    for (let i = 0; i < parts.length - 1; i++) target = target[parts[i]]
-    target[parts[parts.length - 1]] = value
-    setConstants(next)
-  }
+  const upd = (key: NumericConstantKey, value: number) => setConstants({ ...constants, [key]: value })
 
   return (
     <div className="bg-[var(--surface)] border border-[var(--border)] rounded-xl p-5 mb-6">

@@ -7,22 +7,42 @@ import { fbPixel } from '@/components/FacebookPixel'
 
 const SUGGESTED_SEARCHES = ['Нэрийн хуудас', 'Флаер', 'Баннер', 'Стикер', 'Каталог', 'Роллап', 'Постер', 'Ном']
 
+interface SearchProduct {
+  id: string
+  slug?: string | null
+  thumbnail_url?: string | null
+  name_mn?: string | null
+  name?: string | null
+  base_price?: number | string | null
+}
+
+const isSearchProduct = (item: unknown): item is SearchProduct =>
+  typeof item === 'object' && item !== null && 'id' in item
+
 function SearchResults() {
   const params = useSearchParams()
   const router = useRouter()
   const q = params.get('q') || ''
-  const [results, setResults] = useState<any[]>([])
+  const [results, setResults] = useState<SearchProduct[]>([])
   const [loading, setLoading] = useState(false)
   const [query, setQuery] = useState(q)
 
   useEffect(() => {
     if (!q || q.length < 2) return
     fbPixel.search(q)
-    setLoading(true)
-    fetch(`${API_URL}/api/products/search?q=${encodeURIComponent(q)}`)
+    const controller = new AbortController()
+    const loadingTimer = window.setTimeout(() => setLoading(true), 0)
+    fetch(`${API_URL}/api/products/search?q=${encodeURIComponent(q)}`, { signal: controller.signal })
       .then(r => r.json())
-      .then(data => { setResults(Array.isArray(data) ? data : []); setLoading(false) })
-      .catch(() => setLoading(false))
+      .then((data: unknown) => { setResults(Array.isArray(data) ? data.filter(isSearchProduct) : []); setLoading(false) })
+      .catch(error => {
+        if (error instanceof DOMException && error.name === 'AbortError') return
+        setLoading(false)
+      })
+    return () => {
+      window.clearTimeout(loadingTimer)
+      controller.abort()
+    }
   }, [q])
 
   const handleSearch = (e: React.FormEvent) => {
@@ -71,19 +91,21 @@ function SearchResults() {
 
       {!loading && results.length > 0 && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 16 }}>
-          {results.map((p: any) => (
+          {results.map(p => {
+            const productName = p.name_mn || p.name || 'Бүтээгдэхүүн'
+            return (
             <Link key={p.id} href={`/shop/${p.slug || p.id}`} style={{ textDecoration: 'none', borderRadius: 12, overflow: 'hidden', border: '1px solid var(--border)', background: 'var(--surface)', display: 'block' }}>
               <div style={{ aspectRatio: '1', background: 'var(--surface2)', overflow: 'hidden' }}>
-                {p.thumbnail_url ? <img src={p.thumbnail_url} alt={p.name_mn || p.name} loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', fontSize: 40, opacity: 0.2 }}>📦</div>}
+                {p.thumbnail_url ? <img src={p.thumbnail_url} alt={productName} loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', fontSize: 40, opacity: 0.2 }}>📦</div>}
               </div>
               <div style={{ padding: 12 }}>
-                <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', marginBottom: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name_mn || p.name}</p>
+                <p style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)', marginBottom: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{productName}</p>
                 <p style={{ fontSize: 14, fontWeight: 700, color: '#FF6B00' }}>
                   {Number(p.base_price) > 0 ? <><span style={{ fontSize: 11, color: 'var(--text3)', fontWeight: 400 }}>-аас </span>₮{Number(p.base_price).toLocaleString()}</> : 'Үнэ авах'}
                 </p>
               </div>
             </Link>
-          ))}
+          )})}
         </div>
       )}
 

@@ -33,6 +33,8 @@ interface Machine {
   id: string; name: string; type: string; status: string;
 }
 
+interface ProductionJobsResponse { items?: ProductionJob[] }
+
 type ViewMode = 'kanban' | 'gantt';
 
 const COLUMNS: { id: ProductionJob['status']; label: string; color: string }[] = [
@@ -83,9 +85,9 @@ export default function ProductionBoardPage() {
 
   const fetchData = useCallback(async () => {
     const [jobsData, summaryData, machinesData] = await Promise.all([
-      apiFetch<any>('/production').catch(() => []),
-      apiFetch<any>('/production/summary').catch(() => null),
-      apiFetch<any>('/machines').catch(() => []),
+      apiFetch<ProductionJob[] | ProductionJobsResponse>('/production').catch(() => []),
+      apiFetch<Summary | null>('/production/summary').catch(() => null),
+      apiFetch<Machine[]>('/machines').catch(() => []),
     ]);
     setJobs(Array.isArray(jobsData) ? jobsData : jobsData?.items ?? []);
     if (summaryData) setSummary(summaryData);
@@ -94,9 +96,12 @@ export default function ProductionBoardPage() {
   }, []);
 
   useEffect(() => {
-    fetchData();
+    const timer = setTimeout(fetchData, 0);
     const interval = setInterval(fetchData, 30_000);
-    return () => clearInterval(interval);
+    return () => {
+      clearTimeout(timer);
+      clearInterval(interval);
+    };
   }, [fetchData]);
 
   const handleDragStart = (e: React.DragEvent, jobId: string) => {

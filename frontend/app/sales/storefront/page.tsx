@@ -31,6 +31,20 @@ interface Listing {
   }
 }
 
+interface CatalogProduct {
+  id: string
+  name?: string | null
+  name_mn?: string | null
+  thumbnail_url?: string | null
+  base_price?: number | string | null
+  sale_price?: number | string | null
+  category?: string | null
+}
+
+interface ReferralInfo {
+  code?: string
+}
+
 export default function SalesStorefrontPage() {
   const router = useRouter()
   const { user, loading: authLoading } = useRoleGuard(['sales', 'admin'])
@@ -38,15 +52,15 @@ export default function SalesStorefrontPage() {
   const [loading, setLoading] = useState(true)
   const [referralCode, setReferralCode] = useState('')
   const [search, setSearch] = useState('')
-  const [allProducts, setAllProducts] = useState<any[]>([])
+  const [allProducts, setAllProducts] = useState<CatalogProduct[]>([])
   const [showAdd, setShowAdd] = useState(false)
   const [busy, setBusy] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
 
   const load = useCallback(() => {
     Promise.all([
-      apiFetch<any[]>('/sales/me/storefront').catch(() => []),
-      apiFetch<any>('/referral/my').catch(() => null),
+      apiFetch<Listing[]>('/sales/me/storefront').catch(() => []),
+      apiFetch<ReferralInfo | null>('/referral/my').catch(() => null),
     ]).then(([items, ref]) => {
       setListings(Array.isArray(items) ? items : [])
       if (ref?.code) setReferralCode(ref.code)
@@ -64,7 +78,7 @@ export default function SalesStorefrontPage() {
     setShowAdd(true)
     if (!allProducts.length) {
       try {
-        const data = await apiFetch<any[]>('/products?limit=100', { auth: false })
+        const data = await apiFetch<CatalogProduct[]>('/products?limit=100', { auth: false })
         setAllProducts(Array.isArray(data) ? data : [])
       } catch {}
     }
@@ -100,7 +114,7 @@ export default function SalesStorefrontPage() {
   const adoptedIds = new Set(listings.map(l => l.id))
   const searchResults = allProducts
     .filter(p => !adoptedIds.has(p.id))
-    .filter(p => !search || (p.name || '').toLowerCase().includes(search.toLowerCase()))
+    .filter(p => !search || (p.name_mn || p.name || '').toLowerCase().includes(search.toLowerCase()))
     .slice(0, 20)
 
   if (authLoading) return <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text2)' }}>Ачаалж байна...</div>
@@ -143,7 +157,7 @@ export default function SalesStorefrontPage() {
         <div style={{ padding: 60, textAlign: 'center', border: '1px dashed var(--border)', borderRadius: 12, color: 'var(--text2)' }}>
           <div style={{ fontSize: 32, marginBottom: 8 }}>🛍</div>
           <div style={{ fontWeight: 600 }}>Дэлгүүр хоосон</div>
-          <div style={{ fontSize: 13, marginTop: 4 }}>"+ Бүтээгдэхүүн нэмэх" товч даран бүтээгдэхүүнээ сонгож эхлээрэй</div>
+          <div style={{ fontSize: 13, marginTop: 4 }}>+ Бүтээгдэхүүн нэмэх товч даран бүтээгдэхүүнээ сонгож эхлээрэй</div>
         </div>
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 14 }}>
@@ -185,7 +199,7 @@ export default function SalesStorefrontPage() {
                   <div style={{ aspectRatio: '1 / 1', background: 'var(--surface3)', borderRadius: 6, overflow: 'hidden' }}>
                     {p.thumbnail_url && <img src={optimizeImage(p.thumbnail_url, { w: 200, h: 200 })} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />}
                   </div>
-                  <div style={{ fontSize: 12, fontWeight: 600, lineHeight: 1.2, minHeight: 30 }}>{p.name}</div>
+                  <div style={{ fontSize: 12, fontWeight: 600, lineHeight: 1.2, minHeight: 30 }}>{p.name_mn || p.name || 'Бүтээгдэхүүн'}</div>
                   <button onClick={() => adopt(p.id)} disabled={busy === p.id} style={{ padding: '6px 0', background: '#FF6B00', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 11, fontWeight: 700 }}>
                     {busy === p.id ? '...' : '+ Нэмэх'}
                   </button>

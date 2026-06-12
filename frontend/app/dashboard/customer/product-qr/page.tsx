@@ -7,8 +7,75 @@ import UpgradeModal from '@/components/UpgradeModal'
 const FONT = "'DM Sans','Segoe UI',system-ui,sans-serif"
 const ORANGE = '#FF6B00'
 
+interface ProductQrItem {
+  id: string
+  slug: string
+  product_name?: string
+  category?: string
+  brand?: string
+  price?: number | string
+  company_name?: string
+  main_image_url?: string
+  scan_count?: number
+  view_count?: number
+  reorder_count?: number
+}
+
+interface UsageMetric {
+  percentage: number
+  status?: string
+  current: number
+  effective_max: number
+  addon_bonus?: number
+}
+
+interface SubscriptionUsage {
+  product_qrs?: UsageMetric
+}
+
+interface SuggestedPlan {
+  id: string
+  name: string
+  price_monthly: number | string
+  [key: string]: number | string | undefined
+}
+
+interface SubscriptionSuggestions {
+  suggested_plan?: SuggestedPlan
+}
+
+interface SubscriptionAddon {
+  id: string
+  name: string
+  feature_key: string
+  bonus_amount: number | string
+  price: number | string
+}
+
+interface UploadResponse {
+  file_url?: string
+}
+
+interface ProductQrPayload {
+  [key: string]: unknown
+  product_name: string
+  description: string
+  price: number
+  category: string
+  company_name: string
+  brand: string
+  main_image_url?: string
+  video_url?: string
+}
+
+interface LimitErrorPayload {
+  code?: string
+  current?: number
+  max?: number
+}
+
 export default function ProductQrDashboard() {
-  const [items, setItems] = useState<any[]>([])
+  const [items, setItems] = useState<ProductQrItem[]>([])
   const [loading, setLoading] = useState(true)
   const [showCreate, setShowCreate] = useState(false)
   const [form, setForm] = useState({ product_name: '', description: '', price: '', category: '', company_name: '', brand: '' })
@@ -17,21 +84,24 @@ export default function ProductQrDashboard() {
   const [videoFile, setVideoFile] = useState<File | null>(null)
   const [videoName, setVideoName] = useState('')
   const [uploading, setUploading] = useState(false)
-  const [usage, setUsage] = useState<any>(null)
+  const [usage, setUsage] = useState<SubscriptionUsage | null>(null)
   const [upgradeModal, setUpgradeModal] = useState<{ open: boolean; current?: number; max?: number }>({ open: false })
-  const [suggestedPlan, setSuggestedPlan] = useState<any>(null)
-  const [addons, setAddons] = useState<any[]>([])
+  const [suggestedPlan, setSuggestedPlan] = useState<SuggestedPlan | null>(null)
+  const [addons, setAddons] = useState<SubscriptionAddon[]>([])
 
   useEffect(() => {
     const token = localStorage.getItem('access_token') || localStorage.getItem('token')
-    if (!token) { setLoading(false); return }
+    if (!token) {
+      const timer = setTimeout(() => setLoading(false), 0)
+      return () => clearTimeout(timer)
+    }
     const headers = { Authorization: `Bearer ${token}` }
-    const safeFetch = (path: string) => fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}${path}`, { headers }).then(r => r.ok ? r.json() : null).catch(() => null)
+    const safeFetch = <T,>(path: string): Promise<T | null> => fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}${path}`, { headers }).then(r => r.ok ? r.json() as Promise<T> : null).catch(() => null)
     Promise.all([
-      safeFetch('/product-qr/my'),
-      safeFetch('/subscription/usage'),
-      safeFetch('/subscription/suggestions'),
-      safeFetch('/subscription/addons'),
+      safeFetch<ProductQrItem[]>('/product-qr/my'),
+      safeFetch<SubscriptionUsage>('/subscription/usage'),
+      safeFetch<SubscriptionSuggestions>('/subscription/suggestions'),
+      safeFetch<SubscriptionAddon[]>('/subscription/addons'),
     ]).then(([qrs, u, sug, a]) => {
       setItems(Array.isArray(qrs) ? qrs : [])
       setUsage(u)
@@ -49,7 +119,7 @@ export default function ProductQrDashboard() {
     const fd = new FormData()
     fd.append('file', file)
     try {
-      const res = await apiFetch<any>('/upload/file', { method: 'POST', body: fd })
+      const res = await apiFetch<UploadResponse>('/upload/file', { method: 'POST', body: fd })
       return res?.file_url ? `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}${res.file_url}` : null
     } catch { return null }
   }
@@ -58,7 +128,7 @@ export default function ProductQrDashboard() {
     if (!form.product_name) return
     setUploading(true)
     try {
-      const body: any = { ...form, price: Number(form.price) || 0 }
+      const body: ProductQrPayload = { ...form, price: Number(form.price) || 0 }
       if (imgFile) {
         const url = await uploadFile(imgFile)
         if (url) body.main_image_url = url
@@ -67,7 +137,7 @@ export default function ProductQrDashboard() {
         const url = await uploadFile(videoFile)
         if (url) body.video_url = url
       }
-      const item = await apiFetch('/product-qr', { method: 'POST', body })
+      const item = await apiFetch<ProductQrItem>('/product-qr', { method: 'POST', body })
       setItems([item, ...items])
       setShowCreate(false)
       setForm({ product_name: '', description: '', price: '', category: '', company_name: '', brand: '' })
@@ -75,19 +145,20 @@ export default function ProductQrDashboard() {
       const token = localStorage.getItem('access_token') || localStorage.getItem('token')
       if (token) {
         fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/subscription/usage`, { headers: { Authorization: `Bearer ${token}` } })
-          .then(r => r.ok ? r.json() : null).then(u => u && setUsage(u)).catch(() => {})
+          .then(r => r.ok ? r.json() as Promise<SubscriptionUsage> : null).then(u => u && setUsage(u)).catch(() => {})
       }
-    } catch (err: any) {
-      let errData: any = null
-      try { errData = JSON.parse(err.message) } catch {}
-      if (errData?.code === 'SUBSCRIPTION_LIMIT_EXCEEDED' || err.message?.includes('хязгаар')) {
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : ''
+      let errData: LimitErrorPayload | null = null
+      try { errData = JSON.parse(message) as LimitErrorPayload } catch {}
+      if (errData?.code === 'SUBSCRIPTION_LIMIT_EXCEEDED' || message.includes('хязгаар')) {
         setUpgradeModal({
           open: true,
           current: errData?.current ?? qrUsage?.current,
           max: errData?.max ?? qrUsage?.effective_max,
         })
       } else {
-        alert(err.message || 'Алдаа гарлаа')
+        alert(message || 'Алдаа гарлаа')
       }
     } finally { setUploading(false) }
   }
@@ -131,8 +202,8 @@ export default function ProductQrDashboard() {
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4 }}>
               <span style={{ fontSize: 11, color: '#9CA3AF' }}>{qrUsage.percentage}% ашиглагдсан</span>
-              {qrUsage.addon_bonus > 0 && (
-                <span style={{ fontSize: 10, color: '#10B981', fontWeight: 600 }}>+{qrUsage.addon_bonus} нэмэлт</span>
+              {(qrUsage.addon_bonus ?? 0) > 0 && (
+                <span style={{ fontSize: 10, color: '#10B981', fontWeight: 600 }}>+{qrUsage.addon_bonus ?? 0} нэмэлт</span>
               )}
             </div>
           </div>
@@ -223,9 +294,10 @@ export default function ProductQrDashboard() {
         </div>
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 16 }}>
-          {items.map((p: any) => {
+          {items.map(p => {
             const baseUrl = typeof window !== 'undefined' ? window.location.origin : ''
             const pUrl = `${baseUrl}/p/${p.slug}`
+            const productPrice = Number(p.price ?? 0)
             return (
               <div key={p.id} style={{ background: 'var(--surface, #fff)', borderRadius: 16, padding: 20, border: '1px solid var(--border, #E5E7EB)' }}>
                 {/* Product image or QR */}
@@ -238,7 +310,7 @@ export default function ProductQrDashboard() {
                     <h3 style={{ fontSize: 15, fontWeight: 600, margin: 0, color: 'var(--text, #111)' }}>{p.product_name}</h3>
                     {p.category && <div style={{ fontSize: 12, color: '#9CA3AF', marginTop: 2 }}>{p.category}</div>}
                     {p.brand && <div style={{ fontSize: 12, color: '#9CA3AF' }}>{p.brand}</div>}
-                    {p.price > 0 && <div style={{ fontSize: 16, fontWeight: 700, color: ORANGE, marginTop: 6 }}>{Number(p.price).toLocaleString()}₮</div>}
+                    {productPrice > 0 && <div style={{ fontSize: 16, fontWeight: 700, color: ORANGE, marginTop: 6 }}>{productPrice.toLocaleString()}₮</div>}
                     {p.company_name && <div style={{ fontSize: 11, color: '#9CA3AF', marginTop: 4 }}>{p.company_name}</div>}
                   </div>
                 </div>
@@ -270,7 +342,7 @@ export default function ProductQrDashboard() {
         featureKey="product_qrs"
         current={upgradeModal.current}
         max={upgradeModal.max}
-        suggestedPlan={suggestedPlan}
+        suggestedPlan={suggestedPlan ?? undefined}
         addons={addons}
       />
     </div>

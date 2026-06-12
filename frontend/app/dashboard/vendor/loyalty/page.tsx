@@ -1,14 +1,31 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { apiFetch } from '@/lib/api'
 import { QRCodeSVG } from 'qrcode.react'
 
 const FONT = "'DM Sans','Segoe UI',system-ui,sans-serif"
 const ORANGE = '#FF6B00'
 
+interface LoyaltyProgram {
+  id: string
+  name: string
+  description?: string
+  required_stamps: number
+  reward_type: string
+  reward_description?: string
+  discount_percent?: number
+}
+
+interface LoyaltyStats {
+  totalCards?: number
+  totalStamps?: number
+  totalRedeems?: number
+  todayStamps?: number
+}
+
 export default function VendorLoyalty() {
-  const [programs, setPrograms] = useState<any[]>([])
-  const [stats, setStats] = useState<Record<string, any>>({})
+  const [programs, setPrograms] = useState<LoyaltyProgram[]>([])
+  const [stats, setStats] = useState<Record<string, LoyaltyStats>>({})
   const [loading, setLoading] = useState(true)
   const [showCreate, setShowCreate] = useState(false)
   const [form, setForm] = useState({
@@ -17,24 +34,25 @@ export default function VendorLoyalty() {
     accent_color: '#FF6B00',
   })
 
-  useEffect(() => {
-    loadData()
-  }, [])
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
-      const progs: any[] = await apiFetch('/loyalty/vendor/programs')
+      const progs = await apiFetch<LoyaltyProgram[]>('/loyalty/vendor/programs')
       setPrograms(progs)
-      const statsMap: Record<string, any> = {}
+      const statsMap: Record<string, LoyaltyStats> = {}
       for (const p of progs) {
         try {
-          statsMap[p.id] = await apiFetch(`/loyalty/vendor/stats/${p.id}`)
+          statsMap[p.id] = await apiFetch<LoyaltyStats>(`/loyalty/vendor/stats/${p.id}`)
         } catch {}
       }
       setStats(statsMap)
     } catch {}
     setLoading(false)
-  }
+  }, [])
+
+  useEffect(() => {
+    const timer = setTimeout(() => { void loadData() }, 0)
+    return () => clearTimeout(timer)
+  }, [loadData])
 
   const handleCreate = async () => {
     if (!form.name) return
@@ -52,7 +70,7 @@ export default function VendorLoyalty() {
     })
     setShowCreate(false)
     setForm({ name: '', description: '', required_stamps: '10', reward_type: 'free', reward_description: '', discount_percent: '0', accent_color: '#FF6B00' })
-    loadData()
+    void loadData()
   }
 
   if (loading) return <div style={{ padding: 40, textAlign: 'center', fontFamily: FONT, color: '#9CA3AF' }}>Ачааллаж байна...</div>
@@ -112,7 +130,7 @@ export default function VendorLoyalty() {
         </div>
       ) : (
         <div style={{ display: 'grid', gap: 16 }}>
-          {programs.map((p: any) => {
+          {programs.map(p => {
             const s = stats[p.id]
             const url = `${baseUrl}/loyalty/${p.id}`
             return (

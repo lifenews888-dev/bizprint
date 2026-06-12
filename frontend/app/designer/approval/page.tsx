@@ -42,9 +42,57 @@ interface DesignRequest {
   zoom_start_url: string
   zoom_preferred_at?: string
   created_at: string
-  versions?: any[]
-  comments?: any[]
-  zoomSessions?: any[]
+  versions?: DesignVersion[]
+  comments?: DesignComment[]
+  zoomSessions?: ZoomSession[]
+}
+
+interface AppUser {
+  id: string
+  full_name?: string
+  email?: string
+  role?: string
+}
+
+interface RealtimeDesignPayload {
+  designRequestId?: string
+}
+
+interface DesignVersion {
+  id: string
+  version_number?: number
+  is_current?: boolean
+  created_at: string
+  version_note?: string
+  preview_url?: string
+  file_url?: string
+  issues?: Record<string, unknown>
+}
+
+interface DesignComment {
+  id: string
+  author_role?: string
+  author_name?: string
+  type?: string
+  content?: string
+  created_at: string
+}
+
+interface ZoomSession {
+  id: string
+  created_at: string
+  scheduled_at?: string
+  join_url?: string
+}
+
+interface UploadResponse {
+  file_url?: string
+  error?: string
+}
+
+interface ZoomPayload {
+  [key: string]: unknown
+  scheduled_at?: string
 }
 
 const STATUS_LABEL: Record<string, { label: string; color: string }> = {
@@ -62,7 +110,7 @@ const STATUS_LABEL: Record<string, { label: string; color: string }> = {
 
 export default function DesignerDashboard() {
   const { user: guardUser, loading: guardLoading } = useRoleGuard(['designer', 'admin', 'superadmin'])
-  const [user, setUser] = useState<any>(null)
+  const [user, setUser] = useState<AppUser | null>(null)
   const [requests, setRequests] = useState<DesignRequest[]>([])
   const [selected, setSelected] = useState<DesignRequest | null>(null)
   const [loading, setLoading] = useState(true)
@@ -86,7 +134,7 @@ export default function DesignerDashboard() {
 
   useEffect(() => {
     if (!getToken()) { window.location.href = '/login'; return }
-    apiFetch<any>(`/auth/me`)
+    apiFetch<AppUser>(`/auth/me`)
       .then(u => { if (u) setUser(u) })
       .catch(() => {})
   }, [])
@@ -96,7 +144,7 @@ export default function DesignerDashboard() {
   const loadRequests = useCallback(async () => {
     if (!user?.id) return
     try {
-      const data = await apiFetch<any>(`/design-requests/designer/${user.id}`)
+      const data = await apiFetch<DesignRequest[]>(`/design-requests/designer/${user.id}`)
       if (Array.isArray(data)) setRequests(data)
     } catch {}
   }, [user?.id])
@@ -113,20 +161,20 @@ export default function DesignerDashboard() {
 
     const unsubs = [
       subscribe('DESIGN_FILE_UPLOADED', () => { loadRequests(); if (selected) loadDetail(selected.id) }),
-      subscribe('DESIGN_REVISION_REQUESTED', (p) => {
+      subscribe('DESIGN_REVISION_REQUESTED', (p: RealtimeDesignPayload) => {
         showToast(`⚠ Засах хүсэлт ирлээ: ${p.designRequestId?.slice(0, 8)}`, 'error')
         loadRequests()
         if (selected && selected.id === p.designRequestId) loadDetail(selected.id)
       }),
-      subscribe('DESIGN_APPROVED', (_p) => {
+      subscribe('DESIGN_APPROVED', () => {
         showToast('✅ Загвар батлагдлаа!')
         loadRequests()
       }),
-      subscribe('DESIGN_COMMENT_ADDED', (p) => {
+      subscribe('DESIGN_COMMENT_ADDED', (p: RealtimeDesignPayload) => {
         if (selected && selected.id === p.designRequestId) loadDetail(selected.id)
         loadRequests()
       }),
-      subscribe('DESIGN_ZOOM_CREATED', (p) => {
+      subscribe('DESIGN_ZOOM_CREATED', (p: RealtimeDesignPayload) => {
         showToast('📹 Zoom уулзалт үүслээ!')
         loadRequests()
         if (selected && selected.id === p.designRequestId) loadDetail(selected.id)
@@ -143,7 +191,7 @@ export default function DesignerDashboard() {
 
   const loadDetail = useCallback(async (id: string) => {
     try {
-      const data = await apiFetch<any>(`/design-requests/${id}`)
+      const data = await apiFetch<DesignRequest>(`/design-requests/${id}`)
       setSelected(data)
     } catch {}
   }, [])
@@ -162,7 +210,7 @@ export default function DesignerDashboard() {
     try {
       const formData = new FormData()
       formData.append('file', file)
-      const data = await apiFetch<any>(`/upload/file`, {
+      const data = await apiFetch<UploadResponse>(`/upload/file`, {
         method: 'POST',
         body: formData,
       })
@@ -188,7 +236,7 @@ export default function DesignerDashboard() {
     if (!selected || !fileUrl) { showToast('Файлын URL оруулна уу', 'error'); return }
     setUploading(true)
     try {
-      const res = await apiFetch<any>(`/design-requests/${selected.id}/versions`, {
+      await apiFetch<DesignVersion>(`/design-requests/${selected.id}/versions`, {
         method: 'POST',
         body: { file_url: fileUrl, preview_url: previewUrl, version_note: versionNote },
       })
@@ -204,7 +252,7 @@ export default function DesignerDashboard() {
   const handleSubmitForReview = async () => {
     if (!selected) return
     try {
-      const res = await apiFetch<any>(`/design-requests/${selected.id}/submit-for-review`, {
+      await apiFetch<DesignRequest>(`/design-requests/${selected.id}/submit-for-review`, {
         method: 'PATCH',
       })
       showToast('Хянуулахаар илгээлээ ✓'); loadDetail(selected.id); loadRequests()
@@ -216,7 +264,7 @@ export default function DesignerDashboard() {
   const handleAddComment = async () => {
     if (!selected || !comment.trim()) return
     try {
-      const res = await apiFetch<any>(`/design-requests/${selected.id}/comments`, {
+      await apiFetch<DesignComment>(`/design-requests/${selected.id}/comments`, {
         method: 'POST',
         body: { content: comment, author_role: 'designer', type: 'comment' },
       })
@@ -229,9 +277,9 @@ export default function DesignerDashboard() {
   const handleCreateZoom = async () => {
     if (!selected) return
     try {
-      const body: any = {}
+      const body: ZoomPayload = {}
       if (scheduledAt) body.scheduled_at = scheduledAt
-      const data = await apiFetch<any>(`/design-requests/${selected.id}/zoom`, {
+      const data = await apiFetch<ZoomSession>(`/design-requests/${selected.id}/zoom`, {
         method: 'POST',
         body: body,
       })
@@ -254,7 +302,7 @@ export default function DesignerDashboard() {
   )
 
   return (
-    <DashboardLayout navGroups={DESIGNER_MENU} user={user}>
+    <DashboardLayout navGroups={DESIGNER_MENU} user={user ?? undefined}>
     <div style={{ display: 'flex', height: 'calc(100vh - 54px)', fontFamily: 'DM Sans, system-ui', background: '#0F0F0F', color: '#fff', overflow: 'hidden' }}>
 
       {/* Toast */}
@@ -359,10 +407,10 @@ export default function DesignerDashboard() {
             {(['overview', 'versions', 'comments', 'zoom'] as const).map(tab => {
               // Badge: show red dot on zoom tab if customer requested zoom but no link yet
               const hasZoomRequest = tab === 'zoom' && !selected.zoom_join_url &&
-                selected.comments?.some((c: any) => c.type === 'system' && c.author_role === 'customer' && c.content?.includes('Zoom'))
+                selected.comments?.some((c) => c.type === 'system' && c.author_role === 'customer' && c.content?.includes('Zoom'))
               // Badge: show count on comments tab for unread customer comments
               const commentCount = tab === 'comments'
-                ? (selected.comments?.filter((c: any) => c.author_role === 'customer' && c.type !== 'system').length || 0)
+                ? (selected.comments?.filter((c) => c.author_role === 'customer' && c.type !== 'system').length || 0)
                 : 0
               return (
                 <button
@@ -529,13 +577,13 @@ export default function DesignerDashboard() {
                 {selected.status === 'revision_requested' && (
                   <div style={{ background: '#EF444418', border: '1px solid #EF4444', borderRadius: 12, padding: 16, gridColumn: '1 / -1' }}>
                     <div style={{ color: '#EF4444', fontWeight: 700, fontSize: 14 }}>⚠ Засах хүсэлт ирсэн байна</div>
-                    <div style={{ color: '#9CA3AF', fontSize: 12, marginTop: 4 }}>Хэрэглэгчийн тайлбарыг "Тайлбар" таб дээр харна уу. Засаад шинэ хувилбар байршуулна уу.</div>
+                    <div style={{ color: '#9CA3AF', fontSize: 12, marginTop: 4 }}>Хэрэглэгчийн тайлбарыг &quot;Тайлбар&quot; таб дээр харна уу. Засаад шинэ хувилбар байршуулна уу.</div>
                   </div>
                 )}
 
                 {/* Customer Zoom request notification */}
                 {!selected.zoom_join_url && !selected.approval_locked &&
-                  selected.comments?.some((c: any) => c.type === 'system' && c.author_role === 'customer' && c.content?.includes('Zoom')) && (
+                  selected.comments?.some((c) => c.type === 'system' && c.author_role === 'customer' && c.content?.includes('Zoom')) && (
                   <div style={{ background: '#0F1F2E', border: '2px solid #3B82F6', borderRadius: 12, padding: 16, gridColumn: '1 / -1', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
                     <div>
                       <div style={{ color: '#3B82F6', fontWeight: 700, fontSize: 14 }}>📹 Хэрэглэгч Zoom уулзалт хүсэж байна</div>
@@ -565,7 +613,7 @@ export default function DesignerDashboard() {
                 <div style={{ fontSize: 13, color: '#6B7280', marginBottom: 16 }}>
                   Нийт {selected.versions?.length || 0} хувилбар
                 </div>
-                {(selected.versions || []).slice().reverse().map((v: any) => (
+                {(selected.versions || []).slice().reverse().map((v) => (
                   <div key={v.id} style={{ background: '#1A1A1A', borderRadius: 12, padding: 16, marginBottom: 12, border: v.is_current ? '1px solid #FF6B00' : '1px solid #2A2A2A' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -598,7 +646,7 @@ export default function DesignerDashboard() {
             {activeTab === 'comments' && (
               <div>
                 <div style={{ marginBottom: 16 }}>
-                  {(selected.comments || []).map((c: any) => (
+                  {(selected.comments || []).map((c) => (
                     <div key={c.id} style={{
                       display: 'flex', gap: 10, marginBottom: 12,
                       flexDirection: c.author_role === 'designer' ? 'row-reverse' : 'row',
@@ -674,7 +722,7 @@ export default function DesignerDashboard() {
 
                 {/* Customer zoom request notice */}
                 {!selected.zoom_join_url && !selected.approval_locked &&
-                  selected.comments?.some((c: any) => c.type === 'system' && c.author_role === 'customer' && c.content?.includes('Zoom')) && (
+                  selected.comments?.some((c) => c.type === 'system' && c.author_role === 'customer' && c.content?.includes('Zoom')) && (
                   <div style={{ background: '#0F1F2E', border: '2px solid #3B82F6', borderRadius: 12, padding: '12px 16px', marginBottom: 16 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                       <span style={{ fontSize: 24 }}>📹</span>
@@ -734,7 +782,7 @@ export default function DesignerDashboard() {
                 {(selected.zoomSessions || []).length > 0 && (
                   <div style={{ marginTop: 20 }}>
                     <div style={{ fontSize: 12, color: '#6B7280', marginBottom: 10, fontWeight: 600 }}>ӨМНӨХ УУЛЗАЛТУУД</div>
-                    {(selected.zoomSessions || []).map((s: any) => (
+                    {(selected.zoomSessions || []).map((s) => (
                       <div key={s.id} style={{ background: '#1A1A1A', borderRadius: 10, padding: 12, marginBottom: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <div>
                           <div style={{ fontSize: 12, color: '#D1D5DB' }}>{new Date(s.created_at).toLocaleString('mn-MN')}</div>

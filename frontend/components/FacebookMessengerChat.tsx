@@ -2,9 +2,16 @@
 import { useEffect, useRef } from 'react'
 import { usePathname } from 'next/navigation'
 
+interface FacebookSdk {
+  init: (options: { xfbml: boolean; version: string; appId?: string }) => void
+  XFBML?: {
+    parse: () => void
+  }
+}
+
 declare global {
   interface Window {
-    FB?: any
+    FB?: FacebookSdk
     fbAsyncInit?: () => void
   }
 }

@@ -6,16 +6,55 @@ const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'
 const FONT = "'Cormorant Garamond','DM Sans','Segoe UI',serif"
 const SANS = "'DM Sans','Segoe UI',system-ui,sans-serif"
 
+interface InviteHeroSection {
+  names?: string
+  subtitle?: string
+  greeting?: string
+}
+
+interface StoryTimelineItem {
+  date?: string
+  title?: string
+  description?: string
+  image_url?: string
+}
+
+interface Invite {
+  title: string
+  type?: string
+  accent_color?: string
+  music_url?: string
+  cover_image_url?: string
+  event_date?: string
+  event_time?: string
+  venue_name?: string
+  venue_address?: string
+  venue_lat?: string | number
+  venue_lng?: string | number
+  show_countdown?: boolean
+  show_map?: boolean
+  rsvp_enabled?: boolean
+  hero_section?: InviteHeroSection
+  story_timeline?: StoryTimelineItem[]
+  video_urls?: string[]
+  gallery_urls?: string[]
+}
+
+interface InviteStats {
+  attending?: number
+  total_guest_count?: number
+}
+
 // ════════════════════════════════════════════
 //  MAIN PAGE
 // ════════════════════════════════════════════
 export default function InvitePage() {
-  const { slug } = useParams()
+  const { slug } = useParams<{ slug: string }>()
   const searchParams = useSearchParams()
   const guestName = searchParams.get('guest') || ''
 
-  const [inv, setInv] = useState<any>(null)
-  const [stats, setStats] = useState<any>(null)
+  const [inv, setInv] = useState<Invite | null>(null)
+  const [stats, setStats] = useState<InviteStats | null>(null)
   const [loading, setLoading] = useState(true)
   const [entered, setEntered] = useState(false)
   const [muted, setMuted] = useState(true)
@@ -33,8 +72,8 @@ export default function InvitePage() {
 
   useEffect(() => {
     Promise.all([
-      fetch(`${API}/api/invite/${slug}`).then(r => r.ok ? r.json() : null),
-      fetch(`${API}/api/invite/${slug}/stats`).then(r => r.ok ? r.json() : null),
+      fetch(`${API}/api/invite/${slug}`).then(r => r.ok ? r.json() as Promise<Invite> : null),
+      fetch(`${API}/api/invite/${slug}/stats`).then(r => r.ok ? r.json() as Promise<InviteStats> : null),
     ]).then(([i, s]) => { setInv(i); setStats(s) })
       .finally(() => setLoading(false))
   }, [slug])
@@ -69,7 +108,7 @@ export default function InvitePage() {
       })
       setRsvpSent(true)
       // Refresh stats
-      const s = await fetch(`${API}/api/invite/${slug}/stats`).then(r => r.json()).catch(() => null)
+      const s = await fetch(`${API}/api/invite/${slug}/stats`).then(r => r.ok ? r.json() as Promise<InviteStats> : null).catch(() => null)
       if (s) setStats(s)
     } catch {}
     setRsvpLoading(false)
@@ -93,6 +132,10 @@ export default function InvitePage() {
 
   const accent = inv.accent_color || '#D4AF37'
   const eventDate = inv.event_date ? new Date(inv.event_date) : null
+  const storyTimeline = Array.isArray(inv.story_timeline) ? inv.story_timeline : []
+  const videoUrls = Array.isArray(inv.video_urls) ? inv.video_urls : []
+  const galleryUrls = Array.isArray(inv.gallery_urls) ? inv.gallery_urls : []
+  const attendingCount = stats?.attending ?? 0
 
   return (
     <div style={{ minHeight: '100vh', background: '#0a0a0a', color: '#fff', fontFamily: FONT, overflowX: 'hidden' }}>
@@ -260,13 +303,13 @@ export default function InvitePage() {
           )}
 
           {/* ── STORY TIMELINE ── */}
-          {inv.story_timeline?.length > 0 && (
+          {storyTimeline.length > 0 && (
             <section style={{ maxWidth: 640, margin: '0 auto', padding: '0 24px 80px' }}>
               <SectionTitle text="Бидний түүх" accent={accent} />
               <div style={{ marginTop: 40, position: 'relative', paddingLeft: 32 }}>
                 {/* Vertical line */}
                 <div style={{ position: 'absolute', left: 8, top: 0, bottom: 0, width: 1, background: `${accent}30` }} />
-                {inv.story_timeline.map((s: any, i: number) => (
+                {storyTimeline.map((s, i) => (
                   <div key={i} style={{ marginBottom: 40, position: 'relative' }}>
                     <div style={{ position: 'absolute', left: -28, top: 4, width: 10, height: 10, borderRadius: '50%', background: accent }} />
                     {s.date && <div style={{ fontSize: 13, color: accent, fontFamily: SANS, letterSpacing: 2, marginBottom: 6 }}>{s.date}</div>}
@@ -383,9 +426,9 @@ export default function InvitePage() {
               )}
 
               {/* Stats */}
-              {stats && stats.attending > 0 && (
+              {attendingCount > 0 && (
                 <div style={{ marginTop: 32, textAlign: 'center', fontFamily: SANS }}>
-                  <div style={{ fontSize: 36, fontWeight: 700, color: accent }}>{stats.total_guest_count || stats.attending}</div>
+                  <div style={{ fontSize: 36, fontWeight: 700, color: accent }}>{stats?.total_guest_count || attendingCount}</div>
                   <div style={{ fontSize: 13, color: 'rgba(255,255,255,0.4)', marginTop: 4 }}>зочин ирнэ</div>
                 </div>
               )}
@@ -393,11 +436,11 @@ export default function InvitePage() {
           )}
 
           {/* ── VIDEO ── */}
-          {inv.video_urls?.length > 0 && (
+          {videoUrls.length > 0 && (
             <section style={{ maxWidth: 640, margin: '0 auto', padding: '0 24px 80px' }}>
               <SectionTitle text="Видео" accent={accent} />
               <div style={{ display: 'flex', flexDirection: 'column', gap: 16, marginTop: 32 }}>
-                {inv.video_urls.map((url: string, i: number) => (
+                {videoUrls.map((url, i) => (
                   <div key={i} style={{ borderRadius: 16, overflow: 'hidden', border: `1px solid ${accent}15` }}>
                     <video src={url} controls playsInline preload="metadata"
                       style={{ width: '100%', display: 'block', background: '#000' }} />
@@ -408,11 +451,11 @@ export default function InvitePage() {
           )}
 
           {/* ── GALLERY ── */}
-          {inv.gallery_urls?.length > 0 && (
+          {galleryUrls.length > 0 && (
             <section style={{ maxWidth: 640, margin: '0 auto', padding: '0 24px 80px' }}>
               <SectionTitle text="Зургийн цомог" accent={accent} />
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 8, marginTop: 32 }}>
-                {inv.gallery_urls.map((url: string, i: number) => (
+                {galleryUrls.map((url, i) => (
                   <div key={i} onClick={() => setLightboxImg(url)} style={{ aspectRatio: '1', borderRadius: 12, overflow: 'hidden', border: `1px solid ${accent}10`, cursor: 'pointer' }}>
                     <img src={url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', transition: 'transform 0.4s' }}
                       onMouseEnter={e => (e.currentTarget.style.transform = 'scale(1.05)')}

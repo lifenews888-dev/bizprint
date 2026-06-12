@@ -70,15 +70,178 @@ const WIDE_TYPES = [
 /* ─── Breakdown line type ─── */
 interface BLine { label: string; amount: number; color?: string }
 
+type PricingConfig = typeof DEFAULT_PRICES;
+type QuoteTab = 'sign' | 'print';
+type PrintSub = 'offset' | 'wide';
+type AiLamination = 'none' | 'matt' | 'gloss';
+
+interface LoggedUser {
+  id?: string;
+  full_name?: string;
+  email?: string;
+  phone?: string;
+  company_name?: string;
+  company?: string;
+}
+
+interface QuoteFormState {
+  tab: QuoteTab;
+  signProd: string;
+  signText: string;
+  extraRele: boolean;
+  extraTog: boolean;
+  extraCrane1: boolean;
+  extraCrane8: boolean;
+  tovgorSize: number;
+  tovgorQty: number;
+  dimW: number;
+  dimH: number;
+  printSub: PrintSub;
+  offProduct: string;
+  offSize: string;
+  offPages: number;
+  offQty: number;
+  offGsm: number;
+  offColor: 'full' | 'bw';
+  offSides: 'single' | 'double';
+  offFinish: string;
+  offFold: string;
+  wideType: string;
+  wideW: number;
+  wideL: number;
+  rush: string;
+  margin: 'b2b' | 'retail';
+}
+
+interface QuoteLine {
+  label: string;
+  amount: number;
+}
+
+interface SavedQuote {
+  id: string;
+  product_name: string;
+  text?: string;
+  product_type: string;
+  product_subtype: string;
+  dimensions: string;
+  quantity: number;
+  size?: string;
+  pages?: number;
+  paper_gsm?: number;
+  color_mode?: string;
+  sides?: string;
+  finishing?: string;
+  paper_type?: string;
+  base_price?: number;
+  subtotal: number;
+  vat: number;
+  total_price: number;
+  unit_price: number;
+  margin_rate: number;
+  rush_type: string;
+  rush_fee: number;
+  discount_amount: number;
+  pricing_mode: string;
+  extras?: Record<string, unknown>;
+  notes?: string;
+  breakdown: QuoteLine[];
+  _form?: QuoteFormState;
+}
+
+interface QuoteCalculateBody {
+  product?: string;
+  size?: number;
+  quantity?: number;
+  width?: number;
+  height?: number;
+  pricing_key?: string;
+  rush_hours?: number;
+  pricing_mode?: string;
+  extra_rele?: boolean;
+  extra_tog?: boolean;
+  extra_crane1?: boolean;
+  extra_crane8?: boolean;
+  size_code?: string;
+  pages?: number;
+  gsm?: number;
+  color_mode?: string;
+  sides?: string;
+  finishing?: string;
+  fold?: string;
+  type?: string;
+  length?: number;
+  calculation_type?: string;
+}
+
+interface QuoteApiResult {
+  id?: string;
+  quote_number?: string;
+  total_price?: number;
+  subtotal?: number;
+  vat?: number;
+  unit_price?: number;
+}
+
+interface QuoteBatchResponse {
+  count?: number;
+  quotes?: QuoteApiResult[];
+}
+
+interface UploadResponse {
+  file_url?: string;
+}
+
+interface AiCheck {
+  status?: 'pass' | 'warning' | 'fail' | 'info' | string;
+  detail?: string;
+}
+
+interface AiIssue {
+  severity?: 'info' | 'warning' | 'error' | string;
+  message?: string;
+}
+
+interface AiInspectorSuccess {
+  error?: undefined;
+  score: number;
+  page_width_mm?: number;
+  page_height_mm?: number;
+  pages?: number;
+  checks?: Record<string, AiCheck>;
+  summary?: string;
+  issues?: AiIssue[];
+}
+
+interface AiInspectorError {
+  error: string;
+}
+
+type AiInspectorResult = AiInspectorSuccess | AiInspectorError;
+
+interface AiFinishing {
+  lamination: AiLamination;
+  uv: boolean;
+  emboss: boolean;
+  foil: boolean;
+}
+
+type AiFinishingToggleKey = Exclude<keyof AiFinishing, 'lamination'>;
+
+function isAiInspectorSuccess(result: AiInspectorResult | null): result is AiInspectorSuccess {
+  return Boolean(result && !result.error);
+}
+
 /* ─────────────────────────── PAGE ─────────────────────────── */
 export default function DetailedQuote() {
   const router = useRouter();
 
   /* ─ logged-in user detection ─ */
-  const [loggedUser, setLoggedUser] = useState<any>(null);
+  const [loggedUser, setLoggedUser] = useState<LoggedUser | null>(null);
   useEffect(() => {
     try {
-      const u = JSON.parse(localStorage.getItem('user') || 'null');
+      const parsed: unknown = JSON.parse(localStorage.getItem('user') || 'null');
+      const u = parsed && typeof parsed === 'object' ? parsed as LoggedUser : null;
       if (u?.id) {
         setLoggedUser(u);
         setMName(u.full_name || '');
@@ -90,9 +253,9 @@ export default function DetailedQuote() {
   }, []);
 
   /* ─ remote config ─ */
-  const [prices, setPrices] = useState(DEFAULT_PRICES);
+  const [prices, setPrices] = useState<PricingConfig>(DEFAULT_PRICES);
   useEffect(() => {
-    apiFetch<any>('/pricing-config/public', { auth: false }).catch(() => null)
+    apiFetch<Partial<PricingConfig>>('/pricing-config/public', { auth: false }).catch(() => null)
       .then(d => { if (d && typeof d === 'object') setPrices({ ...DEFAULT_PRICES, ...d }); })
       .catch(() => {});
   }, []);
@@ -102,13 +265,13 @@ export default function DetailedQuote() {
   const [tab, setTab] = useState<'sign' | 'print'>('sign');
   const [aiFile, setAiFile] = useState<File | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
-  const [aiResult, setAiResult] = useState<any>(null);
+  const [aiResult, setAiResult] = useState<AiInspectorResult | null>(null);
   // AI quote user inputs
   const [aiQty, setAiQty] = useState(100);
   const [aiInnerGsm, setAiInnerGsm] = useState(100);
   const [aiCoverType, setAiCoverType] = useState<'soft' | 'hard'>('soft');
   const [aiCoverGsm, setAiCoverGsm] = useState(250);
-  const [aiFinishing, setAiFinishing] = useState({ lamination: 'matt' as 'none' | 'matt' | 'gloss', uv: false, emboss: false, foil: false });
+  const [aiFinishing, setAiFinishing] = useState<AiFinishing>({ lamination: 'matt', uv: false, emboss: false, foil: false });
   const [aiShowPrice, setAiShowPrice] = useState(false);
   // Sign quote — text + logo
   const [signText, setSignText] = useState('');
@@ -171,12 +334,12 @@ export default function DetailedQuote() {
   const [lastQuoteIds, setLastQuoteIds] = useState<string[]>([]);
 
   /* ─ batch quotes (жагсаалтад нэмэх) ─ */
-  const [savedQuotes, setSavedQuotes] = useState<any[]>([]);
+  const [savedQuotes, setSavedQuotes] = useState<SavedQuote[]>([]);
   const [showSaved, setShowSaved] = useState(false);
 
   // removeFromList, savedTotal — addToList нь displayTotal-аас хамааралтай тул доор зарлагдана
   const removeFromList = (id: string) => setSavedQuotes(prev => prev.filter(q => q.id !== id));
-  const editQuote = (sq: any) => {
+  const editQuote = (sq: SavedQuote) => {
     const f = sq._form;
     if (!f) return;
     setTab(f.tab); setSignProd(f.signProd); setTovgorSize(f.tovgorSize); setTovgorQty(f.tovgorQty);
@@ -328,8 +491,8 @@ export default function DetailedQuote() {
   }, [tab, printSub, signCalc, offsetCalc, wideCalc]);
 
   /* ─── API-BASED CALCULATION (authoritative when available) ─── */
-  const [apiResult, setApiResult] = useState<any>(null);
-  const [offAiResult, setOffAiResult] = useState<any>(null);   // AI layout+cost breakdown for offset tab
+  const [apiResult, setApiResult] = useState<QuoteApiResult | null>(null);
+  const [offAiResult, setOffAiResult] = useState<QuoteApiResult | null>(null);   // AI layout+cost breakdown for offset tab
   const [offAiLoading, setOffAiLoading] = useState(false);
 
   const getPricingKey = () => {
@@ -349,7 +512,7 @@ export default function DetailedQuote() {
   useEffect(() => {
     const timer = setTimeout(() => {
       let endpoint = '';
-      let body: any = {};
+      let body: QuoteCalculateBody = {};
 
       if (tab === 'sign') {
         endpoint = 'calculate-hadag';
@@ -396,7 +559,7 @@ export default function DetailedQuote() {
 
       if (isOffset) setOffAiLoading(true);
 
-      apiFetch<any>(`/quote/calculate`, {
+      apiFetch<QuoteApiResult>(`/quote/calculate`, {
         method: 'POST',
         body: { ...body, calculation_type: endpoint },
         auth: false,
@@ -475,7 +638,7 @@ export default function DetailedQuote() {
       dims = `${wideW}×${wideL}м`;
     }
 
-    const newQuote = {
+    const newQuote: SavedQuote = {
       id: Date.now().toString(),
       product_name: productName,
       product_type: productType,
@@ -511,7 +674,7 @@ export default function DetailedQuote() {
       } else {
         params = `product_type=wide&product_subtype=${wideType}`;
       }
-      apiFetch<any>(`/quote/market-analysis?${params}`, { auth: false })
+      apiFetch<MarketData>(`/quote/market-analysis?${params}`, { auth: false })
         .then(r => r)
         .then(d => setMarket(d))
         .catch(() => setMarket(null));
@@ -563,7 +726,8 @@ export default function DetailedQuote() {
     }
 
     // Одоогийн тооцоог batch-д нэмэх
-    const currentQuote: any = {
+    const currentQuote: SavedQuote = {
+      id: Date.now().toString(),
       product_name: productName,
       product_type: productType,
       product_subtype: productSubtype,
@@ -596,12 +760,19 @@ export default function DetailedQuote() {
 
     try {
       const storedUser = typeof window !== 'undefined'
-        ? (() => { try { return JSON.parse(localStorage.getItem('user') || 'null') } catch { return null } })()
+        ? (() => {
+            try {
+              const parsed: unknown = JSON.parse(localStorage.getItem('user') || 'null');
+              return parsed && typeof parsed === 'object' ? parsed as LoggedUser : null;
+            } catch {
+              return null;
+            }
+          })()
         : null;
 
       if (allQuotes.length > 1) {
         // BATCH: олон quote → нэг имэйл
-        const data = await apiFetch<any>('/quote/batch', {
+        const data = await apiFetch<QuoteBatchResponse>('/quote/batch', {
           method: 'POST',
           auth: false,
           body: {
@@ -616,7 +787,7 @@ export default function DetailedQuote() {
         });
 
         setSavedQuotes([]); // Жагсаалт цэвэрлэх
-        const ids = (data?.quotes || []).map((q: any) => q.id).filter(Boolean);
+        const ids = (data?.quotes || []).map(q => q.id).filter((id): id is string => Boolean(id));
         setLastQuoteIds(ids);
 
         if (loggedUser) {
@@ -627,7 +798,7 @@ export default function DetailedQuote() {
         }
       } else {
         // SINGLE: нэг quote
-        const data = await apiFetch<any>('/quote', {
+        const data = await apiFetch<QuoteApiResult>('/quote', {
           method: 'POST',
           auth: false,
           body: {
@@ -722,7 +893,7 @@ export default function DetailedQuote() {
                   setSignLogo(file); setSignLogoUrl(URL.createObjectURL(file))
                   try {
                     const fd = new FormData(); fd.append('file', file)
-                    const res = await apiUpload<any>('/upload/file', fd)
+                    const res = await apiUpload<UploadResponse>('/upload/file', fd)
                     if (res?.file_url) setSignLogoUrl(res.file_url.startsWith('http') ? res.file_url : `${API_URL}${res.file_url}`)
                   } catch {}
                 }} />
@@ -974,10 +1145,12 @@ export default function DetailedQuote() {
                   setAiLoading(true); setAiResult(null)
                   try {
                     const fd = new FormData(); fd.append('file', aiFile)
-                    const res = await apiUpload<any>('/ai/pdf-inspector/inspect', fd)
+                    const res = await apiUpload<AiInspectorResult>('/ai/pdf-inspector/inspect', fd)
                     if (res) setAiResult(res)
                     else setAiResult({ error: 'Хариу ирсэнгүй' })
-                  } catch (e: any) { setAiResult({ error: e.message || 'AI шинжлэх алдаа' }) }
+                  } catch (e: unknown) {
+                    setAiResult({ error: e instanceof Error ? e.message : 'AI шинжлэх алдаа' })
+                  }
                   setAiLoading(false)
                 }} disabled={aiLoading} style={{
                   marginTop: 16, width: '100%', padding: '14px 0', borderRadius: 12, border: 'none',
@@ -989,7 +1162,7 @@ export default function DetailedQuote() {
               )}
 
               {/* AI Result */}
-              {aiResult && !aiResult.error && (
+              {isAiInspectorSuccess(aiResult) && (
                 <div style={{ marginTop: 20, textAlign: 'left', background: 'var(--bg)', borderRadius: 12, border: '1px solid var(--border)', padding: 20 }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
                     <h3 style={{ fontSize: 14, fontWeight: 700, color: '#3B82F6', margin: 0 }}>✅ AI шинжилгээний үр дүн</h3>
@@ -1016,7 +1189,7 @@ export default function DetailedQuote() {
                   {/* Preflight checks */}
                   {aiResult.checks && (
                     <div style={{ marginBottom: 12, display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-                      {Object.entries(aiResult.checks).map(([key, check]: [string, any]) => {
+                      {Object.entries(aiResult.checks).map(([key, check]) => {
                         const icon = check.status === 'pass' ? '✅' : check.status === 'warning' ? '⚠️' : check.status === 'fail' ? '❌' : 'ℹ️'
                         const labels: Record<string, string> = { resolution: 'Чанар', color_mode: 'Өнгө', bleed: 'Bleed', fonts: 'Фонт', page_size: 'Хэмжээ', transparency: 'Transparency' }
                         return (
@@ -1038,9 +1211,9 @@ export default function DetailedQuote() {
                   )}
 
                   {/* Issues */}
-                  {aiResult.issues?.length > 0 && (
+                  {(aiResult.issues?.length ?? 0) > 0 && (
                     <div style={{ marginBottom: 12 }}>
-                      {aiResult.issues.filter((i: any) => i.severity !== 'info').map((issue: any, idx: number) => (
+                      {aiResult.issues?.filter(issue => issue.severity !== 'info').map((issue, idx) => (
                         <div key={idx} style={{ fontSize: 11, padding: '6px 10px', borderRadius: 6, marginBottom: 4,
                           background: issue.severity === 'error' ? '#FEF2F2' : '#FFFBEB',
                           color: issue.severity === 'error' ? '#DC2626' : '#D97706',
@@ -1139,17 +1312,17 @@ export default function DetailedQuote() {
                             ))}
                           </div>
                         ))}
-                        {[
+                        {([
                           { key: 'uv', label: 'UV лак', price: '+200₮/ш' },
                           { key: 'emboss', label: 'Тамга (emboss)', price: '+500₮/ш' },
                           { key: 'foil', label: 'Фольга тамга', price: '+800₮/ш' },
-                        ].map(f => (
-                          <button key={f.key} onClick={() => { setAiFinishing(p => ({ ...p, [f.key]: !(p as any)[f.key] })); setAiShowPrice(false) }} style={{
+                        ] satisfies { key: AiFinishingToggleKey; label: string; price: string }[]).map(f => (
+                          <button key={f.key} onClick={() => { setAiFinishing(p => ({ ...p, [f.key]: !p[f.key] })); setAiShowPrice(false) }} style={{
                             padding: '5px 10px', borderRadius: 6, fontSize: 10, fontWeight: 600, cursor: 'pointer',
-                            border: (aiFinishing as any)[f.key] ? '1.5px solid #FF6B00' : '1px solid #E5E7EB',
-                            background: (aiFinishing as any)[f.key] ? '#FFF7ED' : '#fff', color: (aiFinishing as any)[f.key] ? '#FF6B00' : '#888',
+                            border: aiFinishing[f.key] ? '1.5px solid #FF6B00' : '1px solid #E5E7EB',
+                            background: aiFinishing[f.key] ? '#FFF7ED' : '#fff', color: aiFinishing[f.key] ? '#FF6B00' : '#888',
                           }}>
-                            {(aiFinishing as any)[f.key] ? '✓ ' : ''}{f.label} <span style={{ color: '#BBB', fontSize: 9 }}>{f.price}</span>
+                            {aiFinishing[f.key] ? '✓ ' : ''}{f.label} <span style={{ color: '#BBB', fontSize: 9 }}>{f.price}</span>
                           </button>
                         ))}
                       </div>
@@ -1193,7 +1366,10 @@ export default function DetailedQuote() {
                     let prc = 0, sc = 0
                     if (pt === 'digital') prc = ip * 25 * qty; else { sc = 50000; prc = ts * 80 * qty }
                     let cc = 0
-                    if (isBook) { cc = aiCoverType === 'hard' ? 3000 * qty : (({ 200: 300, 250: 400, 300: 500 } as any)[aiCoverGsm] + 400 + (aiFinishing.lamination !== 'none' ? 200 : 0)) * qty }
+                    if (isBook) {
+                      const coverRates: Record<number, number> = { 200: 300, 250: 400, 300: 500 }
+                      cc = aiCoverType === 'hard' ? 3000 * qty : ((coverRates[aiCoverGsm] || 400) + 400 + (aiFinishing.lamination !== 'none' ? 200 : 0)) * qty
+                    }
                     let fpu = 0
                     if (aiFinishing.lamination !== 'none') fpu += aiFinishing.lamination === 'matt' ? 180 : 150
                     if (aiFinishing.uv) fpu += 200; if (aiFinishing.emboss) fpu += 500; if (aiFinishing.foil) fpu += 800

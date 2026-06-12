@@ -26,13 +26,22 @@ export interface PriceBreakdown {
   is_estimate: boolean
 }
 
+interface ProductPricingSource {
+  pricing_mode?: string | null
+  sale_price?: string | number | null
+  base_price?: string | number | null
+}
+
+const errorMessage = (error: unknown, fallback: string) =>
+  error instanceof Error && error.message ? error.message : fallback
+
 /**
  * usePriceCalculator — Real-time үнэ тооцоолох hook
  *
  * 300ms debounce-тэй, API руу POST /products/:id/calculate илгээнэ
  * Fixed price бүтээгдэхүүнд API дуудахгүй, client-side тооцоолно
  */
-export function usePriceCalculator(productId: string | null, product: any) {
+export function usePriceCalculator(productId: string | null, product: ProductPricingSource | null | undefined) {
   const [input, setInput] = useState<PriceInput>({ quantity: 1 })
   const [result, setResult] = useState<PriceBreakdown | null>(null)
   const [loading, setLoading] = useState(false)
@@ -63,11 +72,11 @@ export function usePriceCalculator(productId: string | null, product: any) {
     try {
       const res = await apiFetch<PriceBreakdown>(`/products/${productId}/calculate`, {
         method: 'POST', auth: false,
-        body: newInput as any,
+        body: { ...newInput },
       })
       setResult(res)
-    } catch (e: any) {
-      setError(e.message || 'Тооцоолох боломжгүй')
+    } catch (e: unknown) {
+      setError(errorMessage(e, 'Тооцоолох боломжгүй'))
     } finally {
       setLoading(false)
     }

@@ -8,7 +8,82 @@ import { apiFetch } from '@/lib/api'
  *  inline in /dashboard when in creator mode
  * ═══════════════════════════════════════ */
 
-const STAT_CARDS = [
+interface CreatorUser {
+  id?: string
+  creator_capabilities?: unknown
+}
+
+interface CreatorEarnings {
+  active_jobs?: number
+  completed_jobs?: number
+  total_earned?: number
+  pending_payout?: number
+  avg_rating?: number
+  total_jobs?: number
+}
+
+interface CreatorProject {
+  id: string
+  title?: string
+  status: string
+  content_type?: string
+  creator_payout?: number | string
+}
+
+interface CreatorJob {
+  id: string
+  title?: string
+  content_type?: string
+  package?: string
+  creator_payout?: number | string
+  quantity?: number | string
+}
+
+interface LiveBooking {
+  id: string
+  title?: string
+  platform?: string
+  duration_minutes?: number | string
+  scheduled_at: string
+  creator_payout?: number | string
+}
+
+interface CreatorScoreData {
+  score?: number
+  level?: string
+  breakdown?: {
+    rating?: number
+    performance?: number
+    activity?: number
+  }
+}
+
+interface RankData {
+  rankScore?: number
+}
+
+interface LeaderboardEntry {
+  creator_id: string
+  name?: string
+  completedJobs?: number
+  totalEarned?: number
+  rankScore?: number
+}
+
+function readCreatorCapabilities(): string[] {
+  if (typeof window === 'undefined') return []
+  try {
+    const parsed: unknown = JSON.parse(localStorage.getItem('user') || '{}')
+    const user = parsed && typeof parsed === 'object' ? parsed as CreatorUser : {}
+    return Array.isArray(user.creator_capabilities)
+      ? user.creator_capabilities.filter((item): item is string => typeof item === 'string')
+      : []
+  } catch {
+    return []
+  }
+}
+
+const STAT_CARDS: Array<{ key: keyof CreatorEarnings; label: string; icon: string; color: string }> = [
   { key: 'active_jobs', label: 'Идэвхтэй ажил', icon: '🎯', color: '#FF6B00' },
   { key: 'completed_jobs', label: 'Дууссан ажил', icon: '✅', color: '#10B981' },
   { key: 'total_earned', label: 'Нийт орлого', icon: '💰', color: '#8B5CF6' },
@@ -28,32 +103,27 @@ const STATUS_LABEL: Record<string, { text: string; color: string }> = {
 }
 
 export default function CreatorDashboardContent() {
-  const [earnings, setEarnings] = useState<any>(null)
-  const [projects, setProjects] = useState<any[]>([])
-  const [jobs, setJobs] = useState<any[]>([])
-  const [liveBookings, setLiveBookings] = useState<any[]>([])
-  const [liveJobs, setLiveJobs] = useState<any[]>([])
-  const [capabilities, setCapabilities] = useState<string[]>([])
+  const [earnings, setEarnings] = useState<CreatorEarnings | null>(null)
+  const [projects, setProjects] = useState<CreatorProject[]>([])
+  const [jobs, setJobs] = useState<CreatorJob[]>([])
+  const [liveBookings, setLiveBookings] = useState<LiveBooking[]>([])
+  const [liveJobs, setLiveJobs] = useState<LiveBooking[]>([])
+  const [capabilities] = useState<string[]>(() => readCreatorCapabilities())
   const [loading, setLoading] = useState(true)
-  const [scoreData, setScoreData] = useState<any>(null)
-  const [rankData, setRankData] = useState<any>(null)
-  const [leaderboard, setLeaderboard] = useState<any[]>([])
+  const [scoreData, setScoreData] = useState<CreatorScoreData | null>(null)
+  const [rankData, setRankData] = useState<RankData | null>(null)
+  const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([])
 
   useEffect(() => {
-    try {
-      const u = JSON.parse(localStorage.getItem('user') || '{}')
-      setCapabilities(u.creator_capabilities || [])
-    } catch {}
-
     Promise.all([
-      apiFetch<any>('/creator/earnings').catch(() => null),
-      apiFetch<any[]>('/creator/projects').catch(() => []),
-      apiFetch<any[]>('/creator/jobs').catch(() => []),
-      apiFetch<any[]>('/creator/live/schedule').catch(() => []),
-      apiFetch<any[]>('/creator/live/available').catch(() => []),
-      apiFetch<any>('/creator/score').catch(() => null),
-      apiFetch<any>('/creator/rank').catch(() => null),
-      apiFetch<any[]>('/creator/leaderboard?limit=5').catch(() => []),
+      apiFetch<CreatorEarnings>('/creator/earnings').catch(() => null),
+      apiFetch<CreatorProject[]>('/creator/projects').catch(() => []),
+      apiFetch<CreatorJob[]>('/creator/jobs').catch(() => []),
+      apiFetch<LiveBooking[]>('/creator/live/schedule').catch(() => []),
+      apiFetch<LiveBooking[]>('/creator/live/available').catch(() => []),
+      apiFetch<CreatorScoreData>('/creator/score').catch(() => null),
+      apiFetch<RankData>('/creator/rank').catch(() => null),
+      apiFetch<LeaderboardEntry[]>('/creator/leaderboard?limit=5').catch(() => []),
     ]).then(([e, p, j, lb, lj, sc, rk, ld]) => {
       setEarnings(e)
       setProjects(Array.isArray(p) ? p : [])

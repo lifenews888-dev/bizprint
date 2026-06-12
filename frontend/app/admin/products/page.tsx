@@ -25,6 +25,120 @@ const UNIT_TYPES = [
 
 const FONT = "'DM Sans','Segoe UI',system-ui,sans-serif"
 
+type ApiListResponse<T> = T[] | { items?: T[]; total?: number }
+type ApiError = { message?: string }
+type CategoryRecord = {
+  id: string
+  name?: string
+  name_mn?: string
+  slug?: string
+  icon?: string
+  parent_id?: string | null
+  is_active?: boolean
+}
+type ProductRecord = {
+  id: string
+  name?: string
+  name_mn?: string
+  name_en?: string
+  code?: string
+  category?: string
+  subcategory?: string
+  unit_type?: string
+  description?: string
+  thumbnail_url?: string
+  images?: string[]
+  video_url?: string
+  base_price?: number | string
+  sale_price?: number | string
+  price_per_m2?: number
+  min_area_m2?: number
+  double_side_multiplier?: number
+  features_html?: string
+  shop_slug?: string
+  shop_category?: string
+  qty_condition?: string
+  top_menu?: string
+  seo_description?: string
+  price_excl_vat?: number
+  materials?: MaterialRecord[]
+  sizes?: SizeRecord[]
+  is_active?: boolean
+  is_featured?: boolean
+  is_new?: boolean
+  is_bestseller?: boolean
+  is_out_of_stock?: boolean
+  is_flash_deal?: boolean
+  flash_deal_end?: string
+  badge?: string
+  stock_quantity?: number | string
+  sku?: string
+  compare_specs?: unknown
+  price_formula?: SignagePriceFormula
+  pricing_mode?: string
+  order_flow?: string
+  requires_dimensions?: boolean
+  requires_quote_approval?: boolean
+}
+type MaterialRecord = {
+  id?: string
+  material_code: string
+  material_name_mn: string
+  unit: string
+  base_cost: number
+  display_name?: string
+  is_default?: boolean
+}
+type SizeRecord = {
+  id?: string
+  size_code: string
+  size_label: string
+  width_mm: number
+  height_mm: number
+  base_price: number
+  is_custom?: boolean
+}
+type AddonRecord = {
+  id: string
+  name_mn?: string
+  code?: string
+  price_type?: string
+  price?: number | string
+  applicable_products?: string[]
+}
+type TemplateRecord = {
+  id: string
+  title?: string
+  name?: string
+  category?: string
+  price?: number | string
+  preview_images?: string[]
+  designer_name?: string
+}
+type SignagePriceOption = {
+  type?: string
+  price?: number
+}
+type SignagePriceFormula = {
+  type?: string
+  price_per_m2?: number
+  min_area_m2?: number
+  options?: Record<string, SignagePriceOption>
+  double_side_multiplier?: number
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : (error as ApiError)?.message || ''
+}
+
+function readList<T>(data: ApiListResponse<T>): T[] {
+  return Array.isArray(data) ? data : data.items || []
+}
+
+function calcColorMode(value: string): CalcInput['colorMode'] {
+  return value === 'bw' ? 'bw' : 'color'
+}
+
 const inp: React.CSSProperties = {
   width: '100%', padding: '10px 14px', background: 'var(--surface2)',
   border: '1px solid var(--border)', borderRadius: 8, fontSize: 13,
@@ -238,50 +352,50 @@ function BulkActionBar({ selected, onMove, onDelete, onClear }: {
 }
 
 function PrintProductsTab() {
-  const [items, setItems] = useState<any[]>([])
+  const [items, setItems] = useState<ProductRecord[]>([])
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('')
   const [modalOpen, setModalOpen] = useState(false)
-  const [editing, setEditing] = useState<any>(null)
+  const [editing, setEditing] = useState<ProductRecord | null>(null)
   const [form, setForm] = useState({ ...emptyPrint })
   const [formTab, setFormTab] = useState(0)
-  const [materials, setMaterials] = useState<any[]>([])
-  const [sizes, setSizes] = useState<any[]>([])
+  const [materials, setMaterials] = useState<MaterialRecord[]>([])
+  const [sizes, setSizes] = useState<SizeRecord[]>([])
   const [materialForm, setMaterialForm] = useState({ ...emptyMaterial })
   const [sizeForm, setSizeForm] = useState({ ...emptySize })
-  const [editingMaterial, setEditingMaterial] = useState<any>(null)
-  const [editingSize, setEditingSize] = useState<any>(null)
+  const [editingMaterial, setEditingMaterial] = useState<MaterialRecord | null>(null)
+  const [editingSize, setEditingSize] = useState<SizeRecord | null>(null)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
-  const [allAddons, setAllAddons] = useState<any[]>([])
+  const [allAddons, setAllAddons] = useState<AddonRecord[]>([])
   const [selectedAddonIds, setSelectedAddonIds] = useState<string[]>([])
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const toggleSelect = (id: string) => setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
   const bulkMove = async (type: string) => {
     if (!confirm(`${selectedIds.length} бараа-г "${PRODUCT_TYPES.find(t => t.value === type)?.label}" руу шилжүүлэх үү?`)) return
-    await apiFetch('/admin/products-master/bulk-move', { method: 'POST', body: { ids: selectedIds, product_type: type } as any })
+    await apiFetch('/admin/products-master/bulk-move', { method: 'POST', body: { ids: selectedIds, product_type: type } })
     setSelectedIds([]); load()
   }
   const bulkDelete = async () => {
     if (!confirm(`${selectedIds.length} бараа устгах уу?`)) return
-    await apiFetch('/admin/products-master/bulk-delete', { method: 'POST', body: { ids: selectedIds } as any })
+    await apiFetch('/admin/products-master/bulk-delete', { method: 'POST', body: { ids: selectedIds } })
     setSelectedIds([]); load()
   }
 
   // Load all addons
   useEffect(() => {
-    apiFetch<any>('/admin/products-master/addons/all').then(res => {
+    apiFetch<AddonRecord[]>('/admin/products-master/addons/all').then(res => {
       if (Array.isArray(res)) setAllAddons(res)
     }).catch(() => {})
   }, [])
 
   // Dynamic categories from DB (root + children)
-  const [allCats, setAllCats] = useState<any[]>([])
+  const [allCats, setAllCats] = useState<CategoryRecord[]>([])
   useEffect(() => {
-    apiFetch<any>('/categories', { auth: false }).then(cats => {
-      if (Array.isArray(cats)) setAllCats(cats.filter((c: any) => c.is_active))
+    apiFetch<CategoryRecord[]>('/categories', { auth: false }).then(cats => {
+      if (Array.isArray(cats)) setAllCats(cats.filter(c => c.is_active))
     }).catch(() => {})
   }, [])
   const rootCats = allCats.filter(c => !c.parent_id)
@@ -302,12 +416,13 @@ function PrintProductsTab() {
       params.set('product_type', 'print')
       if (search) params.set('search', search)
       if (categoryFilter) params.set('category', categoryFilter)
-      const data = await apiFetch<any>(`/admin/products-master?${params}`)
-      setItems(data.items || [])
-      setTotal(data.total || 0)
-    } catch (e: any) {
+      const data = await apiFetch<ApiListResponse<ProductRecord>>(`/admin/products-master?${params}`)
+      const list = readList(data)
+      setItems(list)
+      setTotal(Array.isArray(data) ? list.length : data.total || list.length)
+    } catch (e: unknown) {
       setItems([])
-      setError('Бүтээгдэхүүн ачааллахад алдаа: ' + (e.message || ''))
+      setError('Бүтээгдэхүүн ачааллахад алдаа: ' + errorMessage(e))
     } finally {
       setLoading(false)
     }
@@ -320,22 +435,22 @@ function PrintProductsTab() {
     setMaterialForm({ ...emptyMaterial }); setSizeForm({ ...emptySize })
     setEditingMaterial(null); setEditingSize(null); setFormTab(0); setError(''); setModalOpen(true)
   }
-  const openEdit = (item: any) => {
+  const openEdit = (item: ProductRecord) => {
     setEditing(item)
     setForm({ name_mn: item.name_mn || '', name_en: item.name_en || '', code: item.code || '',
       category: item.category || 'HADAG_REKLAM', subcategory: item.subcategory || '',
       unit_type: item.unit_type || 'PIECE', description: item.description || '',
       thumbnail_url: item.thumbnail_url || '', images: item.images || [], video_url: item.video_url || '',
-      base_price: item.base_price || 0, pricing_type: item.unit_type === 'M2' ? 'area' : 'tier',
+      base_price: Number(item.base_price || 0), pricing_type: item.unit_type === 'M2' ? 'area' : 'tier',
       price_per_m2: item.price_per_m2 || 0, min_area_m2: item.min_area_m2 || 0.25,
       double_side_multiplier: item.double_side_multiplier ?? item.price_formula?.double_side_multiplier ?? 2.0,
       features_html: item.features_html || '', shop_slug: item.shop_slug || '',
       shop_category: item.shop_category || '', qty_condition: item.qty_condition || '',
       top_menu: item.top_menu || '', seo_description: item.seo_description || '',
-      price_excl_vat: item.price_excl_vat || 0 })
+      price_excl_vat: Number(item.price_excl_vat || 0) })
     setMaterials(item.materials || []); setSizes(item.sizes || [])
     // Load addons linked to this product
-    setSelectedAddonIds(allAddons.filter(a => a.applicable_products?.includes(item.id)).map((a: any) => a.id))
+    setSelectedAddonIds(allAddons.filter(a => a.applicable_products?.includes(item.id)).map(a => a.id))
     setMaterialForm({ ...emptyMaterial }); setSizeForm({ ...emptySize })
     setEditingMaterial(null); setEditingSize(null); setFormTab(0); setError(''); setModalOpen(true)
   }
@@ -354,13 +469,13 @@ function PrintProductsTab() {
         base_price: form.pricing_type === 'area' ? form.price_per_m2 : form.base_price,
       }
       if (editing?.id) {
-        await apiFetch<any>(`/admin/products-master/${editing.id}`, {
+        await apiFetch<ProductRecord>(`/admin/products-master/${editing.id}`, {
           method: 'PUT', body: payload,
         })
         // Sync pricing to products table
         try {
           const isArea = form.pricing_type === 'area'
-          await apiFetch<any>(`/admin/shop-products/${editing.id}`, { method: 'PATCH', body: {
+          await apiFetch<ProductRecord>(`/admin/shop-products/${editing.id}`, { method: 'PATCH', body: {
             base_price: isArea ? form.price_per_m2 : form.base_price,
             pricing_mode: isArea ? 'formula' : 'tier',
             requires_dimensions: isArea,
@@ -371,7 +486,7 @@ function PrintProductsTab() {
           }}).catch(() => {}) // Ignore if no matching product
         } catch {}
       } else {
-        const res = await apiFetch<any>(`/admin/products-master`, {
+        const res = await apiFetch<ProductRecord>(`/admin/products-master`, {
           method: 'POST', body: payload,
         })
         const created = res
@@ -379,7 +494,8 @@ function PrintProductsTab() {
         setFormTab(1)  // advance to Materials tab after creating
       }
       // Sync addon applicable_products
-      const productId = editing?.id || (await apiFetch<any>(`/admin/products-master?product_type=print&search=${encodeURIComponent(form.name_mn)}`)).items?.[0]?.id
+      const createdLookup = editing?.id ? null : await apiFetch<ApiListResponse<ProductRecord>>(`/admin/products-master?product_type=print&search=${encodeURIComponent(form.name_mn)}`)
+      const productId = editing?.id || (createdLookup ? readList(createdLookup)[0]?.id : undefined)
       if (productId) {
         for (const addon of allAddons) {
           const isSelected = selectedAddonIds.includes(addon.id)
@@ -397,8 +513,8 @@ function PrintProductsTab() {
         }
       }
       await load()
-    } catch (e: any) {
-      setError('Хадгалахад алдаа: ' + (e.message || ''))
+    } catch (e: unknown) {
+      setError('Хадгалахад алдаа: ' + errorMessage(e))
     } finally { setSaving(false) }
   }
 
@@ -409,21 +525,21 @@ function PrintProductsTab() {
     setSaving(true); setError('')
     try {
       if (editingMaterial?.id) {
-        const res = await apiFetch<any>(`/admin/products-master/materials/${editingMaterial.id}`, {
+        const res = await apiFetch<MaterialRecord>(`/admin/products-master/materials/${editingMaterial.id}`, {
           method: 'PUT', body: materialForm,
         })
         const updated = res
         setMaterials(prev => prev.map(m => m.id === updated.id ? updated : m))
       } else {
-        const res = await apiFetch<any>(`/admin/products-master/${editing.id}/materials`, {
+        const res = await apiFetch<MaterialRecord>(`/admin/products-master/${editing.id}/materials`, {
           method: 'POST', body: materialForm,
         })
         const created = res
         setMaterials(prev => [...prev, created])
       }
       setMaterialForm({ ...emptyMaterial }); setEditingMaterial(null)
-    } catch (e: any) {
-      setError('Материал хадгалахад алдаа: ' + (e.message || ''))
+    } catch (e: unknown) {
+      setError('Материал хадгалахад алдаа: ' + errorMessage(e))
     } finally { setSaving(false) }
   }
 
@@ -434,27 +550,27 @@ function PrintProductsTab() {
     setSaving(true); setError('')
     try {
       if (editingSize?.id) {
-        const res = await apiFetch<any>(`/admin/products-master/sizes/${editingSize.id}`, {
+        const res = await apiFetch<SizeRecord>(`/admin/products-master/sizes/${editingSize.id}`, {
           method: 'PUT', body: sizeForm,
         })
         const updated = res
         setSizes(prev => prev.map(s => s.id === updated.id ? updated : s))
       } else {
-        const res = await apiFetch<any>(`/admin/products-master/${editing.id}/sizes`, {
+        const res = await apiFetch<SizeRecord>(`/admin/products-master/${editing.id}/sizes`, {
           method: 'POST', body: sizeForm,
         })
         const created = res
         setSizes(prev => [...prev, created])
       }
       setSizeForm({ ...emptySize }); setEditingSize(null)
-    } catch (e: any) {
-      setError('Хэмжээ хадгалахад алдаа: ' + (e.message || ''))
+    } catch (e: unknown) {
+      setError('Хэмжээ хадгалахад алдаа: ' + errorMessage(e))
     } finally { setSaving(false) }
   }
 
   const deactivate = async (id: string) => {
     if (!confirm('Устгах уу?')) return
-    await apiFetch<any>(`/admin/products-master/${id}`, { method: 'DELETE' })
+    await apiFetch<void>(`/admin/products-master/${id}`, { method: 'DELETE' })
     await load()
   }
 
@@ -615,7 +731,7 @@ function PrintProductsTab() {
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                       <div>
                         <label style={labelStyle}>Үнэ тооцох арга</label>
-                        <select value={form.pricing_type} onChange={e => setForm({ ...form, pricing_type: e.target.value as any, unit_type: e.target.value === 'area' ? 'M2' : form.unit_type })} style={{ ...inp, cursor: 'pointer' }}>
+                        <select value={form.pricing_type} onChange={e => setForm({ ...form, pricing_type: e.target.value === 'area' ? 'area' : 'tier', unit_type: e.target.value === 'area' ? 'M2' : form.unit_type })} style={{ ...inp, cursor: 'pointer' }}>
                           <option value="tier">📦 Ширхэгээр (Tier)</option>
                           <option value="area">📐 М²-аар (Талбай)</option>
                         </select>
@@ -928,45 +1044,53 @@ const BADGE_OPTIONS = [
   { value: 'FEATURED', label: '⭐ Онцлох', color: '#8B5CF6' },
   { value: 'LIMITED', label: '⏰ Хязгаартай', color: '#3B82F6' },
 ]
+const SHOP_FLAGS = [
+  { key: 'is_featured', label: '⭐ Онцлох бараа', desc: 'Нүүр хуудасны онцлох хэсэгт' },
+  { key: 'is_new', label: '🆕 Шинэ бараа', desc: '7 хоногийн дотор нэмэгдсэн' },
+  { key: 'is_bestseller', label: '🔥 Илүү сонголттой', desc: 'Хамгийн эрэлттэй' },
+  { key: 'is_out_of_stock', label: '🚫 Дууссан', desc: 'Нөөц дууссан' },
+  { key: 'is_flash_deal', label: '⚡ Flash Deal', desc: 'Онцгой хямдрал хэсэгт' },
+] as const
 
 function ShopProductsTab() {
-  const [items, setItems] = useState<any[]>([])
+  const [items, setItems] = useState<ProductRecord[]>([])
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(true)
   const [modalOpen, setModalOpen] = useState(false)
-  const [editing, setEditing] = useState<any>(null)
+  const [editing, setEditing] = useState<ProductRecord | null>(null)
   const [form, setForm] = useState({ ...emptyShop })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
-  const [categories, setCategories] = useState<any[]>([])
+  const [categories, setCategories] = useState<CategoryRecord[]>([])
   const [validation, setValidation] = useState<Record<string, boolean>>({})
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const toggleSelect = (id: string) => setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
   const bulkMove = async (type: string) => {
     if (!confirm(`${selectedIds.length} бараа-г "${PRODUCT_TYPES.find(t => t.value === type)?.label}" руу шилжүүлэх үү?`)) return
-    await apiFetch('/admin/products-master/bulk-move', { method: 'POST', body: { ids: selectedIds, product_type: type } as any })
+    await apiFetch('/admin/products-master/bulk-move', { method: 'POST', body: { ids: selectedIds, product_type: type } })
     setSelectedIds([]); load()
   }
   const bulkDelete = async () => {
     if (!confirm(`${selectedIds.length} бараа устгах уу?`)) return
-    await apiFetch('/admin/products-master/bulk-delete', { method: 'POST', body: { ids: selectedIds } as any })
+    await apiFetch('/admin/products-master/bulk-delete', { method: 'POST', body: { ids: selectedIds } })
     setSelectedIds([]); load()
   }
 
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const data = await apiFetch<any>('/admin/shop-products?product_type=shop')
-      setItems(data.items || data || [])
-      setTotal(data.total || (data.items || data || []).length)
-    } catch (e: any) {
-      setItems([]); setError('Алдаа: ' + (e.message || ''))
+      const data = await apiFetch<ApiListResponse<ProductRecord>>('/admin/shop-products?product_type=shop')
+      const list = readList(data)
+      setItems(list)
+      setTotal(Array.isArray(data) ? list.length : data.total || list.length)
+    } catch (e: unknown) {
+      setItems([]); setError('Алдаа: ' + errorMessage(e))
     } finally { setLoading(false) }
   }, [])
 
   useEffect(() => {
     load()
-    apiFetch<any>('/categories', { auth: false }).then(d => { if (Array.isArray(d)) setCategories(d.filter((c: any) => c.is_active)) }).catch(() => {})
+    apiFetch<CategoryRecord[]>('/categories', { auth: false }).then(d => { if (Array.isArray(d)) setCategories(d.filter(c => c.is_active)) }).catch(() => {})
   }, [load])
 
   // Auto-generate SKU when category changes
@@ -995,15 +1119,15 @@ function ShopProductsTab() {
   const openCreate = () => {
     setEditing(null); setForm({ ...emptyShop }); setError(''); setValidation({}); setModalOpen(true)
   }
-  const openEdit = (item: any) => {
+  const openEdit = (item: ProductRecord) => {
     setEditing(item)
     const bp = Number(item.base_price || 0)
     const sp = Number(item.sale_price || 0)
     const pct = bp > 0 && sp > 0 && sp < bp ? Math.round((1 - sp / bp) * 100) : ''
     setForm({ name_mn: item.name_mn || item.name || '', name_en: item.name || '', category: item.category || '',
-      description: item.description || '', base_price: item.base_price || 0,
-      sale_price: item.sale_price || '', discount_pct: String(pct),
-      stock_quantity: item.stock_quantity || '', sku: item.sku || '', thumbnail_url: item.thumbnail_url || '',
+      description: item.description || '', base_price: Number(item.base_price || 0),
+      sale_price: item.sale_price ? String(item.sale_price) : '', discount_pct: String(pct),
+      stock_quantity: item.stock_quantity ? String(item.stock_quantity) : '', sku: item.sku || '', thumbnail_url: item.thumbnail_url || '',
       images: item.images || [], video_url: item.video_url || '',
       is_featured: item.is_featured || false, is_new: item.is_new || false,
       is_bestseller: item.is_bestseller || false, is_out_of_stock: item.is_out_of_stock || false,
@@ -1043,22 +1167,22 @@ function ShopProductsTab() {
         badge: form.badge || null, compare_specs: specs,
       }
       if (editing?.id) {
-        await apiFetch<any>(`/admin/shop-products/${editing.id}`, { method: 'PATCH', body: payload })
+        await apiFetch<ProductRecord>(`/admin/shop-products/${editing.id}`, { method: 'PATCH', body: payload })
       } else {
-        await apiFetch<any>('/admin/shop-products', { method: 'POST', body: payload })
+        await apiFetch<ProductRecord>('/admin/shop-products', { method: 'POST', body: payload })
       }
       await load(); closeModal()
-    } catch (e: any) { setError('Хадгалахад алдаа: ' + (e.message || '')) }
+    } catch (e: unknown) { setError('Хадгалахад алдаа: ' + errorMessage(e)) }
     finally { setSaving(false) }
   }
 
   const deleteItem = async (id: string) => {
     if (!confirm('Устгах уу?')) return
-    await apiFetch<any>(`/admin/shop-products/${id}`, { method: 'DELETE' }); await load()
+    await apiFetch<void>(`/admin/shop-products/${id}`, { method: 'DELETE' }); await load()
   }
 
-  const toggleActive = async (item: any) => {
-    await apiFetch<any>(`/admin/shop-products/${item.id}`, { method: 'PATCH', body: { is_active: !item.is_active } }); await load()
+  const toggleActive = async (item: ProductRecord) => {
+    await apiFetch<ProductRecord>(`/admin/shop-products/${item.id}`, { method: 'PATCH', body: { is_active: !item.is_active } }); await load()
   }
 
   const vBorder = (field: string) => validation[field] ? { ...inp, borderColor: '#EF4444', background: 'rgba(239,68,68,0.03)' } : inp
@@ -1235,16 +1359,10 @@ function ShopProductsTab() {
                   ))}
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                  {[
-                    { key: 'is_featured', label: '⭐ Онцлох бараа', desc: 'Нүүр хуудасны онцлох хэсэгт' },
-                    { key: 'is_new', label: '🆕 Шинэ бараа', desc: '7 хоногийн дотор нэмэгдсэн' },
-                    { key: 'is_bestseller', label: '🔥 Илүү сонголттой', desc: 'Хамгийн эрэлттэй' },
-                    { key: 'is_out_of_stock', label: '🚫 Дууссан', desc: 'Нөөц дууссан' },
-                    { key: 'is_flash_deal', label: '⚡ Flash Deal', desc: 'Онцгой хямдрал хэсэгт' },
-                  ].map(flag => (
+                  {SHOP_FLAGS.map(flag => (
                     <label key={flag.key} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', borderRadius: 8, cursor: 'pointer',
-                      border: '1px solid var(--border)', background: (form as any)[flag.key] ? 'rgba(255,107,0,0.05)' : 'transparent' }}>
-                      <input type="checkbox" checked={(form as any)[flag.key] || false}
+                      border: '1px solid var(--border)', background: form[flag.key] ? 'rgba(255,107,0,0.05)' : 'transparent' }}>
+                      <input type="checkbox" checked={form[flag.key] || false}
                         onChange={e => setForm({ ...form, [flag.key]: e.target.checked })}
                         style={{ accentColor: '#FF6B00', width: 16, height: 16 }} />
                       <div>
@@ -1297,28 +1415,28 @@ function ShopProductsTab() {
 
 // ─── SIGNAGE PRODUCTS TAB (Хаяг самбар) ──────────────────────────────────────
 function SignageProductsTab() {
-  const [items, setItems] = useState<any[]>([])
+  const [items, setItems] = useState<ProductRecord[]>([])
   const [loading, setLoading] = useState(true)
   const [modalOpen, setModalOpen] = useState(false)
-  const [editing, setEditing] = useState<any>(null)
+  const [editing, setEditing] = useState<ProductRecord | null>(null)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const toggleSelect = (id: string) => setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
   const bulkMove = async (type: string) => {
     if (!confirm(`${selectedIds.length} бараа шилжүүлэх үү?`)) return
-    await apiFetch('/admin/products-master/bulk-move', { method: 'POST', body: { ids: selectedIds, product_type: type } as any })
+    await apiFetch('/admin/products-master/bulk-move', { method: 'POST', body: { ids: selectedIds, product_type: type } })
     setSelectedIds([]); load()
   }
   const bulkDelete = async () => {
     if (!confirm(`${selectedIds.length} бараа устгах уу?`)) return
-    await apiFetch('/admin/products-master/bulk-delete', { method: 'POST', body: { ids: selectedIds } as any })
+    await apiFetch('/admin/products-master/bulk-delete', { method: 'POST', body: { ids: selectedIds } })
     setSelectedIds([]); load()
   }
   const [form, setForm] = useState({
     name_mn: '', description: '', category: 'signage', thumbnail_url: '', images: [] as string[],
     pricing_mode: 'formula', order_flow: 'site_survey', requires_dimensions: true, requires_quote_approval: true,
-    price_formula: { type: 'area_based', price_per_m2: 0, min_area_m2: 0.25, options: {} as Record<string, { type: string; price: number }> },
+    price_formula: { type: 'area_based', price_per_m2: 0, min_area_m2: 0.25, options: {} as Record<string, SignagePriceOption> },
     badge: '', is_featured: false, is_new: false, video_url: '',
   })
   const [newOptionKey, setNewOptionKey] = useState('')
@@ -1326,8 +1444,8 @@ function SignageProductsTab() {
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const data = await apiFetch<any>('/admin/shop-products?product_type=signage')
-      setItems(data.items || data || [])
+      const data = await apiFetch<ApiListResponse<ProductRecord>>('/admin/shop-products?product_type=signage')
+      setItems(readList(data))
     } catch { setItems([]) } finally { setLoading(false) }
   }, [])
 
@@ -1351,16 +1469,22 @@ function SignageProductsTab() {
       if (editing?.id) await apiFetch(`/admin/shop-products/${editing.id}`, { method: 'PATCH', body: payload })
       else await apiFetch('/admin/shop-products', { method: 'POST', body: payload })
       await load(); setModalOpen(false); setEditing(null)
-    } catch (e: any) { setError(e.message || 'Алдаа') } finally { setSaving(false) }
+    } catch (e: unknown) { setError(errorMessage(e) || 'Алдаа') } finally { setSaving(false) }
   }
 
-  const editItem = (item: any) => {
+  const editItem = (item: ProductRecord) => {
+    const itemFormula = item.price_formula || {}
     setEditing(item)
     setForm({
       name_mn: item.name_mn || item.name || '', description: item.description || '',
       category: 'signage', thumbnail_url: item.thumbnail_url || '', images: item.images || [],
       pricing_mode: 'formula', order_flow: 'site_survey', requires_dimensions: true, requires_quote_approval: true,
-      price_formula: item.price_formula || { type: 'area_based', price_per_m2: 0, min_area_m2: 0.25, options: {} },
+      price_formula: {
+        type: itemFormula.type || 'area_based',
+        price_per_m2: itemFormula.price_per_m2 || 0,
+        min_area_m2: itemFormula.min_area_m2 || 0.25,
+        options: itemFormula.options || {},
+      },
       badge: item.badge || '', is_featured: item.is_featured || false, is_new: item.is_new || false, video_url: item.video_url || '',
     })
     setModalOpen(true)
@@ -1450,11 +1574,11 @@ function SignageProductsTab() {
                 {Object.entries(pf.options || {}).map(([key, opt]) => (
                   <div key={key} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, padding: '8px 10px', background: 'var(--surface)', borderRadius: 8, border: '1px solid var(--border)' }}>
                     <span style={{ fontSize: 13, fontWeight: 600, flex: 1, color: 'var(--text)' }}>{key}</span>
-                    <select value={(opt as any).type} onChange={e => setForm({ ...form, price_formula: { ...pf, options: { ...pf.options, [key]: { ...(opt as any), type: e.target.value } } } })} style={{ ...inp, width: 120 }}>
+                    <select value={opt.type || 'FIXED'} onChange={e => setForm({ ...form, price_formula: { ...pf, options: { ...pf.options, [key]: { ...opt, type: e.target.value } } } })} style={{ ...inp, width: 120 }}>
                       <option value="FIXED">Тогтмол (₮)</option>
                       <option value="PER_M2">М²-д (₮)</option>
                     </select>
-                    <input type="number" value={(opt as any).price} onChange={e => setForm({ ...form, price_formula: { ...pf, options: { ...pf.options, [key]: { ...(opt as any), price: +e.target.value } } } })} style={{ ...inp, width: 100 }} placeholder="₮" />
+                    <input type="number" value={opt.price || 0} onChange={e => setForm({ ...form, price_formula: { ...pf, options: { ...pf.options, [key]: { ...opt, price: +e.target.value } } } })} style={{ ...inp, width: 100 }} placeholder="₮" />
                     <button onClick={() => { const next = { ...pf.options }; delete next[key]; setForm({ ...form, price_formula: { ...pf, options: next } }) }} style={{ background: 'none', border: 'none', color: '#EF4444', cursor: 'pointer', fontSize: 16 }}>✕</button>
                   </div>
                 ))}
@@ -1481,7 +1605,7 @@ function SignageProductsTab() {
 
 // ─── DESIGNER TEMPLATES TAB ───────────────────────────────────────────────────
 function TemplatesTab() {
-  const [items, setItems] = useState<any[]>([])
+  const [items, setItems] = useState<TemplateRecord[]>([])
   const [loading, setLoading] = useState(true)
   const [statusFilter, setStatusFilter] = useState('pending')
   const [actionLoading, setActionLoading] = useState<string | null>(null)
@@ -1491,10 +1615,10 @@ function TemplatesTab() {
     setLoading(true)
     try {
       const params = statusFilter ? `?status=${statusFilter}` : ''
-      const data = await apiFetch<any>(`/templates${params}`)
+      const data = await apiFetch<TemplateRecord[]>(`/templates${params}`)
       setItems(Array.isArray(data) ? data : [])
-    } catch (e: any) {
-      setItems([]); setError('Алдаа: ' + (e.message || ''))
+    } catch (e: unknown) {
+      setItems([]); setError('Алдаа: ' + errorMessage(e))
     } finally { setLoading(false) }
   }, [statusFilter])
 
@@ -1503,7 +1627,7 @@ function TemplatesTab() {
   const approve = async (id: string) => {
     setActionLoading(id)
     try {
-      await apiFetch<any>(`/templates/${id}/approve`, { method: 'PATCH'})
+      await apiFetch<void>(`/templates/${id}/approve`, { method: 'PATCH'})
       await load()
     } finally { setActionLoading(null) }
   }
@@ -1512,7 +1636,7 @@ function TemplatesTab() {
     if (!confirm('Татгалзах уу?')) return
     setActionLoading(id)
     try {
-      await apiFetch<any>(`/templates/${id}/reject`, { method: 'PATCH'})
+      await apiFetch<void>(`/templates/${id}/reject`, { method: 'PATCH'})
       await load()
     } finally { setActionLoading(null) }
   }
@@ -1638,6 +1762,26 @@ interface SavedOffsetProduct {
   createdAt: string
 }
 
+type OffsetProductApiRecord = ProductRecord & {
+  book_info?: SavedOffsetProduct['book_info']
+  paper_configs?: OffsetPaperConfig[]
+  size_configs?: OffsetSizeConfig[]
+  calc_input?: CalcInput
+  calc_overrides?: Record<string, number>
+  margin_percent?: number
+  unit_price?: number
+  calc_method?: string
+  created_at?: string
+}
+
+const CALC_BOOLEAN_OPTIONS: { key: keyof Pick<CalcInput, 'hasCover' | 'folding' | 'uvCoating' | 'dieCutting' | 'embossing'>; label: string }[] = [
+  { key: 'hasCover', label: '📄 Хавтас' },
+  { key: 'folding', label: '📑 Бүрэлт' },
+  { key: 'uvCoating', label: '✨ UV лак' },
+  { key: 'dieCutting', label: '✂️ Тигел' },
+  { key: 'embossing', label: '🔖 Эмбосс' },
+]
+
 const DEFAULT_BOOK_INFO: SavedOffsetProduct['book_info'] = {
   standard_sizes: 'A4 (210×297мм), A5 (148×210мм), B5 (176×250мм)',
   recommended_pages: '32, 48, 64, 96, 128, 192, 256',
@@ -1689,21 +1833,21 @@ function OffsetProductsTab() {
   const toggleSelect = (id: string) => setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
   const bulkMove = async (type: string) => {
     if (!confirm(`${selectedIds.length} бараа шилжүүлэх үү?`)) return
-    await apiFetch('/admin/products-master/bulk-move', { method: 'POST', body: { ids: selectedIds, product_type: type } as any })
+    await apiFetch('/admin/products-master/bulk-move', { method: 'POST', body: { ids: selectedIds, product_type: type } })
     setSelectedIds([]); loadProducts()
   }
   const bulkDelete = async () => {
     if (!confirm(`${selectedIds.length} бараа устгах уу?`)) return
-    await apiFetch('/admin/products-master/bulk-delete', { method: 'POST', body: { ids: selectedIds } as any })
+    await apiFetch('/admin/products-master/bulk-delete', { method: 'POST', body: { ids: selectedIds } })
     setSelectedIds([]); loadProducts()
   }
 
   const loadProducts = useCallback(async () => {
     try {
       const token = getToken()
-      const res = await apiFetch('/admin/products-master?product_type=offset', { headers: { Authorization: `Bearer ${token}` } })
+      const res = await apiFetch<OffsetProductApiRecord[]>('/admin/products-master?product_type=offset', { headers: { Authorization: `Bearer ${token}` } })
       if (Array.isArray(res)) {
-        setProducts(res.map((item: any) => ({
+        setProducts(res.map(item => ({
           id: item.id,
           name: item.name_mn || item.name || '',
           description: item.description || '',
@@ -1715,8 +1859,8 @@ function OffsetProductsTab() {
           input: item.calc_input || { quantity: 500, totalPages: 64, paperSize: 'A3', paperGsm: 80, colorMode: 'color', folding: true, uvCoating: false, dieCutting: false, embossing: false, bindingType: 'Зөөлөн хавтас', hasCover: true, coverGsm: 250, coverColorMode: 'color' },
           overrides: item.calc_overrides || {},
           marginPercent: item.margin_percent ?? 0.25,
-          total: item.base_price || 0,
-          unitPrice: item.unit_price || 0,
+          total: Number(item.base_price || 0),
+          unitPrice: Number(item.unit_price || 0),
           method: item.calc_method || 'offset',
           createdAt: item.created_at || new Date().toISOString(),
         })))
@@ -1920,7 +2064,7 @@ function OffsetCalculatorModal({ initial, onSave, onClose }: {
   const [overrides, setOverrides] = useState<Record<string, number>>(initial?.overrides || {})
   const [editingKey, setEditingKey] = useState<string | null>(null)
 
-  const set = (k: keyof CalcInput, v: any) => setInput(prev => ({ ...prev, [k]: v }))
+  const set = <K extends keyof CalcInput>(k: K, v: CalcInput[K]) => setInput(prev => ({ ...prev, [k]: v }))
   const result = useMemo(() => calculate(input, customConstants), [input, customConstants])
 
   const finalLines = useMemo(() => result.lines.map(l => ({
@@ -1935,13 +2079,13 @@ function OffsetCalculatorModal({ initial, onSave, onClose }: {
 
   // ── Paper config helpers ──
   const addPaper = () => setPaperConfigs(prev => [...prev, { label: '', gsm: 0, price: 0 }])
-  const updatePaper = (idx: number, field: keyof OffsetPaperConfig, val: any) => {
+  const updatePaper = <K extends keyof OffsetPaperConfig>(idx: number, field: K, val: OffsetPaperConfig[K]) => {
     setPaperConfigs(prev => prev.map((p, i) => i === idx ? { ...p, [field]: val } : p))
   }
   const removePaper = (idx: number) => setPaperConfigs(prev => prev.filter((_, i) => i !== idx))
 
   const addSize = () => setSizeConfigs(prev => [...prev, { code: '', label: '', width_mm: 0, height_mm: 0, pagesPerSig: 2 }])
-  const updateSize = (idx: number, field: keyof OffsetSizeConfig, val: any) => {
+  const updateSize = <K extends keyof OffsetSizeConfig>(idx: number, field: K, val: OffsetSizeConfig[K]) => {
     setSizeConfigs(prev => prev.map((s, i) => i === idx ? { ...s, [field]: val } : s))
   }
   const removeSize = (idx: number) => setSizeConfigs(prev => prev.filter((_, i) => i !== idx))
@@ -2101,7 +2245,7 @@ function OffsetCalculatorModal({ initial, onSave, onClose }: {
                   </div>
                   <div>
                     <label style={labelStyle}>Өнгө</label>
-                    <select value={input.colorMode} onChange={e => set('colorMode', e.target.value)} style={{ ...inp, cursor: 'pointer' }}>
+                    <select value={input.colorMode} onChange={e => set('colorMode', calcColorMode(e.target.value))} style={{ ...inp, cursor: 'pointer' }}>
                       <option value="color">Өнгөт (4+4)</option>
                       <option value="bw">Хар цагаан (1+1)</option>
                     </select>
@@ -2129,17 +2273,11 @@ function OffsetCalculatorModal({ initial, onSave, onClose }: {
                 {/* Post-press toggles */}
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 14 }}>
                   {[
-                    { key: 'hasCover', label: '📄 Хавтас' },
-                    ...(result.method === 'offset' ? [
-                      { key: 'folding', label: '📑 Бүрэлт' },
-                      { key: 'uvCoating', label: '✨ UV лак' },
-                      { key: 'dieCutting', label: '✂️ Тигел' },
-                      { key: 'embossing', label: '🔖 Эмбосс' },
-                    ] : []),
+                    ...CALC_BOOLEAN_OPTIONS.filter(opt => opt.key === 'hasCover' || result.method === 'offset'),
                   ].map(opt => {
-                    const val = (input as any)[opt.key]
+                    const val = input[opt.key]
                     return (
-                      <button key={opt.key} onClick={() => set(opt.key as any, !val)}
+                      <button key={opt.key} onClick={() => set(opt.key, !val)}
                         style={{ padding: '6px 14px', borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: 'pointer', fontFamily: FONT,
                           background: val ? 'rgba(255,107,0,0.08)' : 'var(--surface2)',
                           color: val ? '#FF6B00' : 'var(--text3)',
@@ -2162,7 +2300,7 @@ function OffsetCalculatorModal({ initial, onSave, onClose }: {
                     </div>
                     <div>
                       <label style={labelStyle}>Хавтас өнгө</label>
-                      <select value={input.coverColorMode} onChange={e => set('coverColorMode', e.target.value)} style={{ ...inp, cursor: 'pointer' }}>
+                      <select value={input.coverColorMode} onChange={e => set('coverColorMode', calcColorMode(e.target.value))} style={{ ...inp, cursor: 'pointer' }}>
                         <option value="color">Өнгөт</option><option value="bw">Хар цагаан</option>
                       </select>
                     </div>
@@ -2491,10 +2629,10 @@ const MAIN_TABS = [
 function NoImageBanner() {
   const [count, setCount] = useState<number | null>(null)
   useEffect(() => {
-    apiFetch<any>('/admin/products-master?product_type=print')
+    apiFetch<ApiListResponse<ProductRecord>>('/admin/products-master?product_type=print')
       .then(data => {
-        const items = data?.items || []
-        setCount(items.filter((p: any) => !p.thumbnail_url || p.thumbnail_url === '').length)
+        const items = readList(data)
+        setCount(items.filter(p => !p.thumbnail_url || p.thumbnail_url === '').length)
       }).catch(() => {})
   }, [])
   if (!count) return null

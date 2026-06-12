@@ -9,9 +9,10 @@ import { cn } from '@/lib/utils'
 import { RealtimeSignalPanel } from '@/components/admin/RealtimeSignalPanel'
 
 /* ═══ Helpers ═══ */
-const fmt = (n: number) => '₮' + n.toLocaleString()
+const fmt = (n?: number | string | null) => '₮' + Number(n || 0).toLocaleString()
 
-function change(current: number, previous: number): { text: string; positive: boolean } | null {
+function change(current?: number, previous?: number): { text: string; positive: boolean } | null {
+  if (current == null) return null
   if (!previous) return null
   const p = ((current - previous) / previous) * 100
   return { text: (p >= 0 ? '+' : '') + p.toFixed(1) + '%', positive: p >= 0 }
@@ -29,6 +30,54 @@ const STATUS_MAP: Record<string, { label: string; color: string }> = {
   DELIVERED: { label: 'Хүргэгдсэн', color: '#10B981' },
   COMPLETED: { label: 'Дууссан', color: '#059669' },
   CANCELLED: { label: 'Цуцлагдсан', color: '#EF4444' },
+}
+
+type AdminOrder = {
+  id?: string
+  status: string
+  total_price?: number | string
+  created_at?: string
+  updated_at?: string
+  product_name?: string
+  customer_name?: string
+  customer_email?: string
+}
+type AdminUser = {
+  id?: string
+  email?: string
+  full_name?: string
+  role?: string
+}
+type QuoteRecord = { id?: string; status?: string; total_price?: number | string }
+type ReportSummary = {
+  total_revenue?: number
+  total_profit?: number
+  total_commission?: number
+  avg_margin_rate?: number | string
+  previous?: {
+    total_revenue?: number
+    total_profit?: number
+  }
+}
+type ErrorRecord = {
+  id: string
+  source?: string
+  severity?: string
+  occurrence_count?: number
+  message?: string
+  endpoint?: string
+  http_method?: string
+  http_status?: number
+  created_at?: string
+}
+type ErrorSourceSummary = { source?: string; count?: number }
+type ErrorSummary = {
+  total?: number
+  open?: number
+  critical?: number
+  high?: number
+  recent?: ErrorRecord[]
+  by_source?: ErrorSourceSummary[]
 }
 
 /* ═══ KPI Card ═══ */
@@ -84,7 +133,7 @@ const SEV_CFG: Record<string, { label: string; color: string; bg: string }> = {
 }
 
 function SystemTab({ services }: { services: { name: string; icon: string; port: number }[] }) {
-  const [errorSummary, setErrorSummary] = useState<any>(null)
+  const [errorSummary, setErrorSummary] = useState<ErrorSummary | null>(null)
   const [errorFilter, setErrorFilter] = useState<string>('')
   const [loadingErrors, setLoadingErrors] = useState(true)
 
@@ -92,7 +141,7 @@ function SystemTab({ services }: { services: { name: string; icon: string; port:
     let mounted = true
     const load = async () => {
       try {
-        const data = await apiFetch<any>('/errors/summary')
+        const data = await apiFetch<ErrorSummary>('/errors/summary')
         if (mounted) setErrorSummary(data)
       } catch {}
       if (mounted) setLoadingErrors(false)
@@ -105,13 +154,13 @@ function SystemTab({ services }: { services: { name: string; icon: string; port:
     }
   }, [])
 
-  const filteredErrors = (errorSummary?.recent || []).filter((e: any) =>
+  const filteredErrors = (errorSummary?.recent || []).filter(e =>
     !errorFilter || e.source === errorFilter
   )
 
   async function resolveError(id: string) {
     await apiFetch(`/errors/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status: 'resolved' }), headers: { 'Content-Type': 'application/json' } }).catch(() => {})
-    apiFetch<any>('/errors/summary').then(d => setErrorSummary(d)).catch(() => {})
+    apiFetch<ErrorSummary>('/errors/summary').then(d => setErrorSummary(d)).catch(() => {})
   }
 
   return (
@@ -181,9 +230,11 @@ function SystemTab({ services }: { services: { name: string; icon: string; port:
             </div>
           ) : (
             <div className="divide-y divide-[#F3F4F6]">
-              {filteredErrors.slice(0, 10).map((err: any) => {
-                const src = SOURCE_CFG[err.source] || { label: err.source, icon: '❓', color: '#999' }
-                const sev = SEV_CFG[err.severity] || SEV_CFG.low
+              {filteredErrors.slice(0, 10).map(err => {
+                const sourceKey = err.source || 'backend'
+                const severityKey = err.severity || 'low'
+                const src = SOURCE_CFG[sourceKey] || { label: sourceKey, icon: '❓', color: '#999' }
+                const sev = SEV_CFG[severityKey] || SEV_CFG.low
                 return (
                   <div key={err.id} className="px-5 py-3 hover:bg-muted/50 transition-colors">
                     <div className="flex items-start justify-between gap-3">
@@ -192,13 +243,13 @@ function SystemTab({ services }: { services: { name: string; icon: string; port:
                           <span className="text-sm">{src.icon}</span>
                           <span className="text-[10px] font-bold px-1.5 py-0.5 rounded" style={{ background: src.color + '12', color: src.color }}>{src.label}</span>
                           <span className="text-[10px] font-bold px-1.5 py-0.5 rounded" style={{ background: sev.bg, color: sev.color }}>{sev.label}</span>
-                          {err.occurrence_count > 1 && <span className="text-[10px] text-muted-foreground/70">×{err.occurrence_count}</span>}
+                          {(err.occurrence_count || 0) > 1 && <span className="text-[10px] text-muted-foreground/70">×{err.occurrence_count}</span>}
                         </div>
                         <div className="text-xs text-foreground/80 truncate">{err.message}</div>
                         <div className="flex gap-3 mt-1 text-[10px] text-muted-foreground/50">
                           {err.endpoint && <span className="font-mono">{err.http_method} {err.endpoint}</span>}
                           {err.http_status && <span className={err.http_status >= 500 ? 'text-red-400' : 'text-amber-400'}>{err.http_status}</span>}
-                          <span>{new Date(err.created_at).toLocaleString('mn')}</span>
+                          <span>{err.created_at ? new Date(err.created_at).toLocaleString('mn') : ''}</span>
                         </div>
                       </div>
                       <button onClick={() => resolveError(err.id)} className="text-[10px] font-medium text-emerald-600 bg-emerald-50 px-2 py-1 rounded-lg border border-emerald-200 hover:bg-emerald-100 flex-shrink-0">
@@ -218,10 +269,11 @@ function SystemTab({ services }: { services: { name: string; icon: string; port:
           <div className="rounded-xl border border-border bg-card p-5">
             <h2 className="text-sm font-bold text-foreground mb-3">Эх үүсвэрээр</h2>
             <div className="space-y-2">
-              {(errorSummary?.by_source || []).map((s: any) => {
-                const cfg = SOURCE_CFG[s.source] || { label: s.source, icon: '❓', color: '#999' }
+              {(errorSummary?.by_source || []).map(s => {
+                const sourceKey = s.source || 'backend'
+                const cfg = SOURCE_CFG[sourceKey] || { label: sourceKey, icon: '❓', color: '#999' }
                 return (
-                  <div key={s.source} className="flex items-center justify-between text-xs cursor-pointer hover:bg-muted rounded-lg px-2 py-1.5 -mx-2" onClick={() => setErrorFilter(s.source)}>
+                  <div key={sourceKey} className="flex items-center justify-between text-xs cursor-pointer hover:bg-muted rounded-lg px-2 py-1.5 -mx-2" onClick={() => setErrorFilter(sourceKey)}>
                     <div className="flex items-center gap-2">
                       <span>{cfg.icon}</span>
                       <span className="text-muted-foreground">{cfg.label}</span>
@@ -252,29 +304,32 @@ function SystemTab({ services }: { services: { name: string; icon: string; port:
 /* ═══ MAIN DASHBOARD ═══ */
 export default function AdminDashboard() {
   const router = useRouter()
-  const [orders, setOrders] = useState<any[]>([])
-  const [users, setUsers] = useState<any[]>([])
-  const [quotes, setQuotes] = useState<any[]>([])
-  const [summary, setSummary] = useState<any>(null)
+  const [orders, setOrders] = useState<AdminOrder[]>([])
+  const [users, setUsers] = useState<AdminUser[]>([])
+  const [quotes, setQuotes] = useState<QuoteRecord[]>([])
+  const [summary, setSummary] = useState<ReportSummary | null>(null)
   const [loading, setLoading] = useState(true)
-  const [user, setUser] = useState<any>(null)
+  const [user, setUser] = useState<AdminUser | null>(null)
+  const [now] = useState(() => Date.now())
 
   useEffect(() => {
-    const token = getToken()
-    if (!token) { router.push('/login'); return }
-    try { setUser(JSON.parse(localStorage.getItem('user') || '{}')) } catch {}
+    void Promise.resolve().then(() => {
+      const token = getToken()
+      if (!token) { router.push('/login'); return }
+      try { setUser(JSON.parse(localStorage.getItem('user') || '{}') as AdminUser) } catch {}
 
-    Promise.all([
-      apiFetch<any>('/orders').catch(() => []),
-      apiFetch<any>('/admin/users').catch(() => []),
-      apiFetch<any>('/quote').catch(() => []),
-      apiFetch<any>('/reports/summary').catch(() => null),
-    ]).then(([o, u, q, s]) => {
-      setOrders(Array.isArray(o) ? o : [])
-      setUsers(Array.isArray(u) ? u : [])
-      setQuotes(Array.isArray(q) ? q : [])
-      setSummary(s)
-    }).finally(() => setLoading(false))
+      Promise.all([
+        apiFetch<AdminOrder[]>('/orders').catch(() => []),
+        apiFetch<AdminUser[]>('/admin/users').catch(() => []),
+        apiFetch<QuoteRecord[]>('/quote').catch(() => []),
+        apiFetch<ReportSummary>('/reports/summary').catch(() => null),
+      ]).then(([o, u, q, s]) => {
+        setOrders(Array.isArray(o) ? o : [])
+        setUsers(Array.isArray(u) ? u : [])
+        setQuotes(Array.isArray(q) ? q : [])
+        setSummary(s)
+      }).finally(() => setLoading(false))
+    })
   }, [router])
 
   /* ── Computed ── */
@@ -321,10 +376,11 @@ export default function AdminDashboard() {
     const list: { severity: 'high' | 'medium' | 'low'; message: string; action?: string; href?: string }[] = []
 
     // Stuck orders (> 48h in same status)
-    const now = Date.now()
     const stuckOrders = orders.filter(o => {
       if (['COMPLETED', 'CANCELLED', 'DELIVERED'].includes(o.status)) return false
-      const updated = new Date(o.updated_at || o.created_at).getTime()
+      const timestamp = o.updated_at || o.created_at
+      if (!timestamp) return false
+      const updated = new Date(timestamp).getTime()
       return (now - updated) > 48 * 3600000
     })
     if (stuckOrders.length > 0) list.push({ severity: 'high', message: `${stuckOrders.length} захиалга 48+ цаг шилжилтгүй байна`, action: 'Харах →', href: '/admin/orders' })
@@ -342,7 +398,7 @@ export default function AdminDashboard() {
     if (list.length === 0) list.push({ severity: 'low', message: 'Бүх зүйл хэвийн ажиллаж байна ✓' })
 
     return list
-  }, [orders, quotes, summary, stats.convRate])
+  }, [orders, quotes, summary, stats.convRate, now])
 
   /* ── Insights ── */
   const insights = useMemo(() => {
@@ -354,7 +410,7 @@ export default function AdminDashboard() {
     if (summary?.avg_margin_rate) list.push(`📊 Дундаж margin: ${Number(summary.avg_margin_rate).toFixed(1)}%`)
     if (stats.convRate > 0) list.push(`🎯 Хөрвүүлэлт: Үнийн санал → Захиалга = ${stats.convRate}%`)
 
-    const todayOrders = orders.filter(o => new Date(o.created_at).toDateString() === new Date().toDateString())
+    const todayOrders = orders.filter(o => o.created_at && new Date(o.created_at).toDateString() === new Date().toDateString())
     if (todayOrders.length > 0) list.push(`📈 Өнөөдөр ${todayOrders.length} захиалга, ₮${todayOrders.reduce((s, o) => s + Number(o.total_price || 0), 0).toLocaleString()} орлого`)
 
     return list
@@ -447,7 +503,7 @@ export default function AdminDashboard() {
         <KpiCard icon={Wallet} label="Нийт орлого" value={fmt(stats.revenue)}
           change={s?.previous ? change(s.total_revenue, s.previous.total_revenue) : null}
           sub={`${orders.filter(o => o.status !== 'CANCELLED').length} захиалга`} onClick={() => router.push('/admin/reports')} />
-        <KpiCard icon={TrendingUp} label="Цэвэр ашиг" value={s ? fmt(s.total_profit) : '—'} color={s?.total_profit < 0 ? '#EF4444' : '#10B981'}
+        <KpiCard icon={TrendingUp} label="Цэвэр ашиг" value={s ? fmt(s.total_profit) : '—'} color={Number(s?.total_profit || 0) < 0 ? '#EF4444' : '#10B981'}
           change={s?.previous ? change(s.total_profit, s.previous.total_profit) : null}
           onClick={() => router.push('/admin/reports')} />
         <KpiCard icon={Clock} label="Хүлээгдэж буй" value={fmt(stats.pendingValue)} color="#F59E0B"
@@ -476,7 +532,7 @@ export default function AdminDashboard() {
               { key: 'COMPLETED', label: 'Дууссан', icon: '✅', color: '#10B981' },
             ].map(stage => {
               const data = stats.pipeline[stage.key] || { count: 0, value: 0 }
-              const maxCount = Math.max(...Object.values(stats.pipeline).map((p: any) => p.count || 0), 1)
+              const maxCount = Math.max(...Object.values(stats.pipeline).map(p => p.count || 0), 1)
               const barWidth = (data.count / maxCount) * 100
               return (
                 <div key={stage.key} className="bg-muted rounded-xl p-3 hover:shadow-md transition-all cursor-pointer group" onClick={() => router.push('/admin/orders')}>
@@ -522,7 +578,7 @@ export default function AdminDashboard() {
         <div className="xl:col-span-2 rounded-xl border border-border bg-card p-5">
           <h2 className="text-base font-bold text-foreground mb-4">Орлогын чиг хандлага (7 хоног)</h2>
           <VBarChart
-            data={(stats.dailyRevenue || []).map((d: any) => ({ label: d.date, value: Number(d.value) || 0 }))}
+            data={(stats.dailyRevenue || []).map(d => ({ label: d.date, value: Number(d.value) || 0 }))}
             height={180}
             color="#FF6B00"
             currency
@@ -534,7 +590,7 @@ export default function AdminDashboard() {
         <div className="rounded-xl border border-border bg-card p-5">
           <h2 className="text-base font-bold text-foreground mb-3">Захиалгын төлөв</h2>
           <DonutChart
-            data={Object.entries(stats.statusCounts).sort((a: any, b: any) => b[1] - a[1]).slice(0, 7).map(([status, count]) => {
+            data={Object.entries(stats.statusCounts).sort((a, b) => b[1] - a[1]).slice(0, 7).map(([status, count]) => {
               const cfg = STATUS_MAP[status] || { label: status, color: '#999' }
               return { label: cfg.label, value: count as number, color: cfg.color }
             })}

@@ -11,24 +11,58 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Plus, Pencil, Trash2, Upload } from 'lucide-react'
 import { toast } from 'sonner'
 
+interface BannerItem {
+  [key: string]: unknown
+  id: string
+  title?: string
+  description?: string
+  imageUrl?: string
+  link?: string
+  buttonText?: string
+  isActive?: boolean
+  order?: number
+}
+
+interface BannerForm {
+  [key: string]: unknown
+  title: string
+  description: string
+  imageUrl: string
+  link: string
+  buttonText: string
+  isActive: boolean
+  order: number
+}
+
+interface UploadResponse {
+  url?: string
+  path?: string
+  fileUrl?: string
+  filename?: string
+  file_name?: string
+  name?: string
+}
+
+const EMPTY_FORM: BannerForm = { title: '', description: '', imageUrl: '', link: '', buttonText: '', isActive: true, order: 0 }
+
 export default function AdminBannersPage() {
-  const [items, setItems] = useState<any[]>([])
+  const [items, setItems] = useState<BannerItem[]>([])
   const [loading, setLoading] = useState(true)
   const [open, setOpen] = useState(false)
-  const [editing, setEditing] = useState<any>(null)
-  const [form, setForm] = useState({ title: '', description: '', imageUrl: '', link: '', buttonText: '', isActive: true, order: 0 })
+  const [editing, setEditing] = useState<BannerItem | null>(null)
+  const [form, setForm] = useState<BannerForm>(EMPTY_FORM)
   const [uploading, setUploading] = useState(false)
 
-  const load = () => { apiFetch<any>('/banners').then(d => setItems(Array.isArray(d) ? d : [])).catch(() => {}).finally(() => setLoading(false)) }
+  const load = () => { apiFetch<BannerItem[]>('/banners').then(d => setItems(Array.isArray(d) ? d : [])).catch(() => {}).finally(() => setLoading(false)) }
   useEffect(load, [])
 
-  const reset = () => { setEditing(null); setOpen(false); setForm({ title: '', description: '', imageUrl: '', link: '', buttonText: '', isActive: true, order: 0 }) }
+  const reset = () => { setEditing(null); setOpen(false); setForm(EMPTY_FORM) }
 
   const save = async () => {
     const method = editing?.id ? 'PATCH' : 'POST'
     const url = editing?.id ? `/banners/${editing.id}` : `/banners`
     try {
-      await apiFetch<any>(url, { method, body: form })
+      await apiFetch<BannerItem>(url, { method, body: form })
       toast.success(editing?.id ? 'Баннер шинэчлэгдлээ' : 'Баннер үүсгэгдлээ')
       reset(); load()
     } catch { toast.error('Алдаа гарлаа') }
@@ -36,11 +70,11 @@ export default function AdminBannersPage() {
 
   const del = async (id: string) => {
     if (!confirm('Устгах уу?')) return
-    await apiFetch<any>(`/banners/${id}`, { method: 'DELETE' })
+    await apiFetch(`/banners/${id}`, { method: 'DELETE' })
     toast.success('Устгагдлаа'); load()
   }
 
-  const edit = (item: any) => {
+  const edit = (item: BannerItem) => {
     setEditing(item)
     setForm({ title: item.title || '', description: item.description || '', imageUrl: item.imageUrl || '', link: item.link || '', buttonText: item.buttonText || '', isActive: item.isActive !== false, order: item.order || 0 })
     setOpen(true)
@@ -53,7 +87,7 @@ export default function AdminBannersPage() {
     const fd = new FormData()
     fd.append('file', file)
     try {
-      const data = await apiFetch<any>(`/upload/file`, { method: 'POST', body: fd })
+      const data = await apiFetch<UploadResponse>(`/upload/file`, { method: 'POST', body: fd })
       const rawUrl = data.url || data.path || data.fileUrl
       const filename = data.filename || data.file_name || data.name
       let fullUrl = ''
@@ -64,7 +98,7 @@ export default function AdminBannersPage() {
     setUploading(false)
   }
 
-  const columns: Column<any>[] = [
+  const columns: Column<BannerItem>[] = [
     { key: 'imageUrl', label: 'Зураг', className: 'w-[100px]', render: row => (
       row.imageUrl ? <img src={row.imageUrl} alt="" className="w-20 h-10 object-cover rounded-md" /> : <span className="text-muted-foreground">—</span>
     )},

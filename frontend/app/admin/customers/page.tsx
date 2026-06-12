@@ -2,6 +2,7 @@
 
 import { apiFetch } from '@/lib/api'
 import { useState, useEffect, useCallback } from 'react'
+import type { CSSProperties } from 'react'
 import { AdminPageHeader } from '@/components/admin/AdminPageHeader'
 
 function fmt(n: number) {
@@ -15,6 +16,75 @@ function fmtDate(d: string | null | undefined) {
 
 const TIERS = ['ALL', 'RETAIL', 'B2B', 'VIP', 'WHOLESALE'] as const
 type Tier = typeof TIERS[number]
+type CustomerTier = Exclude<Tier, 'ALL'>
+
+type Customer = {
+  id: string
+  full_name?: string | null
+  guest_name?: string | null
+  name?: string | null
+  email?: string | null
+  guest_email?: string | null
+  phone?: string | null
+  company_name?: string | null
+  company_register?: string | null
+  pricing_tier?: CustomerTier | string | null
+  total_orders?: number | null
+  total_spent?: number | null
+  last_contact_at?: string | null
+  notes?: string | null
+  tags?: string[]
+}
+
+type CustomersResponse = {
+  items?: Customer[]
+  total?: number
+}
+
+type CustomerForm = {
+  full_name: string
+  phone: string
+  guest_email: string
+  company_name: string
+  company_register: string
+  pricing_tier: string
+  notes: string
+}
+
+type QuoteItem = {
+  product_name?: string | null
+}
+
+type Quote = {
+  id?: string
+  quote_number?: string | null
+  status?: string | null
+  product_name?: string | null
+  items?: QuoteItem[]
+  total_price?: number | null
+  grand_total?: number | null
+  created_at?: string | null
+}
+
+type QuotesResponse = Quote[] | { items?: Quote[] }
+
+type CustomerInteraction = {
+  id?: string
+  type?: string
+  title?: string | null
+  content?: string | null
+  created_at?: string | null
+  created_by?: string | null
+}
+
+type CustomerTicket = {
+  id?: string
+  ticket_number?: string | null
+  status?: string | null
+  priority?: string | null
+  subject?: string | null
+  created_at?: string | null
+}
 
 const TIER_COLORS: Record<string, { bg: string; color: string }> = {
   RETAIL: { bg: 'var(--surface2)', color: 'var(--text2)' },
@@ -71,7 +141,7 @@ const QUOTE_STATUS_COLORS: Record<string, { bg: string; color: string }> = {
 
 const font = "'DM Sans','Segoe UI',system-ui,sans-serif"
 
-const inp: React.CSSProperties = {
+const inp: CSSProperties = {
   width: '100%',
   padding: '10px 14px',
   background: 'var(--surface2)',
@@ -83,7 +153,7 @@ const inp: React.CSSProperties = {
   fontFamily: font,
 }
 
-const btnPrimary: React.CSSProperties = {
+const btnPrimary: CSSProperties = {
   padding: '10px 20px',
   background: '#FF6B00',
   color: '#fff',
@@ -95,7 +165,7 @@ const btnPrimary: React.CSSProperties = {
   fontFamily: font,
 }
 
-const btnSecondary: React.CSSProperties = {
+const btnSecondary: CSSProperties = {
   padding: '10px 20px',
   background: 'var(--surface2)',
   color: 'var(--text2)',
@@ -106,7 +176,7 @@ const btnSecondary: React.CSSProperties = {
   fontFamily: font,
 }
 
-const label: React.CSSProperties = {
+const label: CSSProperties = {
   fontSize: 12,
   color: 'var(--text2)',
   marginBottom: 6,
@@ -117,13 +187,13 @@ const label: React.CSSProperties = {
 // ─── Main Component ───
 
 export default function AdminCustomersPage() {
-  const [items, setItems] = useState<any[]>([])
+  const [items, setItems] = useState<Customer[]>([])
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [tierFilter, setTierFilter] = useState<Tier>('ALL')
   const [page, setPage] = useState(1)
-  const [selected, setSelected] = useState<any>(null)
+  const [selected, setSelected] = useState<Customer | null>(null)
   const [drawerOpen, setDrawerOpen] = useState(false)
 
   const load = useCallback(async () => {
@@ -133,7 +203,7 @@ export default function AdminCustomersPage() {
       if (search) params.set('search', search)
       if (tierFilter !== 'ALL') params.set('tier', tierFilter)
       params.set('page', String(page))
-      const data = await apiFetch<any>(`/admin/customers?${params}`)
+      const data = await apiFetch<CustomersResponse>(`/admin/customers?${params}`)
       setItems(data.items || [])
       setTotal(data.total || 0)
     } catch {
@@ -145,7 +215,7 @@ export default function AdminCustomersPage() {
 
   useEffect(() => { load() }, [load])
 
-  const openDrawer = (customer: any) => {
+  const openDrawer = (customer: Customer) => {
     setSelected(customer)
     setDrawerOpen(true)
   }
@@ -291,23 +361,26 @@ function CustomerDrawer({
   onClose,
   onUpdated,
 }: {
-  customer: any
+  customer: Customer
   open: boolean
   onClose: () => void
   onUpdated: () => void
 }) {
   const [tab, setTab] = useState<DrawerTab>('Мэдээлэл')
-  const [profile, setProfile] = useState<any>(null)
+  const [profile, setProfile] = useState<Customer | null>(null)
   const [loadingProfile, setLoadingProfile] = useState(true)
 
   useEffect(() => {
     if (!customer?.id) return
+    const timer = window.setTimeout(() => {
     setLoadingProfile(true)
     setTab('Мэдээлэл')
-    apiFetch<any>(`/admin/customers/${customer.id}`)
+    apiFetch<Customer>(`/admin/customers/${customer.id}`)
       .then(d => setProfile(d))
       .catch(() => {})
       .finally(() => setLoadingProfile(false))
+    }, 0)
+    return () => window.clearTimeout(timer)
   }, [customer?.id])
 
   return (
@@ -397,8 +470,8 @@ function CustomerDrawer({
 
 // ─── Info Tab ───
 
-function InfoTab({ profile, customerId, onUpdated }: { profile: any; customerId: string; onUpdated: () => void }) {
-  const [form, setForm] = useState({
+function InfoTab({ profile, customerId, onUpdated }: { profile: Customer | null; customerId: string; onUpdated: () => void }) {
+  const [form, setForm] = useState<CustomerForm>({
     full_name: '',
     phone: '',
     guest_email: '',
@@ -413,6 +486,7 @@ function InfoTab({ profile, customerId, onUpdated }: { profile: any; customerId:
 
   useEffect(() => {
     if (!profile) return
+    const timer = window.setTimeout(() => {
     setForm({
       full_name: profile.full_name || profile.guest_name || '',
       phone: profile.phone || '',
@@ -423,12 +497,14 @@ function InfoTab({ profile, customerId, onUpdated }: { profile: any; customerId:
       notes: profile.notes || '',
     })
     setTags(profile.tags || [])
+    }, 0)
+    return () => window.clearTimeout(timer)
   }, [profile])
 
   const save = async () => {
     setSaving(true)
     try {
-      await apiFetch<any>(`/admin/customers/${customerId}`, {
+      await apiFetch<Customer>(`/admin/customers/${customerId}`, {
         method: 'PUT',
         body: { ...form, tags },
       })
@@ -535,20 +611,23 @@ function InfoTab({ profile, customerId, onUpdated }: { profile: any; customerId:
 
 // ─── Quotes Tab ───
 
-function QuotesTab({ customerId, profile }: { customerId: string; profile: any }) {
-  const [quotes, setQuotes] = useState<any[]>([])
+function QuotesTab({ customerId, profile }: { customerId: string; profile: Customer | null }) {
+  const [quotes, setQuotes] = useState<Quote[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    setLoading(true)
-    const email = profile?.guest_email || profile?.email
-    const url = email
-      ? `/quote/guest?email=${encodeURIComponent(email)}`
-      : `/quote?customer_id=${customerId}`
-    apiFetch<any>(url)
-      .then(d => setQuotes(Array.isArray(d) ? d : d?.items || []))
-      .catch(() => setQuotes([]))
-      .finally(() => setLoading(false))
+    const timer = window.setTimeout(() => {
+      setLoading(true)
+      const email = profile?.guest_email || profile?.email
+      const url = email
+        ? `/quote/guest?email=${encodeURIComponent(email)}`
+        : `/quote?customer_id=${customerId}`
+      apiFetch<QuotesResponse>(url)
+        .then(d => setQuotes(Array.isArray(d) ? d : d?.items || []))
+        .catch(() => setQuotes([]))
+        .finally(() => setLoading(false))
+    }, 0)
+    return () => window.clearTimeout(timer)
   }, [customerId, profile])
 
   if (loading) return <div style={{ textAlign: 'center', color: 'var(--text3)', padding: 40 }}>Уншиж байна...</div>
@@ -557,7 +636,8 @@ function QuotesTab({ customerId, profile }: { customerId: string; profile: any }
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
       {quotes.map((q, i) => {
-        const sc = QUOTE_STATUS_COLORS[q.status] || QUOTE_STATUS_COLORS.draft
+        const quoteStatus = q.status || 'draft'
+        const sc = QUOTE_STATUS_COLORS[quoteStatus] || QUOTE_STATUS_COLORS.draft
         return (
           <div key={q.id || i} style={{
             background: 'var(--surface)',
@@ -573,7 +653,7 @@ function QuotesTab({ customerId, profile }: { customerId: string; profile: any }
                 fontSize: 11, padding: '3px 10px', borderRadius: 99,
                 background: sc.bg, color: sc.color, fontWeight: 600,
               }}>
-                {q.status || 'draft'}
+                {quoteStatus}
               </span>
             </div>
             <div style={{ fontSize: 13, color: 'var(--text2)', marginBottom: 4 }}>
@@ -597,7 +677,7 @@ function QuotesTab({ customerId, profile }: { customerId: string; profile: any }
 // ─── Interactions Tab ───
 
 function InteractionsTab({ customerId }: { customerId: string }) {
-  const [interactions, setInteractions] = useState<any[]>([])
+  const [interactions, setInteractions] = useState<CustomerInteraction[]>([])
   const [loading, setLoading] = useState(true)
   const [adding, setAdding] = useState(false)
   const [noteContent, setNoteContent] = useState('')
@@ -608,7 +688,7 @@ function InteractionsTab({ customerId }: { customerId: string }) {
   const loadInteractions = useCallback(async () => {
     setLoading(true)
     try {
-      const data = await apiFetch<any>(`/admin/customers/${customerId}/interactions`)
+      const data = await apiFetch<CustomerInteraction[]>(`/admin/customers/${customerId}/interactions`)
       setInteractions(Array.isArray(data) ? data : [])
     } catch {
       setInteractions([])
@@ -616,13 +696,16 @@ function InteractionsTab({ customerId }: { customerId: string }) {
     setLoading(false)
   }, [customerId])
 
-  useEffect(() => { loadInteractions() }, [loadInteractions])
+  useEffect(() => {
+    const timer = window.setTimeout(() => { loadInteractions() }, 0)
+    return () => window.clearTimeout(timer)
+  }, [loadInteractions])
 
   const submit = async () => {
     if (!noteContent.trim()) return
     setSubmitting(true)
     try {
-      await apiFetch<any>(`/admin/customers/${customerId}/interactions`, {
+      await apiFetch<CustomerInteraction>(`/admin/customers/${customerId}/interactions`, {
         method: 'POST',
         body: {
           type: noteType,
@@ -706,7 +789,7 @@ function InteractionsTab({ customerId }: { customerId: string }) {
                 display: 'flex', alignItems: 'center', justifyContent: 'center',
                 fontSize: 12,
               }}>
-                {INTERACTION_ICONS[item.type] || '📌'}
+                {INTERACTION_ICONS[item.type || ''] || '📌'}
               </div>
 
               <div style={{
@@ -719,7 +802,7 @@ function InteractionsTab({ customerId }: { customerId: string }) {
                       fontSize: 11, padding: '2px 8px', borderRadius: 99,
                       background: 'rgba(255,107,0,0.1)', color: '#FF6B00', fontWeight: 600,
                     }}>
-                      {INTERACTION_LABELS[item.type] || item.type}
+                      {INTERACTION_LABELS[item.type || ''] || item.type}
                     </span>
                     <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>
                       {item.title}
@@ -749,15 +832,18 @@ function InteractionsTab({ customerId }: { customerId: string }) {
 // ─── Tickets Tab ───
 
 function TicketsTab({ customerId }: { customerId: string }) {
-  const [tickets, setTickets] = useState<any[]>([])
+  const [tickets, setTickets] = useState<CustomerTicket[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    setLoading(true)
-    apiFetch<any>(`/admin/customers/${customerId}/tickets`)
-      .then(d => setTickets(Array.isArray(d) ? d : []))
-      .catch(() => setTickets([]))
-      .finally(() => setLoading(false))
+    const timer = window.setTimeout(() => {
+      setLoading(true)
+      apiFetch<CustomerTicket[]>(`/admin/customers/${customerId}/tickets`)
+        .then(d => setTickets(Array.isArray(d) ? d : []))
+        .catch(() => setTickets([]))
+        .finally(() => setLoading(false))
+    }, 0)
+    return () => window.clearTimeout(timer)
   }, [customerId])
 
   if (loading) return <div style={{ textAlign: 'center', color: 'var(--text3)', padding: 40 }}>Уншиж байна...</div>
@@ -773,8 +859,10 @@ function TicketsTab({ customerId }: { customerId: string }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
       {tickets.map((t, i) => {
-        const sc = TICKET_STATUS_COLORS[t.status] || TICKET_STATUS_COLORS.open
-        const pc = PRIORITY_COLORS[t.priority] || '#6B7280'
+        const ticketStatus = t.status || 'open'
+        const ticketPriority = t.priority || 'medium'
+        const sc = TICKET_STATUS_COLORS[ticketStatus] || TICKET_STATUS_COLORS.open
+        const pc = PRIORITY_COLORS[ticketPriority] || '#6B7280'
         return (
           <div key={t.id || i} style={{
             background: 'var(--surface)',
@@ -791,13 +879,13 @@ function TicketsTab({ customerId }: { customerId: string }) {
                   fontSize: 11, padding: '3px 10px', borderRadius: 99,
                   background: sc.bg, color: sc.color, fontWeight: 600,
                 }}>
-                  {t.status}
+                  {ticketStatus}
                 </span>
                 <span style={{
                   fontSize: 11, padding: '3px 10px', borderRadius: 99,
                   background: pc + '18', color: pc, fontWeight: 600,
                 }}>
-                  {t.priority || 'medium'}
+                  {ticketPriority}
                 </span>
               </div>
             </div>

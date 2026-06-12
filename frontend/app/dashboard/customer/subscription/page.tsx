@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { apiFetch } from '@/lib/api'
 import UpgradeModal from '@/components/UpgradeModal'
 
@@ -37,33 +38,102 @@ const SEVERITY_COLORS: Record<string, { color: string; bg: string }> = {
   critical: { color: '#DC2626', bg: '#FEE2E2' },
 }
 
+interface FeatureItem { name?: string; included?: boolean }
+interface SubscriptionPlan {
+  id: string
+  name?: string
+  tier?: string
+  price_monthly?: number | string
+  price_yearly?: number | string
+  is_popular?: boolean
+  max_qr_codes?: number
+  max_invitations?: number
+  max_product_qrs?: number
+  max_digital_cards?: number
+  features_list?: FeatureItem[]
+}
+interface CurrentSubscription {
+  status?: string
+  is_free?: boolean
+  days_left?: number
+  plan?: SubscriptionPlan
+}
+interface UsageMetric {
+  percentage: number
+  status?: string
+  current: number
+  effective_max: number
+  addon_bonus?: number
+}
+type SubscriptionUsage = Record<string, UsageMetric>
+interface SubscriptionEvent {
+  id: string
+  severity?: string
+  title?: string
+  message?: string
+  created_at: string
+}
+interface SuggestedPlan {
+  id: string
+  name: string
+  price_monthly: number | string
+  [key: string]: number | string | undefined
+}
+interface SubscriptionSuggestions {
+  should_upgrade?: boolean
+  reason?: string
+  suggested_plan?: SuggestedPlan
+}
+interface SubscriptionAddon {
+  id: string
+  feature_key: string
+  name: string
+  bonus_amount: number | string
+  price: number | string
+}
+interface UserAddon {
+  id: string
+  addon_id?: string
+  addon?: SubscriptionAddon
+}
+interface ProductPricing {
+  id: string
+  product_type?: string
+  name?: string
+  description?: string
+  price?: number | string
+  duration_days?: number
+  free_tier_days?: number
+}
+
 export default function SubscriptionPage() {
-  const [plans, setPlans] = useState<any[]>([])
-  const [current, setCurrent] = useState<any>(null)
-  const [usage, setUsage] = useState<any>(null)
-  const [events, setEvents] = useState<any[]>([])
-  const [suggestions, setSuggestions] = useState<any>(null)
-  const [addons, setAddons] = useState<any[]>([])
-  const [myAddons, setMyAddons] = useState<any[]>([])
+  const router = useRouter()
+  const [plans, setPlans] = useState<SubscriptionPlan[]>([])
+  const [current, setCurrent] = useState<CurrentSubscription | null>(null)
+  const [usage, setUsage] = useState<SubscriptionUsage | null>(null)
+  const [events, setEvents] = useState<SubscriptionEvent[]>([])
+  const [suggestions, setSuggestions] = useState<SubscriptionSuggestions | null>(null)
+  const [addons, setAddons] = useState<SubscriptionAddon[]>([])
+  const [myAddons, setMyAddons] = useState<UserAddon[]>([])
   const [loading, setLoading] = useState(true)
   const [billing, setBilling] = useState<'monthly' | 'yearly'>('yearly')
   const [upgradeModal, setUpgradeModal] = useState<{ open: boolean; featureKey?: string; current?: number; max?: number }>({ open: false })
 
-  const [productPricing, setProductPricing] = useState<any[]>([])
+  const [productPricing, setProductPricing] = useState<ProductPricing[]>([])
 
   useEffect(() => {
     const token = localStorage.getItem('access_token') || localStorage.getItem('token')
-    const headers: any = token ? { Authorization: `Bearer ${token}` } : {}
-    const safeFetch = (path: string) => fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}${path}`, { headers }).then(r => r.ok ? r.json() : null).catch(() => null)
+    const headers: HeadersInit = token ? { Authorization: `Bearer ${token}` } : {}
+    const safeFetch = <T,>(path: string): Promise<T | null> => fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}${path}`, { headers }).then(r => r.ok ? r.json() as Promise<T> : null).catch(() => null)
     Promise.all([
-      safeFetch('/subscription/plans'),
-      token ? safeFetch('/subscription/my') : Promise.resolve(null),
-      token ? safeFetch('/subscription/usage') : Promise.resolve(null),
-      token ? safeFetch('/subscription/events?limit=10') : Promise.resolve(null),
-      token ? safeFetch('/subscription/suggestions') : Promise.resolve(null),
-      safeFetch('/subscription/addons'),
-      token ? safeFetch('/subscription/my-addons') : Promise.resolve(null),
-      safeFetch('/subscription/product-pricing'),
+      safeFetch<SubscriptionPlan[]>('/subscription/plans'),
+      token ? safeFetch<CurrentSubscription>('/subscription/my') : Promise.resolve(null),
+      token ? safeFetch<SubscriptionUsage>('/subscription/usage') : Promise.resolve(null),
+      token ? safeFetch<SubscriptionEvent[]>('/subscription/events?limit=10') : Promise.resolve(null),
+      token ? safeFetch<SubscriptionSuggestions>('/subscription/suggestions') : Promise.resolve(null),
+      safeFetch<SubscriptionAddon[]>('/subscription/addons'),
+      token ? safeFetch<UserAddon[]>('/subscription/my-addons') : Promise.resolve(null),
+      safeFetch<ProductPricing[]>('/subscription/product-pricing'),
     ]).then(([p, c, u, e, s, a, ma, pp]) => {
       setPlans(Array.isArray(p) ? p : [])
       setCurrent(c)
@@ -77,7 +147,7 @@ export default function SubscriptionPage() {
   }, [])
 
   const handleSubscribe = async (planId: string) => {
-    const plan = plans.find((p: any) => p.id === planId)
+    const plan = plans.find(p => p.id === planId)
     const price = billing === 'yearly' ? Number(plan?.price_yearly) : Number(plan?.price_monthly)
     // Free plan — subscribe directly
     if (price === 0) {
@@ -90,14 +160,14 @@ export default function SubscriptionPage() {
     }
     // Paid plan — go to checkout
     const params = new URLSearchParams({
-      product_name: `${plan?.name} багц (${billing === 'yearly' ? 'жилийн' : 'сарын'})`,
+      product_name: `${plan?.name || 'Subscription'} багц (${billing === 'yearly' ? 'жилийн' : 'сарын'})`,
       quantity: '1',
       total_price: String(price),
       source: 'subscription',
       plan_id: planId,
       billing_cycle: billing,
     })
-    window.location.href = `/checkout?${params.toString()}`
+    router.push(`/checkout?${params.toString()}`)
     return
   }
   // Keep old subscribe for compatibility
@@ -116,16 +186,16 @@ export default function SubscriptionPage() {
   }
 
   const handlePurchaseAddon = (addonId: string) => {
-    const addon = addons.find((a: any) => a.id === addonId)
+    const addon = addons.find(a => a.id === addonId)
     if (!addon) return
     const params = new URLSearchParams({
-      product_name: addon.name,
+      product_name: addon.name || 'Addon',
       quantity: '1',
-      total_price: String(addon.price),
+      total_price: String(addon.price ?? 0),
       source: 'addon',
       addon_id: addonId,
     })
-    window.location.href = `/checkout?${params.toString()}`
+    router.push(`/checkout?${params.toString()}`)
   }
 
   if (loading) return <div style={{ padding: 40, textAlign: 'center', fontFamily: FONT, color: '#9CA3AF' }}>Ачааллаж байна...</div>
@@ -144,7 +214,7 @@ export default function SubscriptionPage() {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
-                <span style={{ fontSize: 28 }}>{TIER_ICONS[current.plan?.tier] || '\u2B50'}</span>
+                <span style={{ fontSize: 28 }}>{TIER_ICONS[current.plan?.tier ?? ''] || '\u2B50'}</span>
                 <div>
                   <div style={{ fontSize: 20, fontWeight: 700, color: 'var(--text, #111)' }}>{current.plan?.name || 'Үнэгүй'}</div>
                   <span style={{
@@ -171,7 +241,7 @@ export default function SubscriptionPage() {
           {/* ═══ USAGE BARS ═══ */}
           {usage && (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 14 }}>
-              {Object.entries(usage).map(([key, data]: [string, any]) => {
+              {Object.entries(usage).map(([key, data]) => {
                 const pct = Math.min(data.percentage, 100)
                 const isWarning = data.status === 'warning'
                 const isExceeded = data.status === 'exceeded'
@@ -200,8 +270,8 @@ export default function SubscriptionPage() {
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4 }}>
                       <span style={{ fontSize: 11, color: '#9CA3AF' }}>{data.percentage}%</span>
-                      {data.addon_bonus > 0 && (
-                        <span style={{ fontSize: 10, color: '#10B981', fontWeight: 600 }}>+{data.addon_bonus} нэмэлт</span>
+                      {(data.addon_bonus ?? 0) > 0 && (
+                        <span style={{ fontSize: 10, color: '#10B981', fontWeight: 600 }}>+{data.addon_bonus ?? 0} нэмэлт</span>
                       )}
                     </div>
                     {isExceeded && (
@@ -257,8 +327,8 @@ export default function SubscriptionPage() {
         <div style={{ marginBottom: 20 }}>
           <h3 style={{ fontSize: 15, fontWeight: 600, margin: '0 0 10px', color: 'var(--text, #374151)' }}>Сүүлийн үйл явдлууд</h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            {events.slice(0, 5).map((ev: any) => {
-              const sev = SEVERITY_COLORS[ev.severity] || SEVERITY_COLORS.info
+            {events.slice(0, 5).map(ev => {
+              const sev = SEVERITY_COLORS[ev.severity ?? ''] || SEVERITY_COLORS.info
               return (
                 <div key={ev.id} style={{
                   background: sev.bg, borderRadius: 10, padding: '10px 14px',
@@ -286,18 +356,19 @@ export default function SubscriptionPage() {
         <div style={{ marginBottom: 24 }}>
           <h3 style={{ fontSize: 15, fontWeight: 600, margin: '0 0 10px', color: 'var(--text, #374151)' }}>Нэмэлтүүд</h3>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 12 }}>
-            {addons.map((addon: any) => {
+            {addons.map(addon => {
               const owned = myAddons.some(ma => ma.addon_id === addon.id)
+              const featureKey = addon.feature_key || ''
               return (
                 <div key={addon.id} style={{
                   background: 'var(--surface, #fff)', borderRadius: 14, padding: 20,
                   border: owned ? `2px solid #10B981` : '1px solid var(--border, #E5E7EB)',
                   textAlign: 'center',
                 }}>
-                  <div style={{ fontSize: 24, marginBottom: 8 }}>{FEATURE_ICONS[addon.feature_key] || '📦'}</div>
+                  <div style={{ fontSize: 24, marginBottom: 8 }}>{FEATURE_ICONS[featureKey] || '📦'}</div>
                   <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text, #111)', marginBottom: 4 }}>{addon.name}</div>
                   <div style={{ fontSize: 12, color: '#6B7280', marginBottom: 12 }}>
-                    +{addon.bonus_amount} {FEATURE_LABELS[addon.feature_key] || addon.feature_key}
+                    +{addon.bonus_amount ?? 0} {FEATURE_LABELS[featureKey] || featureKey}
                   </div>
                   <div style={{ fontSize: 18, fontWeight: 700, color: ORANGE, marginBottom: 12 }}>
                     {Number(addon.price).toLocaleString()}₮
@@ -328,7 +399,7 @@ export default function SubscriptionPage() {
 
       {/* ═══ PLANS ═══ */}
       <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.min(plans.length || 3, 4)}, 1fr)`, gap: 16, marginBottom: 32 }}>
-        {plans.map((plan: any) => {
+        {plans.map(plan => {
           const isCurrent = current?.plan?.id === plan.id && !current.is_free
           const price = billing === 'yearly' ? Number(plan.price_yearly) : Number(plan.price_monthly)
           return (
@@ -340,8 +411,8 @@ export default function SubscriptionPage() {
                 <div style={{ position: 'absolute', top: -12, left: '50%', transform: 'translateX(-50%)', background: ORANGE, color: '#fff', padding: '4px 16px', borderRadius: 20, fontSize: 11, fontWeight: 600 }}>Хамгийн түгээмэл</div>
               )}
               <div style={{ textAlign: 'center', marginBottom: 20 }}>
-                <div style={{ fontSize: 32, marginBottom: 8 }}>{TIER_ICONS[plan.tier] || '\u2B50'}</div>
-                <h3 style={{ fontSize: 20, fontWeight: 700, margin: 0, color: 'var(--text, #111)' }}>{plan.name}</h3>
+                <div style={{ fontSize: 32, marginBottom: 8 }}>{TIER_ICONS[plan.tier ?? ''] || '\u2B50'}</div>
+                <h3 style={{ fontSize: 20, fontWeight: 700, margin: 0, color: 'var(--text, #111)' }}>{plan.name || 'Багц'}</h3>
                 <div style={{ marginTop: 8 }}>
                   <span style={{ fontSize: 32, fontWeight: 700, color: 'var(--text, #111)' }}>{price > 0 ? `${price.toLocaleString()}₮` : 'Үнэгүй'}</span>
                   {price > 0 && <span style={{ fontSize: 13, color: '#6B7280' }}>/{billing === 'yearly' ? 'жил' : 'сар'}</span>}
@@ -365,7 +436,7 @@ export default function SubscriptionPage() {
 
               {/* Features */}
               <div style={{ marginBottom: 20 }}>
-                {plan.features_list?.map((f: any, i: number) => (
+                {plan.features_list?.map((f, i) => (
                   <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 6, fontSize: 12, color: f.included ? 'var(--text, #374151)' : '#D1D5DB' }}>
                     <span style={{ color: f.included ? '#10B981' : '#D1D5DB', fontSize: 11 }}>{f.included ? '✓' : '✗'}</span>
                     {f.name}
@@ -395,16 +466,18 @@ export default function SubscriptionPage() {
         <div style={{ marginBottom: 24 }}>
           <h3 style={{ fontSize: 15, fontWeight: 600, margin: '0 0 10px', color: 'var(--text, #374151)' }}>Миний нэмэлтүүд</h3>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-            {myAddons.map((ua: any) => (
+            {myAddons.map(ua => {
+              const featureKey = ua.addon?.feature_key || ''
+              return (
               <div key={ua.id} style={{
                 background: '#D1FAE5', borderRadius: 10, padding: '8px 14px',
                 display: 'flex', alignItems: 'center', gap: 6,
               }}>
-                <span style={{ fontSize: 12 }}>{FEATURE_ICONS[ua.addon?.feature_key] || '📦'}</span>
-                <span style={{ fontSize: 13, fontWeight: 500, color: '#059669' }}>{ua.addon?.name}</span>
-                <span style={{ fontSize: 11, color: '#10B981' }}>+{ua.addon?.bonus_amount}</span>
+                <span style={{ fontSize: 12 }}>{FEATURE_ICONS[featureKey] || '📦'}</span>
+                <span style={{ fontSize: 13, fontWeight: 500, color: '#059669' }}>{ua.addon?.name || 'Нэмэлт'}</span>
+                <span style={{ fontSize: 11, color: '#10B981' }}>+{ua.addon?.bonus_amount ?? 0}</span>
               </div>
-            ))}
+            )})}
           </div>
         </div>
       )}
@@ -414,14 +487,14 @@ export default function SubscriptionPage() {
         <div style={{ marginBottom: 24 }}>
           <h3 style={{ fontSize: 15, fontWeight: 600, margin: '0 0 10px', color: 'var(--text, #374151)' }}>Дижитал бүтээгдэхүүн</h3>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 12 }}>
-            {productPricing.map((pp: any) => {
+            {productPricing.map(pp => {
               const typeInfo: Record<string, { icon: string; color: string }> = {
                 digital_card: { icon: '💳', color: '#2563EB' },
                 loyalty_campaign: { icon: '⭐', color: '#F59E0B' },
                 qr_campaign: { icon: '📱', color: '#10B981' },
                 invitation_premium: { icon: '💌', color: '#8B5CF6' },
               }
-              const ti = typeInfo[pp.product_type] || { icon: '📦', color: '#6B7280' }
+              const ti = typeInfo[pp.product_type ?? ''] || { icon: '📦', color: '#6B7280' }
               const isFree = Number(pp.price) === 0
               return (
                 <div key={pp.id} style={{ background: 'var(--surface, #fff)', borderRadius: 14, padding: 20, border: '1px solid var(--border, #E5E7EB)', textAlign: 'center' }}>
@@ -431,18 +504,18 @@ export default function SubscriptionPage() {
                   <div style={{ fontSize: 22, fontWeight: 800, color: isFree ? '#10B981' : ti.color, marginBottom: 4 }}>
                     {isFree ? 'Үнэгүй' : `${Number(pp.price).toLocaleString()}₮`}
                   </div>
-                  {pp.duration_days > 0 && !isFree && <div style={{ fontSize: 11, color: '#9CA3AF' }}>{pp.duration_days} хоног</div>}
-                  {pp.free_tier_days > 0 && <div style={{ fontSize: 11, color: '#10B981', fontWeight: 600, marginTop: 4 }}>🎁 {pp.free_tier_days} хоног үнэгүй</div>}
+                  {(pp.duration_days ?? 0) > 0 && !isFree && <div style={{ fontSize: 11, color: '#9CA3AF' }}>{pp.duration_days ?? 0} хоног</div>}
+                  {(pp.free_tier_days ?? 0) > 0 && <div style={{ fontSize: 11, color: '#10B981', fontWeight: 600, marginTop: 4 }}>🎁 {pp.free_tier_days ?? 0} хоног үнэгүй</div>}
                   {!isFree && (
                     <button onClick={() => {
                       const params = new URLSearchParams({
-                        product_name: pp.name,
+                        product_name: pp.name || 'Product',
                         quantity: '1',
-                        total_price: String(pp.price),
+                        total_price: String(pp.price ?? 0),
                         source: 'product',
                         product_pricing_id: pp.id,
                       })
-                      window.location.href = `/checkout?${params.toString()}`
+                      router.push(`/checkout?${params.toString()}`)
                     }} style={{ marginTop: 10, width: '100%', padding: '10px', borderRadius: 10, border: 'none', background: ti.color, color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: FONT }}>
                       Худалдан авах
                     </button>
