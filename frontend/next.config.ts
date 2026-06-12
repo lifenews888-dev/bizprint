@@ -36,6 +36,22 @@ const CSP_SOURCES = {
   ],
 }
 
+const apiImageOrigin = (() => {
+  try {
+    return process.env.NEXT_PUBLIC_API_URL ? new URL(process.env.NEXT_PUBLIC_API_URL).origin : ''
+  } catch {
+    return ''
+  }
+})()
+
+if (apiImageOrigin && !CSP_SOURCES.imgSrc.includes(apiImageOrigin)) {
+  CSP_SOURCES.imgSrc.push(apiImageOrigin)
+}
+
+if (!CSP_SOURCES.imgSrc.includes('https://*.up.railway.app')) {
+  CSP_SOURCES.imgSrc.push('https://*.up.railway.app')
+}
+
 const repoRoot = path.resolve(process.cwd(), '..');
 
 const nextConfig: NextConfig = {

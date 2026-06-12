@@ -66,6 +66,12 @@ type DragZoneElement = HTMLDivElement & {
 }
 
 const errorMessage = (err: unknown, fallback: string) => err instanceof Error ? err.message : fallback
+const assetUrl = (url?: string) => {
+  if (!url) return ''
+  if (url.startsWith('http') || url.startsWith('blob:') || url.startsWith('data:')) return url
+  const normalized = url.startsWith('/') ? url : `/${url}`
+  return `${API_URL}${normalized}`
+}
 
 const inp: CSSProperties = { padding: '8px 12px', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text)', fontSize: 13, width: '100%', outline: 'none' }
 const num = (v: string) => { const n = parseFloat(v); return isNaN(n) ? 0 : n }
@@ -881,7 +887,7 @@ export default function AdminBusinessCardsPage() {
               {l.id && productId ? (
                 <label style={{ display: 'block', padding: '10px', borderRadius: 8, border: '2px dashed var(--border)', textAlign: 'center', cursor: 'pointer', fontSize: 11, color: '#FF6B00', fontWeight: 600 }}>
                   📤 Зураг оруулах
-                  <input type="file" accept="image/png" hidden onChange={async (e) => {
+                  <input type="file" accept="image/png,image/jpeg,image/webp" hidden onChange={async (e) => {
                     const file = e.target.files?.[0]
                     if (!file || !productId || !l.id) return
                     const fd = new FormData()
@@ -890,8 +896,9 @@ export default function AdminBusinessCardsPage() {
                     fd.append('side', edSide)
                     try {
                       const result = await apiFetch<BusinessCardBackground>(`/admin/business-cards/${productId}/layouts/${l.id}/backgrounds`, { method: 'POST', body: fd })
-                      if (result) { result.side = edSide; updateLayout(i, 'backgrounds', [...(l.backgrounds || []), result]) }
+                      if (result) { updateLayout(i, 'backgrounds', [...(l.backgrounds || []), { ...result, side: result.side || edSide }]) }
                     } catch (err: unknown) { alert('Upload алдаа: ' + errorMessage(err, '')) }
+                    e.currentTarget.value = ''
                   }} />
                 </label>
               ) : (
@@ -900,7 +907,7 @@ export default function AdminBusinessCardsPage() {
               {/* Show uploaded bgs */}
               {(l.backgrounds || []).filter(bg => bg.side === edSide).map(bg => (
                 <div key={bg.id} style={{ position: 'relative', marginTop: 6, borderRadius: 6, overflow: 'hidden', border: '1px solid var(--border)' }}>
-                  <img src={bg.url?.startsWith('http') ? bg.url : `${API_URL}${bg.url}`} alt="" style={{ width: '100%', height: 60, objectFit: 'cover' }} />
+                  <img src={assetUrl(bg.url)} alt="" style={{ width: '100%', height: 60, objectFit: 'cover' }} />
                   <button onClick={async () => {
                     if (!productId || !l.id) return
                     await apiFetch(`/admin/business-cards/${productId}/layouts/${l.id}/backgrounds/${bg.id}`, { method: 'DELETE' }).catch(() => {})
@@ -934,7 +941,7 @@ export default function AdminBusinessCardsPage() {
                 {/* Background image */}
                 {(() => {
                   const bgImg = (l.backgrounds || []).find(bg => bg.side === edSide)
-                  return bgImg ? <img src={bgImg.url?.startsWith('http') ? bgImg.url : `${API_URL}${bgImg.url}`} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} /> : null
+                  return bgImg ? <img src={assetUrl(bgImg.url)} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} /> : null
                 })()}
 
                 {/* Zones */}

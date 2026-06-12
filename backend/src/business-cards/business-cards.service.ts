@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { existsSync, unlinkSync } from 'fs';
@@ -117,13 +117,15 @@ export class BusinessCardsService {
 
   /* ── Backgrounds ── */
 
-  async addBackground(layoutId: string, file: Express.Multer.File, name?: string) {
+  async addBackground(layoutId: string, file: Express.Multer.File, name?: string, side?: string) {
+    if (!file) throw new BadRequestException('Зураг файл олдсонгүй');
     const count = await this.bgRepo.count({ where: { layout_id: layoutId } });
     const url = `/uploads/bc-backgrounds/${file.filename}`;
     const bg = this.bgRepo.create({
       layout_id: layoutId,
       name: name || file.originalname.replace(/\.[^.]+$/, ''),
       url,
+      side: side === 'back' ? 'back' : 'front',
       sort_order: count,
     });
     return this.bgRepo.save(bg);
@@ -136,6 +138,7 @@ export class BusinessCardsService {
         layout_id: layoutId,
         name: file.originalname.replace(/\.[^.]+$/, ''),
         url: `/uploads/bc-backgrounds/${file.filename}`,
+        side: 'front',
         sort_order: count + i,
       })
     );

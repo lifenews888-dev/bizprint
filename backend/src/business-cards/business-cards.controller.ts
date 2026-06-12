@@ -53,9 +53,9 @@ export class AdminBcController {
     @Param('id') id: string,
     @Param('layoutId') layoutId: string,
     @UploadedFile() file: Express.Multer.File,
-    @Body() body: { name?: string },
+    @Body() body: { name?: string; side?: string },
   ) {
-    return this.svc.addBackground(layoutId, file, body.name);
+    return this.svc.addBackground(layoutId, file, body.name, body.side);
   }
 
   // Олон зураг нэг дор upload (bulk)

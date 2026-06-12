@@ -19,6 +19,9 @@ export class BcLayoutBackground {
   @Column()
   url: string;
 
+  @Column({ default: 'front' })
+  side: string;
+
   @Column({ default: 0 })
   sort_order: number;
 
