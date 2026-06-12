@@ -252,6 +252,62 @@ const mergeZoneLayout = (source: LayoutZone[], side: EditorSide, variant: number
       social: { x: 304, y: 136, w: 82, h: 24 },
       qr: { x: 370, y: 28, w: 50, h: 50 },
     },
+    {
+      logo: { x: 30, y: 24, w: 62, h: 62 },
+      company_name: { x: 112, y: 28, w: 292, h: 22, fontSize: 13, align: 'right' },
+      company_message: { x: 132, y: 54, w: 272, h: 18, fontSize: 10, align: 'right' },
+      full_name: { x: 44, y: 102, w: 360, h: 34, fontSize: 26, fontWeight: 'bold', align: 'right' },
+      job_title: { x: 92, y: 140, w: 312, h: 18, fontSize: 11, align: 'right' },
+      email: { x: 226, y: 184, w: 178, h: 18, fontSize: 10, align: 'right' },
+      phone: { x: 226, y: 206, w: 178, h: 18, fontSize: 10, align: 'right' },
+      website: { x: 226, y: 228, w: 178, h: 18, fontSize: 10, align: 'right' },
+      address1: { x: 44, y: 184, w: 150, h: 18, fontSize: 9, align: 'left' },
+      address2: { x: 44, y: 206, w: 150, h: 18, fontSize: 9, align: 'left' },
+      social: { x: 42, y: 230, w: 88, h: 24 },
+      qr: { x: 170, y: 186, w: 50, h: 50 },
+    },
+    {
+      logo: { x: 342, y: 174, w: 70, h: 70 },
+      company_name: { x: 36, y: 28, w: 248, h: 22, fontSize: 14, align: 'left' },
+      company_message: { x: 36, y: 54, w: 248, h: 18, fontSize: 10, align: 'left' },
+      full_name: { x: 36, y: 92, w: 330, h: 34, fontSize: 25, fontWeight: 'bold', align: 'left' },
+      job_title: { x: 36, y: 130, w: 260, h: 18, fontSize: 11, align: 'left' },
+      email: { x: 36, y: 174, w: 160, h: 18, fontSize: 10, align: 'left' },
+      phone: { x: 36, y: 196, w: 160, h: 18, fontSize: 10, align: 'left' },
+      website: { x: 36, y: 218, w: 160, h: 18, fontSize: 10, align: 'left' },
+      address1: { x: 210, y: 174, w: 106, h: 18, fontSize: 8, align: 'left' },
+      address2: { x: 210, y: 196, w: 106, h: 18, fontSize: 8, align: 'left' },
+      social: { x: 304, y: 34, w: 88, h: 24 },
+      qr: { x: 322, y: 84, w: 54, h: 54 },
+    },
+    {
+      logo: { x: 32, y: 34, w: 56, h: 56 },
+      company_name: { x: 112, y: 36, w: 196, h: 22, fontSize: 13, align: 'left' },
+      company_message: { x: 112, y: 62, w: 196, h: 18, fontSize: 10, align: 'left' },
+      full_name: { x: 54, y: 116, w: 342, h: 36, fontSize: 28, fontWeight: 'bold', align: 'center' },
+      job_title: { x: 106, y: 158, w: 238, h: 18, fontSize: 11, align: 'center' },
+      email: { x: 54, y: 204, w: 110, h: 18, fontSize: 9, align: 'center' },
+      phone: { x: 170, y: 204, w: 110, h: 18, fontSize: 9, align: 'center' },
+      website: { x: 286, y: 204, w: 110, h: 18, fontSize: 9, align: 'center' },
+      address1: { x: 120, y: 230, w: 100, h: 18, fontSize: 8, align: 'center' },
+      address2: { x: 230, y: 230, w: 100, h: 18, fontSize: 8, align: 'center' },
+      social: { x: 326, y: 40, w: 78, h: 24 },
+      qr: { x: 202, y: 42, w: 48, h: 48 },
+    },
+    {
+      logo: { x: 190, y: 30, w: 70, h: 70 },
+      company_name: { x: 34, y: 124, w: 382, h: 24, fontSize: 16, align: 'center' },
+      company_message: { x: 74, y: 154, w: 302, h: 18, fontSize: 10, align: 'center' },
+      full_name: { x: 54, y: 188, w: 342, h: 34, fontSize: 26, fontWeight: 'bold', align: 'center' },
+      job_title: { x: 100, y: 226, w: 250, h: 18, fontSize: 11, align: 'center' },
+      email: { x: 30, y: 34, w: 120, h: 18, fontSize: 9, align: 'left' },
+      phone: { x: 300, y: 34, w: 120, h: 18, fontSize: 9, align: 'right' },
+      website: { x: 300, y: 58, w: 120, h: 18, fontSize: 9, align: 'right' },
+      address1: { x: 30, y: 58, w: 120, h: 18, fontSize: 8, align: 'left' },
+      address2: { x: 30, y: 82, w: 120, h: 18, fontSize: 8, align: 'left' },
+      social: { x: 332, y: 86, w: 76, h: 24 },
+      qr: { x: 28, y: 190, w: 48, h: 48 },
+    },
   ]
 
   const backLayouts: Record<string, Partial<LayoutZone>>[] = [
@@ -299,15 +355,18 @@ const mergeZoneLayout = (source: LayoutZone[], side: EditorSide, variant: number
 const nextUniquePair = (layout: BusinessCardLayout, allLayouts: BusinessCardLayout[]) => {
   const used = new Set(allLayouts.map(l => `${zoneSignature(l.front_json)}::${zoneSignature(l.back_json)}`).filter(Boolean))
   used.delete(`${zoneSignature(layout.front_json)}::${zoneSignature(layout.back_json)}`)
+  const usedFronts = new Set(allLayouts.map(l => zoneSignature(l.front_json)).filter(Boolean))
+  usedFronts.delete(zoneSignature(layout.front_json))
   const baseFront = layout.front_json?.length ? layout.front_json : baseZonesForSide('front')
   const baseBack = layout.back_json?.length ? layout.back_json : baseZonesForSide('back')
   const startVariant = Number.isFinite(layout.canvas_data?.randomVariant) ? Number(layout.canvas_data?.randomVariant) : -1
-  for (let offset = 1; offset <= 64; offset += 1) {
+  for (let offset = 1; offset <= 160; offset += 1) {
     const variant = startVariant + offset
     const front = mergeZoneLayout(baseFront, 'front', variant)
     const back = mergeZoneLayout(baseBack, 'back', variant + 3)
+    const frontSignature = zoneSignature(front)
     const signature = `${zoneSignature(front)}::${zoneSignature(back)}`
-    if (!used.has(signature) && !hasUnsafeLayout(front) && !hasUnsafeLayout(back)) return { front, back, variant }
+    if (!used.has(signature) && !usedFronts.has(frontSignature) && !hasUnsafeLayout(front) && !hasUnsafeLayout(back)) return { front, back, variant }
   }
   const variant = startVariant + 1
   return {
