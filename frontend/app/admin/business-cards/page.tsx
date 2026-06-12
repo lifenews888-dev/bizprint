@@ -140,39 +140,140 @@ const zoneSignature = (zones?: LayoutZone[]) => (zones || [])
   .sort()
   .join('|')
 
+const PRINT_SAFE_MARGIN = 16
+const zoneBox = (z: LayoutZone) => ({
+  x: z.x,
+  y: z.y,
+  w: z.w || (z.type ? 56 : 120),
+  h: z.h || (z.type ? 56 : Math.max(18, (z.fontSize || 11) + 8)),
+})
+const overlaps = (a: LayoutZone, b: LayoutZone, gap = 6) => {
+  const A = zoneBox(a)
+  const B = zoneBox(b)
+  return A.x < B.x + B.w + gap && A.x + A.w + gap > B.x && A.y < B.y + B.h + gap && A.y + A.h + gap > B.y
+}
+const hasUnsafeLayout = (zones: LayoutZone[]) => {
+  const outOfCanvas = zones.some(z => {
+    const box = zoneBox(z)
+    return box.x < PRINT_SAFE_MARGIN || box.y < PRINT_SAFE_MARGIN || box.x + box.w > 450 - PRINT_SAFE_MARGIN || box.y + box.h > 275 - PRINT_SAFE_MARGIN
+  })
+  if (outOfCanvas) return true
+  for (let i = 0; i < zones.length; i += 1) {
+    for (let j = i + 1; j < zones.length; j += 1) {
+      if (overlaps(zones[i], zones[j])) return true
+    }
+  }
+  return false
+}
+const applyPreset = (base: LayoutZone[], preset: Record<string, Partial<LayoutZone>>) =>
+  base.map(z => ({ ...z, ...(preset[z.key] || {}) }))
+
 const mergeZoneLayout = (source: LayoutZone[], side: EditorSide, variant: number): LayoutZone[] => {
   const zones = source.length ? cloneZones(source) : baseZonesForSide(side)
   const byKey = new Map(zones.map(z => [z.key, z]))
   const ensure = (base: LayoutZone) => byKey.get(base.key) || { ...base }
   const front = baseZonesForSide('front').map(ensure)
   const back = baseZonesForSide('back').map(ensure)
-  const pad = [20, 28, 36, 24, 42, 18][variant % 6]
 
-  const frontLayouts: Record<string, Partial<LayoutZone>>[][] = [
-    [
-      { logo: { x: 32, y: 32, w: 82, h: 82 }, company_name: { x: 136, y: 38, w: 250, h: 24, align: 'left' }, company_message: { x: 136, y: 66, w: 250, h: 18, align: 'left' }, full_name: { x: 136, y: 118, w: 250, h: 34, fontSize: 24, fontWeight: 'bold', align: 'left' }, job_title: { x: 136, y: 152, w: 220, h: 20, align: 'left' }, email: { x: 136, y: 192, w: 210, h: 18, align: 'left' }, phone: { x: 136, y: 214, w: 210, h: 18, align: 'left' }, website: { x: 136, y: 236, w: 210, h: 18, align: 'left' }, qr: { x: 368, y: 188, w: 54, h: 54 }, social: { x: 32, y: 206, w: 82, h: 30 } },
-    ],
-    [
-      { logo: { x: 348, y: 28, w: 72, h: 72 }, company_name: { x: 34, y: 34, w: 260, h: 24, align: 'left' }, company_message: { x: 34, y: 62, w: 250, h: 18, align: 'left' }, full_name: { x: 34, y: 120, w: 270, h: 34, fontSize: 26, fontWeight: 'bold', align: 'left' }, job_title: { x: 34, y: 155, w: 220, h: 20, align: 'left' }, email: { x: 34, y: 202, w: 200, h: 18, align: 'left' }, phone: { x: 34, y: 224, w: 200, h: 18, align: 'left' }, address1: { x: 238, y: 202, w: 176, h: 18, align: 'right' }, address2: { x: 238, y: 224, w: 176, h: 18, align: 'right' }, qr: { x: 362, y: 112, w: 58, h: 58 }, social: { x: 34, y: 84, w: 96, h: 26 } },
-    ],
-    [
-      { logo: { x: 189, y: 24, w: 72, h: 72 }, company_name: { x: 64, y: 106, w: 322, h: 24, align: 'center' }, company_message: { x: 84, y: 132, w: 282, h: 18, align: 'center' }, full_name: { x: 48, y: 166, w: 354, h: 34, fontSize: 24, fontWeight: 'bold', align: 'center' }, job_title: { x: 98, y: 200, w: 254, h: 20, align: 'center' }, email: { x: 70, y: 232, w: 150, h: 18, align: 'center' }, phone: { x: 230, y: 232, w: 150, h: 18, align: 'center' }, qr: { x: 24, y: 196, w: 50, h: 50 }, social: { x: 350, y: 198, w: 76, h: 28 } },
-    ],
-    [
-      { logo: { x: 24, y: 178, w: 64, h: 64 }, company_name: { x: 32, y: 34, w: 340, h: 24, align: 'left' }, company_message: { x: 32, y: 62, w: 260, h: 18, align: 'left' }, full_name: { x: 32, y: 102, w: 330, h: 38, fontSize: 30, fontWeight: 'bold', align: 'left' }, job_title: { x: 32, y: 145, w: 240, h: 20, align: 'left' }, email: { x: 126, y: 190, w: 260, h: 18, align: 'left' }, phone: { x: 126, y: 212, w: 260, h: 18, align: 'left' }, website: { x: 126, y: 234, w: 260, h: 18, align: 'left' }, qr: { x: 370, y: 28, w: 52, h: 52 }, social: { x: 314, y: 142, w: 90, h: 28 } },
-    ],
+  const frontLayouts: Record<string, Partial<LayoutZone>>[] = [
+    {
+      logo: { x: 28, y: 28, w: 76, h: 76 },
+      company_name: { x: 126, y: 30, w: 260, h: 22, fontSize: 14, align: 'left' },
+      company_message: { x: 126, y: 56, w: 260, h: 18, fontSize: 10, align: 'left' },
+      full_name: { x: 126, y: 96, w: 276, h: 32, fontSize: 24, fontWeight: 'bold', align: 'left' },
+      job_title: { x: 126, y: 132, w: 240, h: 18, fontSize: 11, align: 'left' },
+      email: { x: 126, y: 170, w: 180, h: 18, fontSize: 10, align: 'left' },
+      phone: { x: 126, y: 192, w: 180, h: 18, fontSize: 10, align: 'left' },
+      website: { x: 126, y: 214, w: 180, h: 18, fontSize: 10, align: 'left' },
+      address1: { x: 126, y: 236, w: 180, h: 18, fontSize: 10, align: 'left' },
+      address2: { x: 28, y: 236, w: 80, h: 18, fontSize: 9, align: 'left' },
+      social: { x: 28, y: 122, w: 76, h: 28 },
+      qr: { x: 360, y: 178, w: 58, h: 58 },
+    },
+    {
+      logo: { x: 346, y: 28, w: 72, h: 72 },
+      company_name: { x: 30, y: 30, w: 260, h: 22, fontSize: 14, align: 'left' },
+      company_message: { x: 30, y: 56, w: 250, h: 18, fontSize: 10, align: 'left' },
+      full_name: { x: 30, y: 96, w: 278, h: 34, fontSize: 26, fontWeight: 'bold', align: 'left' },
+      job_title: { x: 30, y: 134, w: 230, h: 18, fontSize: 11, align: 'left' },
+      email: { x: 30, y: 178, w: 176, h: 18, fontSize: 10, align: 'left' },
+      phone: { x: 30, y: 200, w: 176, h: 18, fontSize: 10, align: 'left' },
+      website: { x: 30, y: 222, w: 176, h: 18, fontSize: 10, align: 'left' },
+      address1: { x: 226, y: 178, w: 132, h: 18, fontSize: 9, align: 'left' },
+      address2: { x: 226, y: 200, w: 132, h: 18, fontSize: 9, align: 'left' },
+      social: { x: 30, y: 74, w: 92, h: 24 },
+      qr: { x: 366, y: 184, w: 52, h: 52 },
+    },
+    {
+      logo: { x: 190, y: 24, w: 70, h: 70 },
+      company_name: { x: 64, y: 104, w: 322, h: 22, fontSize: 14, align: 'center' },
+      company_message: { x: 84, y: 130, w: 282, h: 18, fontSize: 10, align: 'center' },
+      full_name: { x: 62, y: 160, w: 326, h: 32, fontSize: 24, fontWeight: 'bold', align: 'center' },
+      job_title: { x: 98, y: 196, w: 254, h: 18, fontSize: 11, align: 'center' },
+      email: { x: 68, y: 226, w: 126, h: 18, fontSize: 9, align: 'center' },
+      phone: { x: 206, y: 226, w: 126, h: 18, fontSize: 9, align: 'center' },
+      website: { x: 160, y: 248, w: 130, h: 18, fontSize: 9, align: 'center' },
+      address1: { x: 24, y: 146, w: 92, h: 18, fontSize: 8, align: 'center' },
+      address2: { x: 334, y: 146, w: 92, h: 18, fontSize: 8, align: 'center' },
+      social: { x: 24, y: 198, w: 70, h: 24 },
+      qr: { x: 374, y: 190, w: 48, h: 48 },
+    },
+    {
+      logo: { x: 28, y: 180, w: 58, h: 58 },
+      company_name: { x: 30, y: 30, w: 340, h: 22, fontSize: 14, align: 'left' },
+      company_message: { x: 30, y: 56, w: 260, h: 18, fontSize: 10, align: 'left' },
+      full_name: { x: 30, y: 92, w: 330, h: 36, fontSize: 28, fontWeight: 'bold', align: 'left' },
+      job_title: { x: 30, y: 134, w: 240, h: 18, fontSize: 11, align: 'left' },
+      email: { x: 108, y: 180, w: 166, h: 18, fontSize: 10, align: 'left' },
+      phone: { x: 108, y: 202, w: 166, h: 18, fontSize: 10, align: 'left' },
+      website: { x: 108, y: 224, w: 166, h: 18, fontSize: 10, align: 'left' },
+      address1: { x: 290, y: 180, w: 70, h: 18, fontSize: 8, align: 'left' },
+      address2: { x: 290, y: 202, w: 70, h: 18, fontSize: 8, align: 'left' },
+      social: { x: 304, y: 136, w: 82, h: 24 },
+      qr: { x: 370, y: 28, w: 50, h: 50 },
+    },
   ]
 
   const backLayouts: Record<string, Partial<LayoutZone>>[] = [
-    { company_name: { x: 62, y: 70, w: 326, h: 34, fontSize: 20, align: 'center' }, company_message: { x: 88, y: 110, w: 274, h: 20, align: 'center' }, social: { x: 174, y: 146, w: 102, h: 30 }, website: { x: 95, y: 218, w: 260, h: 20, align: 'center' }, qr: { x: 198, y: 164, w: 54, h: 54 } },
-    { logo: { x: 52, y: 92, w: 76, h: 76 }, company_name: { x: 154, y: 90, w: 240, h: 28, align: 'left' }, company_message: { x: 154, y: 124, w: 240, h: 20, align: 'left' }, website: { x: 154, y: 166, w: 210, h: 20, align: 'left' }, qr: { x: 360, y: 188, w: 54, h: 54 }, social: { x: 154, y: 198, w: 92, h: 28 } },
-    { company_name: { x: 40, y: 40, w: 370, h: 30, align: 'center' }, company_message: { x: 66, y: 75, w: 318, h: 20, align: 'center' }, qr: { x: 48, y: 160, w: 58, h: 58 }, website: { x: 126, y: 178, w: 244, h: 20, align: 'left' }, social: { x: 126, y: 206, w: 100, h: 28 } },
-    { company_name: { x: pad, y: 190, w: 450 - pad * 2, h: 30, align: 'center' }, company_message: { x: pad, y: 226, w: 450 - pad * 2, h: 20, align: 'center' }, logo: { x: 187, y: 54, w: 76, h: 76 }, social: { x: 174, y: 140, w: 102, h: 30 }, qr: { x: 362, y: 30, w: 54, h: 54 } },
+    {
+      company_name: { x: 62, y: 66, w: 326, h: 30, fontSize: 20, align: 'center' },
+      company_message: { x: 88, y: 106, w: 274, h: 18, fontSize: 11, align: 'center' },
+      social: { x: 174, y: 140, w: 102, h: 28 },
+      qr: { x: 198, y: 174, w: 52, h: 52 },
+      website: { x: 95, y: 238, w: 260, h: 18, fontSize: 10, align: 'center' },
+    },
+    {
+      logo: { x: 52, y: 88, w: 72, h: 72 },
+      company_name: { x: 154, y: 84, w: 240, h: 26, fontSize: 18, align: 'left' },
+      company_message: { x: 154, y: 118, w: 240, h: 18, fontSize: 10, align: 'left' },
+      website: { x: 154, y: 154, w: 210, h: 18, fontSize: 10, align: 'left' },
+      social: { x: 154, y: 190, w: 92, h: 26 },
+      qr: { x: 360, y: 186, w: 52, h: 52 },
+    },
+    {
+      company_name: { x: 40, y: 40, w: 370, h: 28, fontSize: 18, align: 'center' },
+      company_message: { x: 66, y: 76, w: 318, h: 18, fontSize: 10, align: 'center' },
+      qr: { x: 48, y: 160, w: 56, h: 56 },
+      website: { x: 126, y: 176, w: 244, h: 18, fontSize: 10, align: 'left' },
+      social: { x: 126, y: 206, w: 100, h: 26 },
+    },
+    {
+      logo: { x: 188, y: 52, w: 74, h: 74 },
+      social: { x: 174, y: 138, w: 102, h: 28 },
+      company_name: { x: 36, y: 186, w: 378, h: 28, fontSize: 18, align: 'center' },
+      company_message: { x: 58, y: 224, w: 334, h: 18, fontSize: 10, align: 'center' },
+      qr: { x: 360, y: 30, w: 52, h: 52 },
+      website: { x: 36, y: 30, w: 150, h: 18, fontSize: 9, align: 'left' },
+    },
   ]
 
-  const layout = side === 'front' ? frontLayouts[variant % frontLayouts.length][0] : backLayouts[variant % backLayouts.length]
+  const presets = side === 'front' ? frontLayouts : backLayouts
   const target = side === 'front' ? front : back
-  return target.map(z => ({ ...z, ...(layout[z.key] || {}) }))
+  for (let offset = 0; offset < presets.length; offset += 1) {
+    const candidate = applyPreset(target, presets[(variant + offset) % presets.length])
+    if (!hasUnsafeLayout(candidate)) return candidate
+  }
+  return applyPreset(target, presets[0])
 }
 
 const nextUniquePair = (layout: BusinessCardLayout, allLayouts: BusinessCardLayout[]) => {
@@ -193,6 +294,18 @@ const nextUniquePair = (layout: BusinessCardLayout, allLayouts: BusinessCardLayo
     variant,
   }
 }
+
+const safeZones = (zones: LayoutZone[] | undefined, side: EditorSide, seed = 0) => {
+  const value = zones?.length ? cloneZones(zones) : baseZonesForSide(side)
+  return hasUnsafeLayout(value) ? mergeZoneLayout(value, side, seed) : value
+}
+
+const normalizeLayout = (layout: BusinessCardLayout, seed = 0): BusinessCardLayout => ({
+  ...layout,
+  backgrounds: layout.backgrounds || [],
+  front_json: safeZones(layout.front_json, 'front', seed),
+  back_json: safeZones(layout.back_json, 'back', seed + 3),
+})
 
 export default function AdminBusinessCardsPage() {
   const [view, setView] = useState<'grid' | 'editor' | 'pricing'>('grid')
@@ -225,12 +338,7 @@ export default function AdminBusinessCardsPage() {
       if (products.length > 0) {
         const best = products.reduce((a, b) => ((a.layouts || []).length >= (b.layouts || []).length ? a : b), products[0])
         setProductId(best.id ?? null)
-        setAllLayouts((best.layouts || []).map(l => ({
-          ...l,
-          backgrounds: l.backgrounds || [],
-          front_json: l.front_json?.length ? l.front_json : baseZonesForSide('front'),
-          back_json: l.back_json?.length ? l.back_json : baseZonesForSide('back'),
-        })))
+        setAllLayouts((best.layouts || []).map((l, idx) => normalizeLayout(l, idx)))
         setVatEnabled(best.vat_enabled !== false)
         if (best.pricingTiers?.length) {
           setTiers(best.pricingTiers.map(t => ({
@@ -301,7 +409,8 @@ export default function AdminBusinessCardsPage() {
     if (!productId) return
     const l = allLayouts[idx]
     if (!l?.id) return
-    const body = { name: l.name, name_mn: l.name_mn || l.name, type: l.type || 'business', canvas_data: l.canvas_data, front_json: l.front_json || [], back_json: l.back_json || [] }
+    const safe = normalizeLayout(l, idx)
+    const body = { name: safe.name, name_mn: safe.name_mn || safe.name, type: safe.type || 'business', canvas_data: safe.canvas_data, front_json: safe.front_json || [], back_json: safe.back_json || [] }
     await apiFetch(`/admin/business-cards/${productId}/layouts/${l.id}`, { method: 'PATCH', body })
   }
 
