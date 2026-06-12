@@ -140,14 +140,14 @@ const zoneSignature = (zones?: LayoutZone[]) => (zones || [])
   .sort()
   .join('|')
 
-const PRINT_SAFE_MARGIN = 16
+const PRINT_SAFE_MARGIN = 12
 const zoneBox = (z: LayoutZone) => ({
   x: z.x,
   y: z.y,
   w: z.w || (z.type ? 56 : 120),
   h: z.h || (z.type ? 56 : Math.max(18, (z.fontSize || 11) + 8)),
 })
-const overlaps = (a: LayoutZone, b: LayoutZone, gap = 6) => {
+const overlaps = (a: LayoutZone, b: LayoutZone, gap = 2) => {
   const A = zoneBox(a)
   const B = zoneBox(b)
   return A.x < B.x + B.w + gap && A.x + A.w + gap > B.x && A.y < B.y + B.h + gap && A.y + A.h + gap > B.y
@@ -167,6 +167,20 @@ const hasUnsafeLayout = (zones: LayoutZone[]) => {
 }
 const applyPreset = (base: LayoutZone[], preset: Record<string, Partial<LayoutZone>>) =>
   base.map(z => ({ ...z, ...(preset[z.key] || {}) }))
+
+const nudgeLayout = (zones: LayoutZone[], variant: number) => {
+  const dx = [-8, -4, 0, 4, 8, 2, -2, 6][variant % 8]
+  const dy = [-4, 0, 4, -2, 2, 6, -6, 0][Math.floor(variant / 2) % 8]
+  return zones.map(z => {
+    if (z.type === 'qr' || z.type === 'logo') return z
+    const box = zoneBox(z)
+    return {
+      ...z,
+      x: Math.max(PRINT_SAFE_MARGIN, Math.min(450 - PRINT_SAFE_MARGIN - box.w, z.x + dx)),
+      y: Math.max(PRINT_SAFE_MARGIN, Math.min(275 - PRINT_SAFE_MARGIN - box.h, z.y + dy)),
+    }
+  })
+}
 
 const mergeZoneLayout = (source: LayoutZone[], side: EditorSide, variant: number): LayoutZone[] => {
   const zones = source.length ? cloneZones(source) : baseZonesForSide(side)
@@ -270,24 +284,26 @@ const mergeZoneLayout = (source: LayoutZone[], side: EditorSide, variant: number
   const presets = side === 'front' ? frontLayouts : backLayouts
   const target = side === 'front' ? front : back
   for (let offset = 0; offset < presets.length; offset += 1) {
-    const candidate = applyPreset(target, presets[(variant + offset) % presets.length])
+    const candidate = nudgeLayout(applyPreset(target, presets[(variant + offset) % presets.length]), variant + offset)
     if (!hasUnsafeLayout(candidate)) return candidate
   }
-  return applyPreset(target, presets[0])
+  return nudgeLayout(applyPreset(target, presets[variant % presets.length]), variant)
 }
 
 const nextUniquePair = (layout: BusinessCardLayout, allLayouts: BusinessCardLayout[]) => {
   const used = new Set(allLayouts.map(l => `${zoneSignature(l.front_json)}::${zoneSignature(l.back_json)}`).filter(Boolean))
+  used.delete(`${zoneSignature(layout.front_json)}::${zoneSignature(layout.back_json)}`)
   const baseFront = layout.front_json?.length ? layout.front_json : baseZonesForSide('front')
   const baseBack = layout.back_json?.length ? layout.back_json : baseZonesForSide('back')
-  for (let offset = 0; offset < 16; offset += 1) {
-    const variant = (Date.now() + offset) % 16
+  const startVariant = Number.isFinite(layout.canvas_data?.randomVariant) ? Number(layout.canvas_data?.randomVariant) : -1
+  for (let offset = 1; offset <= 64; offset += 1) {
+    const variant = startVariant + offset
     const front = mergeZoneLayout(baseFront, 'front', variant)
     const back = mergeZoneLayout(baseBack, 'back', variant + 3)
     const signature = `${zoneSignature(front)}::${zoneSignature(back)}`
-    if (!used.has(signature)) return { front, back, variant }
+    if (!used.has(signature) && !hasUnsafeLayout(front) && !hasUnsafeLayout(back)) return { front, back, variant }
   }
-  const variant = Date.now() % 16
+  const variant = startVariant + 1
   return {
     front: mergeZoneLayout(baseFront, 'front', variant),
     back: mergeZoneLayout(baseBack, 'back', variant + 3),
@@ -688,15 +704,18 @@ export default function AdminBusinessCardsPage() {
 
             {/* Professional print layout engine */}
             <button onClick={() => {
-              const useUniquePairEngine = true
-              if (useUniquePairEngine) {
-                const pair = nextUniquePair(l, allLayouts)
-                updateLayout(i, 'front_json', pair.front)
-                updateLayout(i, 'back_json', pair.back)
-                updateLayout(i, 'canvas_data', { ...(l.canvas_data || {}), randomVariant: pair.variant })
-                setLayoutEditorSide('front')
-                setSelectedZoneKey(null)
-              } else {
+              const pair = nextUniquePair(l, allLayouts)
+              updateLayout(i, 'front_json', pair.front)
+              updateLayout(i, 'back_json', pair.back)
+              updateLayout(i, 'canvas_data', { ...(l.canvas_data || {}), randomVariant: pair.variant })
+              setLayoutEditorSide('front')
+              setSelectedZoneKey(null)
+            }} style={{ width: '100%', padding: '10px 0', borderRadius: 10, border: '1px dashed #FF6B00', background: '#FFF7ED', cursor: 'pointer', fontSize: 12, fontWeight: 800, color: '#FF6B00', marginBottom: 12 }}>
+              🎲 Давтагдашгүй random
+            </button>
+
+            {false && (
+            <button onClick={() => {
               if (currentZones.length === 0) return
               const CW = 450, CH = 275
               const R = (a: number, b: number) => Math.round(a + Math.random() * (b - a))
@@ -830,10 +849,10 @@ export default function AdminBusinessCardsPage() {
               }
 
               updateLayout(i, zoneKey, result)
-              }
             }} style={{ width: '100%', padding: '10px 0', borderRadius: 10, border: '1px dashed #FF6B00', background: '#FFF7ED', cursor: 'pointer', fontSize: 12, fontWeight: 800, color: '#FF6B00', marginBottom: 12 }}>
               🎲 2 талыг unique random
             </button>
+            )}
 
             {/* Add zones */}
             <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text2)', marginBottom: 6 }}>Элемент нэмэх:</div>
@@ -922,6 +941,7 @@ export default function AdminBusinessCardsPage() {
                     <div
                       key={z.key}
                       draggable
+                      onClick={() => setSelectedZoneKey(selectedZoneKey === z.key ? null : z.key)}
                       onDragStart={e => {
                         e.dataTransfer.setData('zoneIdx', String(zIdx))
                         e.dataTransfer.setDragImage(e.currentTarget, 0, 0)
@@ -970,7 +990,9 @@ export default function AdminBusinessCardsPage() {
                         </div>
                       )}
                       {/* Delete button */}
-                      <button onClick={(e) => { e.stopPropagation(); removeZone(zIdx) }} style={{ position: 'absolute', top: -8, right: -8, width: 16, height: 16, borderRadius: 8, background: '#EF4444', color: '#fff', border: 'none', fontSize: 8, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1 }}>×</button>
+                      {selectedZoneKey === z.key && (
+                        <button onClick={(e) => { e.stopPropagation(); removeZone(zIdx) }} style={{ position: 'absolute', top: -8, right: -8, width: 16, height: 16, borderRadius: 8, background: '#EF4444', color: '#fff', border: 'none', fontSize: 8, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1 }}>×</button>
+                      )}
                     </div>
                   )
                 })}
