@@ -1,7 +1,7 @@
 'use client'
 
 import { apiFetch, API_URL, getToken } from '@/lib/api'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 type Product = {
   id: string
@@ -10,6 +10,12 @@ type Product = {
   code?: string
   category?: string
   thumbnail_url?: string
+}
+
+type ProductsResponse = Product[] | { items?: Product[] }
+
+type UploadResponse = {
+  urls?: string[]
 }
 
 type Item = {
@@ -50,6 +56,10 @@ function matchScore(filename: string, p: Product): number {
   return score
 }
 
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : 'Unknown error'
+}
+
 export default function BulkImagesPage() {
   const [products, setProducts] = useState<Product[]>([])
   const [items, setItems] = useState<Item[]>([])
@@ -59,18 +69,20 @@ export default function BulkImagesPage() {
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const showToast = (m: string) => { setToast(m); setTimeout(() => setToast(''), 3000) }
+  const readProducts = (d: ProductsResponse): Product[] => Array.isArray(d) ? d : d.items || []
 
   // Load all products
+  const loadProducts = useCallback(async () => {
+    try {
+      const d = await apiFetch<ProductsResponse>('/admin/products-master?limit=500')
+      setProducts(readProducts(d))
+    } catch (e: unknown) {
+      showToast('Бүтээгдэхүүн ачаалахад алдаа: ' + errorMessage(e))
+    } finally { setLoading(false) }
+  }, [])
+
   useEffect(() => {
-    (async () => {
-      try {
-        const d = await apiFetch<any>('/admin/products-master?limit=500')
-        const list = (d.items || d || []) as Product[]
-        setProducts(list)
-      } catch (e: any) {
-        showToast('Бүтээгдэхүүн ачаалахад алдаа: ' + e.message)
-      } finally { setLoading(false) }
-    })()
+    void Promise.resolve().then(loadProducts)
   }, [])
 
   // Products without a real thumbnail first — these are the ones needing images
@@ -128,7 +140,7 @@ export default function BulkImagesPage() {
       body: fd,
     })
     if (!uploadRes.ok) throw new Error(`Upload failed: ${uploadRes.status}`)
-    const uploadData = await uploadRes.json()
+    const uploadData = await uploadRes.json() as UploadResponse
     const url = uploadData.urls?.[0]
     if (!url) throw new Error('Cloudinary URL not returned')
 
@@ -151,8 +163,8 @@ export default function BulkImagesPage() {
         const url = await uploadOne(item)
         setItems(prev => prev.map(i => i.id === item.id ? { ...i, status: 'done', uploadedUrl: url } : i))
         ok++
-      } catch (e: any) {
-        setItems(prev => prev.map(i => i.id === item.id ? { ...i, status: 'error', error: e.message } : i))
+      } catch (e: unknown) {
+        setItems(prev => prev.map(i => i.id === item.id ? { ...i, status: 'error', error: errorMessage(e) } : i))
         failed++
       }
     }
@@ -161,8 +173,8 @@ export default function BulkImagesPage() {
 
     // Refresh products list
     try {
-      const d = await apiFetch<any>('/admin/products-master?limit=500')
-      setProducts((d.items || d || []) as Product[])
+      const d = await apiFetch<ProductsResponse>('/admin/products-master?limit=500')
+      setProducts(readProducts(d))
     } catch {}
   }
 

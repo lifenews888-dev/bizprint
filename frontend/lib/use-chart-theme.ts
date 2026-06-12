@@ -9,12 +9,9 @@ import { buildVChartTheme, isDarkTheme, type ChartThemeTokens, getTokens } from 
  * Uses MutationObserver for real-time theme switching.
  */
 export function useChartTheme() {
-  const [dark, setDark] = useState(true) // default dark
+  const [dark, setDark] = useState(() => (typeof window === 'undefined' ? true : isDarkTheme()))
 
   useEffect(() => {
-    // Initial read
-    setDark(isDarkTheme())
-
     // Watch for data-theme changes
     const observer = new MutationObserver(() => {
       setDark(isDarkTheme())

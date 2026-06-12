@@ -6,11 +6,35 @@ import { QRCodeSVG } from 'qrcode.react'
 
 const FONT = "'DM Sans','Segoe UI',system-ui,sans-serif"
 const ORANGE = '#FF6B00'
+const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'
+
+interface LoyaltyProgram {
+  name?: string
+}
+
+interface LoyaltySession {
+  token?: string
+  seconds_left?: number
+}
+
+interface SessionStatus {
+  is_used?: boolean
+}
+
+function getErrorMessage(error: unknown) {
+  if (!(error instanceof Error)) return ''
+  try {
+    const parsed = JSON.parse(error.message) as { message?: string }
+    return parsed.message || error.message
+  } catch {
+    return error.message
+  }
+}
 
 export default function StaffQrPage() {
-  const { programId } = useParams()
-  const [program, setProgram] = useState<any>(null)
-  const [session, setSession] = useState<any>(null)
+  const { programId } = useParams<{ programId: string }>()
+  const [program, setProgram] = useState<LoyaltyProgram | null>(null)
+  const [session, setSession] = useState<LoyaltySession | null>(null)
   const [secondsLeft, setSecondsLeft] = useState(0)
   const [status, setStatus] = useState<'idle' | 'active' | 'used' | 'expired'>('idle')
   const [usedMessage, setUsedMessage] = useState('')
@@ -20,7 +44,7 @@ export default function StaffQrPage() {
 
   // Load program info
   useEffect(() => {
-    fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/loyalty/program/${programId}`)
+    fetch(`${API}/loyalty/program/${programId}`)
       .then(r => r.ok ? r.json() : null)
       .then(setProgram)
       .catch(() => {})
@@ -47,7 +71,7 @@ export default function StaffQrPage() {
     setGenerating(true)
     setUsedMessage('')
     try {
-      const res: any = await apiFetch('/loyalty/session', {
+      const res = await apiFetch<LoyaltySession>('/loyalty/session', {
         method: 'POST',
         body: { program_id: programId },
       })
@@ -59,7 +83,7 @@ export default function StaffQrPage() {
       if (pollRef.current) clearInterval(pollRef.current)
       pollRef.current = setInterval(async () => {
         try {
-          const s: any = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/loyalty/session/${res.token}/status`).then(r => r.json())
+          const s = await fetch(`${API}/loyalty/session/${res.token}/status`).then(r => r.json() as Promise<SessionStatus>)
           if (s.is_used) {
             setStatus('used')
             setUsedMessage('Тамга амжилттай нэмэгдлээ!')
@@ -68,8 +92,8 @@ export default function StaffQrPage() {
           }
         } catch {}
       }, 2000)
-    } catch (e: any) {
-      const msg = (() => { try { return JSON.parse(e.message)?.message } catch { return e.message } })()
+    } catch (e: unknown) {
+      const msg = getErrorMessage(e)
       alert(msg || 'Алдаа гарлаа')
     }
     setGenerating(false)

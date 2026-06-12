@@ -1,6 +1,6 @@
 'use client'
 import { apiFetch, getToken } from '@/lib/api'
-import { Suspense, useEffect, useMemo, useState } from 'react'
+import { Suspense, useEffect, useMemo, useState, type CSSProperties } from 'react'
 import { useSearchParams } from 'next/navigation'
 
 interface Template {
@@ -14,6 +14,24 @@ interface Template {
   designer_name?: string
 }
 
+interface ShopUser {
+  id?: string
+}
+
+interface DownloadResponse {
+  file_url?: string
+}
+
+const DESCRIPTION_STYLE: CSSProperties = {
+  fontSize: 12,
+  color: '#6B7280',
+  marginBottom: 8,
+  overflow: 'hidden',
+  display: '-webkit-box',
+  WebkitLineClamp: 2,
+  WebkitBoxOrient: 'vertical',
+}
+
 const fmt = (n: number) => n.toLocaleString('mn-MN') + '₮'
 
 function TemplatesShopInner() {
@@ -22,7 +40,7 @@ function TemplatesShopInner() {
 
   const [templates, setTemplates] = useState<Template[]>([])
   const [loading, setLoading] = useState(true)
-  const [user, setUser] = useState<any>(null)
+  const [user, setUser] = useState<ShopUser | null>(null)
   const [ownedIds, setOwnedIds] = useState<Set<string>>(new Set())
   const [toast, setToast] = useState('')
   const [purchasing, setPurchasing] = useState<string | null>(null)
@@ -30,17 +48,17 @@ function TemplatesShopInner() {
 
   useEffect(() => {
     const token = getToken()
-    apiFetch<any>(`/templates`, { auth: false })
+    apiFetch<Template[]>(`/templates`, { auth: false })
       .then(d => setTemplates(Array.isArray(d) ? d : []))
       .catch(() => setTemplates([]))
       .finally(() => setLoading(false))
 
     if (token) {
-      apiFetch<any>(`/auth/me`)
+      apiFetch<ShopUser>(`/auth/me`)
         .then(u => {
           if (u?.id) {
             setUser(u)
-            return apiFetch<any>(`/templates/my/purchases`)
+            return apiFetch<string[]>(`/templates/my/purchases`)
           }
         })
         .then(ids => {
@@ -72,7 +90,7 @@ function TemplatesShopInner() {
     }
     setPurchasing(templateId)
     try {
-      await apiFetch<any>(`/templates/${templateId}/purchase`, {
+      await apiFetch<void>(`/templates/${templateId}/purchase`, {
         method: 'POST',
       })
       setOwnedIds(prev => new Set([...prev, templateId]))
@@ -90,7 +108,7 @@ function TemplatesShopInner() {
     }
     setDownloading(templateId)
     try {
-      const data = await apiFetch<any>(`/templates/${templateId}/download`)
+      const data = await apiFetch<DownloadResponse>(`/templates/${templateId}/download`)
       if (data.file_url) {
         window.open(data.file_url, '_blank')
       } else {
@@ -173,7 +191,7 @@ function TemplatesShopInner() {
                   )}
                   <div style={{ color: '#FF6B00', fontSize: 16, fontWeight: 800, marginBottom: 4 }}>{fmt(priceNum)}</div>
                   {t.description && (
-                    <div style={{ fontSize: 12, color: '#6B7280', marginBottom: 8, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as any }}>
+                    <div style={DESCRIPTION_STYLE}>
                       {t.description}
                     </div>
                   )}

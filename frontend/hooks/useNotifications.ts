@@ -18,6 +18,14 @@ interface DecodedUser {
   role?: string
 }
 
+interface NotificationPayload {
+  type?: string
+  title?: string
+  message?: string
+  timestamp?: string
+  inquiryId?: string
+}
+
 function decodeUser(): DecodedUser {
   if (typeof window === 'undefined') return {}
   try {
@@ -52,7 +60,7 @@ export function useNotifications(token: string | null) {
     socket.on('disconnect', () => setConnected(false))
     socket.on('connect_error', () => setConnected(false))
 
-    socket.on('new_notification', (data: any) => {
+    socket.on('new_notification', (data: NotificationPayload) => {
       const notif: RealtimeNotification = {
         id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
         type: data.type || 'info',

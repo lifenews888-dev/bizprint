@@ -1,9 +1,10 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useSyncExternalStore } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import ThemeToggle from '@/components/ThemeToggle'
 import VerificationBanner from '@/components/VerificationBanner'
 import { API_URL } from '@/lib/api'
+import { clearAuthSession } from '@/lib/auth-session'
 import { useNotifications } from '@/hooks/useNotifications'
 
 interface NavItem { label: string; href: string; icon: string; badge?: string }
@@ -18,14 +19,74 @@ interface Props {
   onLogout?: () => void
 }
 
+interface StoredDashboardUser {
+  is_creator?: boolean
+  verification_status?: string
+  verification_note?: string
+}
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  value !== null && typeof value === 'object' && !Array.isArray(value)
+
+const stringValue = (value: unknown): string | undefined =>
+  typeof value === 'string' ? value : undefined
+
+const parseStoredUser = (snapshot: string): StoredDashboardUser | null => {
+  if (!snapshot) return null
+
+  try {
+    const parsed = JSON.parse(snapshot) as unknown
+    if (!isRecord(parsed)) return null
+
+    return {
+      is_creator: parsed.is_creator === true,
+      verification_status: stringValue(parsed.verification_status),
+      verification_note: stringValue(parsed.verification_note),
+    }
+  } catch {
+    return null
+  }
+}
+
+const subscribeStorage = (onStoreChange: () => void) => {
+  if (typeof window === 'undefined') return () => {}
+
+  window.addEventListener('storage', onStoreChange)
+  window.addEventListener('bizprint-storage', onStoreChange)
+
+  return () => {
+    window.removeEventListener('storage', onStoreChange)
+    window.removeEventListener('bizprint-storage', onStoreChange)
+  }
+}
+
+const getStoredUserSnapshot = () =>
+  typeof window === 'undefined' ? '' : localStorage.getItem('user') || ''
+
+const getRoleModeSnapshot = () =>
+  typeof window === 'undefined' ? '' : localStorage.getItem('bizprint_role_mode') || ''
+
+const getServerSnapshot = () => ''
+
+const emitStorageChange = () => {
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event('bizprint-storage'))
+  }
+}
+
 export default function DashboardLayout({ children, navGroups, creatorNavGroups, user, onLogout }: Props) {
   const router    = useRouter()
   const path      = usePathname()
   const [collapsed, setCollapsed] = useState(false)
-  const [isCreator, setIsCreator] = useState(false)
-  const [creatorMode, setCreatorMode] = useState(false)
   const [badges, setBadges] = useState<Record<string, number>>({})
   const [notifOpen, setNotifOpen] = useState(false)
+  const storedUserSnapshot = useSyncExternalStore(subscribeStorage, getStoredUserSnapshot, getServerSnapshot)
+  const roleModeSnapshot = useSyncExternalStore(subscribeStorage, getRoleModeSnapshot, getServerSnapshot)
+  const storedUser = parseStoredUser(storedUserSnapshot)
+  const isCreator = storedUser?.is_creator === true
+  const creatorMode = isCreator && roleModeSnapshot === 'creator'
+  const verificationStatus = storedUser?.verification_status
+  const showVerificationBanner = !!verificationStatus && verificationStatus !== 'verified'
   const authToken = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null
   const { notifications, unreadCount, markAllRead } = useNotifications(authToken)
   const W = collapsed ? '56px' : '224px'
@@ -53,24 +114,9 @@ export default function DashboardLayout({ children, navGroups, creatorNavGroups,
     return () => clearInterval(interval)
   }, [navGroups, creatorNavGroups])
 
-  // Check if user is an approved creator
-  useEffect(() => {
-    try {
-      const stored = localStorage.getItem('user')
-      if (stored) {
-        const u = JSON.parse(stored)
-        setIsCreator(!!u.is_creator)
-        const mode = localStorage.getItem('bizprint_role_mode')
-        if (mode === 'creator' && u.is_creator) {
-          setCreatorMode(true)
-        }
-      }
-    } catch {}
-  }, [])
-
   const handleModeSwitch = (toCreator: boolean) => {
-    setCreatorMode(toCreator)
     localStorage.setItem('bizprint_role_mode', toCreator ? 'creator' : 'customer')
+    emitStorageChange()
     // Navigate to appropriate dashboard
     if (toCreator) {
       router.push('/creator')
@@ -83,7 +129,7 @@ export default function DashboardLayout({ children, navGroups, creatorNavGroups,
   const activeLabel = activeNavGroups.flatMap(g => g.items).find(i => i.href === path)?.label || 'Dashboard'
 
   const logout = () => {
-    localStorage.clear()
+    clearAuthSession()
     if (onLogout) onLogout()
     else router.push('/')
   }
@@ -344,15 +390,11 @@ export default function DashboardLayout({ children, navGroups, creatorNavGroups,
 
         {/* Page content */}
         <div style={{ flex: 1, overflowY: 'auto' }}>
-          {(() => {
-            try {
-              const u = JSON.parse(localStorage.getItem('user') || '{}')
-              if (u.verification_status && u.verification_status !== 'verified') {
-                return <div style={{ padding: '16px 24px 0' }}><VerificationBanner status={u.verification_status} note={u.verification_note} /></div>
-              }
-            } catch {}
-            return null
-          })()}
+          {showVerificationBanner && verificationStatus && (
+            <div style={{ padding: '16px 24px 0' }}>
+              <VerificationBanner status={verificationStatus} note={storedUser?.verification_note} />
+            </div>
+          )}
           {children}
         </div>
       </div>

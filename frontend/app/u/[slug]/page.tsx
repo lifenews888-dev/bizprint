@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { useParams } from 'next/navigation'
+import Link from 'next/link'
 
 const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'
 const FONT = "'DM Sans','Segoe UI',system-ui,sans-serif"
@@ -18,10 +19,43 @@ const SOCIAL_META: Record<string, { icon: string; color: string; label: string }
   whatsapp:  { icon: 'Wa', color: '#25D366', label: 'WhatsApp' },
 }
 
+interface SocialLink {
+  platform?: string
+  value?: string
+}
+
+interface DigitalCard {
+  accent_color?: string
+  logo_url?: string
+  avatar_url?: string
+  display_name?: string
+  company_name?: string
+  job_title?: string
+  company_message?: string
+  phone?: string
+  email?: string
+  website?: string
+  address?: string
+  social_links?: SocialLink[]
+}
+
+interface PublicCardData {
+  error?: 'not_found' | 'network' | string
+  status?: 'expired' | string
+  display_name?: string
+  company_name?: string
+  card?: DigitalCard
+  subscription?: {
+    is_trial?: boolean
+    days_left?: number
+  }
+  is_owner?: boolean
+}
+
 export default function PublicDigitalCard() {
-  const params = useParams()
-  const slug = params?.slug as string
-  const [data, setData] = useState<any>(null)
+  const params = useParams<{ slug: string }>()
+  const slug = params?.slug
+  const [data, setData] = useState<PublicCardData | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -31,7 +65,7 @@ export default function PublicDigitalCard() {
     if (tok) headers['Authorization'] = `Bearer ${tok}`
     fetch(`${API}/api/u/${slug}`, { headers })
       .then(r => r.json())
-      .then(d => setData(d))
+      .then((d: PublicCardData) => setData(d))
       .catch(() => setData({ error: 'network' }))
       .finally(() => setLoading(false))
   }, [slug])
@@ -69,9 +103,11 @@ export default function PublicDigitalCard() {
     </div>
   )
 
+  if (!data.card) return null
+
   const c = data.card
   const accent = c.accent_color || '#FF6B00'
-  const socials: any[] = Array.isArray(c.social_links) ? c.social_links : []
+  const socials: SocialLink[] = Array.isArray(c.social_links) ? c.social_links : []
 
   const generateVCard = () => {
     const lines = ['BEGIN:VCARD', 'VERSION:3.0']
@@ -176,10 +212,13 @@ export default function PublicDigitalCard() {
           <div style={{ background: '#fff', borderRadius: 16, padding: 20, marginTop: 12, boxShadow: '0 2px 12px rgba(0,0,0,0.04)' }}>
             <div style={{ fontSize: 12, fontWeight: 600, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 12 }}>Сошиал</div>
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-              {socials.map((s: any, i: number) => {
-                const meta = SOCIAL_META[s.platform] || { icon: '?', color: '#6B7280', label: s.platform }
+              {socials.map((s, i) => {
+                const platform = s.platform || ''
+                const value = s.value || ''
+                const meta = SOCIAL_META[platform] || { icon: '?', color: '#6B7280', label: platform || 'Social' }
+                const href = value.startsWith('http') ? value : `https://${value}`
                 return (
-                  <a key={i} href={s.value?.startsWith('http') ? s.value : `https://${s.value}`} target="_blank" rel="noopener"
+                  <a key={i} href={href} target="_blank" rel="noopener"
                     style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, textDecoration: 'none', minWidth: 56 }}>
                     <div style={{ width: 40, height: 40, borderRadius: 12, background: meta.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, color: '#fff', fontWeight: 700 }}>{meta.icon}</div>
                     <span style={{ fontSize: 10, color: '#6B7280' }}>{meta.label}</span>
@@ -207,7 +246,7 @@ export default function PublicDigitalCard() {
         {/* BizPrint branding */}
         <div style={{ textAlign: 'center', marginTop: 20, paddingBottom: 20 }}>
           <span style={{ fontSize: 11, color: '#D1D5DB' }}>Powered by </span>
-          <a href="/" style={{ fontSize: 11, color: '#FF6B00', textDecoration: 'none', fontWeight: 600 }}>BizPrint</a>
+          <Link href="/" style={{ fontSize: 11, color: '#FF6B00', textDecoration: 'none', fontWeight: 600 }}>BizPrint</Link>
         </div>
       </div>
     </div>

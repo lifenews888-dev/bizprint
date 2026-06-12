@@ -3,9 +3,31 @@
 import { useMemo, useState } from 'react'
 
 type SnapshotValue = string | number | boolean | null | undefined
+type SnapshotRecord = Record<string, SnapshotValue>
+
+interface PricingSnapshot {
+  breakdown?: SnapshotRecord
+  meta?: SnapshotRecord
+  serverResult?: SnapshotRecord
+  spec?: SnapshotRecord & { finishing?: string[] }
+  product?: SnapshotRecord
+  total?: SnapshotValue
+  source?: string
+  clientSnapshotVersion?: string
+  pricingContractVersion?: string
+  pricingEngine?: string
+  serverDelta?: SnapshotValue
+  serverDeltaPct?: SnapshotValue
+  serverDeltaSeverity?: string
+  verifiedBy?: string
+  verificationMessage?: string
+  pricingTrigger?: string
+  unitPrice?: SnapshotValue
+  clientTotal?: SnapshotValue
+}
 
 interface PricingSnapshotPanelProps {
-  snapshot?: any
+  snapshot?: PricingSnapshot
   estimatedPrice?: number | string | null
   compact?: boolean
 }
@@ -33,7 +55,7 @@ const severityLabel = (severity: string) => {
   return 'Зөрүүгүй'
 }
 
-const triggerLabel = (trigger: string) => {
+const triggerLabel = (trigger?: string) => {
   if (trigger === 'manual_reprice') return 'Админ дахин бодсон'
   if (trigger === 'create') return 'Анх үүсэхэд'
   return ''
@@ -62,12 +84,13 @@ export default function PricingSnapshotPanel({ snapshot, estimatedPrice, compact
   const serverDeltaSeverity = snapshot?.serverDeltaSeverity || (serverDelta === 0 ? 'none' : 'warning')
   const hasServerAudit = snapshot?.verifiedBy === 'backend' && Number.isFinite(serverDelta)
   const verificationMessage = snapshot?.verificationMessage || ''
+  const pricingTriggerLabel = triggerLabel(snapshot?.pricingTrigger)
   const copyText = useMemo(() => {
     const lines = [
       'Үнийн тооцооны snapshot',
       `Нийт үнэ: ${money(total)}`,
       `Эх сурвалж: ${source}`,
-      triggerLabel(snapshot?.pricingTrigger) ? `Триггер: ${triggerLabel(snapshot.pricingTrigger)}` : '',
+      pricingTriggerLabel ? `Триггер: ${pricingTriggerLabel}` : '',
       pricingContractVersion ? `Contract: ${pricingContractVersion}` : '',
       !pricingContractVersion && clientSnapshotVersion ? `Client snapshot: ${clientSnapshotVersion}` : '',
       pricingEngine ? `Engine: ${pricingEngine}` : '',
@@ -95,7 +118,7 @@ export default function PricingSnapshotPanel({ snapshot, estimatedPrice, compact
         : verificationMessage ? `Backend баталгаажуулалт хийгдээгүй: ${verificationMessage}` : '',
     ]
     return lines.filter(Boolean).join('\n')
-  }, [breakdown, clientSnapshotVersion, hasServerAudit, materialPrint, materialRateM2, pricingContractVersion, pricingEngine, printRateM2, product, serverDelta, serverDeltaPct, sideMultiplier, snapshot, source, spec, total, verificationMessage, wastePct])
+  }, [breakdown, clientSnapshotVersion, hasServerAudit, materialPrint, materialRateM2, pricingContractVersion, pricingEngine, pricingTriggerLabel, printRateM2, product, serverDelta, serverDeltaPct, sideMultiplier, snapshot, source, spec, total, verificationMessage, wastePct])
 
   if (!snapshot && !Number(estimatedPrice || 0)) return null
 
@@ -113,8 +136,8 @@ export default function PricingSnapshotPanel({ snapshot, estimatedPrice, compact
         <div className="text-right">
           <p className="text-lg font-bold text-orange-600">{money(total)}</p>
           <p className="text-xs text-gray-500 dark:text-gray-400">{source}</p>
-          {triggerLabel(snapshot?.pricingTrigger) && (
-            <p className="text-xs text-gray-500 dark:text-gray-400">{triggerLabel(snapshot.pricingTrigger)}</p>
+          {pricingTriggerLabel && (
+            <p className="text-xs text-gray-500 dark:text-gray-400">{pricingTriggerLabel}</p>
           )}
           {(auditVersion || pricingEngine) && (
             <p className="mt-1 max-w-[180px] text-xs text-gray-400 dark:text-gray-500">

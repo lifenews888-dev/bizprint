@@ -53,6 +53,30 @@ const FOLDS = [
   { v: 'zfold',    l: 'Z нугалалт' },
 ]
 
+type PricingMode = 'retail' | 'b2b'
+
+const PRICING_MODES: Array<{ v: PricingMode; l: string }> = [
+  { v: 'retail', l: 'Жижиглэн' },
+  { v: 'b2b', l: 'Бөөний B2B' },
+]
+
+interface OffsetQuoteResult {
+  error?: string
+  paper_cost?: number
+  print_cost?: number
+  setup_cost?: number
+  finishing_cost?: number
+  fold_cost?: number
+  margin?: number
+  vat?: number
+  unit_price?: number
+  total_price?: number
+  notes?: string[]
+}
+
+const errorMessage = (error: unknown) =>
+  error instanceof Error && error.message ? error.message : 'Серверт холбогдож чадсангүй'
+
 export default function OffsetQuote() {
   const [sizeCode, setSizeCode] = useState('A4')
   const [pages, setPages] = useState(1)
@@ -62,9 +86,9 @@ export default function OffsetQuote() {
   const [sides, setSides] = useState('single')
   const [finishing, setFinishing] = useState('none')
   const [fold, setFold] = useState('none')
-  const [pricingMode, setPricingMode] = useState<'retail' | 'b2b'>('retail')
+  const [pricingMode, setPricingMode] = useState<PricingMode>('retail')
 
-  const [result, setResult] = useState<any>(null)
+  const [result, setResult] = useState<OffsetQuoteResult | null>(null)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
@@ -72,7 +96,7 @@ export default function OffsetQuote() {
     const t = setTimeout(() => {
       setLoading(true)
       setError('')
-      apiFetch<any>('/quote-engine/calculate-offset', {
+      apiFetch<OffsetQuoteResult>('/quote-engine/calculate-offset', {
         method: 'POST',
         auth: false,
         body: {
@@ -94,8 +118,8 @@ export default function OffsetQuote() {
           setResult(null); return
         }
         setResult(r)
-      }).catch((e: any) => {
-        setError(e?.message || 'Серверт холбогдож чадсангүй')
+      }).catch((e: unknown) => {
+        setError(errorMessage(e))
         setResult(null)
       }).finally(() => setLoading(false))
     }, 400)
@@ -119,8 +143,8 @@ export default function OffsetQuote() {
           {/* Pricing mode */}
           <Card title="Хэрэглэгчийн төрөл">
             <div style={{ display: 'flex', gap: 8 }}>
-              {[{ v: 'retail', l: 'Жижиглэн' }, { v: 'b2b', l: 'Бөөний B2B' }].map(p => (
-                <Chip key={p.v} active={pricingMode === p.v} onClick={() => setPricingMode(p.v as any)}>{p.l}</Chip>
+              {PRICING_MODES.map(p => (
+                <Chip key={p.v} active={pricingMode === p.v} onClick={() => setPricingMode(p.v)}>{p.l}</Chip>
               ))}
             </div>
           </Card>
@@ -228,10 +252,10 @@ export default function OffsetQuote() {
                 <Row label="Цаасны зардал" value={fmt(result.paper_cost)} />
                 <Row label="Хэвлэл" value={fmt(result.print_cost)} />
                 <Row label="Тохиргоо (setup)" value={fmt(result.setup_cost)} />
-                {result.finishing_cost > 0 && <Row label="Finishing" value={fmt(result.finishing_cost)} />}
-                {result.fold_cost > 0 && <Row label="Нугалалт" value={fmt(result.fold_cost)} />}
+                {Number(result.finishing_cost || 0) > 0 && <Row label="Finishing" value={fmt(result.finishing_cost)} />}
+                {Number(result.fold_cost || 0) > 0 && <Row label="Нугалалт" value={fmt(result.fold_cost)} />}
                 <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
-                {result.margin > 0 && <Row label="Margin" value={fmt(result.margin)} />}
+                {Number(result.margin || 0) > 0 && <Row label="Margin" value={fmt(result.margin)} />}
                 <Row label="VAT (10%)" value={fmt(result.vat)} />
                 <div style={{ height: 1, background: 'var(--border)', margin: '4px 0' }} />
                 <Row label="Нэгж үнэ" value={fmt(result.unit_price) + '/ш'} />
@@ -239,9 +263,9 @@ export default function OffsetQuote() {
                   <div style={{ fontSize: 11, opacity: 0.9 }}>НИЙТ</div>
                   <div style={{ fontSize: 24, fontWeight: 800, marginTop: 2 }}>{fmt(result.total_price)}</div>
                 </div>
-                {result.notes?.length > 0 && (
+                {(result.notes?.length ?? 0) > 0 && (
                   <div style={{ fontSize: 10, color: 'var(--text3)', marginTop: 6 }}>
-                    {result.notes.map((n: string, i: number) => <div key={i}>• {n}</div>)}
+                    {(result.notes || []).map((n, i) => <div key={i}>• {n}</div>)}
                   </div>
                 )}
               </div>
@@ -265,7 +289,7 @@ export default function OffsetQuote() {
 
 // ─── Helpers ──────────────────────────────────────────────
 
-const fmt = (n: number) => '₮' + Math.round(n || 0).toLocaleString('mn-MN')
+const fmt = (n?: number | string | null) => '₮' + Math.round(Number(n) || 0).toLocaleString('mn-MN')
 
 const inp: React.CSSProperties = {
   width: '100%', padding: '9px 12px', background: 'var(--surface2)',

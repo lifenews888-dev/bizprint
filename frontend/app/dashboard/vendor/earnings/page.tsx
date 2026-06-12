@@ -2,18 +2,36 @@
 import { useState, useEffect, useMemo } from 'react'
 import { apiFetch } from '@/lib/api'
 
+interface VendorUser { id?: string }
+interface CommissionLog {
+  id: string
+  inquiry_id?: string
+  order_id?: string
+  created_at: string
+  commission_rate?: number | string
+  status?: string
+  net_amount?: number | string
+  commission_amount?: number | string
+}
+interface CommissionSummary {
+  totalGross?: number
+  totalCommission?: number
+  totalNet?: number
+  pendingPayout?: number
+}
+
 export default function VendorEarningsPage() {
-  const [logs, setLogs] = useState<any[]>([])
-  const [summary, setSummary] = useState<any>(null)
+  const [logs, setLogs] = useState<CommissionLog[]>([])
+  const [summary, setSummary] = useState<CommissionSummary | null>(null)
   const [loading, setLoading] = useState(true)
 
-  const user = typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('user') || '{}') : {}
+  const user = typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('user') || '{}') as VendorUser : {}
 
   useEffect(() => {
     if (!user.id) return
     Promise.all([
-      apiFetch<any>(`/commission?vendor_id=${user.id}`).catch(() => []),
-      apiFetch<any>(`/commission/summary?vendor_id=${user.id}`).catch(() => null),
+      apiFetch<CommissionLog[]>(`/commission?vendor_id=${user.id}`).catch(() => []),
+      apiFetch<CommissionSummary>(`/commission/summary?vendor_id=${user.id}`).catch(() => null),
     ]).then(([logData, sumData]) => {
       setLogs(Array.isArray(logData) ? logData : [])
       setSummary(sumData)

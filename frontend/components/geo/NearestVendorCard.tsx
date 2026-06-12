@@ -37,7 +37,7 @@ export function useGeoLocation() {
   const [loading, setLoading] = useState(false);
 
   const detect = useCallback(() => {
-    if (!navigator.geolocation) {
+    if (typeof navigator === 'undefined' || !navigator.geolocation) {
       setLocation({ lat: 47.9138, lng: 106.9057 });
       return;
     }
@@ -49,7 +49,10 @@ export function useGeoLocation() {
     );
   }, []);
 
-  useEffect(() => { detect(); }, [detect]);
+  useEffect(() => {
+    const timeout = window.setTimeout(detect, 0);
+    return () => window.clearTimeout(timeout);
+  }, [detect]);
   return { location, loading, detect };
 }
 
@@ -83,7 +86,11 @@ export default function NearestVendorCard({ productType, quantity, onVendorSelec
     setLoading(false);
   }, [productType, quantity, strategy, onVendorSelect, selectedVendor]);
 
-  useEffect(() => { if (location) fetchVendors(location); }, [location, strategy]);
+  useEffect(() => {
+    if (!location) return;
+    const timeout = window.setTimeout(() => fetchVendors(location), 0);
+    return () => window.clearTimeout(timeout);
+  }, [location, strategy]);
 
   const handleDistrictSelect = async (district: string) => {
     setManualDistrict(district);

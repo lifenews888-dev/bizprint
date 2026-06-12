@@ -46,18 +46,25 @@ export default function FactoryQaPage() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const sum = await apiFetch<any>('/qa/summary').catch(() => ({ totalChecks: 0, passedRate: 0, openNcls: 0, criticalNcls: 0 }));
+    const sum = await apiFetch<QaSummary>('/qa/summary').catch(() => ({ totalChecks: 0, passedRate: 0, openNcls: 0, criticalNcls: 0 }));
     setSummary(sum);
     setLoading(false);
   }, []);
 
   const loadNcls = useCallback(async () => {
-    const data = await apiFetch<any>('/qa/ncl/all').catch(() => []);
+    const data = await apiFetch<NonConformance[]>('/qa/ncl/all').catch(() => []);
     setNcls(Array.isArray(data) ? data : []);
   }, []);
 
-  useEffect(() => { load(); }, [load]);
-  useEffect(() => { if (tab === 'ncl') loadNcls(); }, [tab, loadNcls]);
+  useEffect(() => {
+    const timer = setTimeout(load, 0);
+    return () => clearTimeout(timer);
+  }, [load]);
+  useEffect(() => {
+    if (tab !== 'ncl') return;
+    const timer = setTimeout(loadNcls, 0);
+    return () => clearTimeout(timer);
+  }, [tab, loadNcls]);
 
   const saveCheckpoint = async () => {
     setSaving(true);

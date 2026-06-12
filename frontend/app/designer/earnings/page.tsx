@@ -1,6 +1,6 @@
 'use client'
 import { apiFetch } from '@/lib/api'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import DashboardLayout from '@/components/layouts/DashboardLayout'
 import KpiCard from '@/components/dashboard/KpiCard'
 import EmptyState from '@/components/dashboard/EmptyState'
@@ -8,13 +8,24 @@ import { useRoleGuard } from '@/lib/use-role-guard'
 import { DESIGNER_MENU } from '@/config/sidebar-config'
 
 interface WalletTx { id: string; amount: number; type: string; reference?: string; description?: string; created_at: string }
+interface WalletBalanceResponse { balance?: number }
+interface Royalty {
+  id: string
+  template_name?: string
+  template_id?: string
+  order_total?: number | string
+  royalty_rate?: number | string
+  royalty_amount?: number | string
+  status?: string
+}
+interface RoyaltySummary { pendingAmount: number; paidAmount: number; totalOrders: number }
 
 export default function DesignerEarningsPage() {
   const { user, loading: authLoading } = useRoleGuard(['designer', 'admin'])
   const [balance, setBalance] = useState(0)
   const [transactions, setTransactions] = useState<WalletTx[]>([])
-  const [royalties, setRoyalties] = useState<any[]>([])
-  const [royaltySummary, setRoyaltySummary] = useState<{ pendingAmount: number; paidAmount: number; totalOrders: number } | null>(null)
+  const [royalties, setRoyalties] = useState<Royalty[]>([])
+  const [royaltySummary, setRoyaltySummary] = useState<RoyaltySummary | null>(null)
   const [loading, setLoading] = useState(true)
   const [withdrawAmount, setWithdrawAmount] = useState('')
   const [bankAccount, setBankAccount] = useState('')
@@ -22,28 +33,31 @@ export default function DesignerEarningsPage() {
   const [showWithdraw, setShowWithdraw] = useState(false)
   const [toast, setToast] = useState('')
 
-  useEffect(() => {
-    if (!authLoading && user) loadData()
-  }, [authLoading, user])
-
-  async function loadData() {
+  const loadData = useCallback(async () => {
     setLoading(true)
     try {
-      const bData = await apiFetch<any>(`/wallet/balance`)
-      setBalance(bData?.balance || bData || 0)
+      const bData = await apiFetch<WalletBalanceResponse | number>(`/wallet/balance`)
+      setBalance(typeof bData === 'number' ? bData : bData?.balance || 0)
     } catch {}
     try {
-      const tData = await apiFetch<any>(`/wallet/transactions`)
+      const tData = await apiFetch<WalletTx[]>(`/wallet/transactions`)
       setTransactions(Array.isArray(tData) ? tData : [])
     } catch {}
     try {
-      const rData = await apiFetch<any>('/commission/designer/me').catch(() => [])
+      const rData = await apiFetch<Royalty[]>('/commission/designer/me').catch(() => [])
       setRoyalties(Array.isArray(rData) ? rData : [])
-      const sum = await apiFetch<any>('/commission/designer/me/summary').catch(() => null)
+      const sum = await apiFetch<RoyaltySummary>('/commission/designer/me/summary').catch(() => null)
       if (sum) setRoyaltySummary(sum)
     } catch {}
     setLoading(false)
-  }
+  }, [])
+
+  useEffect(() => {
+    if (!authLoading && user) {
+      const timer = setTimeout(() => { void loadData() }, 0)
+      return () => clearTimeout(timer)
+    }
+  }, [authLoading, user, loadData])
 
   async function requestWithdraw() {
     const amount = Number(withdrawAmount)
@@ -51,14 +65,14 @@ export default function DesignerEarningsPage() {
     if (amount > Number(balance)) { setToast('Үлдэгдэл хүрэлцэхгүй'); setTimeout(() => setToast(''), 3000); return }
     if (!bankAccount || !bankName) { setToast('Банкны мэдээлэл оруулна уу'); setTimeout(() => setToast(''), 3000); return }
     try {
-      await apiFetch<any>(`/wallet/withdraw`, {
+      await apiFetch<void>(`/wallet/withdraw`, {
         method: 'POST',
         body: { amount, bank_name: bankName, bank_account: bankAccount },
       })
       setToast('Татан авах хүсэлт илгээгдлээ')
       setShowWithdraw(false)
       setWithdrawAmount(''); setBankAccount(''); setBankName('')
-      loadData()
+      void loadData()
     } catch { setToast('Алдаа гарлаа') }
     setTimeout(() => setToast(''), 3000)
   }
@@ -116,7 +130,7 @@ export default function DesignerEarningsPage() {
           </div>
           {royalties.length > 0 && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 220, overflow: 'auto' }}>
-              {royalties.slice(0, 10).map((r: any) => (
+              {royalties.slice(0, 10).map(r => (
                 <div key={r.id} style={{ display: 'grid', gridTemplateColumns: '1fr 120px 80px 100px', gap: 12, padding: '8px 12px', background: 'var(--surface2)', borderRadius: 6, fontSize: 12, alignItems: 'center' }}>
                   <span style={{ color: 'var(--text2)' }}>{r.template_name || r.template_id?.slice(0, 8)}</span>
                   <span style={{ textAlign: 'right' }}>₮{Number(r.order_total).toLocaleString()}</span>

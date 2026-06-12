@@ -15,6 +15,8 @@ const SAMPLE = `<script
   defer>
 </script>`
 
+type CmsSettings = Record<string, string | undefined>
+
 export default function AdminChatbotPage() {
   const [code, setCode] = useState('')
   const [original, setOriginal] = useState('')
@@ -23,7 +25,7 @@ export default function AdminChatbotPage() {
   const [valid, setValid] = useState<{ ok: boolean; src?: string; msg?: string } | null>(null)
 
   useEffect(() => {
-    apiFetch<any>('/cms/settings/public')
+    apiFetch<CmsSettings>('/cms/settings/public')
       .then(s => {
         const v = (s && typeof s === 'object' && s[SETTING_KEY]) || ''
         setCode(v)
@@ -114,7 +116,7 @@ export default function AdminChatbotPage() {
             <div className="font-semibold mb-1">Хэрхэн холбох вэ?</div>
             <ol className="list-decimal list-inside space-y-1 text-muted-foreground">
               <li>Чатбот үйлчилгээ үзүүлэгчийн самбар руу нэвтэрнэ (жишээ нь yria.mn).</li>
-              <li>"Вэбсайт / Widget" хэсгээс <b>Embed код</b> авна.</li>
+              <li>&quot;Вэбсайт / Widget&quot; хэсгээс <b>Embed код</b> авна.</li>
               <li>Доорх талбарт <code>&lt;script ...&gt;...&lt;/script&gt;</code> бүхэлд нь буулгана.</li>
               <li><b>Хадгалах</b> товч дарна — сайтад автоматаар харагдана.</li>
             </ol>
@@ -218,7 +220,8 @@ function validateScript(raw: string): { ok: boolean; src?: string; msg?: string 
     if (!src && !script.textContent?.trim()) return { ok: false, msg: 'Script-д src буюу агуулга алга' }
     if (src && !/^https?:\/\//i.test(src)) return { ok: false, msg: 'src нь http(s):// эхэлсэн байх ёстой' }
     return { ok: true, src: src || undefined }
-  } catch (e: any) {
-    return { ok: false, msg: e?.message || 'Танигдсангүй алдаа' }
+  } catch (e: unknown) {
+    const message = e instanceof Error ? e.message : ''
+    return { ok: false, msg: message || 'Танигдсангүй алдаа' }
   }
 }

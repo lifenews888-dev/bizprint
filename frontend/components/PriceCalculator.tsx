@@ -7,7 +7,58 @@ import { Calculator, Ruler, Package } from 'lucide-react'
 const fmt = (n: number) => '₮' + n.toLocaleString('mn-MN')
 const VAT_RATE = 0.1
 
-function withIncludedVat<T extends Record<string, any>>(result: T, total: number, qty: number) {
+interface PriceFormulaOption {
+  type?: string
+  price?: number | string
+}
+
+interface PriceFormula {
+  type?: string
+  double_side_multiplier?: number | string
+  price_per_m2?: number | string
+  min_area_m2?: number
+  options?: Record<string, PriceFormulaOption>
+}
+
+interface PriceProduct {
+  id: string
+  price_formula?: PriceFormula | null
+  compare_specs?: { unit?: string }
+  category?: string
+  pricing_mode?: string
+  requires_dimensions?: boolean
+  double_side_multiplier?: number | string
+  min_quantity?: number
+  sale_price?: number | string
+  base_price?: number | string
+}
+
+interface PriceResult {
+  total: number
+  total_price?: number
+  subtotal_excl_vat?: number
+  vat?: number
+  vat_rate?: number
+  vat_included?: boolean
+  unit_price: number
+  unit_price_excl_vat?: number
+  formula_used?: string
+  notes?: string[]
+  volume_discount: number
+  quantity?: number
+  is_estimate?: boolean
+  sides?: 'single' | 'double'
+  width_mm?: number
+  height_mm?: number
+  width_m?: number
+  height_m?: number
+  options?: Record<string, boolean>
+  material_cost: number
+  addons_cost: number
+  [key: string]: unknown
+}
+
+function withIncludedVat<T extends Record<string, unknown>>(result: T, total: number, qty: number): T & PriceResult {
   const subtotalExclVat = Math.round(total / (1 + VAT_RATE))
   const vat = total - subtotalExclVat
   return {
@@ -18,11 +69,15 @@ function withIncludedVat<T extends Record<string, any>>(result: T, total: number
     vat,
     vat_rate: VAT_RATE,
     vat_included: true,
+    unit_price: Number(result.unit_price ?? Math.round(total / Math.max(1, qty))),
     unit_price_excl_vat: Math.round(subtotalExclVat / Math.max(1, qty)),
+    volume_discount: Number(result.volume_discount ?? 0),
+    material_cost: Number(result.material_cost ?? 0),
+    addons_cost: Number(result.addons_cost ?? 0),
   }
 }
 
-function getVatSummary(result: any, totalFallback: number, qty: number) {
+function getVatSummary(result: PriceResult | null | undefined, totalFallback: number, qty: number) {
   const total = Math.round(Number(result?.total_price ?? result?.total ?? totalFallback ?? 0))
   const subtotalExclVat = Math.round(Number(result?.subtotal_excl_vat ?? (total / (1 + VAT_RATE))))
   const vat = Math.round(Number(result?.vat ?? (total - subtotalExclVat)))
@@ -35,13 +90,13 @@ function getVatSummary(result: any, totalFallback: number, qty: number) {
 }
 
 interface Props {
-  product: any
-  onPriceChange?: (total: number, breakdown: any) => void
+  product: PriceProduct
+  onPriceChange?: (total: number, breakdown: PriceResult | null) => void
 }
 
 export default function PriceCalculator({ product, onPriceChange }: Props) {
   const p = product
-  const formula = p.price_formula || {}
+  const formula: PriceFormula = p.price_formula || {}
   // Auto-detect area_based (price_formula null үед unit/category-аас шалгана)
   const unit = (p.compare_specs?.unit || '').toLowerCase()
   const category = (p.category || '').toLowerCase()
@@ -60,7 +115,7 @@ export default function PriceCalculator({ product, onPriceChange }: Props) {
   const [qtyStr, setQtyStr] = useState(String(p.min_quantity || 1))
   const [options, setOptions] = useState<Record<string, boolean>>({})
   const [sides, setSides] = useState<'single' | 'double'>('single')
-  const [result, setResult] = useState<any>(null)
+  const [result, setResult] = useState<PriceResult | null>(null)
   const [calculating, setCalculating] = useState(false)
 
   const widthM = Math.max(0, parseFloat(widthStr) || 0)
@@ -69,6 +124,8 @@ export default function PriceCalculator({ product, onPriceChange }: Props) {
   const height = Math.round(heightM * 1000)
   const qty = Math.max(1, parseInt(qtyStr) || 1)
   const areaM2 = widthM * heightM
+  const minAreaM2 = Number(formula.min_area_m2) || 0.25
+  const resultTotal = Number(result?.total ?? result?.total_price ?? 0)
 
   // Init options
   useEffect(() => {
@@ -105,9 +162,9 @@ export default function PriceCalculator({ product, onPriceChange }: Props) {
 
     setCalculating(true)
     try {
-      const res = await apiFetch<any>(`/products/${p.id}/calculate`, {
+      const res = await apiFetch<PriceResult>(`/products/${p.id}/calculate`, {
         method: 'POST', auth: false,
-        body: { quantity: qty, width_mm: width, height_mm: height, options, sides } as any,
+        body: { quantity: qty, width_mm: width, height_mm: height, options, sides },
       })
       const apiTotal = Number(res?.total_price ?? res?.total) || 0
       const apiUnit = Number(res?.unit_price) || 0
@@ -136,7 +193,7 @@ export default function PriceCalculator({ product, onPriceChange }: Props) {
     } catch {
       // Fallback: client-side calc using base_price and area/qty
       const pricePerM2 = Number(formula.price_per_m2 || basePrice)
-      const effectiveArea = Math.max(areaM2, Number(formula.min_area_m2) || 0.25)
+      const effectiveArea = Math.max(areaM2, minAreaM2)
       const fallbackTotal = (isArea || needsDimensions)
         ? Math.round(pricePerM2 * effectiveArea * qty * sidesMultiplier)
         : Math.round(basePrice * qty * sidesMultiplier)
@@ -146,7 +203,7 @@ export default function PriceCalculator({ product, onPriceChange }: Props) {
     } finally {
       setCalculating(false)
     }
-  }, [qty, width, height, options, sides, sidesEnabled, doubleSideMultiplier, p.id, isArea, isTier, needsDimensions, widthM, heightM])
+  }, [qty, width, height, options, sides, sidesEnabled, doubleSideMultiplier, p.id, isArea, isTier, needsDimensions, widthM, heightM, minAreaM2])
 
   // Debounce 300ms
   useEffect(() => {
@@ -243,7 +300,7 @@ export default function PriceCalculator({ product, onPriceChange }: Props) {
           <div className="mb-3">
             <div className="text-[10px] font-semibold text-[var(--text3)] mb-1.5">Нэмэлт сонголт:</div>
             <div className="grid grid-cols-2 gap-1.5">
-              {Object.entries(formula.options).map(([key, opt]: [string, any]) => (
+              {Object.entries(formula.options).map(([key, opt]) => (
                 <label key={key} className={`flex items-center gap-2 p-2 rounded-lg border cursor-pointer transition-all text-xs ${
                   options[key] ? 'border-[#FF6B00]/40 bg-[#FF6B00]/5' : 'border-[var(--border)] bg-[var(--surface)]'
                 }`}>
@@ -305,7 +362,7 @@ export default function PriceCalculator({ product, onPriceChange }: Props) {
   // ═══ FIXED / TIER — Тоо ширхэг ═══
   const price = Number(p.sale_price || p.base_price || 0)
   const sidesMult = sidesEnabled && sides === 'double' ? doubleSideMultiplier : 1
-  const displayTotal = result?.total ?? Math.round(price * qty * sidesMult)
+  const displayTotal = resultTotal || Math.round(price * qty * sidesMult)
   const displayVat = getVatSummary(result, displayTotal, qty)
   return (
     <div className="rounded-xl border border-[var(--border)] bg-[var(--surface2)]/50 p-4">
@@ -362,7 +419,7 @@ export default function PriceCalculator({ product, onPriceChange }: Props) {
       {sidesEnabled && sides === 'double' && (
         <div className="text-[9px] text-amber-500 mt-1">▣ Хоёр талын хэвлэл тооцоологдсон</div>
       )}
-      {result?.volume_discount > 0 && <div className="text-[10px] text-emerald-600 mt-1">📦 Хөнгөлөлт: -{fmt(result.volume_discount)}</div>}
+      {(result?.volume_discount ?? 0) > 0 && <div className="text-[10px] text-emerald-600 mt-1">📦 Хөнгөлөлт: -{fmt(result?.volume_discount ?? 0)}</div>}
     </div>
   )
 }

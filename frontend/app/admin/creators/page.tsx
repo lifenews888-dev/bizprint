@@ -49,22 +49,50 @@ const LEVELS = ['starter', 'pro', 'expert', 'elite'] as const
  * ═══════════════════════════════════════ */
 
 type MainTab = 'overview' | 'ugc' | 'creators' | 'analytics' | 'visibility'
+type CreatorLevel = typeof LEVELS[number]
+
+interface CreatorApplication {
+  id: string
+  status: string
+  level?: CreatorLevel
+  name?: string
+  email?: string
+  skills?: string[]
+  portfolio?: string[]
+  completedJobs?: number
+  avgRating?: number
+  totalEarned?: number
+  user?: { name?: string; email?: string }
+}
+
+interface UgcRequest {
+  id: string
+  status: string
+  title?: string
+  contentType?: string
+  budget?: number
+  payout?: number
+  package?: string
+  description?: string
+  customer?: { name?: string }
+  creator?: { name?: string }
+}
 
 export default function AdminCreatorsPage() {
   const [mainTab, setMainTab] = useState<MainTab>('overview')
-  const [applications, setApplications] = useState<any[]>([])
-  const [allApplications, setAllApplications] = useState<any[]>([])
-  const [ugcRequests, setUgcRequests] = useState<any[]>([])
+  const [applications, setApplications] = useState<CreatorApplication[]>([])
+  const [allApplications, setAllApplications] = useState<CreatorApplication[]>([])
+  const [ugcRequests, setUgcRequests] = useState<UgcRequest[]>([])
   const [loading, setLoading] = useState(true)
   const [processing, setProcessing] = useState(false)
-  const [selectedUgc, setSelectedUgc] = useState<any>(null)
+  const [selectedUgc, setSelectedUgc] = useState<UgcRequest | null>(null)
 
   // Sub-filters
   const [ugcFilter, setUgcFilter] = useState('all')
   const [creatorFilter, setCreatorFilter] = useState('pending')
 
   // Level assignment
-  const [levelModal, setLevelModal] = useState<any>(null)
+  const [levelModal, setLevelModal] = useState<CreatorApplication | null>(null)
   const [newLevel, setNewLevel] = useState('')
 
   // Visibility
@@ -82,9 +110,9 @@ export default function AdminCreatorsPage() {
   const loadData = () => {
     setLoading(true)
     Promise.all([
-      apiFetch<any[]>('/creator/applications').catch(() => []),
-      apiFetch<any[]>('/creator/applications?status=pending').catch(() => []),
-      apiFetch<any[]>('/creator/all-requests').catch(() => []),
+      apiFetch<CreatorApplication[]>('/creator/applications').catch(() => []),
+      apiFetch<CreatorApplication[]>('/creator/applications?status=pending').catch(() => []),
+      apiFetch<UgcRequest[]>('/creator/all-requests').catch(() => []),
     ]).then(([allApps, pendingApps, reqs]) => {
       setAllApplications(Array.isArray(allApps) ? allApps : [])
       setApplications(Array.isArray(pendingApps) ? pendingApps : [])
@@ -92,17 +120,23 @@ export default function AdminCreatorsPage() {
     }).finally(() => setLoading(false))
   }
 
-  useEffect(() => { loadData() }, [])
+  useEffect(() => {
+    const timer = window.setTimeout(() => loadData(), 0)
+    return () => window.clearTimeout(timer)
+  }, [])
 
   // Reload filtered applications when filter changes
   useEffect(() => {
+    const timer = window.setTimeout(() => {
     if (creatorFilter === 'all') {
       setApplications(allApplications)
     } else {
-      apiFetch<any[]>(`/creator/applications?status=${creatorFilter}`)
+      apiFetch<CreatorApplication[]>(`/creator/applications?status=${creatorFilter}`)
         .then(d => setApplications(Array.isArray(d) ? d : []))
         .catch(() => setApplications([]))
     }
+    }, 0)
+    return () => window.clearTimeout(timer)
   }, [creatorFilter, allApplications])
 
   /* ── Actions ── */
@@ -111,7 +145,10 @@ export default function AdminCreatorsPage() {
     try {
       await apiFetch(`/creator/applications/${id}/approve`, { method: 'PATCH' })
       loadData()
-    } catch (e: any) { alert(e.message || 'Алдаа') }
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : ''
+      alert(message || 'Алдаа')
+    }
     setProcessing(false)
   }
 
@@ -122,7 +159,10 @@ export default function AdminCreatorsPage() {
     try {
       await apiFetch(`/creator/applications/${id}/reject`, { method: 'PATCH', body: JSON.stringify({ reason }) })
       loadData()
-    } catch (e: any) { alert(e.message || 'Алдаа') }
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : ''
+      alert(message || 'Алдаа')
+    }
     setProcessing(false)
   }
 
@@ -137,7 +177,10 @@ export default function AdminCreatorsPage() {
       loadData()
       setLevelModal(null)
       setNewLevel('')
-    } catch (e: any) { alert(e.message || 'Алдаа') }
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : ''
+      alert(message || 'Алдаа')
+    }
     setProcessing(false)
   }
 
@@ -146,7 +189,10 @@ export default function AdminCreatorsPage() {
     try {
       await apiFetch(`/creator/requests/${id}/release-payment`, { method: 'POST' })
       loadData()
-    } catch (e: any) { alert(e.message || 'Алдаа') }
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : ''
+      alert(message || 'Алдаа')
+    }
     setProcessing(false)
   }
 
@@ -156,8 +202,8 @@ export default function AdminCreatorsPage() {
   const ugcByStatus = Object.keys(UGC_STATUS).reduce((acc, s) => {
     acc[s] = ugcRequests.filter(r => r.status === s).length; return acc
   }, {} as Record<string, number>)
-  const totalRevenue = ugcRequests.filter(r => r.status === 'completed').reduce((sum, r) => sum + (r.budget || 0), 0)
-  const totalPayouts = ugcRequests.filter(r => ['completed', 'approved'].includes(r.status)).reduce((sum, r) => sum + (r.payout || r.budget * 0.7 || 0), 0)
+  const totalRevenue = ugcRequests.filter(r => r.status === 'completed').reduce((sum, r) => sum + Number(r.budget || 0), 0)
+  const totalPayouts = ugcRequests.filter(r => ['completed', 'approved'].includes(r.status)).reduce((sum, r) => sum + (Number(r.payout || 0) || Number(r.budget || 0) * 0.7), 0)
 
   const filteredUgc = ugcFilter === 'all'
     ? ugcRequests
@@ -343,7 +389,7 @@ export default function AdminCreatorsPage() {
                     onClick={() => setSelectedUgc(r)}
                   >
                     <div className="flex justify-between items-start mb-2">
-                      <span className="text-lg">{CONTENT_ICONS[r.contentType] || '📦'}</span>
+                      <span className="text-lg">{CONTENT_ICONS[r.contentType || ''] || '📦'}</span>
                       <span
                         className="px-2 py-0.5 rounded-md text-xs font-medium"
                         style={{ background: st.color + '18', color: st.color }}
@@ -758,7 +804,7 @@ export default function AdminCreatorsPage() {
               <button onClick={() => setSelectedUgc(null)} className="text-lg" style={{ color: 'var(--text3)' }}>✕</button>
             </div>
             <div className="space-y-3">
-              <Row label="Төрөл" value={`${CONTENT_ICONS[selectedUgc.contentType] || '📦'} ${selectedUgc.contentType}`} />
+              <Row label="Төрөл" value={`${CONTENT_ICONS[selectedUgc.contentType || ''] || '📦'} ${selectedUgc.contentType || ''}`} />
               <Row label="Статус" value={UGC_STATUS[selectedUgc.status]?.label || selectedUgc.status} />
               <Row label="Захиалагч" value={selectedUgc.customer?.name || '—'} />
               <Row label="Creator" value={selectedUgc.creator?.name || 'Оноогдоогүй'} />

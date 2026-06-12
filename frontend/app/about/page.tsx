@@ -2,8 +2,43 @@
 import { useState, useEffect } from 'react'
 import { apiFetch } from '@/lib/api'
 
+type AboutCard = {
+  icon: string
+  title: string
+  desc: string
+}
+
+type TeamMember = {
+  name: string
+  role: string
+  avatar: string
+  bio: string
+}
+
+type TimelineItem = {
+  year: string
+  title: string
+  desc: string
+  icon: string
+}
+
+type AboutContent = {
+  hero_title: string
+  hero_desc: string
+  mission: string
+  vision: string
+  values: AboutCard[]
+  team: TeamMember[]
+  timeline: TimelineItem[]
+  partners: string[]
+}
+
+type AboutPageResponse = {
+  metadata?: Partial<AboutContent>
+}
+
 /* ── Fallback data (CMS-д мэдээлэл байхгүй үед) ── */
-const DEFAULTS = {
+const DEFAULTS: AboutContent = {
   hero_title: 'Хэвлэлийн ирээдүйг бүтээж байна',
   hero_desc: 'BizPrint нь Монголын анхны AI-д суурилсан хэвлэлийн B2B платформ юм. Бид технологиор хэвлэлийн салбарыг шинэ шатанд гаргана.',
   mission: 'Хэвлэлийн үйлчилгээг хүн бүрт хүртээмжтэй, хурдан, чанартай болгох',
@@ -33,7 +68,7 @@ export default function AboutPage() {
   const [loaded, setLoaded] = useState(false)
 
   useEffect(() => {
-    apiFetch<any>('/pages/about', { auth: false })
+    apiFetch<AboutPageResponse>('/pages/about', { auth: false })
       .then(page => {
         if (page?.metadata) {
           const m = page.metadata
@@ -86,7 +121,7 @@ export default function AboutPage() {
       <div style={{ marginBottom: 56 }}>
         <h2 style={{ fontSize: 22, fontWeight: 700, color: 'var(--text)', marginBottom: 20, textAlign: 'center' }}>Бидний үнэт зүйлс</h2>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 16 }}>
-          {d.values.map((v: any) => (
+          {d.values.map(v => (
             <div key={v.title} style={{ padding: 20, borderRadius: 12, background: 'var(--surface)', border: '1px solid var(--border)', textAlign: 'center' }}>
               <div style={{ fontSize: 32, marginBottom: 8 }}>{v.icon}</div>
               <h4 style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)', marginBottom: 4 }}>{v.title}</h4>
@@ -100,7 +135,7 @@ export default function AboutPage() {
       <div style={{ marginBottom: 56 }}>
         <h2 style={{ fontSize: 22, fontWeight: 700, color: 'var(--text)', marginBottom: 20, textAlign: 'center' }}>Манай баг</h2>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 20 }}>
-          {d.team.map((t: any) => (
+          {d.team.map(t => (
             <div key={t.name} style={{ padding: 24, borderRadius: 16, background: 'var(--surface)', border: '1px solid var(--border)', textAlign: 'center' }}>
               <div style={{ width: 64, height: 64, borderRadius: '50%', background: 'rgba(255,107,0,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 28, margin: '0 auto 12px' }}>{t.avatar}</div>
               <h4 style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', marginBottom: 2 }}>{t.name}</h4>
@@ -115,7 +150,7 @@ export default function AboutPage() {
       <div style={{ marginBottom: 56 }}>
         <h2 style={{ fontSize: 22, fontWeight: 700, color: 'var(--text)', marginBottom: 20, textAlign: 'center' }}>Бидний түүх</h2>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-          {d.timeline.map((t: any) => (
+          {d.timeline.map(t => (
             <div key={t.year} style={{ display: 'flex', gap: 16, alignItems: 'flex-start', padding: 20, borderRadius: 12, background: 'var(--surface)', border: '1px solid var(--border)' }}>
               <div style={{ width: 48, height: 48, borderRadius: 12, background: 'rgba(255,107,0,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, flexShrink: 0 }}>{t.icon}</div>
               <div>
@@ -132,7 +167,7 @@ export default function AboutPage() {
       <div style={{ textAlign: 'center', marginBottom: 32 }}>
         <h2 style={{ fontSize: 22, fontWeight: 700, color: 'var(--text)', marginBottom: 20 }}>Хамтрагч байгууллагууд</h2>
         <div style={{ display: 'flex', justifyContent: 'center', gap: 20, flexWrap: 'wrap' }}>
-          {d.partners.map((p: any) => (
+          {d.partners.map(p => (
             <div key={p} style={{ padding: '12px 24px', borderRadius: 12, background: 'var(--surface)', border: '1px solid var(--border)', fontSize: 14, color: 'var(--text2)', fontWeight: 500 }}>{p}</div>
           ))}
         </div>

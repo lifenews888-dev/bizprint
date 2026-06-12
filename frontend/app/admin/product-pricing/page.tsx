@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { apiFetch } from '@/lib/api'
 
 const F = "'DM Sans','Segoe UI',system-ui,sans-serif"
@@ -14,45 +14,67 @@ const TYPE_LABELS: Record<string, { label: string; icon: string; color: string }
 }
 const MODEL_LABELS: Record<string, string> = { one_time: 'Нэг удаа', subscription: 'Захиалга', per_unit: 'Ширхэгээр' }
 
-const EMPTY: any = { slug: '', name: '', description: '', product_type: 'digital_card', price_model: 'one_time', price: 0, duration_days: 365, unit_price: 0, free_tier_days: 0, free_tier_units: 0, is_active: true, sort_order: 0 }
+type ProductPricingItem = {
+  id?: string
+  slug: string
+  name: string
+  description?: string
+  product_type: string
+  price_model: string
+  price: number
+  duration_days: number
+  unit_price: number
+  free_tier_days: number
+  free_tier_units: number
+  is_active: boolean
+  sort_order: number
+}
+
+const EMPTY: ProductPricingItem = { slug: '', name: '', description: '', product_type: 'digital_card', price_model: 'one_time', price: 0, duration_days: 365, unit_price: 0, free_tier_days: 0, free_tier_units: 0, is_active: true, sort_order: 0 }
 
 export default function AdminProductPricing() {
-  const [items, setItems] = useState<any[]>([])
+  const [items, setItems] = useState<ProductPricingItem[]>([])
   const [loading, setLoading] = useState(true)
-  const [editing, setEditing] = useState<any>(null)
+  const [editing, setEditing] = useState<ProductPricingItem | null>(null)
   const [saving, setSaving] = useState(false)
   const [toast, setToast] = useState('')
 
   const show = (m: string) => { setToast(m); setTimeout(() => setToast(''), 2500) }
 
-  const load = () => {
+  const load = useCallback(() => {
     setLoading(true)
-    apiFetch('/admin/product-pricing').then((d: any) => setItems(Array.isArray(d) ? d : [])).catch(() => {}).finally(() => setLoading(false))
-  }
-  useEffect(load, [])
+    apiFetch<ProductPricingItem[]>('/admin/product-pricing').then(d => setItems(Array.isArray(d) ? d : [])).catch(() => {}).finally(() => setLoading(false))
+  }, [])
+  useEffect(() => {
+    void Promise.resolve().then(load)
+  }, [load])
 
   const handleSave = async () => {
-    if (!editing.name || !editing.slug) { show('Нэр, slug шаардлагатай'); return }
+    if (!editing) return
+    const item = editing
+    if (!item.name || !item.slug) { show('Нэр, slug шаардлагатай'); return }
     setSaving(true)
     try {
-      if (editing.id) {
-        await apiFetch(`/admin/product-pricing/${editing.id}`, { method: 'PATCH', body: editing })
+      if (item.id) {
+        await apiFetch(`/admin/product-pricing/${item.id}`, { method: 'PATCH', body: item })
         show('Шинэчлэгдлээ')
       } else {
-        await apiFetch('/admin/product-pricing', { method: 'POST', body: editing })
+        await apiFetch('/admin/product-pricing', { method: 'POST', body: item })
         show('Үүсгэгдлээ')
       }
       setEditing(null); load()
-    } catch (err: any) { show(err.message || 'Алдаа') }
+    } catch (err: unknown) { show(err instanceof Error ? err.message : 'Алдаа') }
     setSaving(false)
   }
 
-  const handleToggle = async (id: string) => {
+  const handleToggle = async (id?: string) => {
+    if (!id) return
     await apiFetch(`/admin/product-pricing/${id}/toggle`, { method: 'POST' })
     load()
   }
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = async (id?: string) => {
+    if (!id) return
     if (!confirm('Устгах уу?')) return
     try {
       await apiFetch(`/admin/product-pricing/${id}`, { method: 'DELETE' })
@@ -155,7 +177,7 @@ export default function AdminProductPricing() {
               <span style={{ fontSize: 12, color: '#9CA3AF' }}>({typeItems.length})</span>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 12 }}>
-              {typeItems.map((item: any) => (
+              {typeItems.map((item) => (
                 <div key={item.id} style={{ background: 'var(--surface, #fff)', borderRadius: 14, padding: 20, border: '1px solid var(--border, #E5E7EB)', opacity: item.is_active ? 1 : 0.5 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: 10 }}>
                     <div>
@@ -192,7 +214,7 @@ export default function AdminProductPricing() {
   )
 }
 
-function Inp({ label, value, onChange, type = 'text', placeholder }: { label: string; value: any; onChange: (v: string) => void; type?: string; placeholder?: string }) {
+function Inp({ label, value, onChange, type = 'text', placeholder }: { label: string; value: string | number; onChange: (v: string) => void; type?: string; placeholder?: string }) {
   return (
     <div>
       <label style={lbl}>{label}</label>

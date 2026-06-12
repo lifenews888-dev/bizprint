@@ -27,6 +27,46 @@ export interface Message {
   created_at: string
 }
 
+type MessageType = NonNullable<Message['type']>
+
+const asRecord = (value: unknown): Record<string, unknown> =>
+  value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {}
+
+const stringValue = (value: unknown, fallback = ''): string => {
+  if (typeof value === 'string') return value
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value)
+  return fallback
+}
+
+const stringArray = (value: unknown): string[] =>
+  Array.isArray(value) ? value.map(item => stringValue(item)).filter(Boolean) : []
+
+const normaliseType = (value: unknown): MessageType => {
+  const type = stringValue(value)
+  return ['text', 'image', 'system'].includes(type) ? type as MessageType : 'text'
+}
+
+function normaliseRoom(value: unknown): Room | null {
+  const room = asRecord(value)
+  const roomId = stringValue(room.room_id ?? room.roomId ?? room.id)
+  if (!roomId) return null
+
+  return {
+    room_id: roomId,
+    participants: stringArray(room.participants),
+    participant_names: stringArray(room.participant_names ?? room.participantNames),
+    last_message: stringValue(room.last_message ?? room.lastMessage) || undefined,
+    last_message_at: stringValue(room.last_message_at ?? room.lastMessageAt) || undefined,
+    unread_count: Number(room.unread_count ?? room.unreadCount ?? 0) || 0,
+  }
+}
+
+function normaliseRooms(value: unknown): Room[] {
+  return Array.isArray(value)
+    ? value.map(normaliseRoom).filter((room): room is Room => room !== null)
+    : []
+}
+
 // ─── Hook ─────────────────────────────────────────────────────────────────────
 export function useChat(userId: string, userName: string, role: string) {
   const [rooms, setRooms] = useState<Room[]>([])
@@ -49,16 +89,17 @@ export function useChat(userId: string, userName: string, role: string) {
   }
 
   // ── Normalise raw backend message object to Message interface ──────────────
-  function normalise(m: any): Message {
+  function normalise(value: unknown): Message {
+    const m = asRecord(value)
     return {
-      id: m.id,
-      room_id: m.room_id,
-      sender_id: m.sender_id || m.senderId || '',
-      sender_name: m.sender_name || m.senderName,
-      sender_role: m.sender_role || m.senderRole,
-      message: m.message || m.content || m.text || '',
-      type: m.msg_type || m.type || 'text',
-      created_at: m.created_at || m.timestamp || new Date().toISOString(),
+      id: stringValue(m.id) || undefined,
+      room_id: stringValue(m.room_id),
+      sender_id: stringValue(m.sender_id) || stringValue(m.senderId),
+      sender_name: stringValue(m.sender_name) || stringValue(m.senderName) || undefined,
+      sender_role: stringValue(m.sender_role) || stringValue(m.senderRole) || undefined,
+      message: stringValue(m.message) || stringValue(m.content) || stringValue(m.text),
+      type: normaliseType(m.msg_type ?? m.type),
+      created_at: stringValue(m.created_at) || stringValue(m.timestamp) || new Date().toISOString(),
     }
   }
 
@@ -70,7 +111,8 @@ export function useChat(userId: string, userName: string, role: string) {
     })
       .then(r => r.json())
       .then(data => {
-        if (Array.isArray(data)) setRooms(data)
+        const nextRooms = normaliseRooms(data)
+        if (nextRooms.length > 0) setRooms(nextRooms)
       })
       .catch(() => {})
   }, [userId])
@@ -96,20 +138,22 @@ export function useChat(userId: string, userName: string, role: string) {
     socket.on('connect_error', () => setConnected(false))
 
     // After 'join' the server sends back the user's rooms
-    socket.on('joined', (data: { rooms: Room[] }) => {
-      if (Array.isArray(data.rooms)) setRooms(data.rooms)
+    socket.on('joined', (data: unknown) => {
+      const nextRooms = normaliseRooms(asRecord(data).rooms)
+      if (nextRooms.length > 0) setRooms(nextRooms)
     })
 
-    socket.on('room_created', (data: { room: Room }) => {
-      if (!data.room) return
+    socket.on('room_created', (data: unknown) => {
+      const room = normaliseRoom(asRecord(data).room)
+      if (!room) return
       setRooms(prev => {
-        if (prev.find(r => r.room_id === data.room.room_id)) return prev
-        return [data.room, ...prev]
+        if (prev.find(r => r.room_id === room.room_id)) return prev
+        return [room, ...prev]
       })
     })
 
     // Backend emits 'new_message' (primary) and 'message' (compat)
-    const handleIncomingMessage = (data: any) => {
+    const handleIncomingMessage = (data: unknown) => {
       const msg = normalise(data)
       if (!msg.room_id) return
       setMessages(prev => ({
@@ -130,11 +174,14 @@ export function useChat(userId: string, userName: string, role: string) {
     // Room history after joining a room
     socket.on(
       'room_messages',
-      (data: { room_id: string; messages: any[] }) => {
-        if (data.room_id && Array.isArray(data.messages)) {
+      (data: unknown) => {
+        const payload = asRecord(data)
+        const roomId = stringValue(payload.room_id)
+        const source = Array.isArray(payload.messages) ? payload.messages : []
+        if (roomId && source.length > 0) {
           setMessages(prev => ({
             ...prev,
-            [data.room_id]: data.messages.map(normalise),
+            [roomId]: source.map(normalise),
           }))
         }
       },

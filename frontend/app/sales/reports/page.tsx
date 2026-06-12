@@ -33,6 +33,8 @@ interface CustomerRow { id: string; order_count: number; lifetime_value: number;
 interface SalesSummary { totalOrders: number; pendingAmount: number; paidAmount: number; totalRevenue: number }
 
 type Range = '7d' | '30d' | '90d' | 'all'
+const MS_PER_DAY = 24 * 60 * 60 * 1000
+const REPORT_NOW_MS = Date.now()
 
 export default function SalesReportsPage() {
   const router = useRouter()
@@ -68,7 +70,7 @@ export default function SalesReportsPage() {
   const cutoff = useMemo(() => {
     if (range === 'all') return 0
     const days = range === '7d' ? 7 : range === '30d' ? 30 : 90
-    return Date.now() - days * 24 * 60 * 60 * 1000
+    return REPORT_NOW_MS - days * MS_PER_DAY
   }, [range])
 
   const inRange = (d: string) => cutoff === 0 || new Date(d).getTime() >= cutoff
@@ -109,7 +111,7 @@ export default function SalesReportsPage() {
   const days = range === '7d' ? 7 : range === '30d' ? 30 : range === '90d' ? 90 : 30
   const series = useMemo(() => {
     const buckets: { date: string; revenue: number; commission: number; orders: number }[] = []
-    const now = new Date()
+    const now = new Date(REPORT_NOW_MS)
     for (let i = days - 1; i >= 0; i--) {
       const d = new Date(now)
       d.setDate(d.getDate() - i)

@@ -21,6 +21,10 @@ interface Inquiry {
   created_at: string;
 }
 
+type InquiryListResponse = Inquiry[] | { data?: Inquiry[]; items?: Inquiry[] };
+
+const errorMessage = (err: unknown, fallback: string) => err instanceof Error ? err.message : fallback;
+
 const API = process.env.NEXT_PUBLIC_API_URL || '';
 
 function timeAgo(iso?: string) {
@@ -50,7 +54,7 @@ export default function SlaMonitorPage() {
       const res = await fetch(`${API}/api/print-inquiries?sla_overdue=true&limit=100`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      const data = await res.json();
+      const data = await res.json() as InquiryListResponse;
       const list = Array.isArray(data) ? data : (data?.data || data?.items || []);
       setItems(list);
     } catch (e) {
@@ -77,8 +81,8 @@ export default function SlaMonitorPage() {
       });
       if (!res.ok) throw new Error('Алдаа');
       await load();
-    } catch (e: any) {
-      alert(e.message || 'Алдаа гарлаа');
+    } catch (e: unknown) {
+      alert(errorMessage(e, 'Алдаа гарлаа'));
     } finally {
       setBusyId(null);
     }

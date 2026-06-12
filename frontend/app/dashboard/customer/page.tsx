@@ -1,6 +1,8 @@
 'use client'
 import { apiFetch, getToken } from '@/lib/api'
+import { clearAuthSession } from '@/lib/auth-session'
 import { useState, useEffect } from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 
 const F = "'DM Sans','Segoe UI',system-ui,sans-serif"
@@ -74,11 +76,32 @@ const MENU_ITEMS = [
   },
 ]
 
+interface CustomerUser {
+  name?: string
+  email?: string
+  subscription_plan?: string
+  plan?: string
+}
+
+interface CustomerOrder {
+  id?: string
+  status?: string
+}
+
+interface CustomerOrdersResponse {
+  data?: CustomerOrder[]
+}
+
+interface CustomerWallet {
+  balance?: number
+  points?: number
+}
+
 export default function CustomerProfile() {
   const router = useRouter()
-  const [user, setUser] = useState<any>(null)
-  const [orders, setOrders] = useState<any[]>([])
-  const [wallet, setWallet] = useState<any>(null)
+  const [user, setUser] = useState<CustomerUser | null>(null)
+  const [orders, setOrders] = useState<CustomerOrder[]>([])
+  const [wallet, setWallet] = useState<CustomerWallet | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -86,16 +109,16 @@ export default function CustomerProfile() {
     if (!token) { router.push('/login'); return }
 
     Promise.all([
-      apiFetch<any>('/auth/me').catch(() => null),
-      apiFetch<any>('/orders?limit=10').catch(() => []),
-      apiFetch<any>('/wallet/balance').catch(() => null),
+      apiFetch<CustomerUser | null>('/auth/me').catch(() => null),
+      apiFetch<CustomerOrder[] | CustomerOrdersResponse>('/orders?limit=10').catch(() => []),
+      apiFetch<CustomerWallet | null>('/wallet/balance').catch(() => null),
     ]).then(([u, o, w]) => {
       setUser(u)
       setOrders(Array.isArray(o) ? o : (o?.data ?? []))
       setWallet(w)
 
       // Set dynamic sub-text for menu items
-      const orderCount = (Array.isArray(o) ? o : (o?.data ?? [])).filter((ord: any) => ord.status === 'processing').length
+      const orderCount = (Array.isArray(o) ? o : (o?.data ?? [])).filter(ord => ord.status === 'processing').length
       MENU_ITEMS[0].sub = orderCount > 0 ? `${orderCount} боловсруулж байна` : 'Захиалга байхгүй'
       MENU_ITEMS[1].sub = `₮${Number(w?.balance || 0).toLocaleString()} үлдэгдэл`
     }).catch(() => {}).finally(() => setLoading(false))
@@ -126,10 +149,7 @@ export default function CustomerProfile() {
         <h1 style={{ fontSize: 22, fontWeight: 800, color: '#111', margin: 0 }}>Миний профайл</h1>
         <button
           onClick={() => {
-            localStorage.removeItem('token')
-            localStorage.removeItem('access_token')
-            localStorage.removeItem('refresh_token')
-            localStorage.removeItem('user')
+            clearAuthSession()
             router.push('/login')
           }}
           style={{
@@ -187,7 +207,7 @@ export default function CustomerProfile() {
       <div style={{ padding: '0 20px 100px', maxWidth: 480, margin: '0 auto' }}>
         {/* Upgrade banner for free users */}
         {(user?.subscription_plan || user?.plan || 'free') === 'free' && (
-          <a href="/pricing" style={{
+          <Link href="/pricing" style={{
             display: 'flex', alignItems: 'center', justifyContent: 'space-between',
             padding: 16, marginBottom: 16, borderRadius: 16,
             background: 'linear-gradient(135deg, rgba(255,107,0,0.08), rgba(255,107,0,0.02))',
@@ -204,12 +224,12 @@ export default function CustomerProfile() {
             <span style={{ padding: '8px 14px', background: '#FF6B00', color: '#fff', borderRadius: 10, fontSize: 12, fontWeight: 600, flexShrink: 0 }}>
               Upgrade →
             </span>
-          </a>
+          </Link>
         )}
 
         <div style={{ background: '#fff', borderRadius: 16, border: '1px solid #F0F0F0', overflow: 'hidden' }}>
           {MENU_ITEMS.map((item, i) => (
-            <a key={item.href} href={item.href} style={{
+            <Link key={item.href} href={item.href} style={{
               display: 'flex', alignItems: 'center', padding: '18px 20px',
               textDecoration: 'none', color: 'inherit',
               borderBottom: i < MENU_ITEMS.length - 1 ? '1px solid #FFFFFF' : 'none',
@@ -232,13 +252,13 @@ export default function CustomerProfile() {
               <svg width="16" height="16" fill="none" stroke="#CCC" strokeWidth="2" viewBox="0 0 24 24">
                 <path d="M9 18l6-6-6-6"/>
               </svg>
-            </a>
+            </Link>
           ))}
         </div>
 
         {/* Quick actions */}
         <div style={{ marginTop: 16, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-          <a href="/shop" style={{
+          <Link href="/shop" style={{
             background: '#fff', border: '1px solid #F0F0F0', borderRadius: 16,
             padding: '20px 16px', textDecoration: 'none', textAlign: 'center',
             transition: 'box-shadow 0.2s',
@@ -248,8 +268,8 @@ export default function CustomerProfile() {
           >
             <div style={{ fontSize: 28, marginBottom: 8 }}>🛍️</div>
             <div style={{ fontSize: 13, fontWeight: 600, color: '#111' }}>Дэлгүүр</div>
-          </a>
-          <a href="/quote" style={{
+          </Link>
+          <Link href="/quote" style={{
             background: 'linear-gradient(135deg, #FF6B00, #E55D00)', borderRadius: 16,
             padding: '20px 16px', textDecoration: 'none', textAlign: 'center',
             transition: 'box-shadow 0.2s',
@@ -259,16 +279,13 @@ export default function CustomerProfile() {
           >
             <div style={{ fontSize: 28, marginBottom: 8 }}>🤖</div>
             <div style={{ fontSize: 13, fontWeight: 600, color: '#fff' }}>AI Тооцоо</div>
-          </a>
+          </Link>
         </div>
 
         {/* Logout */}
         <button
           onClick={() => {
-            localStorage.removeItem('token')
-            localStorage.removeItem('access_token')
-            localStorage.removeItem('refresh_token')
-            localStorage.removeItem('user')
+            clearAuthSession()
             router.push('/login')
           }}
           style={{

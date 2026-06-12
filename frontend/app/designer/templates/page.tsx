@@ -1,6 +1,6 @@
 'use client'
 import { apiFetch, API_URL } from '@/lib/api'
-import { useEffect, useState, useRef } from 'react'
+import { useCallback, useEffect, useState, useRef } from 'react'
 import DashboardLayout from '@/components/layouts/DashboardLayout'
 import KpiCard from '@/components/dashboard/KpiCard'
 import EmptyState from '@/components/dashboard/EmptyState'
@@ -14,6 +14,7 @@ interface Template {
 }
 
 interface Category { id: string; name: string; slug?: string }
+interface UploadResponse { url?: string; file_url?: string }
 
 const STATUS_COLOR: Record<string, string> = {
   active: '#10B981', approved: '#10B981',
@@ -48,39 +49,42 @@ export default function DesignerTemplatesPage() {
   const [saving, setSaving] = useState(false)
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null)
 
-  useEffect(() => {
-    if (!authLoading && user) {
-      loadTemplates()
-      loadCategories()
-    }
-  }, [authLoading, user])
-
   function showMsg(msg: string, ok = true) {
     setToast({ msg, ok })
     setTimeout(() => setToast(null), 3500)
   }
 
-  async function loadCategories() {
+  const loadCategories = useCallback(async () => {
     try {
-      const data = await apiFetch<any>(`/categories`)
+      const data = await apiFetch<Category[]>(`/categories`)
       if (Array.isArray(data)) setCategories(data)
     } catch {}
-  }
+  }, [])
 
-  async function loadTemplates() {
+  const loadTemplates = useCallback(async () => {
     setLoading(true)
     try {
-      const data = await apiFetch<any>('/templates')
+      const data = await apiFetch<Template[]>('/templates')
       setTemplates(Array.isArray(data) ? data : [])
     } catch {}
     setLoading(false)
-  }
+  }, [])
+
+  useEffect(() => {
+    if (!authLoading && user) {
+      const timer = setTimeout(() => {
+        void loadTemplates()
+        void loadCategories()
+      }, 0)
+      return () => clearTimeout(timer)
+    }
+  }, [authLoading, user, loadTemplates, loadCategories])
 
   // Upload a file to /upload/file
   async function uploadFile(file: File): Promise<string | null> {
     const fd = new FormData()
     fd.append('file', file)
-    const data = await apiFetch<any>(`/upload/file`, { method: 'POST', body: fd })
+    const data = await apiFetch<UploadResponse>(`/upload/file`, { method: 'POST', body: fd })
     if (!data) return null
     const url = data.url || data.file_url || null
     if (!url) return null
@@ -129,7 +133,7 @@ export default function DesignerTemplatesPage() {
     if (!form.title.trim()) { showMsg('Нэр оруулна уу', false); return }
     setSaving(true)
     try {
-      await apiFetch<any>(`/templates`, {
+      await apiFetch<void>(`/templates`, {
         method: 'POST',
         body: {
           title: form.title,

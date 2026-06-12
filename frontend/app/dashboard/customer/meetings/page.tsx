@@ -15,8 +15,18 @@ const STATUS_STYLE: Record<string, { bg: string; color: string; label: string }>
   cancelled: { bg: '#FEE2E2', color: '#DC2626', label: 'Цуцалсан' },
 }
 
+interface DesignRequest {
+  id: string
+  status: string
+  product_name?: string
+  designer_name?: string
+  zoom_join_url?: string
+  zoom_preferred_at?: string
+  zoom_password?: string
+}
+
 export default function MeetingsPage() {
-  const [designs, setDesigns] = useState<any[]>([])
+  const [designs, setDesigns] = useState<DesignRequest[]>([])
   const [loading, setLoading] = useState(true)
   const [scheduling, setScheduling] = useState<string | null>(null)
   const [scheduleTime, setScheduleTime] = useState('')
@@ -24,7 +34,7 @@ export default function MeetingsPage() {
 
   const load = useCallback(async () => {
     try {
-      const data = await apiFetch('/design-requests/my')
+      const data = await apiFetch<DesignRequest[]>('/design-requests/my')
       setDesigns(Array.isArray(data) ? data : [])
     } catch {} finally { setLoading(false) }
   }, [])
@@ -47,7 +57,7 @@ export default function MeetingsPage() {
       setScheduling(null)
       setScheduleTime('')
       load()
-    } catch (e) {
+    } catch {
       alert('Алдаа гарлаа')
     } finally { setSubmitting(false) }
   }

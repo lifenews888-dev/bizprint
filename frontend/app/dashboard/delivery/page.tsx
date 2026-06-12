@@ -28,6 +28,9 @@ interface Order {
   product_name?: string;
 }
 
+interface MeResponse { id?: string | number }
+interface OrdersResponse { orders?: Order[] }
+
 const STEPS = [
   { key: 'assigned',   label: 'Assigned',    icon: '📋', desc: 'Courier assigned' },
   { key: 'picked_up',  label: 'Picked Up',   icon: '📦', desc: 'Package picked up' },
@@ -59,7 +62,7 @@ export default function DeliveryTrackingPage() {
 
   async function fetchMe() {
     try {
-      const data = await apiFetch<any>(`/auth/me`);
+      await apiFetch<MeResponse>(`/auth/me`);
       fetchOrders();
     } catch {
       setLoading(false);
@@ -68,7 +71,7 @@ export default function DeliveryTrackingPage() {
 
   async function fetchOrders() {
     try {
-      const data = await apiFetch<any>(`/orders/my`);
+      const data = await apiFetch<Order[] | OrdersResponse>(`/orders/my`);
       const list = Array.isArray(data) ? data : (data.orders || []);
       setOrders(list);
       if (list.length > 0) {
@@ -85,7 +88,7 @@ export default function DeliveryTrackingPage() {
     setDelivery(null);
     setTrackLoading(true);
     try {
-      const data = await apiFetch<any>(`/delivery/order/${orderId}`);
+      const data = await apiFetch<Delivery | null>(`/delivery/order/${orderId}`);
       setDelivery(data || null);
     } catch {
       setDelivery(null);

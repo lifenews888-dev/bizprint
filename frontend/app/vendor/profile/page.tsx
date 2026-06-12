@@ -3,9 +3,24 @@ import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { API_URL } from '@/lib/api'
 
+interface VendorProfile {
+  id: string
+  company_name?: string
+  slug?: string
+  description?: string
+  address?: string
+  district?: string
+  phone?: string
+  contact_email?: string
+  accepts_orders?: boolean
+  logo_url?: string
+}
+
+type VendorTextField = 'company_name' | 'slug' | 'description' | 'address' | 'district' | 'phone' | 'contact_email'
+
 export default function VendorProfilePage() {
   const router = useRouter()
-  const [vendor, setVendor] = useState<any>(null)
+  const [vendor, setVendor] = useState<VendorProfile | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
@@ -33,7 +48,7 @@ export default function VendorProfilePage() {
     setSaving(true)
     try {
       const fd = new FormData()
-      const fields = ['company_name', 'slug', 'description', 'address', 'district',
+      const fields: VendorTextField[] = ['company_name', 'slug', 'description', 'address', 'district',
         'phone', 'contact_email']
       fields.forEach(f => fd.append(f, String(vendor[f] ?? '')))
       fd.append('accepts_orders', String(vendor.accepts_orders ?? true))
@@ -57,7 +72,9 @@ export default function VendorProfilePage() {
     }
   }
 
-  const upd = (k: string, v: any) => setVendor((p: any) => ({ ...p, [k]: v }))
+  const upd = <K extends keyof VendorProfile>(k: K, v: VendorProfile[K]) => {
+    setVendor(p => (p ? { ...p, [k]: v } : p))
+  }
 
   const handleLogo = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0]

@@ -1,6 +1,6 @@
 'use client'
 import { useState, useRef, useEffect } from 'react'
-import { useChat, Message } from '@/hooks/useChat'
+import { useChat, type Message } from '@/hooks/useChat'
 import { API_URL } from '@/lib/api'
 
 interface Props {
@@ -50,7 +50,7 @@ export default function ChatBox({ userId, userName, role }: Props) {
   const [uploading, setUploading] = useState(false)
   const [dragOver, setDragOver] = useState(false)
   const [previewFile, setPreviewFile] = useState<string | null>(null)
-  const [replyTo, setReplyTo] = useState<any>(null)
+  const [replyTo, setReplyTo] = useState<Message | null>(null)
   const [showEmoji, setShowEmoji] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -166,7 +166,7 @@ export default function ChatBox({ userId, userName, role }: Props) {
     }, 600)
   }
 
-  function renderMessage(msg: any) {
+  function renderMessage(msg: Message) {
     const isMe = msg.sender_id === userId
     let content = msg.message
 

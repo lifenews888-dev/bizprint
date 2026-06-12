@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
-import { apiFetch, API_URL } from '@/lib/api'
+import Link from 'next/link'
+import { apiFetch } from '@/lib/api'
 import ProductCard from '@/components/ProductCard'
 
 /* ═══════════════════════════════════════════════
@@ -23,7 +24,30 @@ interface StorefrontData {
     professional_bio?: string
   } | null
   referral_code: string
-  products: any[]
+  products: StorefrontProduct[]
+}
+
+interface StorefrontProduct {
+  id: string
+  thumbnail_url?: string | null
+  images?: string[] | null
+  name_mn?: string | null
+  name?: string | null
+  category?: string | null
+  sale_price?: number | string | null
+  base_price?: number | string | null
+  price?: number | string | null
+  slug?: string | null
+  is_out_of_stock?: boolean
+  stock_quantity?: number | null
+  badge?: string | null
+  is_bestseller?: boolean
+  is_featured?: boolean
+  video_url?: string | null
+  requires_dimensions?: boolean
+  pricing_mode?: string | null
+  min_quantity?: number
+  lead_time_days?: number
 }
 
 export default function SalesStorefrontPublic() {
@@ -59,7 +83,7 @@ export default function SalesStorefrontPublic() {
       <div style={{ minHeight: '60vh', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 12, color: 'var(--text2)' }}>
         <div style={{ fontSize: 40 }}>🛍</div>
         <div>{error || 'Дэлгүүр олдсонгүй'}</div>
-        <a href="/shop" style={{ color: '#FF6B00', fontWeight: 600 }}>Үндсэн дэлгүүр →</a>
+        <Link href="/shop" style={{ color: '#FF6B00', fontWeight: 600 }}>Үндсэн дэлгүүр →</Link>
       </div>
     )
   }
@@ -99,7 +123,7 @@ export default function SalesStorefrontPublic() {
           <div style={{ padding: 60, textAlign: 'center', color: 'var(--text2)', border: '1px dashed var(--border)', borderRadius: 12 }}>
             <div style={{ fontSize: 32, marginBottom: 8 }}>📦</div>
             <div>Энэ дэлгүүр одоохондоо хоосон байна</div>
-            <a href="/shop" style={{ color: '#FF6B00', fontWeight: 600, marginTop: 12, display: 'inline-block' }}>Бүх бүтээгдэхүүн →</a>
+            <Link href="/shop" style={{ color: '#FF6B00', fontWeight: 600, marginTop: 12, display: 'inline-block' }}>Бүх бүтээгдэхүүн →</Link>
           </div>
         ) : (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 18 }}>

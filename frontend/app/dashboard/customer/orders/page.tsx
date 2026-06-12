@@ -38,15 +38,47 @@ const STEPPER_STAGES = [
 
 type Tab = 'all' | 'active' | 'completed' | 'cancelled'
 
+interface OrderItem {
+  id: string
+  specs?: { product_name?: string }
+  product_id?: string
+  quantity: number
+  unit_price?: number | string
+}
+
+interface CustomerOrder {
+  id: string
+  status: string
+  product_name?: string
+  quantity?: number | string
+  total_price?: number | string
+  created_at: string
+  items?: OrderItem[]
+  options?: { product_type?: string }
+  zoom_join_url?: string
+  zoom_status?: string
+  zoom_scheduled_at?: string
+  zoom_meeting_id?: string
+  zoom_password?: string
+}
+
+interface ScheduleZoomResponse {
+  success?: boolean
+  meeting_id?: string
+  join_url?: string
+  password?: string
+  scheduled_at?: string
+}
+
 export default function OrdersPage() {
   const router = useRouter()
-  const [orders, setOrders] = useState<any[]>([])
+  const [orders, setOrders] = useState<CustomerOrder[]>([])
   const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState<Tab>('all')
   const [expanded, setExpanded] = useState<string | null>(null)
 
   useEffect(() => {
-    apiFetch<any>('/orders/my')
+    apiFetch<CustomerOrder[]>('/orders/my')
       .then(d => setOrders(Array.isArray(d) ? d : []))
       .catch(() => {})
       .finally(() => setLoading(false))
@@ -126,6 +158,7 @@ export default function OrdersPage() {
           {filtered.map(o => {
             const s = STATUS[o.status] || STATUS.draft
             const isExpanded = expanded === o.id
+            const orderItems = o.items ?? []
             return (
               <div key={o.id} style={{ background: 'var(--surface)', borderRadius: 14, border: '1px solid var(--border)', overflow: 'hidden', transition: 'box-shadow 0.15s' }}>
                 <div onClick={() => setExpanded(isExpanded ? null : o.id)} style={{ padding: '18px 22px', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -149,10 +182,10 @@ export default function OrdersPage() {
                       <button onClick={(e) => { e.stopPropagation(); downloadInvoice(o.id) }} style={{ background: 'none', border: '1px solid #FF6B00', color: '#FF6B00', padding: '3px 10px', borderRadius: 4, cursor: 'pointer', fontSize: 12 }}>PDF</button>
                     </div>
 
-                    {o.items?.length > 0 && (
+                    {orderItems.length > 0 && (
                       <div style={{ marginBottom: 12 }}>
                         <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text3)', marginBottom: 6 }}>Барааны жагсаалт:</div>
-                        {o.items.map((item: any) => (
+                        {orderItems.map(item => (
                           <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, padding: '4px 0', borderBottom: '1px solid var(--border)' }}>
                             <span>{item.specs?.product_name || item.product_id?.slice(0, 8)}</span>
                             <span style={{ fontWeight: 600 }}>{item.quantity}ш × ₮{Number(item.unit_price).toLocaleString()}</span>
@@ -161,7 +194,7 @@ export default function OrdersPage() {
                       </div>
                     )}
 
-                    <ZoomSection order={o} onUpdate={(updated: any) => setOrders(prev => prev.map(ord => ord.id === updated.id ? { ...ord, ...updated } : ord))} />
+                    <ZoomSection order={o} onUpdate={(updated) => setOrders(prev => prev.map(ord => ord.id === updated.id ? { ...ord, ...updated } : ord))} />
 
                     <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
                       {o.status === 'pending_file' && <ActionButton label="📁 Файл оруулах" color="#D97706" onClick={() => router.push(`/dashboard/customer/orders/${o.id}/upload`)} />}
@@ -206,11 +239,13 @@ function OrderStepper({ status }: { status: string }) {
   )
 }
 
-function ZoomSection({ order, onUpdate }: { order: any; onUpdate: (o: any) => void }) {
+function ZoomSection({ order, onUpdate }: { order: CustomerOrder; onUpdate: (o: Partial<CustomerOrder> & { id: string }) => void }) {
   const [scheduling, setScheduling] = useState(false)
   const [showPicker, setShowPicker] = useState(false)
   const [scheduledAt, setScheduledAt] = useState('')
-  const isEligible = ZOOM_ELIGIBLE_STATUSES.includes(order.status) && (ZOOM_ELIGIBLE_TYPES.includes(order.options?.product_type) || order.product_name?.includes('Хаяг') || order.product_name?.includes('реклам') || order.product_name?.includes('Эх бэлтгэл') || order.product_name?.includes('дизайн') || order.product_name?.includes('самбар') || order.product_name?.includes('signage') || order.product_name?.includes('design'))
+  const productType = order.options?.product_type || ''
+  const productName = order.product_name || ''
+  const isEligible = ZOOM_ELIGIBLE_STATUSES.includes(order.status) && (ZOOM_ELIGIBLE_TYPES.includes(productType) || productName.includes('Хаяг') || productName.includes('реклам') || productName.includes('Эх бэлтгэл') || productName.includes('дизайн') || productName.includes('самбар') || productName.includes('signage') || productName.includes('design'))
 
   if (order.zoom_join_url && order.zoom_status !== 'completed') return (
     <div style={{ background: '#EFF6FF', border: '1px solid #BFDBFE', borderRadius: 12, padding: 16, marginBottom: 12 }}>
@@ -228,13 +263,13 @@ function ZoomSection({ order, onUpdate }: { order: any; onUpdate: (o: any) => vo
   const handleSchedule = async () => {
     setScheduling(true)
     try {
-      const res = await apiFetch<any>(`/orders/${order.id}/schedule-zoom`, { method: 'POST', body: { scheduled_at: scheduledAt || undefined } })
+      const res = await apiFetch<ScheduleZoomResponse>(`/orders/${order.id}/schedule-zoom`, { method: 'POST', body: { scheduled_at: scheduledAt || undefined } })
       if (res?.success) {
         toast.success('Zoom уулзалт товлогдлоо!')
         onUpdate({ id: order.id, zoom_meeting_id: res.meeting_id, zoom_join_url: res.join_url, zoom_password: res.password, zoom_scheduled_at: res.scheduled_at, zoom_status: 'scheduled' })
         setShowPicker(false)
       }
-    } catch (e: any) { toast.error(e.message || 'Алдаа гарлаа') } finally { setScheduling(false) }
+    } catch (e: unknown) { toast.error(e instanceof Error ? e.message : 'Алдаа гарлаа') } finally { setScheduling(false) }
   }
 
   return (

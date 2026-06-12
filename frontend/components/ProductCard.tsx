@@ -7,8 +7,31 @@ import { apiFetch } from '@/lib/api'
 
 const fmt = (n: number) => '₮' + n.toLocaleString('mn-MN')
 
+interface ProductCardProduct {
+  id: string
+  thumbnail_url?: string | null
+  images?: string[] | null
+  name_mn?: string | null
+  name?: string | null
+  category?: string | null
+  sale_price?: number | string | null
+  base_price?: number | string | null
+  price?: number | string | null
+  slug?: string | null
+  is_out_of_stock?: boolean
+  stock_quantity?: number | null
+  badge?: string | null
+  is_bestseller?: boolean
+  is_featured?: boolean
+  video_url?: string | null
+  requires_dimensions?: boolean
+  pricing_mode?: string | null
+  min_quantity?: number
+  lead_time_days?: number
+}
+
 interface Props {
-  product: any
+  product: ProductCardProduct
   categoryLabel?: string
   onAddToCart?: (productId: string) => void
 }
@@ -60,6 +83,9 @@ export default function ProductCard({ product, categoryLabel, onAddToCart }: Pro
   const discount = oldPrice ? Math.round((1 - price / oldPrice) * 100) : null
   const slug = p.slug || p.id
   const isOutOfStock = p.is_out_of_stock || (p.stock_quantity != null && p.stock_quantity <= 0)
+  const productName = p.name_mn || p.name || 'Бүтээгдэхүүн'
+  const productCategory = p.category || undefined
+  const minQuantity = p.min_quantity || 0
 
   // Autoplay when not hovered
   useEffect(() => {
@@ -98,7 +124,7 @@ export default function ProductCard({ product, categoryLabel, onAddToCart }: Pro
                 src={optimizeImage(img, { w: 400, h: 400 })}
                 srcSet={`${optimizeImage(img, { w: 240, h: 240 })} 240w, ${optimizeImage(img, { w: 400, h: 400 })} 400w, ${optimizeImage(img, { w: 600, h: 600 })} 600w`}
                 sizes="(max-width: 480px) 50vw, (max-width: 1024px) 33vw, 240px"
-                alt={p.name_mn || p.name}
+                alt={productName}
                 width={400} height={400}
                 className="absolute inset-0 w-full h-full object-cover transition-opacity duration-500"
                 style={{ opacity: i === activeImg ? 1 : 0 }}
@@ -109,11 +135,11 @@ export default function ProductCard({ product, categoryLabel, onAddToCart }: Pro
           ) : null}
           {/* Fallback — always rendered behind images, visible when no images or all fail */}
           {imgs.length === 0 && (
-            <ProductImage src={null} alt={p.name_mn || p.name || 'Бүтээгдэхүүн'} category={p.category} className="w-full h-full" />
+            <ProductImage src={null} alt={productName} category={productCategory} className="w-full h-full" />
           )}
           {imgs.length > 0 && (
             <div className="absolute inset-0 -z-10">
-              <ProductImage src={null} alt={p.name_mn || p.name || 'Бүтээгдэхүүн'} category={p.category} className="w-full h-full" />
+              <ProductImage src={null} alt={productName} category={productCategory} className="w-full h-full" />
             </div>
           )}
 
@@ -191,7 +217,7 @@ export default function ProductCard({ product, categoryLabel, onAddToCart }: Pro
           )}
           {/* Name */}
           <div className="text-[13px] font-semibold text-[var(--text)] mb-1.5 truncate leading-tight group-hover:text-[#FF6B00] transition-colors">
-            {p.name_mn || p.name || 'Бүтээгдэхүүн'}
+            {productName}
           </div>
           {/* Price row */}
           <div className="flex items-center gap-2 flex-wrap">
@@ -210,8 +236,8 @@ export default function ProductCard({ product, categoryLabel, onAddToCart }: Pro
               <span className="text-xs font-semibold text-[#FF6B00]">Үнэ авах</span>
             )}
           </div>
-          {p.min_quantity > 1 && (
-            <div className="text-[10px] text-[var(--text3)] mt-0.5">Мин. {p.min_quantity} ширхэг</div>
+          {minQuantity > 1 && (
+            <div className="text-[10px] text-[var(--text3)] mt-0.5">Мин. {minQuantity} ширхэг</div>
           )}
           {/* Lead time */}
           {p.lead_time_days && (

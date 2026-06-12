@@ -2,6 +2,7 @@
 import { apiFetch } from '@/lib/api'
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 
 const F = "'DM Sans','Segoe UI',system-ui,sans-serif"
 
@@ -66,6 +67,14 @@ const CONTRACT_TEXT = `ХАМТЫН АЖИЛЛАГААНЫ ГЭРЭЭ
 5. НУУЦЛАЛ
 5.1. Хоёр тал нь хамтын ажиллагааны явцад олж мэдсэн мэдээллийг нууцлах үүрэгтэй.`
 
+interface PartnerRegisterResponse {
+  access_token?: string
+  id?: string
+}
+
+const errorMessage = (error: unknown) =>
+  error instanceof Error && error.message ? error.message : 'Серверт холбогдож чадсангүй. Дахин оролдоно уу.'
+
 export default function PartnerPage() {
   const router = useRouter()
   const [selected, setSelected] = useState<string | null>(null)
@@ -86,7 +95,7 @@ export default function PartnerPage() {
 
     setSubmitting(true)
     try {
-      const res = await apiFetch<any>(`/auth/register`, {
+      await apiFetch<PartnerRegisterResponse>(`/auth/register`, {
         method: 'POST',
         headers: {},
         body: {
@@ -102,8 +111,8 @@ export default function PartnerPage() {
         },
       })
       setSubmitted(true)
-    } catch (e: any) {
-      setError(e.message || 'Серверт холбогдож чадсангүй. Дахин оролдоно уу.')
+    } catch (e: unknown) {
+      setError(errorMessage(e))
     }
     setSubmitting(false)
   }
@@ -272,7 +281,7 @@ export default function PartnerPage() {
           </button>
 
           <p style={{ marginTop: 16, fontSize: 13, color: '#444', textAlign: 'center' }}>
-            Бүртгэлтэй юу? <a href="/login" style={{ color: '#FF6B00', textDecoration: 'none', fontWeight: 500 }}>Нэвтрэх</a>
+            Бүртгэлтэй юу? <Link href="/login" style={{ color: '#FF6B00', textDecoration: 'none', fontWeight: 500 }}>Нэвтрэх</Link>
           </p>
         </div>
       </div>

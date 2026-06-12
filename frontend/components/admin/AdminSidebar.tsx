@@ -1,14 +1,16 @@
 'use client'
 
 import { useRouter, usePathname } from 'next/navigation'
+import Link from 'next/link'
 import { cn } from '@/lib/utils'
 import { ADMIN_NAV, SUPERADMIN_NAV, ExternalLink, LogOut } from '@/config/admin-nav'
 import type { AdminNavGroup } from '@/config/admin-nav'
+import { clearAuthSession } from '@/lib/auth-session'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { Separator } from '@/components/ui/separator'
 
 interface Props {
-  user: any
+  user: { role?: string; email?: string } | null
   collapsed: boolean
   setCollapsed: (v: boolean) => void
   mobileOpen: boolean
@@ -27,7 +29,7 @@ export function AdminSidebar({ user, collapsed, setCollapsed, mobileOpen, setMob
   }
 
   const logout = () => {
-    localStorage.clear()
+    clearAuthSession()
     router.push('/')
   }
 
@@ -53,7 +55,7 @@ export function AdminSidebar({ user, collapsed, setCollapsed, mobileOpen, setMob
         {/* Logo header */}
         <div className="flex h-[52px] items-center shrink-0 border-b border-sidebar-border px-3">
           {!collapsed && (
-            <a href="/" className="flex items-center gap-2 no-underline flex-1">
+            <Link href="/" className="flex items-center gap-2 no-underline flex-1">
               <div className="flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-md bg-primary">
                 <span className="text-xs font-bold text-white">B</span>
               </div>
@@ -65,7 +67,7 @@ export function AdminSidebar({ user, collapsed, setCollapsed, mobileOpen, setMob
                   {isSuperAdmin ? 'Super Admin' : 'Admin Panel'}
                 </div>
               </div>
-            </a>
+            </Link>
           )}
           <button
             onClick={() => setCollapsed(!collapsed)}

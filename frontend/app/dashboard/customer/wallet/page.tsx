@@ -1,7 +1,7 @@
 'use client'
 
 import { apiFetch, getToken } from '@/lib/api'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -83,27 +83,28 @@ export default function WalletPage() {
 
   const [toast, setToast] = useState<{ msg: string; type: 'ok' | 'err' } | null>(null)
 
-  // ── Auth check ──
-  useEffect(() => {
-    const token = getToken()
-    if (!token) { router.push('/login'); return }
-    fetchAll()
-  }, [])
-
-  async function fetchAll() {
+  const fetchAll = useCallback(async () => {
     setLoading(true)
     try {
       const [meData, balData, txData] = await Promise.all([
-        apiFetch<any>(`/auth/me`).catch(() => null),
-        apiFetch<any>(`/wallet/balance`).catch(() => null),
-        apiFetch<any>(`/wallet/transactions`).catch(() => []),
+        apiFetch<UserInfo | null>(`/auth/me`).catch(() => null),
+        apiFetch<WalletBalance | null>(`/wallet/balance`).catch(() => null),
+        apiFetch<WalletTransaction[]>(`/wallet/transactions`).catch(() => []),
       ])
       if (meData)  setUser(meData)
       if (balData) setBalance(balData)
       setTransactions(Array.isArray(txData) ? txData : [])
     } catch {}
     setLoading(false)
-  }
+  }, [])
+
+  // ── Auth check ──
+  useEffect(() => {
+    const token = getToken()
+    if (!token) { router.push('/login'); return }
+    const timer = setTimeout(fetchAll, 0)
+    return () => clearTimeout(timer)
+  }, [fetchAll, router])
 
   function showToast(msg: string, type: 'ok' | 'err' = 'ok') {
     setToast({ msg, type })
@@ -124,7 +125,7 @@ export default function WalletPage() {
     }
     setWithdrawing(true)
     try {
-      await apiFetch<any>(`/wallet/withdraw`, {
+      await apiFetch<void>(`/wallet/withdraw`, {
         method: 'POST',
         body: { amount, note: withdrawNote },
       })

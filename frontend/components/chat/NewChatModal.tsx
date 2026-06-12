@@ -1,5 +1,5 @@
 import { useChatStore } from '@/stores/chat.store'
-import { getRoleConfig } from '@/lib/services/chat.service'
+import { getRoleConfig, type ChatUser } from '@/lib/services/chat.service'
 import ChatAvatar from './ChatAvatar'
 
 export default function NewChatModal() {
@@ -8,7 +8,7 @@ export default function NewChatModal() {
 
   const availableUsers = users.filter(u => u.id !== userId)
 
-  function startChat(user: any) {
+  function startChat(user: ChatUser) {
     createRoom(user.id, user.name || user.email, user.role || 'customer')
   }
 

@@ -1,4 +1,5 @@
 import { apiFetch, API_URL } from '../api'
+import { clearAuthSession } from '../auth-session'
 
 /**
  * Auth Service — нэвтрэлт, бүртгэл, хэрэглэгчийн мэдээлэл
@@ -26,9 +27,7 @@ export const AuthService = {
   /** Logout */
   logout: () => {
     if (typeof window !== 'undefined') {
-      localStorage.removeItem('access_token')
-      localStorage.removeItem('token')
-      localStorage.removeItem('user')
+      clearAuthSession()
       window.location.href = '/login'
     }
   },

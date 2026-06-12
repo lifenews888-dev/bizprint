@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback } from 'react'
 
 /* ═══════════════════════════════════════
  *  Role Mode — customer / creator switching
@@ -25,6 +25,7 @@ interface UserData {
 }
 
 function getStoredUser(): UserData | null {
+  if (typeof window === 'undefined') return null
   try {
     const raw = localStorage.getItem('user')
     return raw ? JSON.parse(raw) : null
@@ -33,30 +34,24 @@ function getStoredUser(): UserData | null {
   }
 }
 
+function getInitialMode(user: UserData | null): RoleMode {
+  if (typeof window === 'undefined') return 'customer'
+  const stored = localStorage.getItem(STORAGE_KEY) as RoleMode | null
+  return stored === 'creator' && user?.is_creator ? 'creator' : 'customer'
+}
+
 export function useRoleMode() {
-  const [mode, setModeState] = useState<RoleMode>('customer')
-  const [user, setUser] = useState<UserData | null>(null)
-
-  useEffect(() => {
-    const u = getStoredUser()
-    setUser(u)
-
-    // Only allow creator mode if user is approved creator
-    const stored = localStorage.getItem(STORAGE_KEY) as RoleMode | null
-    if (stored === 'creator' && u?.is_creator) {
-      setModeState('creator')
-    } else {
-      setModeState('customer')
-    }
-  }, [])
+  const [user] = useState<UserData | null>(() => getStoredUser())
+  const [mode, setModeState] = useState<RoleMode>(() => getInitialMode(user))
 
   const isCreator = !!user?.is_creator
   const creatorStatus = user?.creator_status || null
 
   const setMode = useCallback((newMode: RoleMode) => {
+    if (newMode === 'creator' && !user?.is_creator) return
     localStorage.setItem(STORAGE_KEY, newMode)
     setModeState(newMode)
-  }, [])
+  }, [user?.is_creator])
 
   const toggleMode = useCallback(() => {
     setMode(mode === 'customer' ? 'creator' : 'customer')

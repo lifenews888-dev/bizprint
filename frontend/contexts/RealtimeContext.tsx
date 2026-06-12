@@ -31,12 +31,66 @@ import { API_URL, getToken } from '@/lib/api'
 
 const FALLBACK_POLL_MS = 10_000
 
-type Handler = (data: any) => void
+export interface RealtimePayload {
+  designRequestId?: string
+  orderId?: string
+  previousStatus?: string
+  status?: string
+  updatedAt?: string
+  [key: string]: unknown
+}
+
+type DesignRealtimePayload = RealtimePayload & {
+  designRequestId?: string
+}
+
+type OrderRealtimePayload = RealtimePayload & {
+  orderId: string
+  status: string
+  updatedAt: string
+}
+
+type SettingsRealtimePayload = RealtimePayload & {
+  key: string
+  value: unknown
+}
+
+type SettingsBulkRealtimePayload = RealtimePayload & {
+  settings: Record<string, unknown>
+}
+
+type MenuRealtimePayload = RealtimePayload & {
+  menu: unknown[]
+}
+
+type RealtimeEventPayloads = {
+  DESIGN_FILE_UPLOADED: DesignRealtimePayload
+  DESIGN_REVISION_REQUESTED: DesignRealtimePayload
+  DESIGN_APPROVED: DesignRealtimePayload
+  DESIGN_COMMENT_ADDED: DesignRealtimePayload
+  DESIGN_ZOOM_CREATED: DesignRealtimePayload
+  DESIGN_VERSION_UPDATED: DesignRealtimePayload
+  DESIGN_REJECTED: DesignRealtimePayload
+  DESIGN_IN_PRODUCTION: DesignRealtimePayload
+  ORDER_CREATED: OrderRealtimePayload
+  ORDER_PAID: OrderRealtimePayload
+  ORDER_STATUS_UPDATED: OrderRealtimePayload
+  ORDER_CANCELLED: OrderRealtimePayload
+  PRODUCTION_UPDATED: OrderRealtimePayload
+  SETTINGS_UPDATED: SettingsRealtimePayload
+  SETTINGS_BULK_UPDATED: SettingsBulkRealtimePayload
+  MENU_UPDATED: MenuRealtimePayload
+}
+
+type PayloadFor<EventName extends string> =
+  EventName extends keyof RealtimeEventPayloads ? RealtimeEventPayloads[EventName] : RealtimePayload
+
+type Handler<TPayload = RealtimePayload> = (data: TPayload) => void
 type Unsubscribe = () => void
 
 interface RealtimeContextType {
   connected: boolean
-  subscribe: (event: string, handler: Handler) => Unsubscribe
+  subscribe: <EventName extends string>(event: EventName, handler: Handler<PayloadFor<EventName>>) => Unsubscribe
   joinRoom: (room: string | string[]) => void
   leaveRoom: (room: string) => void
   onReconnect: (cb: () => void) => Unsubscribe
@@ -67,7 +121,6 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const token = getToken()
     if (!token) {
-      setConnected(false)
       return
     }
 
@@ -114,11 +167,11 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
     })
 
     // Forward all events from backend to local listeners
-    socket.onAny((event: string, data: any) => {
+    socket.onAny((event: string, data: unknown) => {
       const handlers = listenersRef.current.get(event)
       if (handlers) {
         handlers.forEach(h => {
-          try { h(data) } catch {}
+          try { h(data as RealtimePayload) } catch {}
         })
       }
     })
@@ -130,13 +183,17 @@ export function RealtimeProvider({ children }: { children: ReactNode }) {
   }, [])
 
   // ── subscribe ────────────────────────────────────────────────────────────────
-  const subscribe = useCallback((event: string, handler: Handler): Unsubscribe => {
+  const subscribe = useCallback(<EventName extends string>(
+    event: EventName,
+    handler: Handler<PayloadFor<EventName>>,
+  ): Unsubscribe => {
     if (!listenersRef.current.has(event)) {
       listenersRef.current.set(event, new Set())
     }
-    listenersRef.current.get(event)!.add(handler)
+    const storedHandler = handler as Handler
+    listenersRef.current.get(event)!.add(storedHandler)
     return () => {
-      listenersRef.current.get(event)?.delete(handler)
+      listenersRef.current.get(event)?.delete(storedHandler)
     }
   }, [])
 

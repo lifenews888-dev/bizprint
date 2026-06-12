@@ -1,7 +1,7 @@
 'use client'
 import { useRouter, usePathname } from 'next/navigation'
 import { useState, useEffect } from 'react'
-import { apiFetch } from '@/lib/api'
+import { clearAuthSession } from '@/lib/auth-session'
 
 const FONT = "'Segoe UI',system-ui,sans-serif"
 const ORANGE = '#FF6B00'
@@ -34,14 +34,17 @@ const NAV = [
 export default function CustomerLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const path = usePathname()
-  const [user, setUser] = useState<any>(null)
+  const [user, setUser] = useState<{ full_name?: string } | null>(null)
   const [mobileNav, setMobileNav] = useState(false)
 
   useEffect(() => {
     const token = localStorage.getItem('access_token') || localStorage.getItem('token')
     if (!token) { router.push('/login'); return }
     const stored = localStorage.getItem('user')
-    if (stored) try { setUser(JSON.parse(stored)) } catch {}
+    const timer = setTimeout(() => {
+      if (stored) try { setUser(JSON.parse(stored) as { full_name?: string }) } catch {}
+    }, 0)
+    return () => clearTimeout(timer)
   }, [router])
 
   return (
@@ -97,7 +100,7 @@ export default function CustomerLayout({ children }: { children: React.ReactNode
         {/* Footer */}
         <div style={{ borderTop: '1px solid var(--border)', padding: '8px 6px', flexShrink: 0 }}>
           <button onClick={() => router.push('/')} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 9, padding: '8px 10px', borderRadius: 8, border: 'none', background: 'transparent', color: 'var(--text4)', cursor: 'pointer', fontSize: 13, marginBottom: 2 }}>↗ Сайт харах</button>
-          <button onClick={() => { localStorage.clear(); router.push('/') }} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 9, padding: '8px 10px', borderRadius: 8, border: 'none', background: 'transparent', color: 'var(--text4)', cursor: 'pointer', fontSize: 13 }}>🚪 Гарах</button>
+          <button onClick={() => { clearAuthSession(); router.push('/') }} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 9, padding: '8px 10px', borderRadius: 8, border: 'none', background: 'transparent', color: 'var(--text4)', cursor: 'pointer', fontSize: 13 }}>🚪 Гарах</button>
         </div>
       </div>
 
@@ -146,7 +149,7 @@ export default function CustomerLayout({ children }: { children: React.ReactNode
             </div>
             <div style={{ borderTop: '1px solid var(--border)', padding: '8px 6px' }}>
               <button onClick={() => router.push('/')} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 9, padding: '10px', borderRadius: 8, border: 'none', background: 'transparent', color: 'var(--text4)', cursor: 'pointer', fontSize: 14 }}>↗ Сайт</button>
-              <button onClick={() => { localStorage.clear(); router.push('/') }} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 9, padding: '10px', borderRadius: 8, border: 'none', background: 'transparent', color: 'var(--text4)', cursor: 'pointer', fontSize: 14 }}>🚪 Гарах</button>
+              <button onClick={() => { clearAuthSession(); router.push('/') }} style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 9, padding: '10px', borderRadius: 8, border: 'none', background: 'transparent', color: 'var(--text4)', cursor: 'pointer', fontSize: 14 }}>🚪 Гарах</button>
             </div>
           </div>
         </div>

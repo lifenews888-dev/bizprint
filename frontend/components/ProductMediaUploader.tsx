@@ -5,6 +5,9 @@ const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'
 const MAX_IMAGES = 8
 const FONT = "'DM Sans','Segoe UI',system-ui,sans-serif"
 
+const errorMessage = (error: unknown, fallback: string): string =>
+  error instanceof Error ? error.message : fallback
+
 interface Props {
   images: string[]           // max 8 URLs
   videoUrl: string
@@ -58,8 +61,8 @@ export default function ProductMediaUploader({ images, videoUrl, onChange, token
       } else if (data2?.error) {
         setUploadError(data2.error)
       }
-    } catch (err: any) {
-      setUploadError(err?.message || 'Upload алдаа')
+    } catch (err: unknown) {
+      setUploadError(errorMessage(err, 'Upload алдаа'))
     } finally {
       setUploading(null)
     }

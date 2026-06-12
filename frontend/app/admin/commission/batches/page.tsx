@@ -2,20 +2,39 @@
 import { useState, useEffect } from 'react'
 import { apiFetch } from '@/lib/api'
 
+interface CommissionBatchVendor {
+  vendorId?: string
+  vendorName?: string
+  netAmount?: number | string
+  count?: number
+}
+
+interface CommissionBatch {
+  batchId: string
+  count?: number
+  created_at: string
+  totalNet?: number | string
+  status: string
+  vendors?: CommissionBatchVendor[]
+}
+
 export default function AdminCommissionBatchesPage() {
-  const [batches, setBatches] = useState<any[]>([])
+  const [batches, setBatches] = useState<CommissionBatch[]>([])
   const [loading, setLoading] = useState(true)
 
   const load = async () => {
     setLoading(true)
     try {
-      const data = await apiFetch<any>('/commission/batches')
+      const data = await apiFetch<CommissionBatch[]>('/commission/batches')
       setBatches(Array.isArray(data) ? data : [])
     } catch {}
     setLoading(false)
   }
 
-  useEffect(() => { load() }, [])
+  useEffect(() => {
+    const timer = window.setTimeout(() => load(), 0)
+    return () => window.clearTimeout(timer)
+  }, [])
 
   const markPaid = async (batchId: string) => {
     if (!confirm(`${batchId} batch-ийг олгосон гэж тэмдэглэх үү?`)) return
@@ -33,7 +52,7 @@ export default function AdminCommissionBatchesPage() {
         <div>
           <h1 style={{ fontSize: 22, fontWeight: 700, color: 'var(--text)', margin: 0 }}>Тооцоо нийлүүлэлтийн batch</h1>
           <p style={{ fontSize: 12, color: 'var(--text3)', marginTop: 4 }}>
-            Батлагдсан payout-ууд. "Олгосон" гэж тэмдэглэхэд commission_log-д paid_at бичигдэнэ.
+            Батлагдсан payout-ууд. &quot;Олгосон&quot; гэж тэмдэглэхэд commission_log-д paid_at бичигдэнэ.
           </p>
         </div>
         <a href="/admin/commission/payouts" style={{ fontSize: 12, color: 'var(--text3)', textDecoration: 'none' }}>
@@ -53,7 +72,9 @@ export default function AdminCommissionBatchesPage() {
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-          {batches.map(batch => (
+          {batches.map(batch => {
+            const vendors = batch.vendors || []
+            return (
             <div key={batch.batchId} style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 16, padding: 20 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 }}>
                 <div>
@@ -73,9 +94,9 @@ export default function AdminCommissionBatchesPage() {
               </div>
 
               {/* Vendor breakdown */}
-              {batch.vendors?.length > 0 && (
+              {vendors.length > 0 && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 12 }}>
-                  {batch.vendors.map((v: any) => (
+                  {vendors.map((v) => (
                     <div key={v.vendorId || Math.random()} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px 12px', background: 'var(--surface2)', borderRadius: 8 }}>
                       <span style={{ fontSize: 12, color: 'var(--text2)' }}>{v.vendorName || 'Тодорхойгүй'}</span>
                       <div style={{ textAlign: 'right' }}>
@@ -98,7 +119,8 @@ export default function AdminCommissionBatchesPage() {
                 </button>
               )}
             </div>
-          ))}
+            )
+          })}
         </div>
       )}
     </div>

@@ -1,13 +1,19 @@
 'use client'
 import { useState, useEffect, useRef, useCallback } from 'react'
+import Link from 'next/link'
 import { apiFetch } from '@/lib/api'
+
+interface NotificationData {
+  order_id?: string | number
+  [key: string]: unknown
+}
 
 interface NotificationItem {
   id: number
   type: string
   title: string
   message: string
-  data?: any
+  data?: NotificationData
   is_read: boolean
   created_at: string
 }
@@ -36,21 +42,18 @@ function timeAgo(date: string): string {
   return `${Math.floor(seconds / 86400)} хоног`
 }
 
+const getNotificationPermission = (): NotificationPermission =>
+  typeof window !== 'undefined' && 'Notification' in window ? window.Notification.permission : 'default'
+
 export default function NotificationBell({ userId }: { userId?: string }) {
   const [unread, setUnread] = useState(0)
   const [open, setOpen] = useState(false)
   const [notifications, setNotifications] = useState<NotificationItem[]>([])
-  const [permission, setPermission] = useState<string>('default')
+  const [permission, setPermission] = useState<NotificationPermission>(getNotificationPermission)
   const [filter, setFilter] = useState<string>('all')
   const ref = useRef<HTMLDivElement>(null)
   const intervalRef = useRef<NodeJS.Timeout | null>(null)
   const prevUnread = useRef(0)
-
-  useEffect(() => {
-    if (typeof window !== 'undefined' && 'Notification' in window) {
-      setPermission(window.Notification.permission)
-    }
-  }, [])
 
   const fetchNotifications = useCallback(async () => {
     if (!userId) return
@@ -76,9 +79,12 @@ export default function NotificationBell({ userId }: { userId?: string }) {
   }, [userId, permission])
 
   useEffect(() => {
-    fetchNotifications()
+    const timeout = setTimeout(fetchNotifications, 0)
     intervalRef.current = setInterval(fetchNotifications, 15000)
-    return () => { if (intervalRef.current) clearInterval(intervalRef.current) }
+    return () => {
+      clearTimeout(timeout)
+      if (intervalRef.current) clearInterval(intervalRef.current)
+    }
   }, [fetchNotifications])
 
   // Click outside to close
@@ -282,11 +288,11 @@ export default function NotificationBell({ userId }: { userId?: string }) {
             <span style={{ fontSize: 11, color: 'var(--text3, #999)' }}>
               {permission === 'granted' ? 'Push мэдэгдэл идэвхтэй' : ''}
             </span>
-            <a href="/dashboard/notifications" style={{
+            <Link href="/dashboard/notifications" style={{
               fontSize: 11, fontWeight: 600, color: '#FF6B00', textDecoration: 'none',
             }}>
               Бүгдийг харах →
-            </a>
+            </Link>
           </div>
         </div>
       )}

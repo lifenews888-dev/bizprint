@@ -3,7 +3,25 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { apiFetch } from '@/lib/api'
 
-const FALLBACK_PLANS = [
+interface PricingPlan {
+  id: string
+  name: string
+  price_monthly?: number
+  price_yearly?: number
+  price_label?: string
+  description?: string
+  features_list?: string[] | string
+  is_popular?: boolean
+  slug?: string
+  tier?: string
+  sort_order?: number
+}
+
+interface PricingPlansResponse {
+  data?: PricingPlan[]
+}
+
+const FALLBACK_PLANS: PricingPlan[] = [
   { id: 'free', name: 'Үнэгүй', price_monthly: 0, description: 'Туршиж үзэх', features_list: ['Дэлгүүр үзэх', 'Үнэ тооцоолох', 'Захиалгын хүсэлт илгээх', 'Чатаар холбогдох', '3 захиалга/сар'], is_popular: false, slug: 'free' },
   { id: 'basic', name: 'Basic', price_monthly: 29900, description: 'Жижиг бизнест', features_list: ['Бүх үнэгүй боломж', 'Нэрийн хуудас editor', 'Design editor', 'Захиалгын түүх', 'Урьдчилгаа хэтэвч', 'Үнэ харьцуулах', '20 захиалга/сар'], is_popular: false, slug: 'basic' },
   { id: 'pro', name: 'Pro', price_monthly: 79900, description: 'Өсөж буй бизнест', features_list: ['Бүх Basic боломж', 'AI дизайн зөвлөмж', 'Loyalty хөтөлбөр', 'Дижитал нэрийн хуудас', 'Аналитик тайлан', 'Кампани удирдах', 'B2B данс', 'Хязгааргүй захиалга'], is_popular: true, slug: 'pro' },
@@ -17,31 +35,36 @@ const FAQ: [string, string][] = [
 ]
 
 export default function PricingPage() {
-  const [plans, setPlans] = useState<any[]>(FALLBACK_PLANS)
+  const [plans, setPlans] = useState<PricingPlan[]>(FALLBACK_PLANS)
   const [billing, setBilling] = useState<'monthly' | 'yearly'>('monthly')
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    apiFetch<any>('/subscription/plans', { auth: false })
+    apiFetch<PricingPlan[] | PricingPlansResponse>('/subscription/plans', { auth: false })
       .then(data => {
         const list = Array.isArray(data) ? data : (data?.data || [])
         if (list.length > 0) {
-          setPlans(list.sort((a: any, b: any) => (a.sort_order || 0) - (b.sort_order || 0)))
+          setPlans(list.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0)))
         }
       })
       .catch(() => {})
       .finally(() => setLoading(false))
   }, [])
 
-  const getPrice = (plan: any) => billing === 'yearly' && plan.price_yearly ? plan.price_yearly : (plan.price_monthly || 0)
-  const getFeatures = (plan: any): string[] => {
+  const getPrice = (plan: PricingPlan) => billing === 'yearly' && plan.price_yearly ? plan.price_yearly : (plan.price_monthly || 0)
+  const getFeatures = (plan: PricingPlan): string[] => {
     if (Array.isArray(plan.features_list)) return plan.features_list
-    if (typeof plan.features_list === 'string') try { return JSON.parse(plan.features_list) } catch { return [] }
+    if (typeof plan.features_list === 'string') {
+      try {
+        const parsed: unknown = JSON.parse(plan.features_list)
+        return Array.isArray(parsed) ? parsed.filter((item): item is string => typeof item === 'string') : []
+      } catch { return [] }
+    }
     return []
   }
-  const isEnterprise = (plan: any) => plan.slug === 'business' || plan.slug === 'enterprise' || plan.tier === 'enterprise'
-  const ctaUrl = (plan: any) => isEnterprise(plan) ? '/contact' : `/register?plan=${plan.slug || plan.id}`
-  const ctaText = (plan: any) => {
+  const isEnterprise = (plan: PricingPlan) => plan.slug === 'business' || plan.slug === 'enterprise' || plan.tier === 'enterprise'
+  const ctaUrl = (plan: PricingPlan) => isEnterprise(plan) ? '/contact' : `/register?plan=${plan.slug || plan.id}`
+  const ctaText = (plan: PricingPlan) => {
     if (isEnterprise(plan)) return 'Холбогдох'
     if (getPrice(plan) === 0) return 'Үнэгүй эхлэх'
     return `${plan.name} авах`
@@ -64,7 +87,7 @@ export default function PricingPage() {
       </div>
 
       {/* Billing toggle */}
-      {plans.some(p => p.price_yearly > 0) && (
+      {plans.some(p => Number(p.price_yearly || 0) > 0) && (
         <div style={{ display: 'flex', justifyContent: 'center', gap: 4, marginBottom: 32, background: 'var(--surface2)', padding: 4, borderRadius: 12, width: 'fit-content', margin: '0 auto 32px' }}>
           {(['monthly', 'yearly'] as const).map(b => (
             <button key={b} onClick={() => setBilling(b)} style={{
@@ -89,6 +112,7 @@ export default function PricingPage() {
             const features = getFeatures(plan)
             const popular = plan.is_popular
             const enterprise = isEnterprise(plan)
+            const monthlyPrice = Number(plan.price_monthly || 0)
 
             return (
               <div key={plan.id} style={{
@@ -117,9 +141,9 @@ export default function PricingPage() {
                     <div>
                       <span style={{ fontSize: 26, fontWeight: 800, color: 'var(--text)' }}>{price.toLocaleString()}₮</span>
                       <span style={{ fontSize: 13, color: 'var(--text3)' }}>/{billing === 'yearly' ? 'жил' : 'сар'}</span>
-                      {billing === 'yearly' && plan.price_monthly > 0 && (
+                      {billing === 'yearly' && monthlyPrice > 0 && (
                         <div style={{ fontSize: 11, color: '#10B981', marginTop: 2 }}>
-                          Сард {Math.round(price / 12).toLocaleString()}₮ · {Math.round((1 - price / (plan.price_monthly * 12)) * 100)}% хэмнэлт
+                          Сард {Math.round(price / 12).toLocaleString()}₮ · {Math.round((1 - price / (monthlyPrice * 12)) * 100)}% хэмнэлт
                         </div>
                       )}
                     </div>
@@ -127,7 +151,7 @@ export default function PricingPage() {
                 </div>
 
                 <ul style={{ listStyle: 'none', padding: 0, margin: '0 0 20px', flex: 1 }}>
-                  {features.map((f: string) => (
+                  {features.map(f => (
                     <li key={f} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, fontSize: 13, color: 'var(--text2)', marginBottom: 8 }}>
                       <span style={{ color: '#10B981', flexShrink: 0, marginTop: 1 }}>✓</span>
                       {f}

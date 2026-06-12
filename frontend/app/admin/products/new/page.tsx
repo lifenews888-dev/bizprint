@@ -5,12 +5,32 @@ import { apiFetch } from '@/lib/api'
 
 const CATEGORIES = ['business-card', 'flyer', 'banner', 'sticker', 'book', 'packaging', 'signage', 'merchandise', 'office', 'events', 'apparel']
 
+type ProductForm = {
+  name_mn: string
+  slug: string
+  category: string
+  description: string
+  base_price: string
+  stock_quantity: string
+  thumbnail_url: string
+  lead_time_days: string
+  is_active: boolean
+  is_featured: boolean
+  product_type: string
+  min_quantity: string
+}
+
+const CHECKBOX_FIELDS: { key: keyof Pick<ProductForm, 'is_active' | 'is_featured'>; label: string }[] = [
+  { key: 'is_active', label: 'Идэвхтэй' },
+  { key: 'is_featured', label: 'Онцлох' },
+]
+
 export default function NewProductPage() {
   const router = useRouter()
   const [saving, setSaving] = useState(false)
-  const [form, setForm] = useState({ name_mn: '', slug: '', category: 'flyer', description: '', base_price: '', stock_quantity: '', thumbnail_url: '', lead_time_days: '3', is_active: true, is_featured: false, product_type: 'shop', min_quantity: '1' })
+  const [form, setForm] = useState<ProductForm>({ name_mn: '', slug: '', category: 'flyer', description: '', base_price: '', stock_quantity: '', thumbnail_url: '', lead_time_days: '3', is_active: true, is_featured: false, product_type: 'shop', min_quantity: '1' })
 
-  const set = (k: string, v: any) => setForm(p => ({ ...p, [k]: v }))
+  const set = <K extends keyof ProductForm>(k: K, v: ProductForm[K]) => setForm(p => ({ ...p, [k]: v }))
 
   const handleSave = async () => {
     if (!form.name_mn || !form.base_price) return
@@ -19,7 +39,7 @@ export default function NewProductPage() {
       const slug = form.slug || form.name_mn.toLowerCase().replace(/\s+/g, '-').replace(/[^\w-]/g, '') + '-' + Date.now()
       await apiFetch('/products', { method: 'POST', body: { ...form, slug, name: form.name_mn, base_price: parseFloat(form.base_price), stock_quantity: form.stock_quantity ? parseInt(form.stock_quantity) : null, lead_time_days: parseInt(form.lead_time_days), min_quantity: parseInt(form.min_quantity), images: form.thumbnail_url ? [form.thumbnail_url] : [] } })
       router.push('/admin/products')
-    } catch (e: any) { alert(e.message || 'Алдаа гарлаа') }
+    } catch (e: unknown) { alert(e instanceof Error ? e.message : 'Алдаа гарлаа') }
     setSaving(false)
   }
 
@@ -59,9 +79,9 @@ export default function NewProductPage() {
         <div><label style={{ fontSize: 12, color: 'var(--text2)', marginBottom: 6, display: 'block' }}>Тайлбар</label><textarea value={form.description} onChange={e => set('description', e.target.value)} rows={3} placeholder="Тайлбар..." style={{ ...inputSt, resize: 'vertical' }} /></div>
 
         <div style={{ display: 'flex', gap: 16 }}>
-          {[{ key: 'is_active', label: 'Идэвхтэй' }, { key: 'is_featured', label: 'Онцлох' }].map(t => (
+          {CHECKBOX_FIELDS.map(t => (
             <label key={t.key} style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 13, color: 'var(--text2)' }}>
-              <input type="checkbox" checked={(form as any)[t.key]} onChange={e => set(t.key, e.target.checked)} style={{ accentColor: '#FF6B00' }} />{t.label}
+              <input type="checkbox" checked={form[t.key]} onChange={e => set(t.key, e.target.checked)} style={{ accentColor: '#FF6B00' }} />{t.label}
             </label>
           ))}
         </div>

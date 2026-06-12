@@ -8,7 +8,7 @@ interface CartItem {
   price: number
   qty: number
   image?: string
-  specs?: Record<string, any>
+  specs?: Record<string, unknown>
 }
 
 interface StoreState {
@@ -38,8 +38,9 @@ const syncCartItemPricing = (item: CartItem, qty: number): CartItem => {
   const unitPrice = Math.round(Number(item.price) || 0)
   const totalPrice = Math.round(unitPrice * safeQty)
   const specs = item.specs || {}
-  const pricing = specs.pricing && typeof specs.pricing === 'object' ? specs.pricing as Record<string, any> : {}
-  const snapshot = specs.pricing_snapshot && typeof specs.pricing_snapshot === 'object' ? specs.pricing_snapshot as Record<string, any> : null
+  const pricing = specs.pricing && typeof specs.pricing === 'object' ? specs.pricing as Record<string, unknown> : {}
+  const snapshot = specs.pricing_snapshot && typeof specs.pricing_snapshot === 'object' ? specs.pricing_snapshot as Record<string, unknown> : null
+  const snapshotSpec = snapshot?.spec && typeof snapshot.spec === 'object' ? snapshot.spec as Record<string, unknown> : {}
 
   return {
     ...item,
@@ -58,7 +59,7 @@ const syncCartItemPricing = (item: CartItem, qty: number): CartItem => {
           total: totalPrice,
           unitPrice,
           spec: {
-            ...(snapshot.spec && typeof snapshot.spec === 'object' ? snapshot.spec : {}),
+            ...snapshotSpec,
             quantity: safeQty,
           },
         },

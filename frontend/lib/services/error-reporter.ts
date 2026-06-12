@@ -17,7 +17,7 @@ interface ErrorReport {
   http_method?: string
   http_status?: number
   severity?: 'low' | 'medium' | 'high' | 'critical'
-  metadata?: Record<string, any>
+  metadata?: Record<string, unknown>
 }
 
 /** Send error report to backend (fire-and-forget) */

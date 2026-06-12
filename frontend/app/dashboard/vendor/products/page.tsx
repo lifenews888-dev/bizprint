@@ -19,6 +19,14 @@ interface Product {
 
 const F = "'Segoe UI',system-ui,sans-serif"
 const EMPTY_FORM = { name: '', description: '', price: '', isActive: true }
+type ProductForm = typeof EMPTY_FORM
+type ProductFormTextKey = 'name' | 'description' | 'price'
+interface ProductFormField {
+  label: string
+  key: ProductFormTextKey
+  type: string
+  placeholder: string
+}
 
 export default function VendorProductsPage() {
   const { user: guardUser, loading: authLoading } = useRoleGuard(['vendor', 'admin'])
@@ -124,7 +132,7 @@ export default function VendorProductsPage() {
           <div style={{ textAlign: 'center', padding: 60, color: '#666' }}>
             <div style={{ fontSize: 32, marginBottom: 12 }}>📦</div>
             <div style={{ fontWeight: 600, marginBottom: 8 }}>Бүтээгдэхүүн байхгүй</div>
-            <div style={{ fontSize: 13 }}>"Бүтээгдэхүүн нэмэх" дарж эхлэнэ үү</div>
+            <div style={{ fontSize: 13 }}>&quot;Бүтээгдэхүүн нэмэх&quot; дарж эхлэнэ үү</div>
           </div>
         ) : (
           <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: F }}>
@@ -166,10 +174,14 @@ export default function VendorProductsPage() {
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 16 }} onClick={e => { if (e.target === e.currentTarget) setShowModal(false) }}>
           <div style={{ background: '#0F0F0F', border: '1px solid #1A1A1A', borderRadius: 20, padding: 28, width: '100%', maxWidth: 480, fontFamily: F }}>
             <h2 style={{ margin: '0 0 20px', fontSize: 18, fontWeight: 700 }}>{editing ? 'Бүтээгдэхүүн засах' : 'Бүтээгдэхүүн нэмэх'}</h2>
-            {[{ label: 'Нэр *', key: 'name', type: 'text', placeholder: 'Бизнес карт, Флаер...' }, { label: 'Тайлбар', key: 'description', type: 'text', placeholder: 'Богино тайлбар' }, { label: 'Үнэ (₮) *', key: 'price', type: 'number', placeholder: '50000' }].map(field => (
+            {([
+              { label: 'Нэр *', key: 'name', type: 'text', placeholder: 'Бизнес карт, Флаер...' },
+              { label: 'Тайлбар', key: 'description', type: 'text', placeholder: 'Богино тайлбар' },
+              { label: 'Үнэ (₮) *', key: 'price', type: 'number', placeholder: '50000' },
+            ] as ProductFormField[]).map(field => (
               <div key={field.key} style={{ marginBottom: 16 }}>
                 <label style={{ display: 'block', fontSize: 13, color: '#888', marginBottom: 6 }}>{field.label}</label>
-                <input type={field.type} value={(form as any)[field.key]} onChange={e => setForm(f => ({ ...f, [field.key]: e.target.value }))} placeholder={field.placeholder} style={{ width: '100%', padding: '10px 14px', boxSizing: 'border-box', background: '#1A1A1A', border: '1px solid #2A2A2A', borderRadius: 8, color: '#F1F5F9', fontSize: 14, fontFamily: F, outline: 'none' }} />
+                <input type={field.type} value={form[field.key]} onChange={e => setForm((f: ProductForm) => ({ ...f, [field.key]: e.target.value }))} placeholder={field.placeholder} style={{ width: '100%', padding: '10px 14px', boxSizing: 'border-box', background: '#1A1A1A', border: '1px solid #2A2A2A', borderRadius: 8, color: '#F1F5F9', fontSize: 14, fontFamily: F, outline: 'none' }} />
               </div>
             ))}
             <div style={{ marginBottom: 20 }}>

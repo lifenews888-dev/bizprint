@@ -16,6 +16,8 @@ interface Package {
   features: string[]
 }
 
+const DAY_MS = 86400000
+
 const PACKAGES: Package[] = [
   {
     name: 'starter',
@@ -69,6 +71,24 @@ export default function OrderModal({
   const [files, setFiles] = useState<File[]>([])
   const [deadline, setDeadline] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [dateBounds] = useState(() => {
+    const now = Date.now()
+    const optionDates = [1, 3, 7, 14].reduce<Record<number, { value: string; label: string }>>((dates, days) => {
+      const date = new Date(now + days * DAY_MS)
+      dates[days] = {
+        value: date.toISOString().split('T')[0],
+        label: date.toLocaleDateString('mn-MN', { month: 'short', day: 'numeric', weekday: 'short' }),
+      }
+      return dates
+    }, {})
+
+    return {
+      now,
+      minDate: new Date(now + DAY_MS).toISOString().split('T')[0],
+      maxDate: new Date(now + 90 * DAY_MS).toISOString().split('T')[0],
+      optionDates,
+    }
+  })
   const fileRef = useRef<HTMLInputElement>(null)
 
   if (!open) return null
@@ -326,9 +346,8 @@ export default function OrderModal({
                   { days: 7, label: 'Энгийн', desc: '1 долоо хоногт', surcharge: '', color: '#10B981' },
                   { days: 14, label: 'Уян', desc: '2 долоо хоногт', surcharge: '-10%', color: '#378ADD' },
                 ].map(opt => {
-                  const d = new Date()
-                  d.setDate(d.getDate() + opt.days)
-                  const dateStr = d.toISOString().split('T')[0]
+                  const dateInfo = dateBounds.optionDates[opt.days]
+                  const dateStr = dateInfo.value
                   const selected = deadline === dateStr
                   const isBelowCreatorMin = opt.days < creator.deliveryDays
                   return (
@@ -358,7 +377,7 @@ export default function OrderModal({
                             )}
                           </div>
                           <div className="text-xs" style={{ color: 'var(--text3)' }}>
-                            {opt.desc} · {d.toLocaleDateString('mn-MN', { month: 'short', day: 'numeric', weekday: 'short' })}
+                            {opt.desc} · {dateInfo.label}
                           </div>
                         </div>
                       </div>
@@ -384,8 +403,8 @@ export default function OrderModal({
                   type="date"
                   value={deadline}
                   onChange={e => setDeadline(e.target.value)}
-                  min={new Date(Date.now() + 86400000).toISOString().split('T')[0]}
-                  max={new Date(Date.now() + 90 * 86400000).toISOString().split('T')[0]}
+                  min={dateBounds.minDate}
+                  max={dateBounds.maxDate}
                   className="w-full px-4 py-2.5 rounded-xl text-sm"
                   style={{
                     background: 'var(--surface)',
@@ -399,7 +418,7 @@ export default function OrderModal({
                       {new Date(deadline).toLocaleDateString('mn-MN', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' })}
                     </strong>
                     {' · '}
-                    {Math.max(1, Math.ceil((new Date(deadline).getTime() - Date.now()) / 86400000))} өдөрт
+                    {Math.max(1, Math.ceil((Date.parse(deadline) - dateBounds.now) / DAY_MS))} өдөрт
                   </p>
                 )}
               </div>

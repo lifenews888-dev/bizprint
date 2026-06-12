@@ -1,8 +1,10 @@
 'use client'
 import { useMemo } from 'react'
 import { VChart } from '@visactor/react-vchart'
+import type { IOrientType, ISpec } from '@visactor/vchart'
 import { useChartTheme } from '@/lib/use-chart-theme'
 import { SERIES_COLORS, fmtCurrency, fmtCompact } from '@/lib/vchart-theme'
+import { datumNumber, datumString } from './chart-utils'
 
 interface BarChartProps {
   data: { label: string; value: number }[]
@@ -23,9 +25,11 @@ export default function BarChartBlock({
 }: BarChartProps) {
   const { tokens, isDark } = useChartTheme()
 
-  const spec = useMemo(() => {
+  const spec = useMemo<ISpec>(() => {
     const categoryField = 'label'
     const valueField = 'value'
+    const valueAxisOrient: IOrientType = horizontal ? 'bottom' : 'left'
+    const categoryAxisOrient: IOrientType = horizontal ? 'left' : 'bottom'
 
     return {
       type: 'bar' as const,
@@ -48,18 +52,18 @@ export default function BarChartBlock({
       },
       axes: [
         {
-          orient: (horizontal ? 'bottom' : 'left') as any,
+          orient: valueAxisOrient,
           visible: true,
           label: {
             style: { fill: tokens.text3, fontSize: 10 },
-            ...(currency ? { formatMethod: (v: any) => fmtCompact(Number(v)) } : {}),
+            ...(currency ? { formatMethod: (value: unknown) => fmtCompact(Number(value)) } : {}),
           },
           grid: { style: { stroke: tokens.gridLine, lineDash: [3, 3] } },
           domainLine: { visible: false },
           tick: { visible: false },
         },
         {
-          orient: (horizontal ? 'left' : 'bottom') as any,
+          orient: categoryAxisOrient,
           visible: true,
           label: { style: { fill: tokens.text3, fontSize: 10 } },
           domainLine: { visible: false },
@@ -70,8 +74,11 @@ export default function BarChartBlock({
         mark: {
           content: [
             {
-              key: (datum: any) => datum?.label || '',
-              value: (datum: any) => currency ? fmtCurrency(datum?.value || 0) : String(datum?.value || 0),
+              key: (datum: unknown) => datumString(datum, 'label'),
+              value: (datum: unknown) => {
+                const value = datumNumber(datum, 'value')
+                return currency ? fmtCurrency(value) : String(value)
+              },
             },
           ],
         },
@@ -79,7 +86,13 @@ export default function BarChartBlock({
           panel: {
             backgroundColor: tokens.surface,
             border: { color: tokens.border, width: 1 },
-            shadow: { blur: 12, color: isDark ? 'rgba(0,0,0,0.5)' : 'rgba(0,0,0,0.12)' },
+            shadow: {
+              x: 0,
+              y: 4,
+              blur: 12,
+              spread: 0,
+              color: isDark ? 'rgba(0,0,0,0.5)' : 'rgba(0,0,0,0.12)',
+            },
           },
         },
       },
@@ -91,7 +104,7 @@ export default function BarChartBlock({
 
   return (
     <VChart
-      spec={spec as any}
+      spec={spec}
       style={{ height, width: '100%' }}
     />
   )

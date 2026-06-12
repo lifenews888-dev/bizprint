@@ -1,5 +1,6 @@
 'use client'
 import { apiFetch } from '@/lib/api'
+import Link from 'next/link'
 import React, { useState, useEffect, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -16,8 +17,108 @@ import {
 
 const fmt = (n: number) => '₮' + n.toLocaleString('mn-MN')
 
+interface PriceFormulaOption {
+  type?: string
+  price?: number | string
+}
+
+interface PriceFormula {
+  type?: string
+  double_side_multiplier?: number | string
+  price_per_m2?: number | string
+  min_area_m2?: number
+  options?: Record<string, PriceFormulaOption>
+}
+
+interface ProductLike {
+  id?: string
+  slug?: string | null
+  thumbnail_url?: string | null
+  images?: string[] | null
+  category?: string | null
+  name?: string | null
+  name_mn?: string | null
+  sale_price?: number | string | null
+  base_price?: number | string | null
+  sizes?: string[] | null
+  available_sizes?: string[] | null
+  is_out_of_stock?: boolean
+  stock_quantity?: number | null
+  compare_specs?: (Record<string, unknown> & { unit?: string }) | null
+  features_html?: string | null
+  qty_condition?: string | null
+  pricing_mode?: string | null
+  product_type?: string | null
+  description?: string | null
+  sku?: string | null
+  badge?: string | null
+  is_bestseller?: boolean
+  is_featured?: boolean
+  is_flash_deal?: boolean
+  video_url?: string | null
+  requires_dimensions?: boolean
+  min_quantity?: number | null
+  lead_time_days?: number | null
+  price_formula?: PriceFormula | null
+  double_side_multiplier?: number | string | null
+}
+
+interface ProductAddon {
+  id: string
+  name_mn?: string
+  name?: string
+  description?: string
+  price?: number | string
+}
+
+interface LiveBreakdown {
+  quantity?: number
+  pages?: number
+  totalPages?: number
+  unit_price?: number
+  total_price?: number
+  total?: number
+  is_estimate?: boolean
+  formula_used?: string
+  subtotal_excl_vat?: number
+  vat?: number
+  vat_rate?: number
+  vat_included?: boolean
+  width_mm?: number
+  height_mm?: number
+  width_m?: number
+  height_m?: number
+  area_m2?: number
+  sides?: string
+  options?: Record<string, unknown>
+  notes?: string[]
+  volume_discount?: number
+  discount_rate?: number
+}
+
+interface LeadTimeEstimate {
+  total_days?: number
+  breakdown?: string[]
+}
+
+interface StoredUser {
+  id?: string
+  full_name?: string
+  email?: string
+  phone?: string
+  company_name?: string
+  company?: string
+}
+
+interface TrustSignal {
+  icon: string
+  t: string
+  d: string
+  title?: string
+}
+
 // ═══ GLASS GALLERY — autoplay + zone hover + zoom ═══
-function Gallery({ product }: { product: any }) {
+function Gallery({ product }: { product: ProductLike }) {
   const imgs: string[] = []
   if (product.thumbnail_url) imgs.push(product.thumbnail_url)
   if (Array.isArray(product.images)) product.images.forEach((img: string) => { if (img && !imgs.includes(img)) imgs.push(img) })
@@ -181,23 +282,27 @@ function stableHash(value: string) {
   return Math.abs(hash).toString(36)
 }
 
-function findProductBySlug(list: any[], slug: string) {
+function hasProductId(product: ProductLike | null): product is ProductLike & { id: string } {
+  return Boolean(product?.id)
+}
+
+function findProductBySlug(list: ProductLike[], slug: string) {
   const normalized = normalizeSlug(slug)
-  const exact = list.find((i: any) => normalizeSlug(i.slug || i.id || '') === normalized)
+  const exact = list.find(i => normalizeSlug(i.slug || i.id || '') === normalized)
   if (exact) return exact
   return list
-    .map((item: any) => ({ item, distance: slugDistance(normalized, normalizeSlug(item.slug || '')) }))
-    .filter(({ distance }: any) => distance <= 2)
-    .sort((a: any, b: any) => a.distance - b.distance)[0]?.item || null
+    .map(item => ({ item, distance: slugDistance(normalized, normalizeSlug(item.slug || '')) }))
+    .filter(({ distance }) => distance <= 2)
+    .sort((a, b) => a.distance - b.distance)[0]?.item || null
 }
 
 // ═══ MAIN PAGE ═══
-export default function ProductPageClient({ initialProduct, slug: slugProp }: { initialProduct?: any; slug?: string }) {
+export default function ProductPageClient({ initialProduct, slug: slugProp }: { initialProduct?: ProductLike; slug?: string }) {
   const params = useParams<{ _slug?: string }>()
   const router = useRouter()
   const _slug = slugProp || params?._slug || ''
-  const [product, setProduct] = useState<any>(initialProduct || null)
-  const [related, setRelated] = useState<any[]>([])
+  const [product, setProduct] = useState<ProductLike | null>(initialProduct || null)
+  const [related, setRelated] = useState<ProductLike[]>([])
   const [loading, setLoading] = useState(!initialProduct)
   const [selectedSize, setSelectedSize] = useState<string | null>(null)
   const [qty, setQty] = useState(1)
@@ -205,14 +310,14 @@ export default function ProductPageClient({ initialProduct, slug: slugProp }: { 
   const [adding, setAdding] = useState(false)
   const [shareOpen, setShareOpen] = useState(false)
   const [livePrice, setLivePrice] = useState<number | null>(null)
-  const [liveBreakdown, setLiveBreakdown] = useState<any>(null)
-  const [leadTime, setLeadTime] = useState<any>(null)
+  const [liveBreakdown, setLiveBreakdown] = useState<LiveBreakdown | null>(null)
+  const [leadTime, setLeadTime] = useState<LeadTimeEstimate | null>(null)
   const { addToCart: storeAddToCart, cart, toggleWishlist, isWished, toggleCompare, isCompared } = useStore()
   const inCart = cart.some(c => (c.productId || c.id.split(':')[0]) === product?.id)
-  const wished = product ? isWished(product?.id) : false
-  const compared = product ? isCompared(product?.id) : false
+  const wished = product?.id ? isWished(product.id) : false
+  const compared = product?.id ? isCompared(product.id) : false
 
-  const [addons, setAddons] = useState<any[]>([])
+  const [addons, setAddons] = useState<ProductAddon[]>([])
   const [selectedAddons, setSelectedAddons] = useState<string[]>([])
 
   // Smart lead time тооцоо (quantity, pages өөрчлөгдөх үед шинэчлэгдэнэ)
@@ -220,12 +325,19 @@ export default function ProductPageClient({ initialProduct, slug: slugProp }: { 
     if (!product?.id) return
     const q = liveBreakdown?.quantity || qty
     const pages = liveBreakdown?.pages || liveBreakdown?.totalPages || 0
-    apiFetch<any>(`/products/${product.id}/estimate-lead-time?quantity=${q}&pages=${pages}`, { auth: false })
+    apiFetch<LeadTimeEstimate>(`/products/${product.id}/estimate-lead-time?quantity=${q}&pages=${pages}`, { auth: false })
       .then(setLeadTime).catch(() => {})
-  }, [product?.id, qty, liveBreakdown?.quantity])
+  }, [product?.id, qty, liveBreakdown?.quantity, liveBreakdown?.pages, liveBreakdown?.totalPages])
 
   useEffect(() => {
-    const applyProduct = (p: any) => {
+    let loadingTimer: ReturnType<typeof setTimeout> | undefined
+    const finishLoadingSoon = (callback?: () => void) => {
+      loadingTimer = setTimeout(() => {
+        callback?.()
+        setLoading(false)
+      }, 0)
+    }
+    const applyProduct = (p: ProductLike | null) => {
       if (!p?.id) throw new Error()
       setProduct(p)
       // Track FB Pixel ViewContent
@@ -233,38 +345,41 @@ export default function ProductPageClient({ initialProduct, slug: slugProp }: { 
         productId: p.id,
         name: p.name_mn || p.name || 'Product',
         price: Number(p.sale_price ?? p.base_price ?? 0),
-        category: p.category,
+        category: p.category || undefined,
       })
       // Load addons for this product
-      apiFetch<any>(`/products/${p.id}/addons`, { auth: false })
+      apiFetch<ProductAddon[]>(`/products/${p.id}/addons`, { auth: false })
         .then(a => { if (Array.isArray(a)) setAddons(a) })
         .catch(() => {})
     }
 
     if (initialProduct?.id) {
-      applyProduct(initialProduct)
-      setLoading(false)
+      finishLoadingSoon(() => applyProduct(initialProduct))
     } else if (_slug) {
-      apiFetch<any>(`/products/${_slug}`, { auth: false })
+      apiFetch<ProductLike>(`/products/${_slug}`, { auth: false })
         .then(applyProduct)
-        .catch(() => apiFetch<any>('/products', { auth: false }).then(list => {
+        .catch(() => apiFetch<ProductLike[]>('/products', { auth: false }).then(list => {
           const fallback = Array.isArray(list) ? findProductBySlug(list, _slug) : null
           if (fallback?.id) applyProduct(fallback)
           else setProduct(null)
         }).catch(() => setProduct(null)))
         .finally(() => setLoading(false))
     } else {
-      setLoading(false)
+      finishLoadingSoon()
     }
 
-    apiFetch<any>('/products', { auth: false }).then(list => {
-      if (Array.isArray(list)) setRelated(list.filter((i: any) => i.slug !== _slug && i.id !== _slug).slice(0, 8))
+    apiFetch<ProductLike[]>('/products', { auth: false }).then(list => {
+      if (Array.isArray(list)) setRelated(list.filter(i => i.slug !== _slug && i.id !== _slug).slice(0, 8))
     }).catch(() => {})
-  }, [_slug, initialProduct?.id])
+    return () => {
+      if (loadingTimer) clearTimeout(loadingTimer)
+    }
+  }, [_slug, initialProduct])
 
   const handleAddToCart = async () => {
-    if (!product || adding) return false
+    if (!product?.id || adding) return false
     setAdding(true)
+    const productTitle = product.name_mn || product.name || 'Product'
     const effectiveQty = Math.max(1, Number(liveBreakdown?.quantity || qty) || 1)
     const unitPrice = Math.round(Number(
       liveBreakdown?.unit_price ||
@@ -310,7 +425,7 @@ export default function ProductPageClient({ initialProduct, slug: slugProp }: { 
       breakdown: liveBreakdown || null,
       product: {
         id: product.id,
-        name: product.name_mn || product.name || '',
+        name: productTitle,
         category: product.category || '',
       },
       spec: {
@@ -341,15 +456,15 @@ export default function ProductPageClient({ initialProduct, slug: slugProp }: { 
       : product.id
     fbPixel.addToCart({
       productId: product.id,
-      name: product.name_mn || product.name,
+      name: productTitle,
       price: unitPrice * effectiveQty,
     })
     storeAddToCart({
       id: cartLineId,
       productId: product.id,
-      name: product.name_mn || product.name,
+      name: productTitle,
       price: unitPrice,
-      image: product.thumbnail_url,
+      image: product.thumbnail_url || undefined,
       specs: cartSpecs,
     }, effectiveQty)
     // Add selected addons to cart
@@ -359,20 +474,21 @@ export default function ProductPageClient({ initialProduct, slug: slugProp }: { 
         storeAddToCart({
           id: `addon-${addon.id}`,
           productId: product.id,
-          name: `↳ ${addon.name_mn}`,
+          name: `↳ ${addon.name_mn || addon.name || ''}`,
           price: Number(addon.price),
-          image: product.thumbnail_url,
+          image: product.thumbnail_url || undefined,
           specs: { parent_line_id: cartLineId },
         }, effectiveQty)
       }
     }
     const addonCount = selectedAddons.length
-    toast.success('Сагсанд нэмэгдлээ', { description: `${product.name_mn || product.name} × ${effectiveQty}${addonCount ? ` + ${addonCount} дагалдах` : ''}` })
+    toast.success('Сагсанд нэмэгдлээ', { description: `${productTitle} × ${effectiveQty}${addonCount ? ` + ${addonCount} дагалдах` : ''}` })
     // Also try API
     try {
-      const u = JSON.parse(localStorage.getItem('user') || '{}')
+      const parsed: unknown = JSON.parse(localStorage.getItem('user') || '{}')
+      const u = parsed && typeof parsed === 'object' ? parsed as StoredUser : null
       if (u?.id) {
-        await apiFetch('/cart/items', { method: 'POST', body: { product_id: product.id, quantity: effectiveQty, unit_price: unitPrice, specs: cartSpecs } })
+        await apiFetch<void>('/cart/items', { method: 'POST', body: { product_id: product.id, quantity: effectiveQty, unit_price: unitPrice, specs: cartSpecs } })
       }
     } catch {}
     setTimeout(() => setAdding(false), 500)
@@ -380,27 +496,47 @@ export default function ProductPageClient({ initialProduct, slug: slugProp }: { 
   }
 
   if (loading) return <div className="min-h-screen flex items-center justify-center bg-[var(--bg)]"><div className="w-10 h-10 border-[3px] border-[var(--border)] border-t-[#FF6B00] rounded-full animate-spin" /></div>
-  if (!product) return (
+  if (!hasProductId(product)) return (
     <div className="min-h-[60vh] flex flex-col items-center justify-center bg-[var(--bg)]">
       <motion.span initial={{ scale: 0 }} animate={{ scale: 1 }} className="text-5xl mb-4">😕</motion.span>
       <h2 className="text-xl font-bold text-[var(--text)] mb-2">Бүтээгдэхүүн олдсонгүй</h2>
-      <a href="/shop" className="text-[#FF6B00] text-sm font-semibold no-underline">← Дэлгүүр рүү буцах</a>
+      <Link href="/shop" className="text-[#FF6B00] text-sm font-semibold no-underline">← Дэлгүүр рүү буцах</Link>
     </div>
   )
 
   const p = product
+  const calculatorProduct = {
+    ...p,
+    sale_price: p.sale_price ?? undefined,
+    base_price: p.base_price ?? undefined,
+    compare_specs: p.compare_specs || undefined,
+    double_side_multiplier: p.double_side_multiplier ?? undefined,
+    min_quantity: p.min_quantity ?? undefined,
+    category: p.category || undefined,
+    pricing_mode: p.pricing_mode || undefined,
+  }
   const price = Number(p.sale_price ?? p.base_price ?? 0)
   const oldPrice = p.sale_price && p.base_price && Number(p.sale_price) < Number(p.base_price) ? Number(p.base_price) : null
   const disc = oldPrice ? Math.round((1 - price / oldPrice) * 100) : null
-  const sizes: string[] = p.sizes || p.available_sizes || []
+  const sizes = (p.sizes || p.available_sizes || []).filter((size): size is string => typeof size === 'string')
   const out = p.is_out_of_stock || (p.stock_quantity != null && p.stock_quantity <= 0)
   const HIDDEN_SPEC_KEYS = new Set(['features_html', 'shop_slug', 'shop_category', 'qty_condition', 'top_menu', 'seo_description', 'price_excl_vat', 'image_alt'])
-  const rawSpecs = p.compare_specs || {}
-  const specs: Record<string, any> = Object.fromEntries(
+  const rawSpecs: Record<string, unknown> = p.compare_specs || {}
+  const specs: Record<string, unknown> = Object.fromEntries(
     Object.entries(rawSpecs).filter(([k]) => !HIDDEN_SPEC_KEYS.has(k))
   )
-  const featuresHtml: string = rawSpecs.features_html || p.features_html || ''
-  const qtyCondition: string = rawSpecs.qty_condition || p.qty_condition || ''
+  const featuresHtml = String(rawSpecs.features_html || p.features_html || '')
+  const qtyCondition = String(rawSpecs.qty_condition || p.qty_condition || '')
+  const volumeDiscount = liveBreakdown?.volume_discount ?? 0
+  const discountRate = liveBreakdown?.discount_rate ?? 0
+  const breakdownUnitPrice = liveBreakdown?.unit_price ?? 0
+  const breakdownQuantity = liveBreakdown?.quantity ?? 0
+  const minQuantity = p.min_quantity ?? 0
+  const trustSignals: TrustSignal[] = [
+    { icon: '🚚', t: 'Хугацаа', d: leadTime?.total_days ? `${leadTime.total_days} ажлын өдөр` : (p.lead_time_days ? `${p.lead_time_days} өдөр` : '1–3 өдөр'), title: leadTime?.breakdown?.join('\n') || '' },
+    { icon: '🔒', t: 'Аюулгүй', d: 'SSL төлбөр' },
+    { icon: '🔄', t: 'Буцаалт', d: '7 хоног' },
+  ]
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="min-h-screen bg-[var(--bg)] text-[var(--text)]">
@@ -416,9 +552,9 @@ export default function ProductPageClient({ initialProduct, slug: slugProp }: { 
       {/* Breadcrumb */}
       <div className="max-w-[1200px] mx-auto px-4 pt-4">
         <nav className="flex items-center gap-1.5 text-[11px] text-[var(--text3)] flex-wrap">
-          <a href="/" className="hover:text-[#FF6B00] no-underline text-[var(--text3)]">Нүүр</a><span className="opacity-40">›</span>
-          <a href="/shop" className="hover:text-[#FF6B00] no-underline text-[var(--text3)]">Дэлгүүр</a>
-          {p.category && <><span className="opacity-40">›</span><a href={`/shop?category=${p.category}`} className="hover:text-[#FF6B00] no-underline text-[var(--text3)]">{p.category}</a></>}
+          <Link href="/" className="hover:text-[#FF6B00] no-underline text-[var(--text3)]">Нүүр</Link><span className="opacity-40">›</span>
+          <Link href="/shop" className="hover:text-[#FF6B00] no-underline text-[var(--text3)]">Дэлгүүр</Link>
+          {p.category && <><span className="opacity-40">›</span><Link href={`/shop?category=${p.category}`} className="hover:text-[#FF6B00] no-underline text-[var(--text3)]">{p.category}</Link></>}
           <span className="opacity-40">›</span><span className="text-[var(--text2)]">{p.name_mn || p.name}</span>
         </nav>
       </div>
@@ -442,7 +578,7 @@ export default function ProductPageClient({ initialProduct, slug: slugProp }: { 
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-[11px] font-semibold cursor-pointer transition-all ${compared ? 'border-[#FF6B00]/30 bg-[#FF6B00]/5 text-[#FF6B00]' : 'border-[var(--border)] bg-[var(--surface)] text-[var(--text3)] hover:border-[#FF6B00]/30 hover:text-[#FF6B00]'}`}>
                 <GitCompareArrows className="w-3.5 h-3.5" strokeWidth={1.5} /> {compared ? 'Нэмсэн' : 'Харьцуулах'}
               </motion.button>
-              {compared && <a href="/compare" className="text-[10px] text-[#FF6B00] font-semibold no-underline hover:underline ml-1">Харах →</a>}
+              {compared && <Link href="/compare" className="text-[10px] text-[#FF6B00] font-semibold no-underline hover:underline ml-1">Харах →</Link>}
             </div>
             {/* Share popup */}
             <AnimatePresence>
@@ -484,7 +620,7 @@ export default function ProductPageClient({ initialProduct, slug: slugProp }: { 
               }
             </div>
 
-            {p.category && <a href={`/shop?category=${p.category}`} className="text-[10px] font-bold text-[#FF6B00] uppercase tracking-widest no-underline">{p.category}</a>}
+            {p.category && <Link href={`/shop?category=${p.category}`} className="text-[10px] font-bold text-[#FF6B00] uppercase tracking-widest no-underline">{p.category}</Link>}
             <h1 className="text-lg font-extrabold leading-snug tracking-tight !mt-1">{p.name_mn || p.name}</h1>
             {p.sku && <div className="text-[10px] text-[var(--text3)] font-mono !mt-0">SKU: {p.sku}</div>}
 
@@ -496,15 +632,15 @@ export default function ProductPageClient({ initialProduct, slug: slugProp }: { 
                 {oldPrice && <><span className="text-xs text-[var(--text3)] line-through">{fmt(oldPrice)}</span><span className="text-[10px] font-bold text-emerald-600 bg-emerald-100 px-2 py-0.5 rounded-full">-{disc}%</span></>}
               </div>
               {oldPrice && !liveBreakdown && <div className="text-[10px] text-emerald-600 font-semibold mt-0.5">Хэмнэлт: {fmt(oldPrice - price)}</div>}
-              {liveBreakdown?.volume_discount > 0 && <div className="text-[10px] text-emerald-600 font-semibold mt-0.5">📦 Хөнгөлөлт: -{fmt(liveBreakdown.volume_discount)} ({(liveBreakdown.discount_rate * 100).toFixed(0)}%)</div>}
-              {liveBreakdown?.unit_price > 0 && liveBreakdown?.quantity > 1 && <div className="text-[10px] text-[var(--text3)] mt-0.5">Нэгж: {fmt(liveBreakdown.unit_price)} × {liveBreakdown.quantity}ш</div>}
-              {p.min_quantity > 1 && !liveBreakdown && <div className="text-[10px] text-[var(--text3)] mt-0.5">Мин. {p.min_quantity} ширхэг</div>}
+              {volumeDiscount > 0 && <div className="text-[10px] text-emerald-600 font-semibold mt-0.5">📦 Хөнгөлөлт: -{fmt(volumeDiscount)} ({(discountRate * 100).toFixed(0)}%)</div>}
+              {breakdownUnitPrice > 0 && breakdownQuantity > 1 && <div className="text-[10px] text-[var(--text3)] mt-0.5">Нэгж: {fmt(breakdownUnitPrice)} × {breakdownQuantity}ш</div>}
+              {minQuantity > 1 && !liveBreakdown && <div className="text-[10px] text-[var(--text3)] mt-0.5">Мин. {minQuantity} ширхэг</div>}
             </div>
 
             {/* Smart Price Calculator — book/offset uses BookPriceCalculator, others use PriceCalculator */}
             {p.category === 'book' || p.product_type === 'book' || p.category === 'offset' || p.name_mn?.includes('Ном') || p.name?.includes('Ном') || p.name_mn?.includes('Сэтгүүл') || p.name_mn?.includes('Календарь')
               ? <BookPriceCalculator product={p} onPriceChange={(total, breakdown) => { setLivePrice(total); setLiveBreakdown(breakdown) }} />
-              : <PriceCalculator product={p} onPriceChange={(total, breakdown) => { setLivePrice(total); setLiveBreakdown(breakdown) }} />
+              : <PriceCalculator product={calculatorProduct} onPriceChange={(total, breakdown) => { setLivePrice(total); setLiveBreakdown(breakdown) }} />
             }
 
             {p.description && <p className="text-[11px] text-[var(--text2)] leading-relaxed line-clamp-3 m-0 !mt-1">{p.description}</p>}
@@ -598,11 +734,7 @@ export default function ProductPageClient({ initialProduct, slug: slugProp }: { 
 
             {/* Trust + Payment — inline */}
             <div className="grid grid-cols-3 gap-2">
-              {[
-                { icon: '🚚', t: 'Хугацаа', d: leadTime?.total_days ? `${leadTime.total_days} ажлын өдөр` : (p.lead_time_days ? `${p.lead_time_days} өдөр` : '1–3 өдөр'), title: leadTime?.breakdown?.join('\n') || '' },
-                { icon: '🔒', t: 'Аюулгүй', d: 'SSL төлбөр' },
-                { icon: '🔄', t: 'Буцаалт', d: '7 хоног' },
-              ].map((i: any) => (
+              {trustSignals.map(i => (
                 <div key={i.t} title={i.title || ''} className="flex items-center gap-1.5 p-2 rounded-lg bg-[var(--surface2)] border border-[var(--border)]">
                   <span className="text-sm">{i.icon}</span>
                   <div><div className="text-[10px] font-semibold text-[var(--text)]">{i.t}</div><div className="text-[9px] text-[var(--text3)]">{i.d}</div></div>
@@ -692,7 +824,7 @@ export default function ProductPageClient({ initialProduct, slug: slugProp }: { 
           <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} className="mt-10 border-t border-[var(--border)] pt-8">
             <div className="flex items-center justify-between mb-5">
               <h2 className="text-base font-bold text-[var(--text)] m-0">Төстэй бараанууд</h2>
-              <a href="/shop" className="text-xs font-semibold text-[#FF6B00] no-underline hover:underline">Бүгдийг →</a>
+              <Link href="/shop" className="text-xs font-semibold text-[#FF6B00] no-underline hover:underline">Бүгдийг →</Link>
             </div>
             <div className="flex gap-3.5 overflow-x-auto pb-2" style={{ scrollbarWidth: 'none' }}>
               {related.map(r => {

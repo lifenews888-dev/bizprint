@@ -1,3 +1,5 @@
+import { clearAuthSession } from '@/lib/auth-session'
+
 /**
  * BizPrint API Client — бүх API дуудалтын нэг эх сурвалж.
  *
@@ -101,9 +103,7 @@ export async function apiFetch<T = unknown>(
     const errText = await res.text().catch(() => '')
     // auth: true (authenticated request) → token expired, logout + redirect
     if (auth && typeof window !== 'undefined') {
-      localStorage.removeItem('access_token')
-      localStorage.removeItem('token')
-      localStorage.removeItem('user')
+      clearAuthSession()
       window.location.href = `/login?next=${encodeURIComponent(window.location.pathname + window.location.search)}`
       throw new Error('Нэвтрэлт дууссан байна')
     }

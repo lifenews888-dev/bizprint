@@ -71,6 +71,22 @@ const QUANTITY_OPTIONS = [50, 100, 200, 500, 1000, 2000, 5000]
 
 type Step = 'category' | 'details' | 'file' | 'review'
 
+interface NewOrderPayload {
+  product_name: string
+  product_type: string
+  material: string
+  dimensions: string
+  quantity: number
+  notes: string
+  need_design: boolean
+  unit_price: number
+  total_price: number
+}
+
+interface CreatedOrder {
+  id?: string
+}
+
 export default function NewOrderPage() {
   const router = useRouter()
   const [step, setStep] = useState<Step>('category')
@@ -102,7 +118,7 @@ export default function NewOrderPage() {
     setSubmitting(true)
     setError('')
     try {
-      const body: any = {
+      const body: NewOrderPayload = {
         product_name: catInfo?.label || 'Захиалга',
         product_type: category,
         material,
@@ -113,7 +129,7 @@ export default function NewOrderPage() {
         unit_price: unitPrice,
         total_price: estimated,
       }
-      const order = await apiFetch<any>('/orders', { method: 'POST', body: JSON.stringify(body), headers: { 'Content-Type': 'application/json' } })
+      const order = await apiFetch<CreatedOrder>('/orders', { method: 'POST', body: JSON.stringify(body), headers: { 'Content-Type': 'application/json' } })
 
       // Upload file if provided
       if (file && order?.id) {
@@ -123,8 +139,8 @@ export default function NewOrderPage() {
       }
 
       router.push('/dashboard/customer/orders')
-    } catch (e: any) {
-      setError(e?.message || 'Алдаа гарлаа')
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : 'Алдаа гарлаа')
     } finally {
       setSubmitting(false)
     }

@@ -17,7 +17,7 @@ interface OrderStatus {
   status: string
   previousStatus?: string
   updatedAt: string
-  [key: string]: any
+  [key: string]: unknown
 }
 
 interface UseRealtimeOrderResult {
@@ -54,7 +54,7 @@ export function useRealtimeOrder(orderId: string | null | undefined): UseRealtim
     joinRoom(room)
 
     // Fetch initial status
-    fetchOrder()
+    void Promise.resolve().then(fetchOrder)
 
     const handleUpdate = (data: OrderStatus) => {
       if (data.orderId !== orderId && data.orderId !== undefined) return

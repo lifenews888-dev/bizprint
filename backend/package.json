@@ -108,6 +108,9 @@
     "transform": {
       "^.+\\.(t|j)s$": "ts-jest"
     },
+    "setupFilesAfterEnv": [
+      "<rootDir>/../test/setup-nest-mocks.ts"
+    ],
     "collectCoverageFrom": [
       "**/*.(t|j)s"
     ],

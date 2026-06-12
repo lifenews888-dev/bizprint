@@ -1,9 +1,141 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useSyncExternalStore } from 'react'
+import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useSiteSettings } from '@/contexts/SiteSettingsContext'
+import type { MegaMenuColumn, MegaMenuItem, MegaMenuLink } from '@/contexts/SiteSettingsContext'
 import { useStore } from '@/lib/store'
+
+type QuickLink = { label: string; url: string; icon: string; color: string }
+type CatGroup = { title: string; icon: string; color: string; slug?: string; items: MegaMenuLink[] }
+type NavCategory = {
+  name?: string
+  name_mn?: string
+  icon?: string
+  color?: string
+  slug?: string
+  show_in_mega_menu?: boolean
+  children?: NavCategory[]
+}
+type SearchProduct = {
+  id: string
+  name?: string
+  name_mn?: string
+  category?: string
+  thumbnail_url?: string
+  base_price?: number | string
+}
+type NavUser = { full_name?: string; name?: string; email?: string }
+type MobileState = { pathname: string; open: boolean; accordion: string | null }
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  value !== null && typeof value === 'object' && !Array.isArray(value)
+
+const stringValue = (value: unknown, fallback = ''): string => {
+  if (typeof value === 'string') return value
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value)
+  return fallback
+}
+
+const normalizeMenuLink = (item: MegaMenuLink): MegaMenuLink => ({
+  ...item,
+  label: stringValue(item.label ?? item.name),
+  name: stringValue(item.name) || undefined,
+  url: stringValue(item.url ?? item.link, '#'),
+  link: stringValue(item.link) || undefined,
+  desc: stringValue(item.desc ?? item.description),
+  description: stringValue(item.description) || undefined,
+  badge: stringValue(item.badge) || undefined,
+})
+
+const normalizeColumnGroup = (col: MegaMenuColumn): CatGroup => ({
+  title: stringValue(col.title),
+  icon: stringValue(col.icon, '📦'),
+  color: stringValue(col.color, '#FF6B00'),
+  items: (col.items || []).map(normalizeMenuLink),
+})
+
+const normalizeCategory = (value: unknown): NavCategory | null => {
+  if (!isRecord(value)) return null
+  const children = Array.isArray(value.children)
+    ? value.children.map(normalizeCategory).filter((child): child is NavCategory => child !== null)
+    : []
+
+  return {
+    name: stringValue(value.name),
+    name_mn: stringValue(value.name_mn),
+    icon: stringValue(value.icon),
+    color: stringValue(value.color),
+    slug: stringValue(value.slug),
+    show_in_mega_menu: value.show_in_mega_menu === true,
+    children,
+  }
+}
+
+const normalizeQuickLinks = (value: unknown): QuickLink[] | null => {
+  const parsed = typeof value === 'string' ? (() => {
+    try { return JSON.parse(value) as unknown } catch { return null }
+  })() : value
+
+  if (!Array.isArray(parsed)) return null
+  const links = parsed
+    .filter(isRecord)
+    .map(item => ({
+      label: stringValue(item.label),
+      url: stringValue(item.url, '#'),
+      icon: stringValue(item.icon),
+      color: stringValue(item.color, '#FF6B00'),
+    }))
+    .filter(link => link.label)
+
+  return links.length > 0 ? links : null
+}
+
+const normalizeSearchProducts = (value: unknown): SearchProduct[] =>
+  Array.isArray(value)
+    ? value.filter(isRecord).map(item => ({
+        id: stringValue(item.id),
+        name: stringValue(item.name),
+        name_mn: stringValue(item.name_mn),
+        category: stringValue(item.category),
+        thumbnail_url: stringValue(item.thumbnail_url),
+        base_price: typeof item.base_price === 'number' || typeof item.base_price === 'string'
+          ? item.base_price
+          : undefined,
+      })).filter(item => item.id)
+    : []
+
+const parseNavUser = (stored: string | null): NavUser | null => {
+  if (!stored) return null
+  try {
+    const parsed = JSON.parse(stored) as unknown
+    if (!isRecord(parsed)) return null
+    return {
+      full_name: stringValue(parsed.full_name),
+      name: stringValue(parsed.name),
+      email: stringValue(parsed.email),
+    }
+  } catch {
+    return null
+  }
+}
+
+const navItemId = (item: MegaMenuItem): string =>
+  stringValue(item.id ?? item.nav_url ?? item.nav_label, 'nav-item')
+
+const subscribeNoop = () => () => {}
+const getMountedSnapshot = () => true
+const getServerMountedSnapshot = () => false
+
+const subscribeUserStorage = (onStoreChange: () => void) => {
+  if (typeof window === 'undefined') return () => {}
+  window.addEventListener('storage', onStoreChange)
+  return () => window.removeEventListener('storage', onStoreChange)
+}
+const getUserSnapshot = () =>
+  typeof window === 'undefined' ? '' : localStorage.getItem('user') || ''
+const getServerUserSnapshot = () => ''
 
 /* ─── SVG Icons ─── */
 const SearchIcon = () => (
@@ -39,14 +171,17 @@ export default function MegaNav() {
   const { settings, megaMenu, megaMenuV2 } = useSiteSettings()
 
   // Get categories from the MEGA nav item (for mega dropdown)
-  const megaItem = megaMenu.find((m: any) => m.nav_type === 'MEGA')
+  const megaItem = megaMenu.find(m => m.nav_type === 'MEGA')
 
   // Fetch categories marked for mega menu from DB
-  const [navCategories, setNavCategories] = useState<any[]>([])
+  const [navCategories, setNavCategories] = useState<NavCategory[]>([])
   useEffect(() => {
     const api = typeof window !== 'undefined' ? (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000') : ''
     fetch(`${api}/api/categories/navigation`).then(r => r.ok ? r.json() : []).then(data => {
-      if (Array.isArray(data) && data.length > 0) setNavCategories(data)
+      const categories = Array.isArray(data)
+        ? data.map(normalizeCategory).filter((category): category is NavCategory => category !== null)
+        : []
+      if (categories.length > 0) setNavCategories(categories)
     }).catch(() => {})
   }, [])
 
@@ -55,65 +190,58 @@ export default function MegaNav() {
   // 2. DB categories (show_in_mega_menu) — fallback
   // 3. megaItem.columns from default — final fallback
   // V2 columns зөвхөн categories+items бодитоор байгаа үед ашиглана
-  const v2Columns = megaMenuV2?.columns?.filter((c: any) =>
-    c.title && (c.categories || []).some((cat: any) => (cat.items || []).length > 0)
+  const v2Columns = megaMenuV2?.columns?.filter(c =>
+    c.title && (c.categories || []).some(cat => (cat.items || []).length > 0)
   ) || []
 
   // Legacy CMS MEGA items → catGroups format
-  const legacyMegaItems = megaMenu.filter((m: any) => m.nav_type === 'MEGA' && m.columns?.length > 0)
-  const legacyCatGroups = legacyMegaItems.map((m: any) => ({
-    title: m.nav_label || m.columns?.[0]?.title || '',
-    icon: m.columns?.[0]?.icon || '📦',
-    color: m.columns?.[0]?.color || '#FF6B00',
-    items: m.columns?.flatMap((col: any) => col.items || []) || [],
+  const legacyMegaItems = megaMenu.filter(m => m.nav_type === 'MEGA' && (m.columns?.length || 0) > 0)
+  const legacyCatGroups: CatGroup[] = legacyMegaItems.map(m => ({
+    title: stringValue(m.nav_label || m.columns?.[0]?.title),
+    icon: stringValue(m.columns?.[0]?.icon, '📦'),
+    color: stringValue(m.columns?.[0]?.color, '#FF6B00'),
+    items: (m.columns || []).flatMap(col => col.items || []).map(normalizeMenuLink),
   }))
 
-  const catGroups = v2Columns.length > 0
-    ? v2Columns.map((col: any) => ({
-        title: col.title,
-        icon: col.icon || '📦',
-        color: col.color || '#FF6B00',
-        items: (col.categories || []).flatMap((cat: any) =>
-          (cat.items || []).map((item: any) => ({
+  const catGroups: CatGroup[] = v2Columns.length > 0
+    ? v2Columns.map(col => ({
+        title: stringValue(col.title),
+        icon: stringValue(col.icon, '📦'),
+        color: stringValue(col.color, '#FF6B00'),
+        items: (col.categories || []).flatMap(cat =>
+          (cat.items || []).map(item => normalizeMenuLink({
+            ...item,
             label: item.name,
             url: item.link || '#',
             desc: item.description || '',
-            badge: item.badge,
           }))
         ),
       }))
     : legacyCatGroups.length > 0
     ? legacyCatGroups
     : (() => {
-        const megaMarked = navCategories.filter((c: any) => c.show_in_mega_menu && c.children?.length > 0)
-        const allWithChildren = navCategories.filter((c: any) => c.children?.length > 0)
+        const megaMarked = navCategories.filter(c => c.show_in_mega_menu && (c.children?.length || 0) > 0)
+        const allWithChildren = navCategories.filter(c => (c.children?.length || 0) > 0)
         const catsToShow = megaMarked.length > 0 ? megaMarked : allWithChildren
         return catsToShow.length > 0
-          ? catsToShow.map((c: any) => ({
-              title: c.name_mn || c.name,
+          ? catsToShow.map(c => ({
+              title: c.name_mn || c.name || '',
               icon: c.icon || '📦',
               color: c.color || '#FF6B00',
               slug: c.slug,
-              items: c.children.map((ch: any) => ({
-                label: ch.name_mn || ch.name,
+              items: (c.children || []).map(ch => ({
+                label: ch.name_mn || ch.name || '',
                 url: `/shop?category=${ch.slug}`,
                 desc: '',
               })),
             }))
-          : (megaItem?.columns || [])
+          : (megaItem?.columns || []).map(normalizeColumnGroup)
       })()
 
   // Quick links from CMS settings (admin-managed)
-  const headerQuickLinks = (() => {
-    try {
-      const raw = settings.header_quick_links
-      if (typeof raw === 'string') return JSON.parse(raw)
-      if (Array.isArray(raw)) return raw
-    } catch {}
-    return null
-  })()
+  const headerQuickLinks = normalizeQuickLinks(settings.header_quick_links)
 
-  const DEFAULT_QUICK_LINKS = [
+  const DEFAULT_QUICK_LINKS: QuickLink[] = [
     { label: 'AI Үнэ', url: '/quote?tab=ai', icon: '🤖', color: '#8B5CF6' },
     { label: 'Үнэ', url: '/pricing', icon: '💎', color: '#FF6B00' },
     { label: 'Галерей', url: '/gallery', icon: '🖼️', color: '#10B981' },
@@ -121,24 +249,45 @@ export default function MegaNav() {
   ]
 
   // DB-д quick links байвал ашиглах, үгүй бол default
-  const quickLinks: { label: string; url: string; icon: string; color: string }[] =
-    (headerQuickLinks?.length > 0) ? headerQuickLinks : DEFAULT_QUICK_LINKS
+  const quickLinks: QuickLink[] =
+    headerQuickLinks && headerQuickLinks.length > 0 ? headerQuickLinks : DEFAULT_QUICK_LINKS
   const [openId, setOpenId] = useState<string | null>(null)
-  const [mobileOpen, setMobileOpen] = useState(false)
-  const [mobileAccordion, setMobileAccordion] = useState<string | null>(null)
+  const [mobileState, setMobileState] = useState<MobileState>(() => ({ pathname, open: false, accordion: null }))
+  const mobileOpen = mobileState.pathname === pathname ? mobileState.open : false
+  const mobileAccordion = mobileState.pathname === pathname ? mobileState.accordion : null
+  const setMobileOpen = (value: boolean | ((open: boolean) => boolean)) => {
+    setMobileState(prev => {
+      const currentOpen = prev.pathname === pathname ? prev.open : false
+      const nextOpen = typeof value === 'function' ? value(currentOpen) : value
+      return {
+        pathname,
+        open: nextOpen,
+        accordion: nextOpen && prev.pathname === pathname ? prev.accordion : null,
+      }
+    })
+  }
+  const setMobileAccordion = (value: string | null | ((current: string | null) => string | null)) => {
+    setMobileState(prev => {
+      const currentAccordion = prev.pathname === pathname ? prev.accordion : null
+      return {
+        pathname,
+        open: prev.pathname === pathname ? prev.open : false,
+        accordion: typeof value === 'function' ? value(currentAccordion) : value,
+      }
+    })
+  }
   const [searchOpen, setSearchOpen] = useState(false)
   const [catMenuOpen, setCatMenuOpen] = useState(false)
   const [activeCatIdx, setActiveCatIdx] = useState(0)
   const [searchQuery, setSearchQuery] = useState('')
   const [searchCat, setSearchCat] = useState('')
-  const [searchResults, setSearchResults] = useState<any[] | null>(null)
+  const [searchResults, setSearchResults] = useState<SearchProduct[] | null>(null)
   const [searching, setSearching] = useState(false)
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const { cartCount, wishlist } = useStore()
-  const [mounted, setMounted] = useState(false)
-  useEffect(() => setMounted(true), [])
+  const mounted = useSyncExternalStore(subscribeNoop, getMountedSnapshot, getServerMountedSnapshot)
   // Filter out broken hotlink-protected hosts (Facebook CDN, Instagram CDN block external loads).
   // Fall back to site_logo_url, then to inline SVG logo.
   const isHotlinkProtected = (url: string) => /fbcdn\.net|cdninstagram\.com|lookaside\.facebook\.com/i.test(url)
@@ -156,16 +305,8 @@ export default function MegaNav() {
   const ctaUrl = settings.header_cta_url || '/quote'
 
   // Auth state
-  const [user, setUser] = useState<any>(null)
-  useEffect(() => {
-    try {
-      const stored = localStorage.getItem('user')
-      if (stored) setUser(JSON.parse(stored))
-    } catch {}
-    const onStorage = () => { try { setUser(JSON.parse(localStorage.getItem('user') || 'null')) } catch {} }
-    window.addEventListener('storage', onStorage)
-    return () => window.removeEventListener('storage', onStorage)
-  }, [])
+  const userSnapshot = useSyncExternalStore(subscribeUserStorage, getUserSnapshot, getServerUserSnapshot)
+  const user = parseNavUser(userSnapshot)
 
   // Search logic with debounce
   const doSearch = (q: string, cat: string) => {
@@ -179,7 +320,7 @@ export default function MegaNav() {
         const api = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'
         const res = await fetch(`${api}/api/products/search?${params}`)
         const data = await res.json()
-        setSearchResults(Array.isArray(data) ? data : [])
+        setSearchResults(normalizeSearchProducts(data))
       } catch { setSearchResults([]) }
       setSearching(false)
     }, 300)
@@ -193,13 +334,8 @@ export default function MegaNav() {
   }
 
   const activeItems = megaMenu
-    .filter((item: any) => item.is_active !== false)
-    .sort((a: any, b: any) => (a.sort_order || 0) - (b.sort_order || 0))
-
-  useEffect(() => {
-    setMobileOpen(false)
-    setMobileAccordion(null)
-  }, [pathname])
+    .filter(item => item.is_active !== false)
+    .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0))
 
   function handleMouseEnter(id: string) {
     if (closeTimer.current) clearTimeout(closeTimer.current)
@@ -221,7 +357,7 @@ export default function MegaNav() {
         <div className="max-w-[1280px] mx-auto px-6 h-[72px] flex items-center gap-4 overflow-hidden">
 
           {/* ── Logo ── */}
-          <a href="/" className="flex items-center gap-2.5 no-underline flex-shrink-0 mr-2">
+          <Link href="/" className="flex items-center gap-2.5 no-underline flex-shrink-0 mr-2">
             {headerLogoUrl ? (
               <img src={headerLogoUrl} alt={siteName} className="h-10" />
             ) : (
@@ -245,7 +381,7 @@ export default function MegaNav() {
                 </span>
               </>
             )}
-          </a>
+          </Link>
 
           {/* ── Phone ── */}
           <div className="flex items-center gap-2 flex-shrink-0">
@@ -261,8 +397,8 @@ export default function MegaNav() {
             <form onSubmit={e => { e.preventDefault(); handleSearchSubmit() }} className="flex items-stretch h-[44px] border-2 border-[#EBEBEB] rounded-lg overflow-hidden focus-within:border-[#FF6B00] transition-colors">
               <select value={searchCat} onChange={e => { setSearchCat(e.target.value); if (searchQuery.length >= 2) doSearch(searchQuery, e.target.value) }} className="bg-[#F8F8F8] text-[13px] font-medium text-[#555] px-3 border-r border-[#EBEBEB] outline-none cursor-pointer" style={{ appearance: 'auto', minWidth: 130 }}>
                 <option value="">Бүх ангилал</option>
-                {catGroups.map((c: any, i: number) => (
-                  <option key={i} value={c.label}>{c.label}</option>
+                {catGroups.map((c, i) => (
+                  <option key={`${c.title}-${i}`} value={c.slug || c.title}>{c.title}</option>
                 ))}
               </select>
               <input
@@ -286,13 +422,13 @@ export default function MegaNav() {
                 {!searching && searchResults.length === 0 && (
                   <div className="px-4 py-6 text-center">
                     <div className="text-2xl mb-2">🔍</div>
-                    <div className="text-sm text-[#999]">"{searchQuery}" олдсонгүй</div>
+                    <div className="text-sm text-[#999]">&ldquo;{searchQuery}&rdquo; олдсонгүй</div>
                     <a href={`/shop?q=${encodeURIComponent(searchQuery)}`} className="text-xs text-[#FF6B00] font-semibold mt-2 inline-block no-underline hover:underline">Дэлгүүрээс хайх →</a>
                   </div>
                 )}
                 {!searching && searchResults.length > 0 && (
                   <>
-                    {searchResults.map((p: any) => (
+                    {searchResults.map(p => (
                       <a key={p.id} href={`/product/${p.id}`} className="flex items-center gap-3 px-4 py-2.5 hover:bg-[#F8F8F8] transition-colors no-underline border-b border-[#F3F4F6] last:border-0">
                         {p.thumbnail_url ? (
                           <img src={p.thumbnail_url} alt="" className="w-10 h-10 rounded-lg object-cover flex-shrink-0" />
@@ -303,7 +439,7 @@ export default function MegaNav() {
                           <div className="text-[13px] font-medium text-[#333] truncate">{p.name}</div>
                           {p.category && <div className="text-[11px] text-[#999]">{p.category}</div>}
                         </div>
-                        {p.base_price > 0 && <div className="text-[13px] font-bold text-[#FF6B00] flex-shrink-0">₮{Number(p.base_price).toLocaleString()}</div>}
+                        {Number(p.base_price || 0) > 0 && <div className="text-[13px] font-bold text-[#FF6B00] flex-shrink-0">₮{Number(p.base_price || 0).toLocaleString()}</div>}
                       </a>
                     ))}
                     <a href={`/shop?q=${encodeURIComponent(searchQuery)}`} className="block px-4 py-2.5 text-center text-xs font-semibold text-[#FF6B00] bg-[#FFF7ED] hover:bg-[#FFEDD5] transition-colors no-underline">
@@ -390,7 +526,7 @@ export default function MegaNav() {
                 <div className="absolute top-full left-0 bg-white border border-[#EBEBEB] rounded-b-xl shadow-xl z-[300] flex" style={{ minWidth: 520 }}>
                   {/* Left: Categories */}
                   <div className="w-[220px] border-r border-[#F0F0F0] py-2">
-                    {cols.map((col: any, ci: number) => (
+                    {cols.map((col, ci) => (
                       <div
                         key={ci}
                         onMouseEnter={() => setActiveCatIdx(ci)}
@@ -402,9 +538,9 @@ export default function MegaNav() {
                       </div>
                     ))}
                     <div className="border-t border-[#F0F0F0] mt-1 pt-1">
-                      <a href="/shop" className="flex items-center gap-3 px-5 py-3 text-[13px] font-medium text-[#FF6B00] no-underline hover:bg-[#FFF5EF] transition-colors">
+                      <Link href="/shop" className="flex items-center gap-3 px-5 py-3 text-[13px] font-medium text-[#FF6B00] no-underline hover:bg-[#FFF5EF] transition-colors">
                         Бүгдийг харах →
-                      </a>
+                      </Link>
                     </div>
                   </div>
                   {/* Right: Subcategories */}
@@ -416,7 +552,7 @@ export default function MegaNav() {
                           <span className="text-[12px] font-bold uppercase tracking-widest" style={{ color: activeCol.color || '#FF6B00' }}>{activeCol.title}</span>
                         </div>
                         <div className="grid grid-cols-1 gap-0.5">
-                          {Array.isArray(activeCol.items) && activeCol.items.map((item: any, ii: number) => (
+                          {Array.isArray(activeCol.items) && activeCol.items.map((item, ii) => (
                             <a key={ii} href={item.url || '#'} className="flex items-center gap-3 py-2.5 px-3 rounded-lg no-underline hover:bg-[#F8F8F8] transition-colors group">
                               <div>
                                 <div className="text-[13px] font-medium text-[#333] group-hover:text-[#FF6B00]">{item.label}</div>
@@ -438,15 +574,16 @@ export default function MegaNav() {
 
           {/* ── Desktop nav links ── */}
           <div className="hidden md:flex items-center gap-0 flex-1 h-[50px]">
-            {activeItems.map((item: any) => {
+            {activeItems.map(item => {
+              const itemId = navItemId(item)
               const isActive = pathname === item.nav_url
               const hasDropdown = item.nav_type === 'MEGA' || item.nav_type === 'DROPDOWN'
 
               return (
                 <div
-                  key={item.id}
+                  key={itemId}
                   className="relative flex items-stretch h-[50px]"
-                  onMouseEnter={() => hasDropdown ? handleMouseEnter(item.id) : undefined}
+                  onMouseEnter={() => hasDropdown ? handleMouseEnter(itemId) : undefined}
                   onMouseLeave={() => hasDropdown ? handleMouseLeave() : undefined}
                 >
                   {hasDropdown ? (
@@ -474,14 +611,14 @@ export default function MegaNav() {
                   )}
 
                   {/* MEGA dropdown */}
-                  {item.nav_type === 'MEGA' && openId === item.id && Array.isArray(item.columns) && (
+                  {item.nav_type === 'MEGA' && openId === itemId && Array.isArray(item.columns) && (
                     <div
-                      onMouseEnter={() => handleMouseEnter(item.id)}
+                      onMouseEnter={() => handleMouseEnter(itemId)}
                       onMouseLeave={handleMouseLeave}
                       className="fixed top-[122px] left-0 right-0 bg-white border-b border-[#EBEBEB] shadow-2xl z-[300] py-7"
                     >
                       <div className="max-w-[1280px] mx-auto px-8 grid gap-8" style={{ gridTemplateColumns: `repeat(${Math.min((item.columns?.length || 0) + (item.featured ? 1 : 0), 6)}, 1fr)` }}>
-                        {item.columns.map((col: any, ci: number) => (
+                        {item.columns.map((col, ci) => (
                           <div key={ci}>
                             <div className="flex items-center gap-2 mb-4 pb-2.5" style={{ borderBottom: `2px solid ${(col.color || '#FF6B00')}30` }}>
                               {col.icon && <span className="text-lg">{col.icon}</span>}
@@ -489,7 +626,7 @@ export default function MegaNav() {
                                 {col.title}
                               </span>
                             </div>
-                            {Array.isArray(col.items) && col.items.map((link: any, li: number) => (
+                            {Array.isArray(col.items) && col.items.map((link, li) => (
                               <a key={li} href={link.url || link.link || '#'} className="group block py-2 no-underline hover:pl-1.5 transition-all">
                                 <div className="text-[14px] font-medium text-[#333] group-hover:text-[#FF6B00] flex items-center gap-1.5">
                                   {link.label || link.name}
@@ -526,13 +663,13 @@ export default function MegaNav() {
                   )}
 
                   {/* DROPDOWN */}
-                  {item.nav_type === 'DROPDOWN' && openId === item.id && Array.isArray(item.columns) && (
+                  {item.nav_type === 'DROPDOWN' && openId === itemId && Array.isArray(item.columns) && (
                     <div
-                      onMouseEnter={() => handleMouseEnter(item.id)}
+                      onMouseEnter={() => handleMouseEnter(itemId)}
                       onMouseLeave={handleMouseLeave}
                       className="absolute top-full left-0 bg-white border border-[#EBEBEB] rounded-xl shadow-xl z-[300] py-2 min-w-[200px] mt-0.5"
                     >
-                      {item.columns.flatMap((col: any) => col.items || []).map((link: any, li: number) => (
+                      {item.columns.flatMap(col => col.items || []).map((link, li) => (
                         <a key={li} href={link.url || '#'} className="block px-4 py-2.5 text-[14px] font-medium text-[#333] no-underline hover:bg-[#F8F8F8] hover:text-[#FF6B00] transition-colors">
                           {link.label}
                         </a>
@@ -547,7 +684,7 @@ export default function MegaNav() {
           {/* ── Desktop right: 3 systems ── */}
           <div className="hidden md:flex items-center gap-1 ml-auto">
             {quickLinks.map((ql, i) => (
-              <a key={i} href={ql.url} className="flex items-center gap-1.5 text-[12px] font-semibold px-3 py-1.5 rounded-lg text-[#555] no-underline transition-colors" style={{ ['--ql-color' as any]: ql.color || '#FF6B00' }} onMouseEnter={e => { e.currentTarget.style.background = (ql.color || '#FF6B00') + '12'; e.currentTarget.style.color = ql.color || '#FF6B00' }} onMouseLeave={e => { e.currentTarget.style.background = ''; e.currentTarget.style.color = '#555' }}>
+              <a key={i} href={ql.url} className="flex items-center gap-1.5 text-[12px] font-semibold px-3 py-1.5 rounded-lg text-[#555] no-underline transition-colors" onMouseEnter={e => { e.currentTarget.style.background = (ql.color || '#FF6B00') + '12'; e.currentTarget.style.color = ql.color || '#FF6B00' }} onMouseLeave={e => { e.currentTarget.style.background = ''; e.currentTarget.style.color = '#555' }}>
                 <span className="text-sm">{ql.icon}</span>
                 <span>{ql.label}</span>
               </a>
@@ -557,7 +694,7 @@ export default function MegaNav() {
           {/* ═══ MOBILE TOP BAR ═══ */}
           <div className="flex md:hidden items-center justify-between w-full">
             {/* Logo */}
-            <a href="/" className="flex items-center gap-2 no-underline flex-shrink-0">
+            <Link href="/" className="flex items-center gap-2 no-underline flex-shrink-0">
               {headerLogoUrl ? (
                 <img src={headerLogoUrl} alt={siteName} className="h-8" />
               ) : (
@@ -581,7 +718,7 @@ export default function MegaNav() {
                   </span>
                 </>
               )}
-            </a>
+            </Link>
 
             {/* Mobile right icons */}
             <div className="flex items-center gap-2">
@@ -631,7 +768,7 @@ export default function MegaNav() {
                 )}
                 {!searching && searchResults.length > 0 && (
                   <>
-                    {searchResults.map((p: any) => (
+                    {searchResults.map(p => (
                       <a key={p.id} href={`/product/${p.id}`} className="flex items-center gap-3 px-4 py-2.5 hover:bg-[#F8F8F8] no-underline border-b border-[#F3F4F6] last:border-0">
                         {p.thumbnail_url ? (
                           <img src={p.thumbnail_url} alt="" className="w-9 h-9 rounded-lg object-cover flex-shrink-0" />
@@ -671,14 +808,16 @@ export default function MegaNav() {
 
             {/* Nav links */}
             <div className="flex flex-col gap-0.5 mb-6">
-              {activeItems.map((item: any) => {
-                const hasChildren = (item.nav_type === 'MEGA' || item.nav_type === 'DROPDOWN') && Array.isArray(item.columns)
-                const isOpen = mobileAccordion === item.id
+              {activeItems.map(item => {
+                const itemId = navItemId(item)
+                const itemColumns = Array.isArray(item.columns) ? item.columns : []
+                const hasChildren = (item.nav_type === 'MEGA' || item.nav_type === 'DROPDOWN') && itemColumns.length > 0
+                const isOpen = mobileAccordion === itemId
                 const isActivePath = pathname === item.nav_url
 
                 if (!hasChildren) {
                   return (
-                    <a key={item.id} href={item.nav_url || '#'} onClick={() => setMobileOpen(false)}
+                    <a key={itemId} href={item.nav_url || '#'} onClick={() => setMobileOpen(false)}
                       className={`flex items-center justify-between px-4 py-3.5 rounded-xl text-[15px] font-medium no-underline transition-colors ${isActivePath ? 'text-[#FF6B00] bg-[#FFF3EB]' : 'text-[#111]'}`}>
                       {item.nav_label}
                       <ChevronRight />
@@ -687,8 +826,8 @@ export default function MegaNav() {
                 }
 
                 return (
-                  <div key={item.id}>
-                    <button onClick={() => toggleMobileAccordion(item.id)}
+                  <div key={itemId}>
+                    <button onClick={() => toggleMobileAccordion(itemId)}
                       className="w-full flex items-center justify-between px-4 py-3.5 rounded-xl text-[15px] font-medium text-[#111] bg-transparent border-none cursor-pointer text-left">
                       {item.nav_label}
                       <svg width="16" height="16" fill="none" stroke="#999" strokeWidth="2" viewBox="0 0 24 24"
@@ -699,13 +838,13 @@ export default function MegaNav() {
                     {isOpen && (
                       <div className="pl-4 pb-2">
                         {item.nav_type === 'MEGA' ? (
-                          item.columns.map((col: any, ci: number) => (
+                          itemColumns.map((col, ci) => (
                             <div key={ci} className="mb-3">
                               <div className="flex items-center gap-1.5 px-4 py-1.5 text-[11px] font-bold uppercase tracking-widest" style={{ color: col.color || '#FF6B00' }}>
                                 {col.icon && <span>{col.icon}</span>}
                                 {col.title}
                               </div>
-                              {(col.items || []).map((link: any, li: number) => (
+                              {(col.items || []).map((link, li) => (
                                 <a key={li} href={link.url || '#'} onClick={() => setMobileOpen(false)}
                                   className="block px-4 py-2.5 text-[14px] text-[#333] no-underline hover:text-[#FF6B00]">
                                   {link.label}
@@ -714,7 +853,7 @@ export default function MegaNav() {
                             </div>
                           ))
                         ) : (
-                          item.columns.flatMap((col: any) => col.items || []).map((link: any, li: number) => (
+                          itemColumns.flatMap(col => col.items || []).map((link, li) => (
                             <a key={li} href={link.url || '#'} onClick={() => setMobileOpen(false)}
                               className="block px-4 py-2.5 text-[14px] text-[#333] no-underline hover:text-[#FF6B00]">
                               {link.label}

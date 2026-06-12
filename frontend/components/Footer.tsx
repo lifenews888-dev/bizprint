@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { useSiteSettings } from '@/contexts/SiteSettingsContext'
 
 /* ─── Social SVG Icons ─── */
@@ -27,7 +28,67 @@ const HelpIcon = () => <svg width="28" height="28" fill="none" stroke="currentCo
 const FeedbackIcon = () => <svg width="28" height="28" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/></svg>
 
 /* ─── Fallback columns ─── */
-const FALLBACK_COLUMNS = [
+interface FooterLink {
+  label: string
+  url: string
+}
+
+interface FooterColumn {
+  title: string
+  links: FooterLink[]
+}
+
+interface FooterHelpCard {
+  title: string
+  cta: string
+  url: string
+  icon: string
+}
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  value !== null && typeof value === 'object' && !Array.isArray(value)
+
+const stringValue = (value: unknown, fallback = ''): string =>
+  typeof value === 'string' ? value : fallback
+
+const parsedArray = (value: unknown): unknown[] => {
+  if (Array.isArray(value)) return value
+  if (typeof value !== 'string') return []
+
+  try {
+    const parsed = JSON.parse(value) as unknown
+    return Array.isArray(parsed) ? parsed : []
+  } catch {
+    return []
+  }
+}
+
+const normalizeFooterLink = (value: unknown): FooterLink | null => {
+  if (!isRecord(value)) return null
+  const label = stringValue(value.label)
+  const url = stringValue(value.url, '#')
+  return label ? { label, url } : null
+}
+
+const normalizeFooterColumn = (value: unknown): FooterColumn | null => {
+  if (!isRecord(value)) return null
+  const title = stringValue(value.title)
+  const links = parsedArray(value.links)
+    .map(normalizeFooterLink)
+    .filter((link): link is FooterLink => !!link)
+  return title && links.length > 0 ? { title, links } : null
+}
+
+const normalizeHelpCard = (value: unknown): FooterHelpCard | null => {
+  if (!isRecord(value)) return null
+  const title = stringValue(value.title)
+  const cta = stringValue(value.cta)
+  const url = stringValue(value.url, '#')
+  const icon = stringValue(value.icon, 'phone')
+  return title && cta ? { title, cta, url, icon } : null
+}
+
+const FALLBACK_COLUMNS: FooterColumn[] = [
   { title: 'ҮЙЛЧИЛГЭЭ', links: [{ label: 'Нэрийн хуудас', url: '/shop?cat=business-card' }, { label: 'Стикер', url: '/shop?cat=sticker' }, { label: 'Баннер', url: '/shop?cat=banner' }, { label: 'Үнийн мэдээлэл', url: '/pricing' }, { label: 'B2B харилцагч', url: '/b2b' }] },
   { title: 'КОМПАНИ', links: [{ label: 'Бидний тухай', url: '/page/about' }, { label: 'Холбоо барих', url: '/contact' }] },
   { title: 'ТУСЛАМЖ', links: [{ label: 'FAQ', url: '/faq' }, { label: 'Хүргэлт', url: '/delivery' }, { label: 'Захиалга хянах', url: '/track' }] },
@@ -53,7 +114,10 @@ export default function Footer() {
   const email       = settings.site_email          || 'info@bizprint.mn'
 
   const rawColumns = settings.footer_columns
-  const columns: any[] = Array.isArray(rawColumns) && rawColumns.length > 0 ? rawColumns : FALLBACK_COLUMNS
+  const cmsColumns = parsedArray(rawColumns)
+    .map(normalizeFooterColumn)
+    .filter((col): col is FooterColumn => !!col)
+  const columns = cmsColumns.length > 0 ? cmsColumns : FALLBACK_COLUMNS
 
   const showSocial   = settings.footer_show_social !== false && settings.footer_show_social !== 'false'
   const showLocation = settings.footer_show_location !== false && settings.footer_show_location !== 'false'
@@ -74,7 +138,10 @@ export default function Footer() {
     try {
       const raw = settings.footer_help_cards
       const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed
+      const cards = parsedArray(parsed)
+        .map(normalizeHelpCard)
+        .filter((card): card is FooterHelpCard => !!card)
+      if (cards.length > 0) return cards
     } catch {}
     return [
       { title: 'Хайж байгаа зүйлээ олсонгүй?', cta: 'Холбоо барих', url: '/contact', icon: 'phone' },
@@ -88,7 +155,8 @@ export default function Footer() {
     try {
       const raw = settings.footer_payments
       const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed
+      const methods = parsedArray(parsed).map(item => stringValue(item)).filter(Boolean)
+      if (methods.length > 0) return methods
     } catch {}
     return ['visa', 'mastercard', 'qpay', 'socialpay', 'monpay']
   })()
@@ -114,7 +182,7 @@ export default function Footer() {
 
           {/* Brand column */}
           <div>
-            <a href="/" className="inline-block mb-4 no-underline">
+            <Link href="/" className="inline-block mb-4 no-underline">
               {settings.footer_logo_url ? (
                 <img src={settings.footer_logo_url} alt={siteName} className="h-8" />
               ) : (
@@ -122,7 +190,7 @@ export default function Footer() {
                   <span className="text-[#FF6B00]">{siteName.substring(0, 3)}</span>{siteName.substring(3)}
                 </span>
               )}
-            </a>
+            </Link>
             <p className="text-sm text-gray-400 leading-relaxed mb-5">{description}</p>
 
             <div className="flex flex-col gap-2.5 mb-5">
@@ -142,11 +210,11 @@ export default function Footer() {
           </div>
 
           {/* Dynamic columns */}
-          {columns.map((col: any, idx: number) => (
+          {columns.map((col, idx) => (
             <div key={idx}>
               <h4 className="text-xs font-bold text-white uppercase tracking-widest mb-5">{col.title}</h4>
               <div className="flex flex-col gap-3">
-                {Array.isArray(col.links) && col.links.map((link: any, li: number) => (
+                {col.links.map((link, li) => (
                   <a key={li} href={link.url || '#'} className="text-sm text-gray-400 no-underline hover:text-white transition-colors">{link.label}</a>
                 ))}
               </div>
@@ -185,7 +253,7 @@ export default function Footer() {
 
         {/* Help section */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-10">
-          {helpCards.map((card: any, i: number) => {
+          {helpCards.map((card, i) => {
             const IconComp = HELP_ICONS[card.icon] || PhoneIcon
             return (
               <a key={i} href={card.url || '#'} className="flex items-center gap-4 bg-[#2D1F4E] rounded-xl p-5 no-underline group hover:bg-[#3D2A60] transition-colors">

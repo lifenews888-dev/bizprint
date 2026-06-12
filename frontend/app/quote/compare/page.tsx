@@ -11,6 +11,23 @@ interface VendorQuote {
   recommended: boolean; aiReason?: string;
 }
 
+interface VendorCandidatesResponse {
+  vendors?: VendorQuote[]
+}
+
+interface ConfirmQuoteResponse {
+  orderId?: string
+}
+
+type SortBy = 'price' | 'speed' | 'quality' | 'recommended'
+
+const SORT_OPTIONS: Array<{ id: SortBy; label: string }> = [
+  { id: 'recommended', label: 'AI санал' },
+  { id: 'price', label: 'Үнэ' },
+  { id: 'speed', label: 'Хурд' },
+  { id: 'quality', label: 'Чанар' },
+]
+
 const TIER_COLORS: Record<string, string> = { gold: '#D97706', silver: '#6B7280', bronze: '#C2410C' };
 
 function VendorCompareContent() {
@@ -18,7 +35,7 @@ function VendorCompareContent() {
   const router = useRouter();
   const [quotes, setQuotes] = useState<VendorQuote[]>([]);
   const [loading, setLoading] = useState(true);
-  const [sortBy, setSortBy] = useState<'price' | 'speed' | 'quality' | 'recommended'>('recommended');
+  const [sortBy, setSortBy] = useState<SortBy>('recommended');
   const [selected, setSelected] = useState<string | null>(null);
   const [ordering, setOrdering] = useState(false);
 
@@ -32,7 +49,7 @@ function VendorCompareContent() {
   };
 
   useEffect(() => {
-    apiFetch<any>('/vendors/assign/candidates/' + spec.productType + '?quantity=' + spec.quantity)
+    apiFetch<VendorQuote[] | VendorCandidatesResponse>('/vendors/assign/candidates/' + spec.productType + '?quantity=' + spec.quantity)
       .then(data => {
         const vendors = Array.isArray(data) ? data : data?.vendors ?? [];
         setQuotes(vendors);
@@ -55,7 +72,7 @@ function VendorCompareContent() {
     if (!selected) return;
     setOrdering(true);
     try {
-      const data = await apiFetch<any>('/cart/quote/confirm', {
+      const data = await apiFetch<ConfirmQuoteResponse>('/cart/quote/confirm', {
         method: 'POST',
         body: JSON.stringify({ ...spec, vendorId: selected }),
         headers: { 'Content-Type': 'application/json' },
@@ -97,14 +114,9 @@ function VendorCompareContent() {
 
       <div className="flex items-center gap-2 mb-5">
         <span className="text-xs" style={{ color: 'var(--text3)' }}>Эрэмбэлэх:</span>
-        {[
-          { id: 'recommended', label: 'AI санал' },
-          { id: 'price', label: 'Үнэ' },
-          { id: 'speed', label: 'Хурд' },
-          { id: 'quality', label: 'Чанар' },
-        ].map(s => (
+        {SORT_OPTIONS.map(s => (
           <button key={s.id}
-            onClick={() => setSortBy(s.id as any)}
+            onClick={() => setSortBy(s.id)}
             className="px-3 py-1.5 rounded-lg text-xs transition-colors"
             style={{
               background: sortBy === s.id ? '#FF6B00' : 'transparent',

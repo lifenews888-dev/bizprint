@@ -52,7 +52,7 @@ const DEMO_CREATORS: Creator[] = [
 export default function MarketplacePage() {
   const router = useRouter()
   const [creators, setCreators] = useState<Creator[]>(DEMO_CREATORS)
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [activeSearch, setActiveSearch] = useState('')
   const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS)
@@ -62,7 +62,6 @@ export default function MarketplacePage() {
 
   /* Fetch creators from API (falls back to demo) */
   useEffect(() => {
-    setLoading(true)
     apiFetch<Creator[]>('/marketplace/creators', { auth: false })
       .then(data => { if (Array.isArray(data) && data.length > 0) setCreators(data) })
       .catch(() => {})

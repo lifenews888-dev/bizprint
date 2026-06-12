@@ -19,6 +19,14 @@ interface Comment {
   created_at: string
 }
 
+interface UploadResponse {
+  file_url?: string
+  url?: string
+}
+
+const errorMessage = (error: unknown, fallback: string) =>
+  error instanceof Error && error.message ? error.message : fallback
+
 const ROLE_CONFIG = {
   customer: { label: 'Захиалагч', color: '#3B82F6', bg: '#EFF6FF' },
   creator: { label: 'Creator', color: '#8B5CF6', bg: '#F5F3FF' },
@@ -59,8 +67,9 @@ export default function CommentThread({
       const fd = new FormData()
       fd.append('file', file)
       try {
-        const res = await apiUpload<any>('/upload/file', fd)
-        if (res?.file_url) urls.push(res.file_url)
+        const res = await apiUpload<UploadResponse>('/upload/file', fd)
+        const url = res?.file_url || res?.url
+        if (url) urls.push(url)
       } catch {}
     }
     return urls
@@ -91,8 +100,8 @@ export default function CommentThread({
       setMessage('')
       setFiles([])
       loadComments()
-    } catch (e: any) {
-      alert(e.message || 'Мессеж илгээх алдаа')
+    } catch (e: unknown) {
+      alert(errorMessage(e, 'Мессеж илгээх алдаа'))
     }
     setSending(false)
   }

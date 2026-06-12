@@ -4,7 +4,7 @@
  */
 import { create } from 'zustand'
 import {
-  ChatRoom, ChatMessage, normalizeMessage,
+  ChatRoom, ChatMessage, ChatUser, normalizeMessage, normalizeRooms, normalizeUserRole,
   connectSocket, disconnectSocket, getSocket,
   fetchRooms, fetchMessages, fetchUsers, uploadFile,
 } from '@/lib/services/chat.service'
@@ -20,7 +20,7 @@ interface ChatState {
   /* ── Data ── */
   rooms: ChatRoom[]
   messages: Record<string, ChatMessage[]>    // keyed by room_id
-  users: any[]
+  users: ChatUser[]
   activeRoomId: string | null
   typingUsers: Record<string, string[]>      // keyed by room_id
 
@@ -43,6 +43,15 @@ interface ChatState {
   setSearchQuery: (q: string) => void
   setShowNewChat: (v: boolean) => void
   setPreviewImage: (url: string | null) => void
+}
+
+const asRecord = (value: unknown): Record<string, unknown> =>
+  value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {}
+
+const stringValue = (value: unknown, fallback = ''): string => {
+  if (typeof value === 'string') return value
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value)
+  return fallback
 }
 
 export const useChatStore = create<ChatState>((set, get) => ({
@@ -83,8 +92,9 @@ export const useChatStore = create<ChatState>((set, get) => ({
     socket.on('disconnect', () => set({ connected: false }))
 
     // Room list update
-    socket.on('room_list', (data: any[]) => {
-      if (Array.isArray(data)) set({ rooms: data })
+    socket.on('room_list', (data: unknown) => {
+      const rooms = normalizeRooms(data)
+      if (rooms.length > 0) set({ rooms })
     })
 
     // New room created
@@ -96,9 +106,11 @@ export const useChatStore = create<ChatState>((set, get) => ({
     })
 
     // Incoming message — listen to both event names (backend emits both)
-    const handleIncoming = (raw: any) => {
+    const handleIncoming = (raw: unknown) => {
       const msg = normalizeMessage(raw)
-      const roomId = msg.room_id || raw.room_id
+      const rawRecord = asRecord(raw)
+      const roomId = msg.room_id || stringValue(rawRecord.room_id)
+      if (!roomId) return
 
       set(s => {
         const existing = s.messages[roomId] || []
@@ -121,22 +133,27 @@ export const useChatStore = create<ChatState>((set, get) => ({
     socket.on('new_message', handleIncoming)
 
     // Also listen to 'joined' event with room list
-    socket.on('joined', (data: any) => {
-      if (data?.rooms && Array.isArray(data.rooms)) set({ rooms: data.rooms })
+    socket.on('joined', (data: unknown) => {
+      const rooms = normalizeRooms(asRecord(data).rooms)
+      if (rooms.length > 0) set({ rooms })
     })
 
     // Message history for a room
-    socket.on('room_messages', (data: any) => {
-      const roomId = data.room_id || data.roomId
-      const msgs = (data.messages || data || []).map(normalizeMessage)
+    socket.on('room_messages', (data: unknown) => {
+      const payload = asRecord(data)
+      const roomId = stringValue(payload.room_id) || stringValue(payload.roomId)
+      const source = Array.isArray(payload.messages) ? payload.messages : Array.isArray(data) ? data : []
+      const msgs = source.map(normalizeMessage)
       if (roomId) {
         set(s => ({ messages: { ...s.messages, [roomId]: msgs } }))
       }
     })
 
     // Typing
-    socket.on('user_typing', (data: any) => {
-      const { room_id, userName: name } = data
+    socket.on('user_typing', (data: unknown) => {
+      const payload = asRecord(data)
+      const room_id = stringValue(payload.room_id)
+      const name = stringValue(payload.userName)
       if (!room_id || !name) return
       set(s => {
         const current = s.typingUsers[room_id] || []
@@ -152,8 +169,10 @@ export const useChatStore = create<ChatState>((set, get) => ({
       }, 3000)
     })
 
-    socket.on('user_stop_typing', (data: any) => {
-      const { room_id, userName: name } = data
+    socket.on('user_stop_typing', (data: unknown) => {
+      const payload = asRecord(data)
+      const room_id = stringValue(payload.room_id)
+      const name = stringValue(payload.userName)
       if (!room_id) return
       set(s => {
         const current = s.typingUsers[room_id] || []
@@ -212,7 +231,7 @@ export const useChatStore = create<ChatState>((set, get) => ({
       file,
       sender_id: userId,
       sender_name: userName,
-      sender_role: userRole as any,
+      sender_role: normalizeUserRole(userRole),
       created_at: new Date().toISOString(),
       status: 'sending',
     }

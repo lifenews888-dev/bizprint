@@ -108,6 +108,27 @@ type WideCalcResult = {
   breakdown?: Record<string, number>
 }
 
+type ApiListResponse<T> = T[] | { data?: T[] }
+
+type QuoteUser = {
+  name?: string
+  email?: string
+  phone?: string
+}
+
+type QuoteItem = Record<string, unknown>
+
+type TodayQuoteResponse = number | { count?: number } | Quote[]
+
+function readList<T>(data: ApiListResponse<T> | null | undefined) {
+  if (Array.isArray(data)) return data
+  return Array.isArray(data?.data) ? data.data : []
+}
+
+function errorMessage(error: unknown, fallback: string) {
+  return error instanceof Error ? error.message : fallback
+}
+
 function formatConfigValue(item: PricingConfig, suffix: string) {
   if (item.key.includes('margin') || item.key.includes('rush') || item.key.includes('disc_') || item.key.includes('waste')) {
     return `${Math.round(Number(item.value) * 100)}%`
@@ -165,7 +186,7 @@ function PriceConfigTab() {
   async function saveSingle(key: string) {
     setSavingKey(key)
     try {
-      await apiFetch<any>('/pricing-config', {
+      await apiFetch<void>('/pricing-config', {
         method: 'PUT',
         body: { items: [{ key, value: Number(editValues[key]) || 0 }] },
       })
@@ -185,7 +206,7 @@ function PriceConfigTab() {
         key: c.key,
         value: Number(editValues[c.key]) || 0,
       }))
-      await apiFetch<any>('/pricing-config', {
+      await apiFetch<void>('/pricing-config', {
         method: 'PUT',
         body: { items },
       })
@@ -377,8 +398,8 @@ function WidePriceSimulator() {
         },
       })
       setResult(data)
-    } catch (err: any) {
-      setError(err?.message || 'Үнэ бодоход алдаа гарлаа')
+    } catch (err: unknown) {
+      setError(errorMessage(err, 'Үнэ бодоход алдаа гарлаа'))
       setResult(null)
     } finally {
       setLoading(false)
@@ -465,7 +486,7 @@ function WidePriceSimulator() {
 type Quote = {
   id: number
   quoteNumber?: string
-  user?: any
+  user?: QuoteUser
   customerName?: string
   customerEmail?: string
   customerPhone?: string
@@ -477,8 +498,8 @@ type Quote = {
   total?: number
   status: string
   createdAt?: string
-  breakdown?: any
-  items?: any[]
+  breakdown?: Record<string, unknown>
+  items?: QuoteItem[]
   notes?: string
 }
 
@@ -493,8 +514,8 @@ function QuotesListTab() {
   const fetchQuotes = useCallback(async () => {
     setLoading(true)
     try {
-      const data = await apiFetch<any>('/quote')
-      setQuotes(Array.isArray(data) ? data : data.data || [])
+      const data = await apiFetch<ApiListResponse<Quote>>('/quote')
+      setQuotes(readList(data))
     } catch {
       setQuotes([])
     } finally {
@@ -506,7 +527,7 @@ function QuotesListTab() {
 
   async function changeStatus(id: number, status: string) {
     try {
-      await apiFetch<any>(`/quote/${id}`, {
+      await apiFetch<void>(`/quote/${id}`, {
         method: 'PATCH',
         body: { status },
       })
@@ -517,10 +538,10 @@ function QuotesListTab() {
   async function resendEmail(id: number) {
     setSendingEmail(id)
     try {
-      await apiFetch<any>(`/quote/${id}/resend-email`, {
+      await apiFetch<void>(`/quote/${id}/resend-email`, {
         method: 'POST',
       }).catch(() =>
-        apiFetch<any>(`/quote/${id}/send-email`, {
+        apiFetch<void>(`/quote/${id}/send-email`, {
           method: 'POST',
         })
       )
@@ -738,28 +759,28 @@ function StatsTab() {
 
   useEffect(() => {
         Promise.all([
-      apiFetch<any>('/quote/today').catch(() => null),
-      apiFetch<any>('/quote').catch(() => null),
+      apiFetch<TodayQuoteResponse>('/quote/today').catch(() => null),
+      apiFetch<ApiListResponse<Quote>>('/quote').catch(() => null),
     ]).then(([todayData, allData]) => {
       if (todayData) {
         if (typeof todayData === 'number') setTodayCount(todayData)
-        else if (todayData.count !== undefined) setTodayCount(todayData.count)
         else if (Array.isArray(todayData)) setTodayCount(todayData.length)
+        else if (todayData.count !== undefined) setTodayCount(todayData.count)
       }
 
-      const all: Quote[] = Array.isArray(allData) ? allData : allData?.data || []
+      const all = readList(allData)
       const count = all.length
       setTotalCount(count)
 
-      const sum = all.reduce((acc: number, q: any) => acc + (q.totalPrice ?? q.total_price ?? q.total ?? 0), 0)
+      const sum = all.reduce((acc, q) => acc + (q.totalPrice ?? q.total_price ?? q.total ?? 0), 0)
       setTotalValue(sum)
       setAvgValue(count > 0 ? sum / count : 0)
 
-      const ordered = all.filter((q: any) => q.status === 'ordered').length
+      const ordered = all.filter(q => q.status === 'ordered').length
       setConversionRate(count > 0 ? (ordered / count) * 100 : 0)
 
       const counts: Record<string, number> = {}
-      all.forEach((q: any) => {
+      all.forEach(q => {
         counts[q.status] = (counts[q.status] || 0) + 1
       })
       setStatusCounts(counts)

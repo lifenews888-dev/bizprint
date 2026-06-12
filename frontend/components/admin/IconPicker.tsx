@@ -3,6 +3,7 @@
 import { useState, useMemo } from 'react'
 import { Input } from '@/components/ui/input'
 import { Search } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 import * as LucideIcons from 'lucide-react'
 
 // Top ~120 useful icons for menu/nav context
@@ -27,6 +28,8 @@ const ICON_NAMES = [
   'Megaphone','Rocket','Flame','Sun','Moon','Leaf','TreePine','Flower',
 ] as const
 
+const iconMap = LucideIcons as unknown as Record<string, LucideIcon>
+
 interface Props {
   value: string
   onChange: (icon: string) => void
@@ -42,7 +45,7 @@ export function IconPicker({ value, onChange }: Props) {
     return ICON_NAMES.filter(name => name.toLowerCase().includes(s))
   }, [search])
 
-  const SelectedIcon = value ? (LucideIcons as any)[value] : null
+  const SelectedIcon = value ? iconMap[value] : null
 
   return (
     <div className="relative">
@@ -77,7 +80,7 @@ export function IconPicker({ value, onChange }: Props) {
             </div>
             <div className="grid grid-cols-8 gap-1 max-h-[200px] overflow-y-auto">
               {filtered.map(name => {
-                const Icon = (LucideIcons as any)[name]
+                const Icon = iconMap[name]
                 if (!Icon) return null
                 const selected = value === name
                 return (
@@ -108,7 +111,7 @@ export function IconPicker({ value, onChange }: Props) {
 /** Render a Lucide icon by name string */
 export function DynamicIcon({ name, className }: { name?: string; className?: string }) {
   if (!name) return null
-  const Icon = (LucideIcons as any)[name]
+  const Icon = iconMap[name]
   if (!Icon) return <span className={className}>{name}</span>
   return <Icon className={className || 'h-4 w-4'} strokeWidth={1.6} />
 }

@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
+import type { Dispatch, SetStateAction } from 'react'
 import { apiFetch } from '@/lib/api'
 
 const SKILL_LABELS: Record<string, string> = {
@@ -38,23 +39,159 @@ const CAP_LABELS: Record<string, { label: string; icon: string }> = {
   ugc: { label: 'UGC', icon: '🎬' },
 }
 
+type CreatorLevel = typeof LEVELS[number] | string
+
+type CreatorApplication = {
+  id: string
+  user_id?: string
+  full_name?: string
+  email?: string
+  phone?: string
+  status: string
+  skills?: string[]
+  portfolio?: string[]
+  portfolio_url?: string
+  sample_urls?: string[]
+  bio?: string
+  motivation?: string
+  reject_reason?: string
+  created_at?: string
+  level?: CreatorLevel
+  score?: number
+  rating?: number
+  jobs?: number
+  done?: number
+  earned?: number
+  capabilities?: string[]
+}
+
+type CreatorStats = CreatorApplication & {
+  jobs: number
+  done: number
+  earned: number
+  rating: number
+}
+
+type UgcRequest = {
+  id: string
+  status: string
+  title?: string
+  package?: string
+  description?: string
+  content_type?: string
+  customer_name?: string
+  creator_name?: string
+  creator_id?: string
+  deadline?: string
+  budget?: number | string
+  platform_fee?: number | string
+  creator_payout?: number | string
+  rating?: number
+  revision_count?: number
+  max_revisions?: number
+  deliverable_urls?: string[]
+  is_released?: boolean
+}
+
+type CreatorPackage = {
+  id: string
+  name?: string
+  slug?: string
+  description?: string
+  price?: number | string
+  discount_price?: number | string
+  discount_label?: string
+  duration_months?: number
+  content_count?: number
+  content_types?: string[]
+  features?: string[]
+  has_brand_boost?: boolean
+  brand_boost_description?: string
+  brand_boost_price?: number | string
+  is_active?: boolean
+  is_popular?: boolean
+  sort_order?: number
+  target_audience?: string
+}
+
+type CreatorPricing = {
+  id?: string
+  category?: string
+  service_type?: string
+  type?: string
+  content_type?: string
+  label?: string
+  name?: string
+  base_price?: number | string
+  creator_payout?: number | string
+  platform_fee?: number | string
+  margin_percent?: number | string
+  final_price?: number | string
+  rush_multiplier?: number | string
+  revision_cost?: number | string
+  free_revisions?: number
+  bonus_commission?: number | string
+  min_duration?: number
+  is_active?: boolean
+  sort_order?: number
+}
+
+type RatingAnalytics = {
+  avgRating: number
+  totalCount: number
+  distribution?: number[]
+  byType?: Record<string, { avg: number; count: number }>
+}
+
+type TopCreator = {
+  user_id: string
+  full_name?: string
+  rating: number
+  rating_count?: number
+  capabilities?: string[]
+}
+
+type CreatorSettings = {
+  commissionPercent: number
+  minLevelForMarketplace: string
+  requirePortfolio: boolean
+  minPortfolioItems: number
+  showRatings: boolean
+  showEarnings: boolean
+  allowDirectHire: boolean
+  autoApproveThreshold: number
+}
+
+type CreatorPermissionData = Record<string, string | number | boolean | string[] | undefined>
+type CreatorScoreRefresh = { level: CreatorLevel; score: number }
+type GovernanceSettingToggle = Extract<keyof CreatorSettings, 'allowDirectHire' | 'showRatings' | 'showEarnings' | 'requirePortfolio'>
+type CreatorPenaltyData = {
+  creator_id: string
+  type: string
+  reason: string
+  description: string
+}
+
+const errorMessage = (err: unknown, fallback: string) => err instanceof Error ? err.message : fallback
+
 export default function CreatorUgcPanel() {
   const [sub, setSub] = useState<SubTab>('dashboard')
-  const [allApps, setAllApps] = useState<any[]>([])
-  const [ugc, setUgc] = useState<any[]>([])
+  const [allApps, setAllApps] = useState<CreatorApplication[]>([])
+  const [ugc, setUgc] = useState<UgcRequest[]>([])
+  const [now] = useState(() => Date.now())
   const [loading, setLoading] = useState(true)
   const [processing, setProcessing] = useState(false)
   const [ugcFilter, setUgcFilter] = useState('all')
   const [creatorFilter, setCreatorFilter] = useState('pending')
-  const [selectedApp, setSelectedApp] = useState<any>(null)
-  const [selectedUgc, setSelectedUgc] = useState<any>(null)
-  const [packages, setPackages] = useState<any[]>([])
-  const [ratingAnalytics, setRatingAnalytics] = useState<any>(null)
-  const [topCreators, setTopCreators] = useState<any[]>([])
-  const [pricing, setPricing] = useState<any[]>([])
+  const [selectedApp, setSelectedApp] = useState<CreatorApplication | null>(null)
+  const [selectedUgc, setSelectedUgc] = useState<UgcRequest | null>(null)
+  const [packages, setPackages] = useState<CreatorPackage[]>([])
+  const [ratingAnalytics, setRatingAnalytics] = useState<RatingAnalytics | null>(null)
+  const [topCreators, setTopCreators] = useState<TopCreator[]>([])
+  const [pricing, setPricing] = useState<CreatorPricing[]>([])
   const [pricingTab, setPricingTab] = useState<'social' | 'prepress' | 'live' | 'ai'>('social')
-  const [editPrice, setEditPrice] = useState<any>(null)
-  const [levelModal, setLevelModal] = useState<any>(null)
+  const [editPrice, setEditPrice] = useState<CreatorPricing | null>(null)
+  const [levelModal, setLevelModal] = useState<CreatorStats | CreatorApplication | null>(null)
   const [newLevel, setNewLevel] = useState('')
   const [creatorSearch, setCreatorSearch] = useState('')
   const [creatorSort, setCreatorSort] = useState<'earned' | 'jobs' | 'rating' | 'recent'>('earned')
@@ -69,7 +206,7 @@ export default function CreatorUgcPanel() {
     autoApproveThreshold: 0,
   })
   const [showPkgForm, setShowPkgForm] = useState(false)
-  const [editingPkg, setEditingPkg] = useState<any>(null)
+  const [editingPkg, setEditingPkg] = useState<CreatorPackage | null>(null)
   const [pkgForm, setPkgForm] = useState({
     name: '', slug: '', description: '', price: 720000, discount_price: 0,
     discount_label: '', duration_months: 1, content_count: 4, content_types: [] as string[],
@@ -81,12 +218,12 @@ export default function CreatorUgcPanel() {
   const load = () => {
     setLoading(true)
     Promise.all([
-      apiFetch<any[]>('/creator/applications').catch(() => []),
-      apiFetch<any[]>('/creator/all-requests').catch(() => []),
-      apiFetch<any[]>('/creator/packages?all=true').catch(() => []),
-      apiFetch<any>('/creator/rating-analytics').catch(() => null),
-      apiFetch<any[]>('/creator/top-creators?limit=5').catch(() => []),
-      apiFetch<any[]>('/creator/pricing').catch(() => []),
+      apiFetch<CreatorApplication[]>('/creator/applications').catch(() => []),
+      apiFetch<UgcRequest[]>('/creator/all-requests').catch(() => []),
+      apiFetch<CreatorPackage[]>('/creator/packages?all=true').catch(() => []),
+      apiFetch<RatingAnalytics>('/creator/rating-analytics').catch(() => null),
+      apiFetch<TopCreator[]>('/creator/top-creators?limit=5').catch(() => []),
+      apiFetch<CreatorPricing[]>('/creator/pricing').catch(() => []),
     ]).then(([apps, reqs, pkgs, ra, tc, pr]) => {
       setAllApps(Array.isArray(apps) ? apps : [])
       setUgc(Array.isArray(reqs) ? reqs : [])
@@ -96,35 +233,35 @@ export default function CreatorUgcPanel() {
       setPricing(Array.isArray(pr) ? pr : [])
     }).finally(() => setLoading(false))
   }
-  useEffect(() => { load() }, [])
+  useEffect(() => { void Promise.resolve().then(load) }, [])
 
   const approve = async (id: string) => {
     setProcessing(true)
-    try { await apiFetch(`/creator/applications/${id}/approve`, { method: 'PATCH' }); load(); setSelectedApp(null) } catch (e: any) { alert(e.message || 'Алдаа') }
+    try { await apiFetch(`/creator/applications/${id}/approve`, { method: 'PATCH' }); load(); setSelectedApp(null) } catch (e: unknown) { alert(errorMessage(e, 'Алдаа')) }
     setProcessing(false)
   }
   const reject = async (id: string) => {
     const reason = prompt('Татгалзах шалтгаан:'); if (!reason) return
     setProcessing(true)
-    try { await apiFetch(`/creator/applications/${id}/reject`, { method: 'PATCH', body: JSON.stringify({ reason }) }); load(); setSelectedApp(null) } catch (e: any) { alert(e.message || 'Алдаа') }
+    try { await apiFetch(`/creator/applications/${id}/reject`, { method: 'PATCH', body: JSON.stringify({ reason }) }); load(); setSelectedApp(null) } catch (e: unknown) { alert(errorMessage(e, 'Алдаа')) }
     setProcessing(false)
   }
   const release = async (id: string) => {
     if (!confirm('Төлбөр гаргах уу?')) return
-    try { await apiFetch(`/creator/requests/${id}/release`, { method: 'PATCH' }); load() } catch (e: any) { alert(e.message || 'Алдаа') }
+    try { await apiFetch(`/creator/requests/${id}/release`, { method: 'PATCH' }); load() } catch (e: unknown) { alert(errorMessage(e, 'Алдаа')) }
   }
 
   const promoteCreator = async (id: string, level: string) => {
     setProcessing(true)
     try { await apiFetch(`/creator/applications/${id}/level`, { method: 'PATCH', body: JSON.stringify({ level }) }); load(); setLevelModal(null) }
-    catch (e: any) { alert(e.message || 'Алдаа') }
+    catch (e: unknown) { alert(errorMessage(e, 'Алдаа')) }
     setProcessing(false)
   }
   const suspendCreator = async (id: string) => {
     if (!confirm('Creator-г идэвхгүй болгох уу?')) return
     setProcessing(true)
     try { await apiFetch(`/creator/applications/${id}/suspend`, { method: 'PATCH' }); load() }
-    catch (e: any) { alert(e.message || 'Алдаа') }
+    catch (e: unknown) { alert(errorMessage(e, 'Алдаа')) }
     setProcessing(false)
   }
   const saveSettings = async () => {
@@ -150,16 +287,16 @@ export default function CreatorUgcPanel() {
         await apiFetch('/creator/packages', { method: 'POST', body: JSON.stringify(pkgForm) })
       }
       setShowPkgForm(false); resetPkgForm(); load()
-    } catch (e: any) { alert(e.message || 'Алдаа') }
+    } catch (e: unknown) { alert(errorMessage(e, 'Алдаа')) }
   }
 
   const deletePkg = async (id: string) => {
     if (!confirm('Устгах уу?')) return
     try { await apiFetch(`/creator/packages/${id}`, { method: 'DELETE' }); load() }
-    catch (e: any) { alert(e.message || 'Алдаа') }
+    catch (e: unknown) { alert(errorMessage(e, 'Алдаа')) }
   }
 
-  const editPkg = (pkg: any) => {
+  const editPkg = (pkg: CreatorPackage) => {
     setPkgForm({
       name: pkg.name || '', slug: pkg.slug || '', description: pkg.description || '',
       price: Number(pkg.price) || 0, discount_price: Number(pkg.discount_price) || 0,
@@ -191,8 +328,9 @@ export default function CreatorUgcPanel() {
   const creatorStats = creators.map(c => {
     const jobs = ugc.filter(r => r.creator_id === c.user_id)
     const done = jobs.filter(j => j.status === 'completed')
-    return { ...c, jobs: jobs.length, done: done.length, earned: done.reduce((s: number, j: any) => s + Number(j.creator_payout || 0), 0),
-      rating: done.filter((j: any) => j.rating).length > 0 ? done.filter((j: any) => j.rating).reduce((s: number, j: any) => s + j.rating, 0) / done.filter((j: any) => j.rating).length : 0 }
+    const rated = done.filter(j => j.rating)
+    return { ...c, jobs: jobs.length, done: done.length, earned: done.reduce((s, j) => s + Number(j.creator_payout || 0), 0),
+      rating: rated.length > 0 ? rated.reduce((s, j) => s + Number(j.rating || 0), 0) / rated.length : 0 }
   }).sort((a, b) => b.done - a.done)
 
   // Sorted/filtered creator list for Creator tab
@@ -209,7 +347,7 @@ export default function CreatorUgcPanel() {
   const inactiveCreators = creatorStats.filter(c => c.jobs === 0)
   const lowPerformers = creatorStats.filter(c => c.done > 0 && c.rating > 0 && c.rating < 3.5)
   const topPerformers = creatorStats.filter(c => c.done >= 5 && c.rating >= 4.5).slice(0, 10)
-  const newCreators = allApps.filter(a => a.status === 'approved' && a.created_at && (Date.now() - new Date(a.created_at).getTime() < 30 * 86400000))
+  const newCreators = allApps.filter(a => a.status === 'approved' && a.created_at && (now - new Date(a.created_at).getTime() < 30 * 86400000))
 
   // Revenue
   const totalCreatorPayouts = ugc.filter(r => r.status === 'completed').reduce((s, r) => s + Number(r.creator_payout || 0), 0)
@@ -227,6 +365,11 @@ export default function CreatorUgcPanel() {
     { key: 'pricing', label: 'Үнэ тохируулга' },
     { key: 'settings', label: 'Тохиргоо' },
   ]
+  const selectedAppCapabilities = selectedApp?.capabilities || []
+  const selectedAppSkills = selectedApp?.skills || []
+  const selectedAppSampleUrls = selectedApp?.sample_urls || []
+  const selectedAppCreatedAt = selectedApp?.created_at ? new Date(selectedApp.created_at).toLocaleDateString('mn-MN') : '—'
+  const selectedUgcDeliverableUrls = selectedUgc?.deliverable_urls || []
 
   return (
     <div>
@@ -274,7 +417,7 @@ export default function CreatorUgcPanel() {
                   const st = UGC_STATUS[r.status] || { label: r.status, color: '#6B7280' }
                   return (
                     <div key={r.id} onClick={() => setSelectedUgc(r)} className="flex items-center gap-3 p-3 rounded-xl bg-[#FAFAFA] hover:bg-[#F3F4F6] cursor-pointer transition-colors">
-                      <span className="text-xl">{CT_ICON[r.content_type] || '🎨'}</span>
+                      <span className="text-xl">{r.content_type ? CT_ICON[r.content_type] || '🎨' : '🎨'}</span>
                       <div className="flex-1 min-w-0">
                         <div className="text-xs font-semibold text-[#111] truncate">{r.title}</div>
                         <div className="text-[10px] text-[#888] flex gap-2 mt-0.5">
@@ -355,9 +498,9 @@ export default function CreatorUgcPanel() {
               {creatorStats.length === 0 ? (
                 <div className="text-center py-6 text-[#999] text-xs">👥 Creator байхгүй</div>
               ) : creatorStats.slice(0, 5).map((c, i) => {
-                const lvl = LEVEL_CONFIG[(c as any).level || 'starter']
+                const lvl = LEVEL_CONFIG[c.level || 'starter']
                 return (
-                  <div key={c.id} onClick={() => { setLevelModal(c); setNewLevel((c as any).level || 'starter') }}
+                  <div key={c.id} onClick={() => { setLevelModal(c); setNewLevel(c.level || 'starter') }}
                     className="flex items-center gap-3 p-2.5 rounded-lg hover:bg-[#FAFAFA] cursor-pointer mb-1 transition-colors">
                     <div className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold"
                       style={{ background: i === 0 ? '#FFD700' : i === 1 ? '#C0C0C0' : i === 2 ? '#CD7F32' : '#F3F4F6', color: i < 3 ? '#fff' : '#999' }}>{i + 1}</div>
@@ -390,7 +533,7 @@ export default function CreatorUgcPanel() {
                 const st = UGC_STATUS[r.status] || { label: r.status, color: '#6B7280' }
                 return (
                   <div key={r.id} onClick={() => setSelectedUgc(r)} className="flex items-center gap-3 p-2.5 rounded-lg hover:bg-[#FAFAFA] cursor-pointer mb-1 transition-colors">
-                    <span className="text-xl">{CT_ICON[r.content_type] || '🎨'}</span>
+                    <span className="text-xl">{r.content_type ? CT_ICON[r.content_type] || '🎨' : '🎨'}</span>
                     <div className="flex-1 min-w-0">
                       <div className="text-xs font-semibold text-[#111] truncate">{r.title}</div>
                       <div className="text-[10px] text-[#999] flex gap-2">
@@ -467,7 +610,7 @@ export default function CreatorUgcPanel() {
             <div className="mt-5 bg-white rounded-xl border border-[#E5E7EB] p-5">
               <h3 className="text-sm font-bold text-[#111] mb-4">🏆 Шилдэг Creators (үнэлгээгээр)</h3>
               <div className="space-y-2">
-                {topCreators.map((c: any, i: number) => (
+                {topCreators.map((c, i) => (
                   <div key={c.user_id} className="flex items-center gap-3 p-2.5 rounded-lg hover:bg-[#FAFAFA]">
                     <div className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold"
                       style={{ background: i === 0 ? '#FFD700' : i === 1 ? '#C0C0C0' : i === 2 ? '#CD7F32' : '#F3F4F6', color: i < 3 ? '#fff' : '#999' }}>
@@ -526,7 +669,7 @@ export default function CreatorUgcPanel() {
                 return (
                   <div key={r.id} className="bg-white border border-[#E5E7EB] rounded-xl overflow-hidden hover:shadow-md hover:border-[#FF6B00]/30 transition-all cursor-pointer" onClick={() => setSelectedUgc(r)}>
                     <div className="h-16 flex items-center justify-center relative" style={{ background: `linear-gradient(135deg, ${st.color}08, ${st.color}03)` }}>
-                      <span className="text-3xl">{CT_ICON[r.content_type] || '🎨'}</span>
+                      <span className="text-3xl">{r.content_type ? CT_ICON[r.content_type] || '🎨' : '🎨'}</span>
                       <span className="absolute top-2 right-2 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-white border" style={{ color: st.color, borderColor: st.color + '30' }}>{st.label}</span>
                     </div>
                     <div className="p-3.5">
@@ -586,6 +729,8 @@ export default function CreatorUgcPanel() {
               {(creatorFilter === 'approved' ? sortedCreators : filteredApps).map(app => {
                 const st = APP_STATUS[app.status] || { label: app.status, color: '#6B7280' }
                 const stats = creatorStats.find(c => c.user_id === app.user_id)
+                const caps = app.capabilities || []
+                const skills = app.skills || []
                 return (
                   <div key={app.id} className="bg-white border border-[#E5E7EB] rounded-xl p-4 hover:shadow-md transition-all">
                     <div className="flex items-start justify-between mb-3">
@@ -599,25 +744,25 @@ export default function CreatorUgcPanel() {
                       <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full" style={{ color: st.color, background: st.color + '12' }}>{st.label}</span>
                     </div>
                     {/* Capabilities */}
-                    {app.capabilities?.length > 0 && (
+                    {caps.length > 0 && (
                       <div className="flex gap-1 flex-wrap mb-2">
-                        {(app.capabilities.includes('social') || app.capabilities.includes('ugc')) && <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-[#FF6B00]/10 text-[#FF6B00] font-bold">📱 Сошиал</span>}
-                        {(app.capabilities.includes('prepress') || app.capabilities.includes('design')) && <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-[#8B5CF6]/10 text-[#8B5CF6] font-bold">🖨️ Эх бэлтгэл</span>}
-                        {app.capabilities.includes('live') && <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-[#EC4899]/10 text-[#EC4899] font-bold">📡 Лайв</span>}
-                        {app.capabilities.includes('ai') && <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-[#06B6D4]/10 text-[#06B6D4] font-bold">🤖 AI</span>}
+                        {(caps.includes('social') || caps.includes('ugc')) && <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-[#FF6B00]/10 text-[#FF6B00] font-bold">📱 Сошиал</span>}
+                        {(caps.includes('prepress') || caps.includes('design')) && <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-[#8B5CF6]/10 text-[#8B5CF6] font-bold">🖨️ Эх бэлтгэл</span>}
+                        {caps.includes('live') && <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-[#EC4899]/10 text-[#EC4899] font-bold">📡 Лайв</span>}
+                        {caps.includes('ai') && <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-[#06B6D4]/10 text-[#06B6D4] font-bold">🤖 AI</span>}
                       </div>
                     )}
                     {/* Skills */}
-                    {app.skills?.length > 0 && (
+                    {skills.length > 0 && (
                       <div className="flex gap-1 flex-wrap mb-3">
-                        {app.skills.slice(0, 3).map((s: string) => (
+                        {skills.slice(0, 3).map((s: string) => (
                           <span key={s} className="text-[9px] px-1.5 py-0.5 rounded-full bg-[#F3F4F6] text-[#666]">{SKILL_LABELS[s] || s}</span>
                         ))}
                       </div>
                     )}
                     {app.status === 'approved' && stats && (<>
                       {/* Level badge */}
-                      {(() => { const lvl = LEVEL_CONFIG[(app as any).level || 'starter']; return (
+                      {(() => { const lvl = LEVEL_CONFIG[app.level || 'starter']; return (
                         <div className="flex items-center gap-2 mb-2">
                           <span className="text-[9px] font-bold px-2 py-0.5 rounded-full" style={{ background: lvl.bg, color: lvl.color }}>{lvl.label}</span>
                         </div>
@@ -629,7 +774,7 @@ export default function CreatorUgcPanel() {
                       </div>
                       {/* Actions for approved */}
                       <div className="flex gap-1.5 pt-2 border-t border-[#E5E7EB]">
-                        <button onClick={() => { setLevelModal(app); setNewLevel((app as any).level || 'starter') }}
+                        <button onClick={() => { setLevelModal(app); setNewLevel(app.level || 'starter') }}
                           className="flex-1 py-1.5 bg-[#F3F4F6] text-[#555] rounded-lg text-[10px] font-medium hover:bg-[#E5E7EB]">Түвшин</button>
                         <button onClick={() => setSelectedApp(app)}
                           className="flex-1 py-1.5 bg-[#F3F4F6] text-[#555] rounded-lg text-[10px] font-medium hover:bg-[#E5E7EB]">Дэлгэрэнгүй</button>
@@ -671,7 +816,12 @@ export default function CreatorUgcPanel() {
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-              {packages.map(pkg => (
+              {packages.map(pkg => {
+                const price = Number(pkg.price || 0)
+                const discountPrice = Number(pkg.discount_price || 0)
+                const brandBoostPrice = Number(pkg.brand_boost_price || 0)
+                const displayPrice = discountPrice > 0 ? discountPrice : price
+                return (
                 <div key={pkg.id} className={`bg-white border rounded-xl overflow-hidden transition-all ${pkg.is_popular ? 'border-[#3B82F6] shadow-md' : 'border-[#E5E7EB]'}`}>
                   {pkg.is_popular && <div className="bg-[#3B82F6] text-white text-[10px] font-bold text-center py-1">Эрэлттэй</div>}
                   {pkg.discount_label && <div className="absolute top-2 right-2 text-[9px] font-bold px-2 py-0.5 rounded-full bg-[#10B981] text-white">{pkg.discount_label}</div>}
@@ -681,10 +831,10 @@ export default function CreatorUgcPanel() {
                       <span className="text-[10px] text-[#888]">{pkg.duration_months} сар</span>
                     </div>
                     <div className="text-2xl font-bold text-[#111] mb-1">
-                      ₮{Number(pkg.discount_price || pkg.price).toLocaleString()}
+                      ₮{displayPrice.toLocaleString()}
                     </div>
-                    {pkg.discount_price > 0 && pkg.discount_price < pkg.price && (
-                      <div className="text-xs text-[#999] line-through">₮{Number(pkg.price).toLocaleString()}</div>
+                    {discountPrice > 0 && discountPrice < price && (
+                      <div className="text-xs text-[#999] line-through">₮{price.toLocaleString()}</div>
                     )}
                     <p className="text-xs text-[#888] mt-2 mb-3 line-clamp-2">{pkg.description || pkg.target_audience}</p>
                     <div className="space-y-1.5 mb-3">
@@ -701,7 +851,7 @@ export default function CreatorUgcPanel() {
                       <div className="bg-[#F0FDF4] border border-[#BBF7D0] rounded-lg p-2.5 mb-3">
                         <div className="text-[10px] font-bold text-[#10B981] mb-0.5">&quot;Онцгой Брэнд boost&quot; багц</div>
                         <div className="text-[10px] text-[#666]">{pkg.brand_boost_description}</div>
-                        {pkg.brand_boost_price > 0 && <div className="text-[10px] text-[#FF6B00] font-bold mt-1">Нийт үнэ: ₮{Number(pkg.brand_boost_price).toLocaleString()}</div>}
+                        {brandBoostPrice > 0 && <div className="text-[10px] text-[#FF6B00] font-bold mt-1">Нийт үнэ: ₮{brandBoostPrice.toLocaleString()}</div>}
                       </div>
                     )}
                     <div className="flex gap-2 pt-2 border-t border-[#E5E7EB]">
@@ -713,7 +863,8 @@ export default function CreatorUgcPanel() {
                     </div>
                   </div>
                 </div>
-              ))}
+                )
+              })}
             </div>
           )}
 
@@ -862,7 +1013,7 @@ export default function CreatorUgcPanel() {
               <div className="text-center py-12 bg-white rounded-xl border border-[#E5E7EB]">
                 <div className="text-3xl mb-2">💰</div>
                 <div className="text-sm font-bold text-[#111] mb-1">Үнэ тохируулга байхгүй</div>
-                <div className="text-xs text-[#999]">"Анхны үнэ оруулах" эсвэл "+ Шинэ үнэ" дарна уу</div>
+                <div className="text-xs text-[#999]">&quot;Анхны үнэ оруулах&quot; эсвэл &quot;+ Шинэ үнэ&quot; дарна уу</div>
               </div>
             ) : (
               <div className="bg-white rounded-xl border border-[#E5E7EB] overflow-hidden">
@@ -916,7 +1067,7 @@ export default function CreatorUgcPanel() {
                 <div className="px-4 py-3 bg-[#F9FAFB] border-t border-[#E5E7EB] flex items-center justify-between">
                   <div className="text-[10px] text-[#888]">{filtered.length} үнэ • {filtered.filter(p => p.is_active).length} идэвхтэй</div>
                   <div className="text-[10px] text-[#888]">
-                    Дундаж margin: {filtered.length > 0 ? Math.round(filtered.reduce((s: number, p: any) => s + Number(p.margin_percent), 0) / filtered.length) : 0}%
+                    Дундаж margin: {filtered.length > 0 ? Math.round(filtered.reduce((s, p) => s + Number(p.margin_percent), 0) / filtered.length) : 0}%
                   </div>
                 </div>
               </div>
@@ -1107,13 +1258,13 @@ export default function CreatorUgcPanel() {
                       color: APP_STATUS[selectedApp.status]?.color || '#6B7280',
                       background: (APP_STATUS[selectedApp.status]?.color || '#6B7280') + '12'
                     }}>{APP_STATUS[selectedApp.status]?.label || selectedApp.status}</span>
-                    <span className="text-[9px] text-[#999]">• {new Date(selectedApp.created_at).toLocaleDateString('mn-MN')}</span>
+                    <span className="text-[9px] text-[#999]">• {selectedAppCreatedAt}</span>
                   </div>
                 </div>
               </div>
 
               {/* Capabilities (what they're applying for) */}
-              {selectedApp.capabilities?.length > 0 && (
+              {selectedAppCapabilities.length > 0 && (
                 <div>
                   <label className="text-[10px] font-bold text-[#888] uppercase tracking-wider mb-2 block">Бүтээгчийн чиглэл</label>
                   <div className="grid grid-cols-3 gap-2">
@@ -1122,7 +1273,7 @@ export default function CreatorUgcPanel() {
                       { key: 'prepress', label: 'Хэвлэлийн эх бэлтгэл', icon: '🖨️', color: '#8B5CF6', aliases: ['design'] },
                       { key: 'live', label: 'Лайв стримэр', icon: '📡', color: '#EC4899', aliases: [] },
                       { key: 'ai', label: 'AI контент бүтээгч', icon: '🤖', color: '#06B6D4', aliases: [] },
-                    ].filter(c => selectedApp.capabilities.includes(c.key) || c.aliases?.some((a: string) => selectedApp.capabilities.includes(a))).map(c => (
+                    ].filter(c => selectedAppCapabilities.includes(c.key) || c.aliases?.some((a: string) => selectedAppCapabilities.includes(a))).map(c => (
                       <div key={c.key} className="flex items-center gap-2 px-3 py-2 rounded-lg border" style={{ borderColor: c.color + '40', background: c.color + '08' }}>
                         <span className="text-lg">{c.icon}</span>
                         <span className="text-xs font-bold" style={{ color: c.color }}>{c.label}</span>
@@ -1141,11 +1292,11 @@ export default function CreatorUgcPanel() {
               )}
 
               {/* Skills */}
-              {selectedApp.skills?.length > 0 && (
+              {selectedAppSkills.length > 0 && (
                 <div>
                   <label className="text-[10px] font-bold text-[#888] uppercase tracking-wider mb-1.5 block">Ур чадвар</label>
                   <div className="flex gap-1.5 flex-wrap">
-                    {selectedApp.skills.map((s: string) => (
+                    {selectedAppSkills.map((s: string) => (
                       <span key={s} className="text-[11px] px-3 py-1 rounded-full bg-[#8B5CF6]/10 text-[#8B5CF6] font-medium">{SKILL_LABELS[s] || s}</span>
                     ))}
                   </div>
@@ -1166,11 +1317,11 @@ export default function CreatorUgcPanel() {
               )}
 
               {/* Sample works */}
-              {selectedApp.sample_urls?.length > 0 && (
+              {selectedAppSampleUrls.length > 0 && (
                 <div>
-                  <label className="text-[10px] font-bold text-[#888] uppercase tracking-wider mb-1.5 block">Жишээ ажлууд ({selectedApp.sample_urls.length})</label>
+                  <label className="text-[10px] font-bold text-[#888] uppercase tracking-wider mb-1.5 block">Жишээ ажлууд ({selectedAppSampleUrls.length})</label>
                   <div className="grid grid-cols-2 gap-2">
-                    {selectedApp.sample_urls.map((url: string, i: number) => {
+                    {selectedAppSampleUrls.map((url: string, i: number) => {
                       const isImage = /\.(jpg|jpeg|png|gif|webp)$/i.test(url)
                       return isImage ? (
                         <a key={i} href={url} target="_blank" rel="noreferrer" className="aspect-video bg-[#F3F4F6] rounded-xl overflow-hidden border border-[#E5E7EB] hover:border-[#8B5CF6] transition-colors">
@@ -1193,7 +1344,7 @@ export default function CreatorUgcPanel() {
               {selectedApp.motivation && (
                 <div>
                   <label className="text-[10px] font-bold text-[#888] uppercase tracking-wider mb-1.5 block">Яагаад Creator болмоор байна вэ?</label>
-                  <div className="text-sm text-[#111] bg-[#FFFBEB] border border-[#FEF3C7] rounded-xl p-4 leading-relaxed italic">"{selectedApp.motivation}"</div>
+                  <div className="text-sm text-[#111] bg-[#FFFBEB] border border-[#FEF3C7] rounded-xl p-4 leading-relaxed italic">&quot;{selectedApp.motivation}&quot;</div>
                 </div>
               )}
 
@@ -1254,7 +1405,7 @@ export default function CreatorUgcPanel() {
             ) : (
               <div className="space-y-2">
                 {topPerformers.map((c, i) => {
-                  const lvl = LEVEL_CONFIG[(c as any).level || 'starter']
+                  const lvl = LEVEL_CONFIG[c.level || 'starter']
                   return (
                     <div key={c.id} className="flex items-center gap-3 p-3 rounded-xl hover:bg-[#FAFAFA]">
                       <div className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold"
@@ -1267,7 +1418,7 @@ export default function CreatorUgcPanel() {
                         </div>
                         <div className="text-[10px] text-[#999]">{c.done} ажил · ⭐{(c.rating || 0).toFixed(1)} · ₮{c.earned.toLocaleString()}</div>
                       </div>
-                      <button onClick={() => { setLevelModal(c); setNewLevel((c as any).level || 'starter') }}
+                      <button onClick={() => { setLevelModal(c); setNewLevel(c.level || 'starter') }}
                         className="px-2.5 py-1 rounded-lg text-[10px] font-medium bg-[#F3F4F6] text-[#555] hover:bg-[#E5E7EB]">Түвшин</button>
                     </div>
                   )
@@ -1356,7 +1507,7 @@ export default function CreatorUgcPanel() {
                 <tbody>
                   {creatorStats.sort((a, b) => b.earned - a.earned).map((c, i) => {
                     const platformCut = Math.round(c.earned * (settings.commissionPercent / (100 - settings.commissionPercent)))
-                    const caps = ((c as any).capabilities || []) as string[]
+                    const caps = c.capabilities || []
                     return (
                       <tr key={c.id} className="border-t border-[#F3F4F6] hover:bg-[#FAFAFA]">
                         <td className="py-2.5 px-2 text-xs text-[#888]">{i + 1}</td>
@@ -1404,9 +1555,8 @@ export default function CreatorUgcPanel() {
       {/* ═══ SETTINGS TAB ═══ */}
       {sub === 'settings' && (<GovernancePanel settings={settings} setSettings={setSettings} saveSettings={saveSettings}
         creatorStats={creatorStats} allApps={allApps} processing={processing}
-        updatePermissions={(id: string, data: any) => apiFetch(`/creator/permissions/${id}`, { method: 'PATCH', body: JSON.stringify(data) })}
-        addPenalty={(data: any) => apiFetch('/creator/penalties', { method: 'POST', body: JSON.stringify(data) })}
-        calculatePayout={(amount: number) => settings}
+        updatePermissions={(id, data) => apiFetch(`/creator/permissions/${id}`, { method: 'PATCH', body: JSON.stringify(data) })}
+        addPenalty={(data) => apiFetch('/creator/penalties', { method: 'POST', body: JSON.stringify(data) })}
       />)}
 
       {/* ═══ LEVEL MODAL (Score-based + Admin override) ═══ */}
@@ -1420,25 +1570,25 @@ export default function CreatorUgcPanel() {
             <div className="bg-[#F9FAFB] rounded-xl p-4 mb-4">
               <div className="flex justify-between items-center mb-2">
                 <span className="text-xs font-medium text-[#888]">Системийн оноо</span>
-                <span className="text-lg font-bold text-[#111]">{(levelModal as any).score || '—'}<span className="text-xs font-normal text-[#888]">/100</span></span>
+                <span className="text-lg font-bold text-[#111]">{levelModal.score || '—'}<span className="text-xs font-normal text-[#888]">/100</span></span>
               </div>
               <div className="h-2 bg-[#E5E7EB] rounded-full overflow-hidden mb-3">
-                <div className="h-full rounded-full bg-[#FF6B00] transition-all" style={{ width: `${(levelModal as any).score || 0}%` }} />
+                <div className="h-full rounded-full bg-[#FF6B00] transition-all" style={{ width: `${levelModal.score || 0}%` }} />
               </div>
               <div className="grid grid-cols-3 gap-2 text-center">
-                <div className="bg-white rounded-lg p-2"><div className="text-[9px] text-[#888]">⭐ Үнэлгээ</div><div className="text-xs font-bold">{(levelModal as any).rating?.toFixed(1) || '—'}</div></div>
-                <div className="bg-white rounded-lg p-2"><div className="text-[9px] text-[#888]">📦 Ажил</div><div className="text-xs font-bold">{(levelModal as any).done || 0}</div></div>
-                <div className="bg-white rounded-lg p-2"><div className="text-[9px] text-[#888]">💰 Орлого</div><div className="text-xs font-bold">₮{((levelModal as any).earned || 0).toLocaleString()}</div></div>
+                <div className="bg-white rounded-lg p-2"><div className="text-[9px] text-[#888]">⭐ Үнэлгээ</div><div className="text-xs font-bold">{levelModal.rating?.toFixed(1) || '—'}</div></div>
+                <div className="bg-white rounded-lg p-2"><div className="text-[9px] text-[#888]">📦 Ажил</div><div className="text-xs font-bold">{levelModal.done || 0}</div></div>
+                <div className="bg-white rounded-lg p-2"><div className="text-[9px] text-[#888]">💰 Орлого</div><div className="text-xs font-bold">₮{(levelModal.earned || 0).toLocaleString()}</div></div>
               </div>
             </div>
 
             {/* Auto-refresh button */}
             <button onClick={async () => {
               try {
-                const result = await apiFetch<any>(`/creator/score/${levelModal.user_id || levelModal.id}/refresh`, { method: 'POST' })
+                const result = await apiFetch<CreatorScoreRefresh>(`/creator/score/${levelModal.user_id || levelModal.id}/refresh`, { method: 'POST' })
                 if (result) { setNewLevel(result.level); alert(`Шинэ оноо: ${result.score}, Түвшин: ${result.level}`) }
                 load()
-              } catch (e: any) { alert(e.message || 'Алдаа') }
+              } catch (e: unknown) { alert(errorMessage(e, 'Алдаа')) }
             }} className="w-full py-2 bg-[#3B82F6] text-white rounded-xl text-xs font-bold mb-3 hover:bg-[#2563EB]">
               🔄 Оноо дахин тооцоолох (автомат)
             </button>
@@ -1473,7 +1623,7 @@ export default function CreatorUgcPanel() {
         <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4" onClick={() => setSelectedUgc(null)}>
           <div className="bg-white rounded-2xl max-w-md w-full max-h-[80vh] overflow-y-auto p-6" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2"><span className="text-2xl">{CT_ICON[selectedUgc.content_type] || '🎨'}</span><div><h2 className="text-base font-bold text-[#111]">{selectedUgc.title}</h2><div className="text-[10px] text-[#999]">{selectedUgc.content_type} • {selectedUgc.package}</div></div></div>
+              <div className="flex items-center gap-2"><span className="text-2xl">{selectedUgc.content_type ? CT_ICON[selectedUgc.content_type] || '🎨' : '🎨'}</span><div><h2 className="text-base font-bold text-[#111]">{selectedUgc.title}</h2><div className="text-[10px] text-[#999]">{selectedUgc.content_type} • {selectedUgc.package}</div></div></div>
               <button onClick={() => setSelectedUgc(null)} className="w-7 h-7 rounded-lg bg-[#F3F4F6] flex items-center justify-center text-[#999] text-sm">✕</button>
             </div>
             <div className="bg-[#F9FAFB] rounded-lg p-3 mb-3 text-xs text-[#111]">{selectedUgc.description}</div>
@@ -1482,8 +1632,8 @@ export default function CreatorUgcPanel() {
                 <div key={i} className="bg-[#F9FAFB] rounded-lg p-2.5"><div className="text-[9px] text-[#999]">{s.l}</div><div className="text-xs font-bold text-[#111]">{s.v}</div></div>
               ))}
             </div>
-            {selectedUgc.deliverable_urls?.length > 0 && (
-              <div className="flex gap-1.5 flex-wrap mb-3">{selectedUgc.deliverable_urls.map((url: string, i: number) => (
+            {selectedUgcDeliverableUrls.length > 0 && (
+              <div className="flex gap-1.5 flex-wrap mb-3">{selectedUgcDeliverableUrls.map((url: string, i: number) => (
                 <a key={i} href={url} target="_blank" rel="noreferrer" className="text-[10px] text-[#3B82F6] bg-[#3B82F6]/8 px-2.5 py-1 rounded-lg">📎 Файл {i + 1}</a>
               ))}</div>
             )}
@@ -1504,15 +1654,18 @@ export default function CreatorUgcPanel() {
 type GovTab = 'general' | 'permissions' | 'contracts' | 'tax' | 'penalties'
 
 function GovernancePanel({ settings, setSettings, saveSettings, creatorStats, allApps, processing, updatePermissions, addPenalty }: {
-  settings: any; setSettings: (fn: any) => void; saveSettings: () => void
-  creatorStats: any[]; allApps: any[]; processing: boolean
-  updatePermissions: (id: string, data: any) => Promise<any>
-  addPenalty: (data: any) => Promise<any>
-  calculatePayout: (amount: number) => any
+  settings: CreatorSettings
+  setSettings: Dispatch<SetStateAction<CreatorSettings>>
+  saveSettings: () => void
+  creatorStats: CreatorStats[]
+  allApps: CreatorApplication[]
+  processing: boolean
+  updatePermissions: (id: string, data: CreatorPermissionData) => Promise<unknown>
+  addPenalty: (data: CreatorPenaltyData) => Promise<unknown>
 }) {
   const [govTab, setGovTab] = useState<GovTab>('general')
-  const [selectedCreator, setSelectedCreator] = useState<any>(null)
-  const [permData, setPermData] = useState<any>(null)
+  const [selectedCreator, setSelectedCreator] = useState<CreatorApplication | null>(null)
+  const [permData, setPermData] = useState<CreatorPermissionData | null>(null)
   const [penaltyForm, setPenaltyForm] = useState({ type: 'warning', reason: 'other', description: '' })
   const [payoutPreview, setPayoutPreview] = useState(100000)
 
@@ -1523,8 +1676,14 @@ function GovernancePanel({ settings, setSettings, saveSettings, creatorStats, al
     { key: 'tax', label: 'Татвар & Төлбөр', icon: '💰' },
     { key: 'penalties', label: 'Шийтгэл', icon: '⚖️' },
   ]
+  const settingToggles: { key: GovernanceSettingToggle; label: string; desc: string }[] = [
+    { key: 'allowDirectHire', label: 'Шууд захиалга', desc: 'Захиалагч creator-г шууд сонгох' },
+    { key: 'showRatings', label: 'Үнэлгээ харуулах', desc: 'Creator үнэлгээг нийтэд' },
+    { key: 'showEarnings', label: 'Орлого харуулах', desc: 'Creator орлогыг профайлд' },
+    { key: 'requirePortfolio', label: 'Портфолио шаардах', desc: 'Marketplace-д гарахад заавал' },
+  ]
 
-  const approved = allApps.filter((a: any) => a.status === 'approved')
+  const approved = allApps.filter(a => a.status === 'approved')
   const commRate = settings.commissionPercent || 20
   const taxRate = 10
   const previewCommission = Math.round(payoutPreview * (commRate / 100))
@@ -1534,7 +1693,7 @@ function GovernancePanel({ settings, setSettings, saveSettings, creatorStats, al
 
   const loadPerms = async (creatorId: string) => {
     try {
-      const p = await apiFetch<any>(`/creator/permissions/${creatorId}`)
+      const p = await apiFetch<CreatorPermissionData>(`/creator/permissions/${creatorId}`)
       setPermData(p)
     } catch { setPermData({ can_receive_orders: true, can_show_profile: true, can_withdraw: true, can_create_packages: true, can_access_marketplace: true, can_go_live: true }) }
   }
@@ -1548,7 +1707,7 @@ function GovernancePanel({ settings, setSettings, saveSettings, creatorStats, al
 
   const submitPenalty = async () => {
     if (!selectedCreator || !penaltyForm.description) return alert('Тайлбар бичнэ үү')
-    await addPenalty({ creator_id: selectedCreator.user_id || selectedCreator.id, ...penaltyForm }).catch((e: any) => alert(e.message || 'Алдаа'))
+    await addPenalty({ creator_id: selectedCreator.user_id || selectedCreator.id, ...penaltyForm }).catch((e: unknown) => alert(errorMessage(e, 'Алдаа')))
     setPenaltyForm({ type: 'warning', reason: 'other', description: '' })
   }
 
@@ -1572,7 +1731,7 @@ function GovernancePanel({ settings, setSettings, saveSettings, creatorStats, al
             <div className="mb-4">
               <label className="text-[11px] font-medium text-[#555] mb-1 block">Платформ комисс (%)</label>
               <input type="number" min={0} max={50} value={settings.commissionPercent}
-                onChange={e => setSettings((s: any) => ({ ...s, commissionPercent: Number(e.target.value) }))}
+                onChange={e => setSettings(s => ({ ...s, commissionPercent: Number(e.target.value) }))}
                 className="w-full px-3 py-2.5 rounded-xl border border-[#E5E7EB] text-sm focus:border-[#FF6B00] outline-none" />
               <div className="text-[10px] text-[#999] mt-1">Creator: {100 - settings.commissionPercent}% · Платформ: {settings.commissionPercent}%</div>
             </div>
@@ -1580,17 +1739,12 @@ function GovernancePanel({ settings, setSettings, saveSettings, creatorStats, al
           <div className="bg-white rounded-xl border border-[#E5E7EB] p-5">
             <h3 className="text-sm font-bold text-[#111] mb-4">Marketplace тохиргоо</h3>
             <div className="space-y-4">
-              {[
-                { key: 'allowDirectHire', label: 'Шууд захиалга', desc: 'Захиалагч creator-г шууд сонгох' },
-                { key: 'showRatings', label: 'Үнэлгээ харуулах', desc: 'Creator үнэлгээг нийтэд' },
-                { key: 'showEarnings', label: 'Орлого харуулах', desc: 'Creator орлогыг профайлд' },
-                { key: 'requirePortfolio', label: 'Портфолио шаардах', desc: 'Marketplace-д гарахад заавал' },
-              ].map(item => (
+              {settingToggles.map(item => (
                 <div key={item.key} className="flex items-center justify-between gap-4">
                   <div><div className="text-xs font-medium text-[#111]">{item.label}</div><div className="text-[10px] text-[#999]">{item.desc}</div></div>
-                  <button onClick={() => setSettings((s: any) => ({ ...s, [item.key]: !(s as any)[item.key] }))}
-                    className="w-10 h-5 rounded-full p-0.5 transition-colors" style={{ background: (settings as any)[item.key] ? '#FF6B00' : '#D1D5DB' }}>
-                    <div className="w-4 h-4 rounded-full bg-white transition-transform" style={{ transform: (settings as any)[item.key] ? 'translateX(20px)' : 'translateX(0)' }} />
+                  <button onClick={() => setSettings(s => ({ ...s, [item.key]: !s[item.key] }))}
+                    className="w-10 h-5 rounded-full p-0.5 transition-colors" style={{ background: settings[item.key] ? '#FF6B00' : '#D1D5DB' }}>
+                    <div className="w-4 h-4 rounded-full bg-white transition-transform" style={{ transform: settings[item.key] ? 'translateX(20px)' : 'translateX(0)' }} />
                   </button>
                 </div>
               ))}
@@ -1601,7 +1755,7 @@ function GovernancePanel({ settings, setSettings, saveSettings, creatorStats, al
             <div className="space-y-3">
               <div>
                 <label className="text-[11px] font-medium text-[#555] mb-1 block">Marketplace-д гарах хамгийн бага түвшин</label>
-                <select value={settings.minLevelForMarketplace} onChange={e => setSettings((s: any) => ({ ...s, minLevelForMarketplace: e.target.value }))}
+                <select value={settings.minLevelForMarketplace} onChange={e => setSettings(s => ({ ...s, minLevelForMarketplace: e.target.value }))}
                   className="w-full px-3 py-2.5 rounded-xl border border-[#E5E7EB] text-sm focus:border-[#FF6B00] outline-none">
                   {(['starter','pro','expert','elite'] as const).map(l => <option key={l} value={l}>{l.charAt(0).toUpperCase()+l.slice(1)}</option>)}
                 </select>
@@ -1609,7 +1763,7 @@ function GovernancePanel({ settings, setSettings, saveSettings, creatorStats, al
               <div>
                 <label className="text-[11px] font-medium text-[#555] mb-1 block">Хамгийн бага портфолио тоо</label>
                 <input type="number" min={0} max={20} value={settings.minPortfolioItems}
-                  onChange={e => setSettings((s: any) => ({ ...s, minPortfolioItems: Number(e.target.value) }))}
+                  onChange={e => setSettings(s => ({ ...s, minPortfolioItems: Number(e.target.value) }))}
                   className="w-full px-3 py-2.5 rounded-xl border border-[#E5E7EB] text-sm focus:border-[#FF6B00] outline-none" />
               </div>
             </div>
@@ -1626,7 +1780,7 @@ function GovernancePanel({ settings, setSettings, saveSettings, creatorStats, al
             <h4 className="text-xs font-bold text-[#888] uppercase tracking-wider mb-3">Creator сонгох</h4>
             {approved.length === 0 ? (
               <div className="text-center py-8 text-[#999] text-xs">Creator байхгүй</div>
-            ) : approved.map((c: any) => (
+            ) : approved.map(c => (
               <button key={c.id} onClick={() => { setSelectedCreator(c); loadPerms(c.user_id || c.id) }}
                 className={`w-full flex items-center gap-2.5 p-2.5 rounded-lg mb-1 text-left transition-colors ${
                   selectedCreator?.id === c.id ? 'bg-[#FF6B00]/8 border border-[#FF6B00]/20' : 'hover:bg-[#FAFAFA]'}`}>
@@ -1719,7 +1873,7 @@ function GovernancePanel({ settings, setSettings, saveSettings, creatorStats, al
               <div className="text-center py-8 text-[#999] text-xs">Гэрээтэй creator байхгүй</div>
             ) : (
               <div className="space-y-2">
-                {approved.map((c: any) => (
+                {approved.map(c => (
                   <div key={c.id} className="flex items-center justify-between p-3 rounded-xl bg-[#F9FAFB]">
                     <div className="flex items-center gap-3">
                       <div className="w-8 h-8 rounded-full bg-[#8B5CF6]/12 flex items-center justify-center text-[10px] font-bold text-[#8B5CF6]">{c.full_name?.charAt(0)?.toUpperCase()}</div>
@@ -1801,7 +1955,7 @@ function GovernancePanel({ settings, setSettings, saveSettings, creatorStats, al
             <h4 className="text-xs font-bold text-[#888] uppercase tracking-wider mb-3">Creator сонгох</h4>
             {approved.length === 0 ? (
               <div className="text-center py-8 text-[#999] text-xs">Creator байхгүй</div>
-            ) : approved.map((c: any) => (
+            ) : approved.map(c => (
               <button key={c.id} onClick={() => setSelectedCreator(c)}
                 className={`w-full flex items-center gap-2.5 p-2.5 rounded-lg mb-1 text-left transition-colors ${
                   selectedCreator?.id === c.id ? 'bg-[#EF4444]/8 border border-[#EF4444]/20' : 'hover:bg-[#FAFAFA]'}`}>

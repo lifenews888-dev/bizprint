@@ -2,9 +2,28 @@
 import { useState, useEffect } from 'react'
 import { apiFetch } from '@/lib/api'
 
+interface CommissionLog {
+  id: string
+  vendor_name?: string
+  inquiry_id?: string
+  order_id?: string
+  gross_amount?: number | string
+  commission_amount?: number | string
+  net_amount?: number | string
+  status: string
+  created_at: string
+}
+
+interface CommissionSummary {
+  totalGross?: number | string
+  totalCommission?: number | string
+  totalNet?: number | string
+  pendingPayout?: number | string
+}
+
 export default function AdminCommissionPayoutsPage() {
-  const [logs, setLogs] = useState<any[]>([])
-  const [summary, setSummary] = useState<any>(null)
+  const [logs, setLogs] = useState<CommissionLog[]>([])
+  const [summary, setSummary] = useState<CommissionSummary | null>(null)
   const [selected, setSelected] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -13,8 +32,8 @@ export default function AdminCommissionPayoutsPage() {
     setLoading(true)
     try {
       const [logRes, sumRes] = await Promise.all([
-        apiFetch<any>('/commission').catch(() => []),
-        apiFetch<any>('/commission/summary').catch(() => null),
+        apiFetch<CommissionLog[]>('/commission').catch(() => []),
+        apiFetch<CommissionSummary | null>('/commission/summary').catch(() => null),
       ])
       setLogs(Array.isArray(logRes) ? logRes : [])
       setSummary(sumRes)

@@ -14,29 +14,51 @@ const CATEGORIES = [
   { id: 'brochure', label: 'Брошур', icon: '📋' },
 ]
 
+interface Template {
+  id: string
+  title?: string
+  title_mn?: string
+  category?: string
+  price?: number | string
+  thumbnail_url?: string
+  use_count?: number
+  designer_name?: string
+}
+
 export default function TemplatesPage() {
   const router = useRouter()
-  const [templates, setTemplates] = useState<any[]>([])
+  const [templates, setTemplates] = useState<Template[]>([])
   const [loading, setLoading] = useState(true)
   const [category, setCategory] = useState('all')
   const [search, setSearch] = useState('')
 
   useEffect(() => {
-    setLoading(true)
+    const loadingTimer = window.setTimeout(() => setLoading(true), 0)
+    let cancelled = false
     const url = category === 'all'
       ? `${API_URL}/api/templates`
       : `${API_URL}/api/templates?category=${category}`
     fetch(url)
       .then(r => r.json())
-      .then(data => { setTemplates(Array.isArray(data) ? data : []); setLoading(false) })
-      .catch(() => setLoading(false))
+      .then((data: unknown) => {
+        if (cancelled) return
+        setTemplates(Array.isArray(data) ? data : [])
+        setLoading(false)
+      })
+      .catch(() => {
+        if (!cancelled) setLoading(false)
+      })
+    return () => {
+      cancelled = true
+      window.clearTimeout(loadingTimer)
+    }
   }, [category])
 
   const filtered = templates.filter(t =>
     !search || (t.title_mn || t.title || '').toLowerCase().includes(search.toLowerCase())
   )
 
-  const handleUse = (template: any) => {
+  const handleUse = (template: Template) => {
     fetch(`${API_URL}/api/templates/${template.id}/use`, { method: 'PATCH' }).catch(() => {})
     router.push(`/design/editor?type=${template.category || 'business-card'}&templateId=${template.id}`)
   }

@@ -1,8 +1,10 @@
 'use client'
 import { useMemo } from 'react'
 import { VChart } from '@visactor/react-vchart'
+import type { ISpec } from '@visactor/vchart'
 import { useChartTheme } from '@/lib/use-chart-theme'
 import { SERIES_COLORS, fmtCompact } from '@/lib/vchart-theme'
+import { datumNumber, datumString, numberValue } from './chart-utils'
 
 interface FunnelChartProps {
   data: { label: string; value: number; color?: string }[]
@@ -12,7 +14,7 @@ interface FunnelChartProps {
 export default function FunnelChart({ data, height = 260 }: FunnelChartProps) {
   const { tokens } = useChartTheme()
 
-  const spec = useMemo((): any => {
+  const spec = useMemo<ISpec>(() => {
     const colors = data.map((d, i) => d.color || SERIES_COLORS[i % SERIES_COLORS.length])
 
     return {
@@ -45,7 +47,10 @@ export default function FunnelChart({ data, height = 260 }: FunnelChartProps) {
         label: {
           visible: true,
           style: { fill: tokens.text3, fontSize: 9 },
-          formatMethod: (v: any) => v != null ? `${Math.round(Number(v) * 100)}%` : '',
+          formatMethod: (value: unknown) => {
+            const ratio = numberValue(value, Number.NaN)
+            return Number.isFinite(ratio) ? `${Math.round(ratio * 100)}%` : ''
+          },
         },
       },
       legends: { visible: false },
@@ -53,8 +58,8 @@ export default function FunnelChart({ data, height = 260 }: FunnelChartProps) {
         mark: {
           content: [
             {
-              key: (datum: any) => datum?.label || '',
-              value: (datum: any) => fmtCompact(datum?.value || 0),
+              key: (datum: unknown) => datumString(datum, 'label'),
+              value: (datum: unknown) => fmtCompact(datumNumber(datum, 'value')),
             },
           ],
         },

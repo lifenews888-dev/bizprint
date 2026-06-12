@@ -15,19 +15,59 @@ const STATUS_CFG: Record<string, { label: string; color: string }> = {
   cancelled:           { label: 'Цуцалсан',          color: '#EF4444' },
 }
 
+interface CampaignSummary {
+  total?: number
+  byStatus?: Record<string, number>
+  active?: number
+  totalValue?: number | string
+}
+
+interface CampaignOrder {
+  id: string
+  product_name?: string
+  quantity?: number | string
+  unit_price?: number | string
+  total_price?: number | string
+}
+
+interface Campaign {
+  id: string
+  code?: string
+  customer_company?: string
+  customer_contact_name?: string
+  customer_contact_email?: string
+  customer_contact_phone?: string
+  title?: string
+  description?: string
+  recipient_count?: number | string
+  total_amount?: number | string
+  estimated_budget?: number | string
+  status: string
+  created_at: string
+  start_date?: string
+  deadline?: string
+  admin_notes?: string
+  orders?: CampaignOrder[]
+}
+
+interface QuoteLine {
+  unit: number
+  total: number
+}
+
 export default function AdminCampaignsPage() {
-  const [campaigns, setCampaigns] = useState<any[]>([])
-  const [summary, setSummary] = useState<any>(null)
+  const [campaigns, setCampaigns] = useState<Campaign[]>([])
+  const [summary, setSummary] = useState<CampaignSummary | null>(null)
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<string>('')
-  const [detail, setDetail] = useState<any>(null)
-  const [quoteForm, setQuoteForm] = useState<{ totalAmount: number; notes: string; lines: Record<string, { unit: number; total: number }> }>({ totalAmount: 0, notes: '', lines: {} })
+  const [detail, setDetail] = useState<Campaign | null>(null)
+  const [quoteForm, setQuoteForm] = useState<{ totalAmount: number; notes: string; lines: Record<string, QuoteLine> }>({ totalAmount: 0, notes: '', lines: {} })
   const [busy, setBusy] = useState(false)
 
   const load = useCallback(() => {
     Promise.all([
-      apiFetch<any[]>('/campaigns' + (filter ? `?status=${filter}` : '')),
-      apiFetch<any>('/campaigns/summary').catch(() => null),
+      apiFetch<Campaign[]>('/campaigns' + (filter ? `?status=${filter}` : '')),
+      apiFetch<CampaignSummary | null>('/campaigns/summary').catch(() => null),
     ]).then(([list, sum]) => {
       setCampaigns(Array.isArray(list) ? list : [])
       setSummary(sum)
@@ -37,11 +77,11 @@ export default function AdminCampaignsPage() {
 
   useEffect(() => { load() }, [load])
 
-  const openDetail = async (c: any) => {
-    const full = await apiFetch<any>(`/campaigns/${c.id}`).catch(() => c)
+  const openDetail = async (c: Campaign) => {
+    const full = await apiFetch<Campaign>(`/campaigns/${c.id}`).catch(() => c)
     setDetail(full)
     // Pre-fill quote form
-    const lines: Record<string, any> = {}
+    const lines: Record<string, QuoteLine> = {}
     let tot = 0
     for (const o of full.orders || []) {
       lines[o.id] = { unit: Number(o.unit_price) || 0, total: Number(o.total_price) || 0 }
@@ -118,7 +158,7 @@ export default function AdminCampaignsPage() {
                   <td style={{ padding: '10px 12px', textAlign: 'right' }}>{Number(c.recipient_count || 0).toLocaleString()}</td>
                   <td style={{ padding: '10px 12px', textAlign: 'right' }}>{c.orders?.length || 0}</td>
                   <td style={{ padding: '10px 12px', textAlign: 'right', color: '#FF6B00', fontWeight: 600 }}>
-                    {c.total_amount > 0 ? `₮${Number(c.total_amount).toLocaleString()}` : '—'}
+                    {Number(c.total_amount || 0) > 0 ? `₮${Number(c.total_amount).toLocaleString()}` : '—'}
                   </td>
                   <td style={{ padding: '10px 12px' }}>
                     <span style={{ background: cfg.color + '22', color: cfg.color, padding: '3px 10px', borderRadius: 99, fontSize: 11, fontWeight: 600 }}>{cfg.label}</span>
@@ -161,7 +201,7 @@ export default function AdminCampaignsPage() {
             <div style={{ marginBottom: 16 }}>
               <h3 style={{ fontSize: 14, fontWeight: 700, marginBottom: 10 }}>Бүтээгдэхүүн ба үнэ</h3>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                {(detail.orders || []).map((o: any) => (
+                {(detail.orders || []).map((o) => (
                   <div key={o.id} style={{ display: 'grid', gridTemplateColumns: '1.5fr 80px 100px 110px', gap: 8, padding: '8px 10px', background: 'var(--surface2)', borderRadius: 6, alignItems: 'center', fontSize: 12 }}>
                     <span>{o.product_name}</span>
                     <span style={{ textAlign: 'right' }}>{Number(o.quantity).toLocaleString()}</span>
@@ -172,7 +212,7 @@ export default function AdminCampaignsPage() {
                         ...prev,
                         lines: { ...prev.lines, [o.id]: { unit, total } },
                         totalAmount: Object.entries({ ...prev.lines, [o.id]: { unit, total } })
-                          .reduce((s, [, v]) => s + (v as { unit: number; total: number }).total, 0),
+                          .reduce((s, [, v]) => s + v.total, 0),
                       }))
                     }} placeholder="Нэгж үнэ" style={{ padding: '5px 8px', border: '1px solid var(--border)', borderRadius: 4, fontSize: 12, background: 'var(--surface)', color: 'var(--text)' }} />
                     <span style={{ textAlign: 'right', fontWeight: 600, color: '#FF6B00' }}>₮{Number(quoteForm.lines[o.id]?.total || 0).toLocaleString()}</span>
@@ -210,7 +250,7 @@ export default function AdminCampaignsPage() {
   )
 }
 
-function Kpi({ label, value, color }: { label: string; value: any; color: string }) {
+function Kpi({ label, value, color }: { label: string; value: React.ReactNode; color: string }) {
   return (
     <div style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderLeft: `4px solid ${color}`, borderRadius: 10, padding: 12 }}>
       <div style={{ fontSize: 11, color: 'var(--text3)' }}>{label}</div>
@@ -228,7 +268,7 @@ function FilterBtn({ active, color, children, onClick }: { active: boolean; colo
   )
 }
 
-function Info({ label, value }: { label: string; value: any }) {
+function Info({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div>
       <span style={{ color: 'var(--text3)' }}>{label}: </span>

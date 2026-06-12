@@ -18,34 +18,53 @@ const STATUS_CLR: Record<string, { label: string; color: string }> = {
   offline: { label: 'Офлайн', color: '#888' },
 }
 
+type MachineStatus = keyof typeof STATUS_CLR | string
+
+type MachineForm = {
+  name: string
+  type: string
+  speed_per_hour: number
+  sheet_width_mm: number
+  sheet_height_mm: number
+  hour_rate: number
+  factory_id: string
+  status: MachineStatus
+}
+
+type Machine = MachineForm & {
+  id: number
+}
+
+const EMPTY_FORM: MachineForm = { name: '', type: '', speed_per_hour: 0, sheet_width_mm: 0, sheet_height_mm: 0, hour_rate: 0, factory_id: '', status: 'available' }
+
 export default function AdminMachinesPage() {
-  const [items, setItems] = useState<any[]>([])
+  const [items, setItems] = useState<Machine[]>([])
   const [loading, setLoading] = useState(true)
   const [open, setOpen] = useState(false)
-  const [editing, setEditing] = useState<any>(null)
-  const [form, setForm] = useState({ name: '', type: '', speed_per_hour: 0, sheet_width_mm: 0, sheet_height_mm: 0, hour_rate: 0, factory_id: '', status: 'available' })
+  const [editing, setEditing] = useState<Machine | null>(null)
+  const [form, setForm] = useState<MachineForm>(EMPTY_FORM)
 
-  const load = () => { apiFetch<any>('/machines').then(d => setItems(Array.isArray(d) ? d : [])).catch(() => {}).finally(() => setLoading(false)) }
+  const load = () => { apiFetch<Machine[]>('/machines').then(d => setItems(Array.isArray(d) ? d : [])).catch(() => {}).finally(() => setLoading(false)) }
   useEffect(load, [])
 
-  const reset = () => { setEditing(null); setOpen(false); setForm({ name: '', type: '', speed_per_hour: 0, sheet_width_mm: 0, sheet_height_mm: 0, hour_rate: 0, factory_id: '', status: 'available' }) }
+  const reset = () => { setEditing(null); setOpen(false); setForm(EMPTY_FORM) }
 
   const save = async () => {
     const method = editing?.id ? 'PATCH' : 'POST'
     const url = editing?.id ? `/machines/${editing.id}` : `/machines`
-    try { await apiFetch<any>(url, { method, body: form }); toast.success('Амжилттай'); reset(); load() }
+    try { await apiFetch<Machine>(url, { method, body: form }); toast.success('Амжилттай'); reset(); load() }
     catch { toast.error('Алдаа') }
   }
 
-  const del = async (id: number) => { if (!confirm('Устгах уу?')) return; await apiFetch<any>(`/machines/${id}`, { method: 'DELETE' }); toast.success('Устгагдлаа'); load() }
+  const del = async (id: number) => { if (!confirm('Устгах уу?')) return; await apiFetch<void>(`/machines/${id}`, { method: 'DELETE' }); toast.success('Устгагдлаа'); load() }
 
-  const edit = (m: any) => {
+  const edit = (m: Machine) => {
     setEditing(m)
     setForm({ name: m.name || '', type: m.type || '', speed_per_hour: m.speed_per_hour || 0, sheet_width_mm: m.sheet_width_mm || 0, sheet_height_mm: m.sheet_height_mm || 0, hour_rate: m.hour_rate || 0, factory_id: m.factory_id || '', status: m.status || 'available' })
     setOpen(true)
   }
 
-  const columns: Column<any>[] = [
+  const columns: Column<Machine>[] = [
     { key: 'name', label: 'Нэр', render: row => <span className="font-medium text-foreground">{row.name || '—'}</span> },
     { key: 'type', label: 'Төрөл', render: row => row.type ? <Badge variant="secondary" className="text-[10px]">{row.type}</Badge> : <span className="text-muted-foreground">—</span> },
     { key: 'speed', label: 'Хурд', render: row => <span className="text-muted-foreground">{row.speed_per_hour ? `${row.speed_per_hour} хуудас/цаг` : '—'}</span> },

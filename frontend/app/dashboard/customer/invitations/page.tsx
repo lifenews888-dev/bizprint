@@ -20,8 +20,78 @@ const STATUS_MAP: Record<string, { text: string; color: string; bg: string }> = 
   cancelled: { text: 'Цуцалсан', color: '#6B7280', bg: '#F3F4F6' },
 }
 
+interface InvitationItem {
+  id: string
+  title: string
+  type: string
+  status: string
+  cover_image_url?: string
+  accent_color?: string
+  event_date?: string
+  event_time?: string
+  view_count?: number
+  rsvp_count?: number
+  rsvp_enabled?: boolean
+}
+
+interface UsageMetric {
+  percentage: number
+  status?: string
+  current: number
+  effective_max: number
+  addon_bonus?: number
+}
+
+interface SubscriptionUsage {
+  invitations?: UsageMetric
+}
+
+interface SuggestedPlan {
+  id: string
+  name: string
+  price_monthly: number | string
+  [key: string]: number | string | undefined
+}
+
+interface SubscriptionSuggestions {
+  suggested_plan?: SuggestedPlan
+}
+
+interface SubscriptionAddon {
+  id: string
+  name: string
+  feature_key: string
+  bonus_amount: number | string
+  price: number | string
+}
+
+interface UploadResponse {
+  file_url?: string
+}
+
+interface InvitationPayload {
+  [key: string]: unknown
+  title: string
+  type: string
+  event_date: string
+  event_time: string
+  venue_name: string
+  venue_address: string
+  rsvp_enabled: boolean
+  max_guests: number
+  description: string
+  cover_image_url?: string
+  video_urls?: string[]
+}
+
+interface LimitErrorPayload {
+  code?: string
+  current?: number
+  max?: number
+}
+
 export default function InvitationsDashboard() {
-  const [invitations, setInvitations] = useState<any[]>([])
+  const [invitations, setInvitations] = useState<InvitationItem[]>([])
   const [loading, setLoading] = useState(true)
   const [showCreate, setShowCreate] = useState(false)
   const [form, setForm] = useState({ title: '', type: 'wedding', event_date: '', event_time: '', venue_name: '', venue_address: '', rsvp_enabled: true, max_guests: 0, description: '' })
@@ -30,21 +100,24 @@ export default function InvitationsDashboard() {
   const [videoFile, setVideoFile] = useState<File | null>(null)
   const [videoName, setVideoName] = useState('')
   const [uploading, setUploading] = useState(false)
-  const [usage, setUsage] = useState<any>(null)
+  const [usage, setUsage] = useState<SubscriptionUsage | null>(null)
   const [upgradeModal, setUpgradeModal] = useState<{ open: boolean; current?: number; max?: number }>({ open: false })
-  const [suggestedPlan, setSuggestedPlan] = useState<any>(null)
-  const [addons, setAddons] = useState<any[]>([])
+  const [suggestedPlan, setSuggestedPlan] = useState<SuggestedPlan | null>(null)
+  const [addons, setAddons] = useState<SubscriptionAddon[]>([])
 
   useEffect(() => {
     const token = localStorage.getItem('access_token') || localStorage.getItem('token')
-    if (!token) { setLoading(false); return }
+    if (!token) {
+      const timer = window.setTimeout(() => setLoading(false), 0)
+      return () => window.clearTimeout(timer)
+    }
     const headers = { Authorization: `Bearer ${token}` }
-    const safeFetch = (path: string) => fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}${path}`, { headers }).then(r => r.ok ? r.json() : null).catch(() => null)
+    const safeFetch = <T,>(path: string): Promise<T | null> => fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}${path}`, { headers }).then(r => r.ok ? r.json() : null).catch(() => null)
     Promise.all([
-      safeFetch('/invitations/my'),
-      safeFetch('/subscription/usage'),
-      safeFetch('/subscription/suggestions'),
-      safeFetch('/subscription/addons'),
+      safeFetch<InvitationItem[]>('/invitations/my'),
+      safeFetch<SubscriptionUsage>('/subscription/usage'),
+      safeFetch<SubscriptionSuggestions>('/subscription/suggestions'),
+      safeFetch<SubscriptionAddon[]>('/subscription/addons'),
     ]).then(([inv, u, sug, a]) => {
       setInvitations(Array.isArray(inv) ? inv : [])
       setUsage(u)
@@ -62,7 +135,7 @@ export default function InvitationsDashboard() {
     const fd = new FormData()
     fd.append('file', file)
     try {
-      const res = await apiFetch<any>('/upload/file', { method: 'POST', body: fd })
+      const res = await apiFetch<UploadResponse>('/upload/file', { method: 'POST', body: fd })
       return res?.file_url ? `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}${res.file_url}` : null
     } catch { return null }
   }
@@ -71,7 +144,7 @@ export default function InvitationsDashboard() {
     if (!form.title) return
     setUploading(true)
     try {
-      const body: any = { ...form }
+      const body: InvitationPayload = { ...form }
       // Upload cover image
       if (coverFile) {
         const url = await uploadFile(coverFile)
@@ -82,7 +155,7 @@ export default function InvitationsDashboard() {
         const url = await uploadFile(videoFile)
         if (url) body.video_urls = [url]
       }
-      const inv = await apiFetch('/invitations', { method: 'POST', body })
+      const inv = await apiFetch<InvitationItem>('/invitations', { method: 'POST', body })
       setInvitations([inv, ...invitations])
       setShowCreate(false)
       setForm({ title: '', type: 'wedding', event_date: '', event_time: '', venue_name: '', venue_address: '', rsvp_enabled: true, max_guests: 0, description: '' })
@@ -91,19 +164,20 @@ export default function InvitationsDashboard() {
       const token = localStorage.getItem('access_token') || localStorage.getItem('token')
       if (token) {
         fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'}/subscription/usage`, { headers: { Authorization: `Bearer ${token}` } })
-          .then(r => r.ok ? r.json() : null).then(u => u && setUsage(u)).catch(() => {})
+          .then(r => r.ok ? r.json() : null).then((u: SubscriptionUsage | null) => u && setUsage(u)).catch(() => {})
       }
-    } catch (err: any) {
-      let errData: any = null
-      try { errData = JSON.parse(err.message) } catch {}
-      if (errData?.code === 'SUBSCRIPTION_LIMIT_EXCEEDED' || err.message?.includes('хязгаар')) {
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : ''
+      let errData: LimitErrorPayload | null = null
+      try { errData = JSON.parse(message) as LimitErrorPayload } catch {}
+      if (errData?.code === 'SUBSCRIPTION_LIMIT_EXCEEDED' || message.includes('хязгаар')) {
         setUpgradeModal({
           open: true,
           current: errData?.current ?? invUsage?.current,
           max: errData?.max ?? invUsage?.effective_max,
         })
       } else {
-        alert(err.message || 'Алдаа гарлаа')
+        alert(message || 'Алдаа гарлаа')
       }
     } finally { setUploading(false) }
   }
@@ -147,7 +221,7 @@ export default function InvitationsDashboard() {
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4 }}>
               <span style={{ fontSize: 11, color: '#9CA3AF' }}>{invUsage.percentage}% ашиглагдсан</span>
-              {invUsage.addon_bonus > 0 && (
+              {(invUsage.addon_bonus ?? 0) > 0 && (
                 <span style={{ fontSize: 10, color: '#10B981', fontWeight: 600 }}>+{invUsage.addon_bonus} нэмэлт</span>
               )}
             </div>
@@ -279,7 +353,7 @@ export default function InvitationsDashboard() {
         </div>
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 16 }}>
-          {invitations.map((inv: any) => {
+          {invitations.map((inv) => {
             const st = STATUS_MAP[inv.status] || STATUS_MAP.draft
             return (
               <div key={inv.id} style={{ background: 'var(--surface, #fff)', borderRadius: 16, padding: 20, border: '1px solid var(--border, #E5E7EB)', cursor: 'pointer', transition: 'box-shadow 0.2s' }}
@@ -315,7 +389,10 @@ export default function InvitationsDashboard() {
                       try {
                         await apiFetch(`/invitations/${inv.id}/publish`, { method: 'POST' })
                         window.location.reload()
-                      } catch (err: any) { alert(err.message || 'Огноо, гарчиг шаардлагатай') }
+                      } catch (err: unknown) {
+                        const message = err instanceof Error ? err.message : ''
+                        alert(message || 'Огноо, гарчиг шаардлагатай')
+                      }
                     }} style={{ padding: '4px 14px', background: '#10B981', color: '#fff', border: 'none', borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}>
                       Нийтлэх
                     </button>
@@ -334,7 +411,7 @@ export default function InvitationsDashboard() {
         featureKey="invitations"
         current={upgradeModal.current}
         max={upgradeModal.max}
-        suggestedPlan={suggestedPlan}
+        suggestedPlan={suggestedPlan ?? undefined}
         addons={addons}
       />
     </div>

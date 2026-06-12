@@ -44,6 +44,23 @@ type WideMaterialRate = {
   side: number
 }
 
+type WideServerResponse = {
+  total_price?: unknown
+  unit_price?: unknown
+  material_cost?: unknown
+  print_cost?: unknown
+  finishing_cost?: unknown
+  setup_cost?: unknown
+  vat?: unknown
+  material_name?: unknown
+  area_m2?: unknown
+  billable_area_m2?: unknown
+  waste_pct?: unknown
+  material_rate_m2?: unknown
+  print_rate_m2?: unknown
+  side_multiplier?: unknown
+}
+
 export const MAX_WIDE_DIMENSION_MM = 1_000_000
 export const MAX_WIDE_QUANTITY = 1_000_000
 
@@ -180,7 +197,7 @@ export function calcWideFallbackPrice(input: {
   }
 }
 
-function toWideServerResult(input: WideServerPricingInput, response: any): WidePricingResult {
+function toWideServerResult(input: WideServerPricingInput, response: WideServerResponse): WidePricingResult {
   const total = clampMoney(response.total_price)
   if (!total) throw new Error('Wide pricing response has invalid total_price')
 
@@ -201,7 +218,7 @@ function toWideServerResult(input: WideServerPricingInput, response: any): WideP
       vat: clampMoney(response.vat),
     },
     meta: {
-      materialName: response.material_name || input.materialName,
+      materialName: typeof response.material_name === 'string' ? response.material_name : input.materialName,
       areaM2: clampMoney(response.area_m2) || (input.widthMm / 1000) * (input.heightMm / 1000),
       billableAreaM2: clampMoney(response.billable_area_m2),
       wastePct: clampMoney(response.waste_pct),

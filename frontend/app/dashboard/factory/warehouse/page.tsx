@@ -39,9 +39,9 @@ export default function WarehousePage() {
     setLoading(true);
     try {
       const [p, s, l] = await Promise.all([
-        apiFetch<any>('/materials/paper').catch(() => []),
-        apiFetch<any>('/warehouse/summary').catch(() => ({})),
-        apiFetch<any>('/warehouse/low-stock').catch(() => []),
+        apiFetch<PaperStock[]>('/materials/paper').catch(() => []),
+        apiFetch<WarehouseSummary | null>('/warehouse/summary').catch(() => null),
+        apiFetch<PaperStock[]>('/warehouse/low-stock').catch(() => []),
       ]);
       setPapers(Array.isArray(p) ? p : []);
       setSummary(s);

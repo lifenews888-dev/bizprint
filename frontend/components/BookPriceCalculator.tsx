@@ -11,9 +11,36 @@ import {
 
 const fmt = (n: number) => '₮' + Math.round(n).toLocaleString('mn-MN')
 
+interface PaperType {
+  sort_order?: number
+  name_mn?: string
+  name?: string
+  gsm: number | string
+  price_per_sheet: number | string
+}
+
+interface BookPriceBreakdown {
+  total: number
+  total_price: number
+  unit_price: number
+  quantity: number
+  subtotal_excl_vat: number
+  vat: number
+  vat_rate: number
+  vat_included: boolean
+  pages: number
+  totalPages: number
+  size: string
+  formula_used: string
+  notes: string[]
+  is_estimate: boolean
+}
+
+type BooleanCalcKey = Extract<keyof CalcInput, 'hasCover' | 'folding' | 'uvCoating' | 'dieCutting' | 'embossing'>
+
 interface Props {
-  product: any
-  onPriceChange?: (total: number, breakdown: any) => void
+  product: unknown
+  onPriceChange?: (total: number, breakdown: BookPriceBreakdown) => void
   isAdminView?: boolean
 }
 
@@ -22,7 +49,7 @@ export default function BookPriceCalculator({ product, onPriceChange, isAdminVie
 
   // DB-ээс цаасны төрлүүд татах (байвал hardcoded-г орлуулна)
   useEffect(() => {
-    apiFetch<any[]>('/paper-types/active', { auth: false })
+    apiFetch<PaperType[]>('/paper-types/active', { auth: false })
       .then(data => {
         if (Array.isArray(data) && data.length > 0) {
           const paperPrices = data
@@ -57,23 +84,24 @@ export default function BookPriceCalculator({ product, onPriceChange, isAdminVie
     coverColorMode: 'color',
   })
 
-  const set = (k: keyof CalcInput, v: any) => setInput(prev => ({ ...prev, [k]: v }))
+  const set = <K extends keyof CalcInput>(k: K, v: CalcInput[K]) => setInput(prev => ({ ...prev, [k]: v }))
 
   // Custom хэмжээг A3 (420×297мм) талбайтай харьцуулан sizeMultiplier тооцоолох
-  const effectiveInput = useMemo(() => {
-    if (!isCustomSize) return input
+  const calculation = useMemo<{ input: CalcInput; constants: PricingConstants }>(() => {
+    if (!isCustomSize) return { input, constants }
     const customAreaMm2 = customW * customH
     const a3AreaMm2 = 420 * 297
     const customMultiplier = Math.max(0.25, Math.round((customAreaMm2 / a3AreaMm2) * 100) / 100)
-    const customConstants = {
+    const customConstants: PricingConstants = {
       ...constants,
       sizeMultiplier: { ...constants.sizeMultiplier, __CUSTOM__: customMultiplier },
       pagesPerSignature: { ...constants.pagesPerSignature, __CUSTOM__: 2 },
     }
-    return { ...input, paperSize: '__CUSTOM__' as any, _customConstants: customConstants }
+    return { input: { ...input, paperSize: '__CUSTOM__' }, constants: customConstants }
   }, [input, isCustomSize, customW, customH, constants])
 
-  const activeConstants = (effectiveInput as any)._customConstants || constants
+  const effectiveInput = calculation.input
+  const activeConstants = calculation.constants
   const result = useMemo(() => calculate(effectiveInput, activeConstants), [effectiveInput, activeConstants])
   const total = result.total
   const unitPrice = result.unitPrice
@@ -216,7 +244,7 @@ export default function BookPriceCalculator({ product, onPriceChange, isAdminVie
             <div className="grid grid-cols-2 gap-2 mb-2">
               <div>
                 <div className="text-[10px] text-[var(--text3)] mb-1 font-semibold">Өнгө</div>
-                <select value={input.colorMode} onChange={e => set('colorMode', e.target.value)}
+                <select value={input.colorMode} onChange={e => set('colorMode', e.target.value as CalcInput['colorMode'])}
                   className="w-full h-9 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 text-xs font-bold text-[var(--text)] outline-none focus:border-[#FF6B00] cursor-pointer">
                   <option value="color">Өнгөт (4+4)</option>
                   <option value="bw">Хар цагаан</option>
@@ -241,9 +269,10 @@ export default function BookPriceCalculator({ product, onPriceChange, isAdminVie
                 { key: 'dieCutting', label: 'Тигел', offset: true },
                 { key: 'embossing', label: 'Эмбосс', offset: true },
               ].filter(o => !o.offset || result.method === 'offset').map(opt => {
-                const val = (input as any)[opt.key]
+                const key = opt.key as BooleanCalcKey
+                const val = input[key]
                 return (
-                  <button key={opt.key} onClick={() => set(opt.key as any, !val)}
+                  <button key={key} onClick={() => set(key, !val)}
                     className={`px-2.5 py-1.5 rounded-md text-[10px] font-semibold border cursor-pointer transition-all ${
                       val ? 'border-[#FF6B00]/40 bg-[#FF6B00]/5 text-[#FF6B00]' : 'border-[var(--border)] text-[var(--text3)]'
                     }`}>
@@ -265,7 +294,7 @@ export default function BookPriceCalculator({ product, onPriceChange, isAdminVie
                 </div>
                 <div>
                   <div className="text-[10px] text-[var(--text3)] mb-1 font-semibold">Хавтас өнгө</div>
-                  <select value={input.coverColorMode} onChange={e => set('coverColorMode', e.target.value)}
+                  <select value={input.coverColorMode} onChange={e => set('coverColorMode', e.target.value as CalcInput['coverColorMode'])}
                     className="w-full h-8 rounded border border-[var(--border)] bg-[var(--surface)] px-2 text-[11px] font-bold text-[var(--text)] outline-none cursor-pointer">
                     <option value="color">Өнгөт</option><option value="bw">Хар цагаан</option>
                   </select>

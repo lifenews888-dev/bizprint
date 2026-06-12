@@ -21,6 +21,7 @@ interface Order {
 }
 
 interface User { id: string; email: string; full_name: string; role: string }
+interface UploadResponse { url?: string; file_url?: string; filename?: string }
 
 const ST_MN: Record<string, string> = {
   pending: '\u0425\u04af\u043b\u044d\u044d\u0433\u0434\u044d\u0436 \u0431\u0430\u0439\u043d\u0430',
@@ -68,8 +69,8 @@ export default function DesignerDashboard() {
   async function fetchOrders() {
     setLoading(true)
     try {
-      const r = await apiFetch<any>('/admin/orders')
-      setOrders(r)
+      const r = await apiFetch<Order[]>('/admin/orders')
+      setOrders(Array.isArray(r) ? r : [])
     } catch {}
     setLoading(false)
   }
@@ -81,7 +82,7 @@ export default function DesignerDashboard() {
 
   async function updateStatus(order: Order, status: string) {
     try {
-      await apiFetch<any>('/orders/' + order.id, {
+      await apiFetch<void>('/orders/' + order.id, {
         method: 'PATCH',
         body: { status },
       })
@@ -97,10 +98,10 @@ export default function DesignerDashboard() {
     try {
       const fd = new FormData()
       fd.append('file', file)
-      const uploadData = await apiFetch<any>('/upload/file', { method: 'POST', body: fd })
+      const uploadData = await apiFetch<UploadResponse>('/upload/file', { method: 'POST', body: fd })
       if (!uploadData) throw new Error()
       const url = uploadData.url || uploadData.file_url || uploadData.filename
-      await apiFetch<any>('/orders/' + order.id, {
+      await apiFetch<void>('/orders/' + order.id, {
         method: 'PATCH',
         body: { file_url: url },
       })

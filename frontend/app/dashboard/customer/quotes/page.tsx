@@ -16,9 +16,30 @@ const STATUS_MAP: Record<string, { label: string; color: string; bg: string }> =
 
 type Tab = 'all' | 'sent' | 'confirmed' | 'ordered' | 'expired'
 
+interface QuoteItem {
+  name?: string
+  description?: string
+  price?: number | string
+  total?: number | string
+}
+
+interface CustomerQuote {
+  id: string
+  status?: string
+  product_name?: string
+  quote_number?: string
+  total_price?: number | string
+  quantity?: number | string
+  dimensions?: string
+  created_at?: string
+  expires_at?: string
+  unit_price?: number | string
+  items?: QuoteItem[]
+}
+
 export default function MyQuotesPage() {
   const router = useRouter()
-  const [quotes, setQuotes] = useState<any[]>([])
+  const [quotes, setQuotes] = useState<CustomerQuote[]>([])
   const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState<Tab>('all')
   const [converting, setConverting] = useState<string | null>(null)
@@ -27,7 +48,7 @@ export default function MyQuotesPage() {
     const token = getToken()
     if (!token) { router.push('/login'); return }
 
-    apiFetch<any>('/quote/my')
+    apiFetch<CustomerQuote[]>('/quote/my')
       .then(d => setQuotes(Array.isArray(d) ? d : []))
       .catch(() => {})
       .finally(() => setLoading(false))
@@ -47,7 +68,7 @@ export default function MyQuotesPage() {
   }
 
   const fmt = (n: number) => '₮' + new Intl.NumberFormat('mn-MN').format(Math.round(n))
-  const fmtDate = (d: string) => d ? new Date(d).toLocaleDateString('mn-MN') : ''
+  const fmtDate = (d?: string) => d ? new Date(d).toLocaleDateString('mn-MN') : ''
 
   async function convertToOrder(quoteId: string) {
     setConverting(quoteId)
@@ -125,14 +146,16 @@ export default function MyQuotesPage() {
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
           {filtered.map(q => {
-            const st = STATUS_MAP[q.status] || { label: q.status, color: '#6B7280', bg: '#F3F4F6' }
+            const quoteStatus = q.status || 'draft'
+            const st = STATUS_MAP[quoteStatus] || { label: quoteStatus, color: '#6B7280', bg: '#F3F4F6' }
             const isExpired = q.expires_at && new Date(q.expires_at) < new Date()
             const isConverting = converting === q.id
+            const quoteItems = q.items ?? []
 
             return (
               <div key={q.id} style={{
                 background: 'var(--surface)', borderRadius: 14,
-                border: `1px solid ${q.status === 'sent' ? `${O}40` : 'var(--border)'}`,
+                border: `1px solid ${quoteStatus === 'sent' ? `${O}40` : 'var(--border)'}`,
                 padding: '20px 22px', transition: 'box-shadow 0.15s',
               }}>
                 {/* Header row */}
@@ -163,10 +186,10 @@ export default function MyQuotesPage() {
                 </div>
 
                 {/* Line items if available */}
-                {q.items && q.items.length > 0 && (
+                {quoteItems.length > 0 && (
                   <div style={{ background: 'var(--surface2, rgba(0,0,0,0.02))', borderRadius: 10, padding: '10px 14px', marginBottom: 14, fontSize: 13 }}>
-                    {q.items.map((item: any, i: number) => (
-                      <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: i < q.items.length - 1 ? '1px solid var(--border)' : 'none' }}>
+                    {quoteItems.map((item, i) => (
+                      <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: i < quoteItems.length - 1 ? '1px solid var(--border)' : 'none' }}>
                         <span>{item.name || item.description}</span>
                         <span style={{ fontWeight: 600 }}>{fmt(Number(item.price || item.total) || 0)}</span>
                       </div>
@@ -186,7 +209,7 @@ export default function MyQuotesPage() {
                     📄 PDF татах
                   </a>
 
-                  {q.status === 'sent' && !isExpired && (
+                  {quoteStatus === 'sent' && !isExpired && (
                     <button onClick={() => convertToOrder(q.id)} disabled={isConverting}
                       style={{
                         background: O, color: '#fff', border: 'none', borderRadius: 8,
@@ -197,7 +220,7 @@ export default function MyQuotesPage() {
                     </button>
                   )}
 
-                  {q.status === 'confirmed' && (
+                  {quoteStatus === 'confirmed' && (
                     <button onClick={() => convertToOrder(q.id)} disabled={isConverting}
                       style={{
                         background: '#059669', color: '#fff', border: 'none', borderRadius: 8,
@@ -208,7 +231,7 @@ export default function MyQuotesPage() {
                     </button>
                   )}
 
-                  {q.status === 'ordered' && (
+                  {quoteStatus === 'ordered' && (
                     <button onClick={() => router.push('/dashboard/customer/orders')}
                       style={{
                         background: '#DBEAFE', color: '#2563EB', border: 'none', borderRadius: 8,

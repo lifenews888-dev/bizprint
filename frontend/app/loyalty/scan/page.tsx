@@ -1,10 +1,34 @@
 'use client'
-import { useState, useEffect, Suspense } from 'react'
+import { useState, useEffect, Suspense, useCallback } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { apiFetch, getToken } from '@/lib/api'
 
 const FONT = "'DM Sans','Segoe UI',system-ui,sans-serif"
 const ORANGE = '#FF6B00'
+
+interface ScanCard {
+  current_stamps?: number
+  rewards?: number
+  program?: {
+    required_stamps?: number
+  }
+}
+
+interface ScanResult {
+  rewardEarned?: boolean
+  message?: string
+  card?: ScanCard
+}
+
+function getErrorMessage(error: unknown) {
+  if (!(error instanceof Error)) return ''
+  try {
+    const parsed = JSON.parse(error.message) as { message?: string }
+    return parsed.message || error.message
+  } catch {
+    return error.message
+  }
+}
 
 export default function ScanPage() {
   return (
@@ -18,49 +42,65 @@ function ScanContent() {
   const searchParams = useSearchParams()
   const token = searchParams.get('token')
   const [status, setStatus] = useState<'loading' | 'login' | 'success' | 'error'>('loading')
-  const [result, setResult] = useState<any>(null)
+  const [result, setResult] = useState<ScanResult | null>(null)
   const [error, setError] = useState('')
 
-  useEffect(() => {
-    if (!token) { setStatus('error'); setError('QR код буруу байна'); return }
-
-    const jwt = getToken()
-    if (!jwt) {
-      // Save token and redirect to login
-      sessionStorage.setItem('loyalty_scan_token', token)
-      setStatus('login')
-      return
-    }
-
-    // Submit scan
-    scanToken(token)
-  }, [token])
-
-  const scanToken = async (t: string) => {
+  const scanToken = useCallback(async (t: string) => {
     setStatus('loading')
     try {
-      const res: any = await apiFetch('/loyalty/scan-session', {
+      const res = await apiFetch<ScanResult>('/loyalty/scan-session', {
         method: 'POST',
         body: { token: t },
       })
       setResult(res)
       setStatus('success')
-    } catch (e: any) {
-      let msg: string
-      try { msg = JSON.parse(e.message)?.message } catch { msg = e.message }
-      setError(msg || 'Алдаа гарлаа')
+    } catch (e: unknown) {
+      setError(getErrorMessage(e) || 'Алдаа гарлаа')
       setStatus('error')
     }
-  }
+  }, [])
+
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout> | undefined
+    if (!token) {
+      timer = setTimeout(() => {
+        setStatus('error')
+        setError('QR код буруу байна')
+      }, 0)
+      return () => {
+        if (timer) clearTimeout(timer)
+      }
+    }
+
+    const jwt = getToken()
+    if (!jwt) {
+      // Save token and redirect to login
+      sessionStorage.setItem('loyalty_scan_token', token)
+      timer = setTimeout(() => setStatus('login'), 0)
+      return () => {
+        if (timer) clearTimeout(timer)
+      }
+    }
+
+    // Submit scan
+    timer = setTimeout(() => { scanToken(token) }, 0)
+    return () => {
+      if (timer) clearTimeout(timer)
+    }
+  }, [token, scanToken])
 
   // After login redirect, check for saved token
   useEffect(() => {
     const saved = sessionStorage.getItem('loyalty_scan_token')
+    let timer: ReturnType<typeof setTimeout> | undefined
     if (saved && getToken() && !token) {
       sessionStorage.removeItem('loyalty_scan_token')
-      scanToken(saved)
+      timer = setTimeout(() => { scanToken(saved) }, 0)
     }
-  }, [])
+    return () => {
+      if (timer) clearTimeout(timer)
+    }
+  }, [scanToken, token])
 
   return (
     <div style={{ minHeight: '100vh', background: '#FAFAFA', fontFamily: FONT, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
@@ -108,28 +148,34 @@ function ScanContent() {
             <p style={{ fontSize: 15, color: '#374151', margin: '0 0 20px' }}>{result.message}</p>
 
             {/* Stamp progress */}
-            {result.card && (
+            {result.card && (() => {
+              const card = result.card
+              const currentStamps = card.current_stamps || 0
+              const requiredStamps = card.program?.required_stamps || 10
+              const rewards = card.rewards || 0
+              return (
               <div style={{ background: '#F9FAFB', borderRadius: 16, padding: 20, marginBottom: 20 }}>
                 <div style={{ display: 'flex', gap: 6, justifyContent: 'center', flexWrap: 'wrap', marginBottom: 12 }}>
-                  {Array.from({ length: result.card.program?.required_stamps || 10 }).map((_, i) => (
+                  {Array.from({ length: requiredStamps }).map((_, i) => (
                     <div key={i} style={{
                       width: 28, height: 28, borderRadius: '50%',
-                      background: i < result.card.current_stamps ? ORANGE : '#E5E7EB',
-                      border: i < result.card.current_stamps ? `2px solid ${ORANGE}` : '2px dashed #D1D5DB',
+                      background: i < currentStamps ? ORANGE : '#E5E7EB',
+                      border: i < currentStamps ? `2px solid ${ORANGE}` : '2px dashed #D1D5DB',
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                     }}>
-                      {i < result.card.current_stamps && (
+                      {i < currentStamps && (
                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg>
                       )}
                     </div>
                   ))}
                 </div>
                 <div style={{ fontSize: 14, color: '#6B7280' }}>
-                  {result.card.current_stamps} / {result.card.program?.required_stamps || 10} тамга
-                  {result.card.rewards > 0 && <span style={{ color: '#10B981', fontWeight: 600 }}> &middot; {result.card.rewards} шагнал</span>}
+                  {currentStamps} / {requiredStamps} тамга
+                  {rewards > 0 && <span style={{ color: '#10B981', fontWeight: 600 }}> &middot; {rewards} шагнал</span>}
                 </div>
               </div>
-            )}
+              )
+            })()}
 
             <a href="/dashboard/customer/loyalty" style={{
               display: 'block', padding: '12px', background: '#F3F4F6', borderRadius: 10,

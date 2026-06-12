@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { apiFetch } from '@/lib/api';
 import Link from 'next/link';
 
@@ -15,6 +15,15 @@ const PRODUCTS = [
 
 const QTYS = [100, 250, 500, 1000, 2500];
 
+interface InstantQuoteResponse {
+  total_price?: number | string;
+  total?: number | string;
+  unit_price?: number | string;
+  unitPrice?: number | string;
+  lead_days?: number | string;
+  leadDays?: number | string;
+}
+
 export default function InstantQuoteWidget() {
   const [product, setProduct] = useState('vizit_kart');
   const [qty, setQty] = useState(500);
@@ -23,10 +32,10 @@ export default function InstantQuoteWidget() {
 
   const selected = PRODUCTS.find(p => p.value === product)!;
 
-  const calc = async () => {
+  const calc = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await apiFetch<any>('/quote/instant', {
+      const data = await apiFetch<InstantQuoteResponse>('/quote/instant', {
         method: 'POST',
         auth: false,
         body: { productType: product, widthMm: selected.w, heightMm: selected.h, quantity: qty, colorMode: 'CMYK', finishing: [] },
@@ -34,12 +43,15 @@ export default function InstantQuoteWidget() {
       const total = Number(data.total_price ?? data.total ?? 0);
       const unitPrice = Number(data.unit_price ?? data.unitPrice ?? (total / qty));
       const leadDays = Number(data.lead_days ?? data.leadDays ?? 3);
-      setResult({ ...data, total, unitPrice, leadDays });
+      setResult({ total, unitPrice, leadDays });
     } catch { setResult(null); }
     setLoading(false);
-  };
+  }, [product, qty, selected.h, selected.w]);
 
-  useEffect(() => { calc(); }, [product, qty]);
+  useEffect(() => {
+    const timeout = window.setTimeout(calc, 0);
+    return () => window.clearTimeout(timeout);
+  }, [calc]);
 
   return (
     <div className="rounded-2xl p-6 relative overflow-hidden" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>

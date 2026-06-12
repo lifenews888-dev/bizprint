@@ -22,14 +22,41 @@ const POSITIONS = [
   { value: 'bottom-center', label: 'Төв доод' },
   { value: 'bottom-right', label: 'Баруун доод' },
 ]
+type SlidePosition = typeof POSITIONS[number]['value']
+type CtaStyle = 'solid' | 'outline' | 'ghost' | string
 
-const EMPTY_FORM = {
+type HeroSlideForm = {
+  title: string
+  subtitle: string
+  image_url: string
+  video_url: string
+  overlay: string
+  cta_text: string
+  cta_url: string
+  cta_style: CtaStyle
+  cta2_text: string
+  cta2_url: string
+  position: SlidePosition
+  tag: string
+  is_active: boolean
+  start_at: string
+  end_at: string
+  sort_order?: number
+}
+
+type HeroSlide = HeroSlideForm & {
+  id: string
+}
+
+const errorMessage = (err: unknown, fallback = '') => err instanceof Error ? err.message : fallback
+
+const EMPTY_FORM: HeroSlideForm = {
   title: '', subtitle: '', image_url: '', video_url: '', overlay: 'rgba(0,0,0,0.3)',
   cta_text: '', cta_url: '', cta_style: 'solid', cta2_text: '', cta2_url: '',
   position: 'center', tag: '', is_active: true, start_at: '', end_at: '',
 }
 
-function SortableSlide({ slide, onEdit, onDelete, onToggle }: { slide: any; onEdit: () => void; onDelete: () => void; onToggle: () => void }) {
+function SortableSlide({ slide, onEdit, onDelete, onToggle }: { slide: HeroSlide; onEdit: () => void; onDelete: () => void; onToggle: () => void }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: slide.id })
   const style = { transform: CSS.Transform.toString(transform), transition }
 
@@ -86,10 +113,10 @@ function SortableSlide({ slide, onEdit, onDelete, onToggle }: { slide: any; onEd
 }
 
 export default function AdminHeroSlides() {
-  const [slides, setSlides] = useState<any[]>([])
+  const [slides, setSlides] = useState<HeroSlide[]>([])
   const [loading, setLoading] = useState(true)
   const [dialog, setDialog] = useState(false)
-  const [form, setForm] = useState<any>({ ...EMPTY_FORM })
+  const [form, setForm] = useState<HeroSlideForm>({ ...EMPTY_FORM })
   const [editingId, setEditingId] = useState<string | null>(null)
   const [uploading, setUploading] = useState(false)
   const imgInputRef = useRef<HTMLInputElement>(null)
@@ -99,7 +126,7 @@ export default function AdminHeroSlides() {
 
   const load = useCallback(async () => {
     try {
-      const data = await apiFetch<any[]>('/cms/hero-slides')
+      const data = await apiFetch<HeroSlide[]>('/cms/hero-slides')
       setSlides(Array.isArray(data) ? data : [])
     } catch {} finally { setLoading(false) }
   }, [])
@@ -108,7 +135,7 @@ export default function AdminHeroSlides() {
 
   const save = async () => {
     try {
-      const body = { ...form }
+      const body: Partial<HeroSlideForm> = { ...form }
       if (!body.start_at) delete body.start_at
       if (!body.end_at) delete body.end_at
       if (editingId) {
@@ -127,12 +154,12 @@ export default function AdminHeroSlides() {
     toast.success('Устгагдлаа'); load()
   }
 
-  const toggle = async (slide: any) => {
+  const toggle = async (slide: HeroSlide) => {
     await apiFetch(`/cms/hero-slides/${slide.id}`, { method: 'PATCH', body: { is_active: !slide.is_active } })
     toast.success(slide.is_active ? 'Идэвхгүй' : 'Идэвхтэй'); load()
   }
 
-  const edit = (slide: any) => {
+  const edit = (slide: HeroSlide) => {
     setEditingId(slide.id)
     setForm({
       title: slide.title || '', subtitle: slide.subtitle || '', image_url: slide.image_url || '',
@@ -156,12 +183,12 @@ export default function AdminHeroSlides() {
       fd.append('file', file)
       const data = await apiUpload<{ url?: string; error?: string }>('/upload/media', fd)
       if (data?.url) {
-        setForm((f: any) => ({ ...f, [field]: data.url }))
+        setForm(f => ({ ...f, [field]: data.url || '' }))
         toast.success(isVideo ? 'Видео амжилттай' : 'Зураг амжилттай')
       } else {
         toast.error('Upload алдаа: ' + (data?.error || 'URL буцаагдсангүй'))
       }
-    } catch (err: any) { toast.error('Upload алдаа: ' + (err?.message || '')) }
+    } catch (err: unknown) { toast.error('Upload алдаа: ' + errorMessage(err)) }
     setUploading(false)
   }
 

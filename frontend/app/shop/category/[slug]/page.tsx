@@ -11,9 +11,18 @@ const SLUG_LABELS: Record<string, string> = {
   'office': 'Оффисын хэвлэл', 'events': 'Арга хэмжээ',
 }
 
+interface ShopCategoryProduct {
+  id: string
+  slug?: string
+  name?: string
+  name_mn?: string
+  thumbnail_url?: string
+  base_price?: number | string
+}
+
 export default function CategoryPage() {
   const { slug } = useParams<{ slug: string }>()
-  const [products, setProducts] = useState<any[]>([])
+  const [products, setProducts] = useState<ShopCategoryProduct[]>([])
   const [loading, setLoading] = useState(true)
   const label = SLUG_LABELS[slug] || slug?.replace(/-/g, ' ')
 
@@ -55,7 +64,7 @@ export default function CategoryPage() {
         </div>
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 16 }}>
-          {products.map((p: any) => (
+          {products.map(p => (
             <Link key={p.id} href={`/shop/${p.slug || p.id}`} style={{ textDecoration: 'none', borderRadius: 12, overflow: 'hidden', border: '1px solid var(--border)', background: 'var(--surface)', display: 'block' }}>
               <div style={{ aspectRatio: '1', background: 'var(--surface2)', overflow: 'hidden' }}>
                 {p.thumbnail_url ? <img src={p.thumbnail_url} alt={p.name_mn} loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', fontSize: 40, opacity: 0.2 }}>📦</div>}

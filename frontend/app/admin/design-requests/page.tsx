@@ -1,6 +1,7 @@
 'use client'
 import { apiFetch } from '@/lib/api'
 import { useState, useEffect, useCallback, useRef } from 'react'
+import type { CSSProperties } from 'react'
 import { AdminPageHeader } from '@/components/admin/AdminPageHeader'
 import { useRealtime } from '@/contexts/RealtimeContext'
 
@@ -24,16 +25,85 @@ const STATUS_CFG: Record<string, { label: string; color: string; icon: string }>
 
 const PIPELINE_STAGES = ['pending', 'assigned', 'in_progress', 'under_review', 'revision_requested', 'updated_version', 'zoom_scheduled', 'approved', 'in_production']
 
+type DesignStatus = keyof typeof STATUS_CFG | string
+
+type DesignerUser = {
+  id: string
+  role?: string
+  full_name?: string
+  email?: string
+}
+
+type DesignerLoad = {
+  name: string
+  active: number
+}
+
+type DesignStats = {
+  total?: number
+  by_status?: Record<string, number>
+  avg_revisions?: number
+  avg_design_hours?: number
+  approval_rate?: number
+  overdue?: number
+  designer_load?: DesignerLoad[]
+}
+
+type DesignVersion = {
+  id: string
+  version_number?: number
+  is_current?: boolean
+  created_at?: string
+  uploaded_by_name?: string
+  uploaded_by_role?: string
+  version_note?: string
+  file_url?: string
+}
+
+type DesignComment = {
+  id: string
+  author_name?: string
+  author_role?: string
+  type?: string
+  content?: string
+  created_at?: string
+}
+
+type DesignRequest = {
+  id: string
+  status: DesignStatus
+  customer_name?: string
+  customer_email?: string
+  customer_phone?: string
+  product_name?: string
+  designer_name?: string
+  current_version?: number
+  zoom_join_url?: string
+  zoom_password?: string
+  created_at?: string
+  deadline?: string
+  order_id?: string
+  design_fee?: number | string
+  requirements?: string
+  file_url?: string
+  versions?: DesignVersion[]
+  comments?: DesignComment[]
+}
+
+type DesignRealtimeEvent = {
+  designRequestId?: string
+}
+
 export default function AdminDesignRequestsPage() {
-  const [items, setItems] = useState<any[]>([])
-  const [stats, setStats] = useState<any>(null)
-  const [users, setUsers] = useState<any[]>([])
+  const [items, setItems] = useState<DesignRequest[]>([])
+  const [stats, setStats] = useState<DesignStats | null>(null)
+  const [users, setUsers] = useState<DesignerUser[]>([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState('')
   const [search, setSearch] = useState('')
-  const [detail, setDetail] = useState<any>(null)
+  const [detail, setDetail] = useState<DesignRequest | null>(null)
   const [detailTab, setDetailTab] = useState<'info' | 'versions' | 'comments'>('info')
-  const [assignModal, setAssignModal] = useState<any>(null)
+  const [assignModal, setAssignModal] = useState<DesignRequest | null>(null)
   const [assignForm, setAssignForm] = useState({ designer_id: '', designer_name: '', designer_phone: '', designer_zoom: '' })
   const [newComment, setNewComment] = useState('')
   const [liveToast, setLiveToast] = useState<{ msg: string; color: string } | null>(null)
@@ -44,9 +114,9 @@ export default function AdminDesignRequestsPage() {
   const load = useCallback(async () => {
     try {
       const [dr, st, u] = await Promise.all([
-        apiFetch('/design-requests'),
-        apiFetch('/design-requests/stats').catch(() => null),
-        apiFetch('/admin/users').catch(() => []),
+        apiFetch<DesignRequest[]>('/design-requests'),
+        apiFetch<DesignStats>('/design-requests/stats').catch(() => null),
+        apiFetch<DesignerUser[]>('/admin/users').catch(() => []),
       ])
       setItems(Array.isArray(dr) ? dr : [])
       setStats(st)
@@ -60,12 +130,12 @@ export default function AdminDesignRequestsPage() {
   // When the open detail panel matches the event, also re-fetch its full data.
   useEffect(() => {
     joinRoom('admin')
-    const refresh = (label: string, color: string) => (data: any) => {
+    const refresh = (label: string, color: string) => (data: DesignRealtimeEvent) => {
       setLiveToast({ msg: label, color })
       setTimeout(() => setLiveToast(null), 3000)
       load()
       if (detailIdRef.current && data?.designRequestId === detailIdRef.current) {
-        apiFetch(`/design-requests/${detailIdRef.current}`).then((full: any) => setDetail(full)).catch(() => {})
+        apiFetch<DesignRequest>(`/design-requests/${detailIdRef.current}`).then(full => setDetail(full)).catch(() => {})
       }
     }
     const unsubs = [
@@ -83,9 +153,9 @@ export default function AdminDesignRequestsPage() {
 
   const designers = users.filter(u => u.role === 'designer')
 
-  const openDetail = async (dr: any) => {
+  const openDetail = async (dr: DesignRequest) => {
     try {
-      const full = await apiFetch(`/design-requests/${dr.id}`)
+      const full = await apiFetch<DesignRequest>(`/design-requests/${dr.id}`)
       setDetail(full)
       setDetailTab('info')
     } catch { setDetail(dr) }
@@ -118,7 +188,8 @@ export default function AdminDesignRequestsPage() {
     if (!newComment.trim()) return
     await apiFetch(`/design-requests/${id}/comments`, { method: 'POST', body: JSON.stringify({ content: newComment, author_name: 'Админ', author_role: 'admin', type: 'comment' }) })
     setNewComment('')
-    openDetail({ id })
+    const full = await apiFetch<DesignRequest>(`/design-requests/${id}`)
+    setDetail(full)
   }
 
   // Filter + Search
@@ -277,9 +348,9 @@ export default function AdminDesignRequestsPage() {
                   {designers.map(d => <option key={d.id} value={d.id}>{d.full_name || d.email}</option>)}
                 </select>
               </div>
-              {stats?.designer_load?.length > 0 && (
+              {(stats?.designer_load?.length || 0) > 0 && (
                 <div style={{ fontSize: 11, color: 'var(--text3)', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                  {stats.designer_load.map((d: any, i: number) => (
+                  {(stats?.designer_load || []).map((d, i) => (
                     <span key={i} style={{ padding: '2px 8px', background: 'var(--surface2)', borderRadius: 6 }}>{d.name}: {d.active} идэвхтэй</span>
                   ))}
                 </div>
@@ -385,14 +456,14 @@ export default function AdminDesignRequestsPage() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 {(detail.versions || []).length === 0 ? (
                   <div style={{ padding: 20, textAlign: 'center', color: 'var(--text3)', fontSize: 13 }}>Хувилбар байхгүй</div>
-                ) : detail.versions.map((v: any) => (
+                ) : (detail.versions || []).map(v => (
                   <div key={v.id} style={{ border: '1px solid var(--border)', borderRadius: 10, padding: 14, background: v.is_current ? '#F0FDF4' : 'var(--surface)' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <div>
                         <span style={{ fontWeight: 700, fontSize: 14, color: v.is_current ? '#16A34A' : 'var(--text)' }}>v{v.version_number}</span>
                         {v.is_current && <span style={{ fontSize: 10, marginLeft: 8, padding: '2px 6px', borderRadius: 4, background: '#DCFCE7', color: '#16A34A', fontWeight: 600 }}>CURRENT</span>}
                       </div>
-                      <span style={{ fontSize: 11, color: 'var(--text3)' }}>{new Date(v.created_at).toLocaleString('mn-MN')}</span>
+                      <span style={{ fontSize: 11, color: 'var(--text3)' }}>{v.created_at ? new Date(v.created_at).toLocaleString('mn-MN') : '—'}</span>
                     </div>
                     <div style={{ fontSize: 11, color: 'var(--text2)', marginTop: 4 }}>
                       {v.uploaded_by_name || v.uploaded_by_role} оруулсан
@@ -412,13 +483,13 @@ export default function AdminDesignRequestsPage() {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 16, maxHeight: 400, overflow: 'auto' }}>
                   {(detail.comments || []).length === 0 ? (
                     <div style={{ padding: 20, textAlign: 'center', color: 'var(--text3)', fontSize: 13 }}>Сэтгэгдэл байхгүй</div>
-                  ) : detail.comments.map((c: any) => {
+                  ) : (detail.comments || []).map(c => {
                     const roleColor = c.author_role === 'customer' ? '#3B82F6' : c.author_role === 'designer' ? '#8B5CF6' : c.type === 'system' ? '#94A3B8' : '#FF6B00'
                     return (
                       <div key={c.id} style={{ padding: 10, borderRadius: 8, background: c.type === 'system' ? 'var(--surface2)' : 'var(--surface)', border: '1px solid var(--border)' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
                           <span style={{ fontSize: 12, fontWeight: 600, color: roleColor }}>{c.author_name || c.author_role}</span>
-                          <span style={{ fontSize: 10, color: 'var(--text3)' }}>{new Date(c.created_at).toLocaleString('mn-MN')}</span>
+                          <span style={{ fontSize: 10, color: 'var(--text3)' }}>{c.created_at ? new Date(c.created_at).toLocaleString('mn-MN') : '—'}</span>
                         </div>
                         <div style={{ fontSize: 12, lineHeight: 1.5 }}>{c.content}</div>
                       </div>
@@ -440,12 +511,12 @@ export default function AdminDesignRequestsPage() {
 }
 
 /* ── Shared styles ── */
-const inputStyle: React.CSSProperties = { width: '100%', padding: '10px 14px', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 13, color: 'var(--text)' }
+const inputStyle: CSSProperties = { width: '100%', padding: '10px 14px', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 13, color: 'var(--text)' }
 
-function btnStyle(color: string): React.CSSProperties {
+function btnStyle(color: string): CSSProperties {
   return { padding: '4px 10px', background: color + '12', color, border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 11, fontWeight: 500 }
 }
 
-function actionBtn(color: string): React.CSSProperties {
+function actionBtn(color: string): CSSProperties {
   return { padding: '8px 16px', background: color, color: '#fff', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 600 }
 }

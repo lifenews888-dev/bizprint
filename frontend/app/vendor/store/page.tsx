@@ -24,6 +24,12 @@ interface Stats {
   total_products: string;
 }
 
+interface UploadResponse {
+  url?: string;
+  path?: string;
+  filename?: string;
+}
+
 const EMPTY_FORM = {
   name: '',
   name_mn: '',
@@ -65,7 +71,7 @@ export default function VendorStorePage() {
   async function loadProducts() {
     setLoading(true);
     try {
-      const data = await apiFetch<any>(`/vendor-store/products`);
+      const data = await apiFetch<Product[]>(`/vendor-store/products`);
       setProducts(Array.isArray(data) ? data : []);
     } catch {
       setError('Failed to load products');
@@ -76,7 +82,7 @@ export default function VendorStorePage() {
 
   async function loadStats() {
     try {
-      const data = await apiFetch<any>(`/vendor-store/stats`);
+      const data = await apiFetch<Stats>(`/vendor-store/stats`);
       setStats(data);
     } catch {}
   }
@@ -114,12 +120,12 @@ export default function VendorStorePage() {
     try {
       const fd = new FormData();
       fd.append('file', file);
-      const data = await apiFetch<any>(`/upload/file`, {
+      const data = await apiFetch<UploadResponse>(`/upload/file`, {
         method: 'POST',
         body: fd,
       });
-      const url = data.url || data.path || data.filename;
-      setForm(f => ({ ...f, thumbnail_url: url }));
+      const url = data.url || data.path || data.filename || '';
+      if (url) setForm(f => ({ ...f, thumbnail_url: url }));
     } catch {
       setError('Upload failed');
     } finally {
@@ -146,7 +152,7 @@ export default function VendorStorePage() {
         ? `/vendor-store/products/${editProduct.id}`
         : `/vendor-store/products`;
       const method = editProduct ? 'PATCH' : 'POST';
-      await apiFetch<any>(url, { method, body: body });
+      await apiFetch<Product>(url, { method, body: body });
       setShowModal(false);
       loadProducts();
       loadStats();
@@ -159,7 +165,7 @@ export default function VendorStorePage() {
 
   async function handleDelete(id: string) {
     if (!token || !confirm('Delete this product?')) return;
-    await apiFetch<any>(`/vendor-store/products/${id}`, {
+    await apiFetch<void>(`/vendor-store/products/${id}`, {
       method: 'DELETE',
     });
     loadProducts();
@@ -168,7 +174,7 @@ export default function VendorStorePage() {
 
   async function toggleActive(p: Product) {
     if (!token) return;
-    await apiFetch<any>(`/vendor-store/products/${p.id}`, {
+    await apiFetch<Product>(`/vendor-store/products/${p.id}`, {
       method: 'PATCH',
       body: { is_active: !p.is_active },
     });

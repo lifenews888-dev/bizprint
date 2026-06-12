@@ -1,5 +1,5 @@
 'use client'
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import PrintPreview from '@/components/PrintPreview'
@@ -48,6 +48,26 @@ interface QuotePrice {
     sideMultiplier?: number
   }
 }
+
+interface QuoteConfig {
+  product_type?: string
+  name_mn?: string
+  icon?: string
+  sizes?: PrintType['sizes']
+  materials?: string[]
+  finishing_options?: string[]
+  min_qty?: number
+  base_rate?: number | string
+  double_side_multiplier?: number | string
+  overhead_rate?: number | string
+  platform_rate?: number | string
+  ink_cost_per_500?: number | string
+  finishing_cost_each?: number | string
+  volume_discounts?: PrintType['volumeDiscounts']
+}
+
+const isQuoteConfig = (value: unknown): value is QuoteConfig =>
+  typeof value === 'object' && value !== null
 
 // ─── Fallback static config (used if API fails) ─────────────
 const FALLBACK_TYPES: PrintType[] = [
@@ -152,15 +172,15 @@ export default function InstantQuote() {
   useEffect(() => {
     fetch(`${API_URL}/api/cms/quote-config`)
       .then(r => r.json())
-      .then((data: any[]) => {
+      .then((data: unknown) => {
         if (!Array.isArray(data) || data.length === 0) return
-        const mapped: PrintType[] = data.map(c => ({
-          id: c.product_type,
-          name: c.name_mn,
+        const mapped: PrintType[] = data.filter(isQuoteConfig).map(c => ({
+          id: c.product_type || 'custom',
+          name: c.name_mn || c.product_type || 'Custom',
           icon: c.icon || '📦',
-          sizes: c.sizes || [],
-          materials: c.materials || [],
-          finishing: c.finishing_options || [],
+          sizes: Array.isArray(c.sizes) ? c.sizes : [],
+          materials: Array.isArray(c.materials) ? c.materials : [],
+          finishing: Array.isArray(c.finishing_options) ? c.finishing_options : [],
           minQty: c.min_qty || 1,
           baseRate: Number(c.base_rate) || 200,
           doubleSideMultiplier: Number(c.double_side_multiplier) || 1.7,
@@ -170,7 +190,7 @@ export default function InstantQuote() {
           finishingCostEach: Number(c.finishing_cost_each) || 5000,
           volumeDiscounts: c.volume_discounts || [],
         }))
-        setTypes(mapped)
+        if (mapped.length > 0) setTypes(mapped)
       })
       .catch(() => {})
   }, [])
@@ -181,22 +201,25 @@ export default function InstantQuote() {
     const nextIdx = types.findIndex(t => t.id.toLowerCase() === normalized)
     if (nextIdx < 0) return
 
-    const nextType = types[nextIdx]
-    if (nextIdx !== typeIdx) setTypeIdx(nextIdx)
-    const nextSizeIdx = findSizeIndex(nextType, requestedSize)
-    setSizeIdx(nextSizeIdx >= 0 ? nextSizeIdx : 0)
-    const nextMatIdx = requestedMaterial ? nextType.materials.findIndex(m => m === requestedMaterial) : -1
-    setMatIdx(nextMatIdx >= 0 ? nextMatIdx : 0)
-    setSelectedFinishing(
-      (requestedFinishing || '')
-        .split(',')
-        .map(f => f.trim())
-        .filter(f => nextType.finishing.includes(f)),
-    )
-    setSides(requestedSides === 'single' ? 'single' : 'double')
-    setCustomQty('')
-    setQty(clampWideQuantity(requestedQty || nextType.minQty || 1, Math.max(1, nextType.minQty || 1)))
-  }, [requestedProduct, requestedSize, requestedMaterial, requestedQty, requestedSides, requestedFinishing, types, typeIdx])
+    const syncTimer = window.setTimeout(() => {
+      const nextType = types[nextIdx]
+      setTypeIdx(nextIdx)
+      const nextSizeIdx = findSizeIndex(nextType, requestedSize)
+      setSizeIdx(nextSizeIdx >= 0 ? nextSizeIdx : 0)
+      const nextMatIdx = requestedMaterial ? nextType.materials.findIndex(m => m === requestedMaterial) : -1
+      setMatIdx(nextMatIdx >= 0 ? nextMatIdx : 0)
+      setSelectedFinishing(
+        (requestedFinishing || '')
+          .split(',')
+          .map(f => f.trim())
+          .filter(f => nextType.finishing.includes(f)),
+      )
+      setSides(requestedSides === 'single' ? 'single' : 'double')
+      setCustomQty('')
+      setQty(clampWideQuantity(requestedQty || nextType.minQty || 1, Math.max(1, nextType.minQty || 1)))
+    }, 0)
+    return () => window.clearTimeout(syncTimer)
+  }, [requestedProduct, requestedSize, requestedMaterial, requestedQty, requestedSides, requestedFinishing, types])
 
   const pt = types[typeIdx] || types[0]
   const size = pt.sizes[sizeIdx] || { label: '', w: 0, h: 0 }
@@ -209,14 +232,14 @@ export default function InstantQuote() {
     : clampWideQuantity(qty, Math.max(1, pt.minQty || 1))
   const effectivePages = clampQuotePages(pages)
 
-  const localPrice = useMemo(() => calcPrice(pt, effectiveSize, selectedFinishing, effectiveQty, sides, effectivePages, pt.materials[matIdx]), [pt, effectiveSize.w, effectiveSize.h, selectedFinishing.length, effectiveQty, sides, effectivePages, matIdx])
+  const localPrice = calcPrice(pt, effectiveSize, selectedFinishing, effectiveQty, sides, effectivePages, pt.materials[matIdx])
   const useServerPricing = ['banner', 'sticker'].includes(pt.id)
   const price = useServerPricing ? (serverPrice || localPrice) : localPrice
 
   useEffect(() => {
     if (!useServerPricing || !effectiveSize.w || !effectiveSize.h || effectiveQty < 1) {
-      setServerPrice(null)
-      return
+      const resetTimer = window.setTimeout(() => setServerPrice(null), 0)
+      return () => window.clearTimeout(resetTimer)
     }
 
     const controller = new AbortController()

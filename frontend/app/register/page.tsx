@@ -1,7 +1,9 @@
 'use client'
 import { apiFetch } from '@/lib/api'
+import { storeAuthSession } from '@/lib/auth-session'
 import { useState, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
+import Link from 'next/link'
 import { fbPixel } from '@/components/FacebookPixel'
 import { Building2, Palette, Truck, User, ChevronRight, ChevronLeft, Loader2, ShieldCheck, CheckCircle } from 'lucide-react'
 
@@ -19,6 +21,44 @@ const DRIVER_ROLES = ['courier']
 
 const inp = "w-full bg-[#1A1A1A] border border-[#2A2A2A] rounded-[10px] px-4 py-3 text-sm text-[#F1F5F9] outline-none focus:border-[#FF6B00] transition-colors"
 
+interface RegisterRequest {
+  [key: string]: string | undefined
+  email: string
+  password: string
+  full_name: string
+  phone?: string
+  role: string
+  referral_code?: string
+  company_name?: string
+  register_number?: string
+  tax_id?: string
+  bank_name?: string
+  bank_account?: string
+  bank_account_name?: string
+  office_address?: string
+  portfolio_url?: string
+  professional_bio?: string
+  driver_license_number?: string
+  vehicle_plate_number?: string
+  vehicle_type?: string
+  insurance_details?: string
+}
+
+interface RegisterResponse {
+  access_token?: string
+  refresh_token?: string
+  expires_in?: number
+  user?: {
+    id?: string
+    email?: string
+    full_name?: string
+    role?: string
+  }
+}
+
+const errorMessage = (error: unknown) =>
+  error instanceof Error ? error.message : ''
+
 export default function RegisterPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -30,10 +70,12 @@ export default function RegisterPage() {
     const fromUrl = searchParams.get('ref')?.trim().toUpperCase()
     const fromStorage = (typeof window !== 'undefined') ? localStorage.getItem('bp_referral_code') : null
     const code = fromUrl || fromStorage || ''
-    if (code) {
+    if (!code) return
+    const timer = window.setTimeout(() => {
       setReferralCode(code)
-      try { localStorage.setItem('bp_referral_code', code) } catch {}
-    }
+    }, 0)
+    try { localStorage.setItem('bp_referral_code', code) } catch {}
+    return () => window.clearTimeout(timer)
   }, [searchParams])
   const [step, setStep] = useState(0) // 0=role, 1=basic, 2=role-specific, 3=done
   const [role, setRole] = useState('customer')
@@ -97,7 +139,7 @@ export default function RegisterPage() {
   const submitRegister = async () => {
     setLoading(true); setError('')
     try {
-      const body: any = {
+      const body: RegisterRequest = {
         email: form.email, password: form.password, full_name: form.full_name.trim(),
         phone: form.phone.trim() || undefined, role,
         referral_code: referralCode || undefined,
@@ -125,12 +167,9 @@ export default function RegisterPage() {
         })
       }
 
-      const data = await apiFetch<any>('/auth/register', { method: 'POST', body, auth: false })
+      const data = await apiFetch<RegisterResponse>('/auth/register', { method: 'POST', body, auth: false })
       if (data.access_token) {
-        localStorage.setItem('access_token', data.access_token)
-        localStorage.setItem('token', data.access_token)
-        if (data.refresh_token) localStorage.setItem('refresh_token', data.refresh_token)
-        localStorage.setItem('user', JSON.stringify(data.user))
+        storeAuthSession(data)
         try { localStorage.removeItem('bp_referral_code') } catch {}
         fbPixel.completeRegistration()
         setStep(totalSteps + 1) // success step
@@ -139,8 +178,9 @@ export default function RegisterPage() {
           else router.push('/dashboard')
         }, 2000)
       }
-    } catch (e: any) {
-      setError(e.message?.includes('409') ? 'Энэ имэйл бүртгэлтэй байна' : (e.message || 'Серверт холбогдож чадсангүй'))
+    } catch (e: unknown) {
+      const message = errorMessage(e)
+      setError(message.includes('409') ? 'Энэ имэйл бүртгэлтэй байна' : (message || 'Серверт холбогдож чадсангүй'))
     }
     setLoading(false)
   }
@@ -153,7 +193,7 @@ export default function RegisterPage() {
         <div className="absolute inset-0" style={{ background: 'linear-gradient(135deg, #0A0A0A, #111)' }}/>
         <div className="absolute top-[15%] left-[20%] w-[500px] h-[500px] rounded-full pointer-events-none" style={{ background: 'rgba(255,107,0,0.08)', filter: 'blur(100px)' }}/>
         <div className="relative z-10">
-          <a href="/" className="text-[22px] font-bold text-[#F1F5F9] no-underline"><span className="text-[#FF6B00]">Biz</span>Print</a>
+          <Link href="/" className="text-[22px] font-bold text-[#F1F5F9] no-underline"><span className="text-[#FF6B00]">Biz</span>Print</Link>
         </div>
         <div className="relative z-10">
           <div className="inline-flex items-center gap-2 rounded-lg px-3.5 py-1.5 mb-7" style={{ background: 'rgba(255,107,0,0.1)', border: '1px solid rgba(255,107,0,0.2)' }}>
@@ -179,13 +219,13 @@ export default function RegisterPage() {
         <div className="w-full max-w-[420px]">
           {/* Mobile logo */}
           <div className="show-mobile mb-8 text-center">
-            <a href="/" className="text-[22px] font-bold text-[#F1F5F9] no-underline"><span className="text-[#FF6B00]">Biz</span>Print</a>
+            <Link href="/" className="text-[22px] font-bold text-[#F1F5F9] no-underline"><span className="text-[#FF6B00]">Biz</span>Print</Link>
           </div>
 
           <div className="mb-6">
             <h2 className="text-[26px] font-bold text-[#F1F5F9] mb-1 tracking-[-0.5px]">Бүртгүүлэх</h2>
             <p className="text-sm text-[#555]">
-              Бүртгэлтэй юу? <a href="/login" className="text-[#FF6B00] no-underline font-medium">Нэвтрэх</a>
+              Бүртгэлтэй юу? <Link href="/login" className="text-[#FF6B00] no-underline font-medium">Нэвтрэх</Link>
             </p>
           </div>
 

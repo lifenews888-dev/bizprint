@@ -36,6 +36,22 @@ interface WalletBalance {
   total_withdrawn: number;
 }
 
+interface SettingsResponse {
+  [key: string]: string | undefined;
+  commission_rate?: string;
+  commission_role_designer?: string;
+  commission_role_sales?: string;
+  commission_role_factory?: string;
+  commission_role_delivery?: string;
+  commission_role_admin?: string;
+}
+
+interface UsersResponse {
+  users?: Vendor[];
+}
+
+type CommissionTab = 'settings' | 'history';
+
 export default function CommissionPage() {
   const [token, setToken] = useState('');
   const [defaultRate, setDefaultRate] = useState('15');
@@ -66,7 +82,7 @@ export default function CommissionPage() {
 
   async function loadSettings(t: string) {
     try {
-      const data = await apiFetch<any>(`/settings`);
+      const data = await apiFetch<SettingsResponse>(`/settings`);
       if (data.commission_rate) setDefaultRate(data.commission_rate);
       setRoleRates(r => ({
         designer: data.commission_role_designer || r.designer,
@@ -80,7 +96,7 @@ export default function CommissionPage() {
       Object.keys(data).forEach(k => {
         if (k.startsWith('commission_vendor_')) {
           const vendorId = k.replace('commission_vendor_', '');
-          vendorRules[vendorId] = data[k];
+          vendorRules[vendorId] = data[k] || '';
         }
       });
       setRules(vendorRules);
@@ -89,18 +105,18 @@ export default function CommissionPage() {
 
   async function loadVendors(t: string) {
     try {
-      const data = await apiFetch<any>(`/admin/users`);
+      const data = await apiFetch<Vendor[] | UsersResponse>(`/admin/users`);
       const list = Array.isArray(data) ? data : (data.users || []);
-      setVendors(list.filter((u: Vendor) => u.role === 'vendor'));
+      setVendors(list.filter((u) => u.role === 'vendor'));
     } catch {}
   }
 
   async function loadAdminWallet(t: string) {
     try {
-      const data = await apiFetch<any>(`/wallet/balance`);
+      const data = await apiFetch<WalletBalance>(`/wallet/balance`);
       setAdminWallet(data);
-      const txData = await apiFetch<any>(`/wallet/transactions`);
-      setAdminTx(Array.isArray(txData) ? txData.filter((tx: WalletTx) => tx.source === 'platform_commission' || tx.source === 'order_commission') : []);
+      const txData = await apiFetch<WalletTx[]>(`/wallet/transactions`);
+      setAdminTx(Array.isArray(txData) ? txData.filter((tx) => tx.source === 'platform_commission' || tx.source === 'order_commission') : []);
     } catch {}
   }
 
@@ -109,14 +125,14 @@ export default function CommissionPage() {
     setMsg('');
     try {
       // Save default rate
-      await apiFetch<any>(`/settings`, {
+      await apiFetch(`/settings`, {
         method: 'POST',
         body: { key: 'commission_rate', value: defaultRate, label: 'Default Commission Rate %', type: 'number' },
       });
 
       // Save role splits
       for (const [role, rate] of Object.entries(roleRates)) {
-        await apiFetch<any>(`/settings`, {
+        await apiFetch(`/settings`, {
           method: 'POST',
           body: {
             key: `commission_role_${role}`,
@@ -130,7 +146,7 @@ export default function CommissionPage() {
       // Save per-vendor rates
       for (const [vendorId, rate] of Object.entries(rules)) {
         if (rate) {
-          await apiFetch<any>(`/settings`, {
+          await apiFetch(`/settings`, {
             method: 'POST',
             body: {
               key: `commission_vendor_${vendorId}`,
@@ -182,7 +198,7 @@ export default function CommissionPage() {
           { key: 'settings', label: 'Commission Rules' },
           { key: 'history', label: 'Transaction History' },
         ].map(t => (
-          <button key={t.key} onClick={() => setActiveTab(t.key as any)} style={{
+          <button key={t.key} onClick={() => setActiveTab(t.key as CommissionTab)} style={{
             padding: '8px 16px', border: 'none', background: 'transparent',
             cursor: 'pointer', fontFamily: F, fontSize: 13, fontWeight: 500,
             color: activeTab === t.key ? 'var(--orange)' : 'var(--text2)',
