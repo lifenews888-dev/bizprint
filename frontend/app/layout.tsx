@@ -9,6 +9,7 @@ import FacebookPixel from '@/components/FacebookPixel'
 import FacebookMessengerChat from '@/components/FacebookMessengerChat'
 import { UTMTracker } from '@/components/UTMTracker'
 import MobileStickyCTA from '@/components/MobileStickyCTA'
+import PWAInstallPrompt from '@/components/PWAInstallPrompt'
 
 const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'
 
@@ -44,6 +45,16 @@ export async function generateMetadata(): Promise<Metadata> {
   return {
     title,
     description,
+    manifest: '/manifest.webmanifest',
+    applicationName: 'Bizprint.mn',
+    appleWebApp: {
+      capable: true,
+      statusBarStyle: 'default',
+      title: 'Bizprint',
+    },
+    formatDetection: {
+      telephone: true,
+    },
     icons: favicon ? { icon: favicon } : undefined,
     openGraph: {
       type: 'website',
@@ -69,6 +80,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
         <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
+        <meta name="mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-title" content="Bizprint" />
+        <meta name="theme-color" content="#FF6B00" />
+        <link rel="apple-touch-icon" href="/icons/bizprint-icon-192.png" />
         {process.env.NEXT_PUBLIC_GA_ID && (
           <>
             <script async src={`https://www.googletagmanager.com/gtag/js?id=${process.env.NEXT_PUBLIC_GA_ID}`} />
@@ -82,6 +98,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <SiteSettingsProvider>
             <LayoutShell>{children}</LayoutShell>
             <MobileStickyCTA />
+            <PWAInstallPrompt />
             <Toaster richColors position="bottom-right" />
             <FacebookPixel />
             <FacebookMessengerChat />
