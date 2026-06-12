@@ -704,10 +704,18 @@ export default function AdminBusinessCardsPage() {
 
             {/* Professional print layout engine */}
             <button onClick={() => {
-              const pair = nextUniquePair(l, allLayouts)
-              updateLayout(i, 'front_json', pair.front)
-              updateLayout(i, 'back_json', pair.back)
-              updateLayout(i, 'canvas_data', { ...(l.canvas_data || {}), randomVariant: pair.variant })
+              setAllLayouts(prev => {
+                const current = prev[i] || l
+                const pair = nextUniquePair(current, prev)
+                const updated = [...prev]
+                updated[i] = {
+                  ...current,
+                  front_json: pair.front,
+                  back_json: pair.back,
+                  canvas_data: { ...(current.canvas_data || {}), randomVariant: pair.variant },
+                }
+                return updated
+              })
               setLayoutEditorSide('front')
               setSelectedZoneKey(null)
             }} style={{ width: '100%', padding: '10px 0', borderRadius: 10, border: '1px dashed #FF6B00', background: '#FFF7ED', cursor: 'pointer', fontSize: 12, fontWeight: 800, color: '#FF6B00', marginBottom: 12 }}>
