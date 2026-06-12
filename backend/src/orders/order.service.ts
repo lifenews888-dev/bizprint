@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ForbiddenException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Order, OrderStatus } from './entities/order.entity';
@@ -482,6 +482,31 @@ export class OrdersService {
     const order = await this.ordersRepo.findOne({ where: { id } });
     if (!order) throw new NotFoundException('Захиалга олдсонгүй');
     return order;
+  }
+
+  /**
+   * Ownership-scoped order fetch. Prevents IDOR: a customer may only read
+   * their own order; an assigned vendor/factory only their queued orders;
+   * admin/superadmin/sales staff see everything. Use this for any
+   * caller-facing read (detail, files, timeline) — getOrderById stays for
+   * trusted internal callers.
+   */
+  async getOrderForUser(id: string, user?: { id?: string; role?: string }) {
+    const order = await this.getOrderById(id);
+    const role = user?.role;
+    if (['admin', 'superadmin', 'sales', 'staff'].includes(role || '')) return order;
+    if (order.customer_id && order.customer_id === user?.id) return order;
+    if (['vendor', 'factory'].includes(role || '') && user?.id) {
+      const vendorRow = await this.ordersRepo.manager
+        .createQueryBuilder()
+        .select('v.id', 'id')
+        .from('vendors', 'v')
+        .where('v.user_id = :uid', { uid: user.id })
+        .getRawOne();
+      const vendorId = vendorRow?.id;
+      if (vendorId && (order as any).factory_id === vendorId) return order;
+    }
+    throw new ForbiddenException('Энэ захиалгыг үзэх эрхгүй');
   }
 
   private validateTransition(currentStatus: string, newStatus: string) {

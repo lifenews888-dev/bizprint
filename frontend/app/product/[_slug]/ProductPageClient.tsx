@@ -1,5 +1,6 @@
 'use client'
 import { apiFetch } from '@/lib/api'
+import { sanitizeHtml } from '@/lib/sanitize'
 import Link from 'next/link'
 import React, { useState, useEffect, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
@@ -782,7 +783,7 @@ export default function ProductPageClient({ initialProduct, slug: slugProp }: { 
                   {featuresHtml && (
                     <div className="mt-4">
                       <div className="text-xs font-bold text-[var(--text)] mb-2">✨ Онцлогууд</div>
-                      <div className="text-sm text-[var(--text2)] leading-relaxed [&_ul]:list-disc [&_ul]:pl-5 [&_li]:mb-1" dangerouslySetInnerHTML={{ __html: featuresHtml }} />
+                      <div className="text-sm text-[var(--text2)] leading-relaxed [&_ul]:list-disc [&_ul]:pl-5 [&_li]:mb-1" dangerouslySetInnerHTML={{ __html: sanitizeHtml(featuresHtml) }} />
                     </div>
                   )}
                   {qtyCondition && (

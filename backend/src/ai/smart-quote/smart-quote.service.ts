@@ -114,7 +114,7 @@ ${extraHint ? `- Нэмэлт мэдээлэл: ${extraHint}` : ''}
 }`
 
     const msg = await this.anthropic.messages.create({
-      model: 'claude-haiku-4-5-20251001',   // Хамгийн хурдан, хямд модель
+      model: 'claude-haiku-4-5',   // Хамгийн хурдан, хямд модель
       max_tokens: 512,
       messages: [{ role: 'user', content: prompt }],
     })
@@ -266,7 +266,7 @@ ${extraHint ? `- Нэмэлт мэдээлэл: ${extraHint}` : ''}
 
       // Хурд
       processing_ms: elapsed_ms,
-      powered_by: 'Claude claude-haiku-4-5-20251001 + BizPrint Quote Engine',
+      powered_by: 'Claude claude-haiku-4-5 + BizPrint Quote Engine',
     }
   }
 

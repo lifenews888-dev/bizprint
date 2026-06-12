@@ -1,5 +1,5 @@
 import {
-  Entity, PrimaryGeneratedColumn, Column,
+  Entity, PrimaryGeneratedColumn, Column, Index,
   CreateDateColumn, UpdateDateColumn
 } from 'typeorm';
 
@@ -12,6 +12,9 @@ export enum ProductType {
 }
 
 @Entity('products')
+// Catalog/storefront hot path: filter by category + active flag, and list a
+// vendor's own products. (slug is already indexed via its unique constraint.)
+@Index(['category', 'is_active'])
 export class Product {
   @PrimaryGeneratedColumn('uuid')
   id: string;
@@ -19,6 +22,7 @@ export class Product {
   @Column({ type: 'varchar', default: ProductType.PRINT })
   product_type: string;
 
+  @Index()
   @Column({ nullable: true })
   vendor_id: string;
 

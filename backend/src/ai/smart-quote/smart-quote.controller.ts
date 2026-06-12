@@ -73,7 +73,7 @@ export class SmartQuoteController {
     const configured = !!apiKey && apiKey !== 'your_api_key_here'
     return {
       configured,
-      model: 'claude-haiku-4-5-20251001',
+      model: 'claude-haiku-4-5',
       endpoint: 'POST /ai/smart-quote/from-pdf',
       status: configured ? '✅ Бэлэн — PDF upload хийж үнэ авах боломжтой' : '⚠️  API key тохируулаагүй',
       usage: {

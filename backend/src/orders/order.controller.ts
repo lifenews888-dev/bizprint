@@ -56,26 +56,28 @@ export class OrdersController {
     return this.ops.checkSla();
   }
 
+  // Bulk mutations are platform-wide admin operations — guard with AdminGuard
+  // so a regular customer can't mass-cancel/reassign/re-prioritize orders.
   @Post('bulk/status')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, AdminGuard)
   bulkStatus(@Body() body: { order_ids: string[]; status: string }, @Request() req: any) {
     return this.ops.bulkUpdateStatus(body.order_ids, body.status, req.user?.email);
   }
 
   @Post('bulk/assign')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, AdminGuard)
   bulkAssign(@Body() body: { order_ids: string[]; vendor_id: string }) {
     return this.ops.bulkAssignVendor(body.order_ids, body.vendor_id);
   }
 
   @Post('bulk/priority')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, AdminGuard)
   bulkPriority(@Body() body: { order_ids: string[]; priority: string }) {
     return this.ops.bulkSetPriority(body.order_ids, body.priority);
   }
 
   @Post('bulk/cancel')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, AdminGuard)
   bulkCancel(@Body() body: { order_ids: string[] }) {
     return this.ops.bulkCancel(body.order_ids);
   }
@@ -108,8 +110,10 @@ export class OrdersController {
     return this.ordersService.getOrders();
   }
 
+  // Admin-only: read any customer's orders. Customers use /orders/my (which is
+  // scoped to req.user.id) — exposing an arbitrary customer_id here would be IDOR.
   @Get('customer/:customer_id')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, AdminGuard)
   getByCustomer(@Param('customer_id') customer_id: string) {
     return this.ordersService.getOrdersByCustomer(customer_id);
   }
@@ -138,26 +142,28 @@ export class OrdersController {
 
   @Get(':id')
   @UseGuards(JwtAuthGuard)
-  getOne(@Param('id') id: string) {
-    return this.ordersService.getOrderById(id);
+  getOne(@Param('id') id: string, @Request() req: any) {
+    return this.ordersService.getOrderForUser(id, req.user);
   }
 
   @Get(':id/files')
   @UseGuards(JwtAuthGuard)
-  async getOrderFiles(@Param('id') orderId: string) {
-    await this.ordersService.getOrderById(orderId);
+  async getOrderFiles(@Param('id') orderId: string, @Request() req: any) {
+    await this.ordersService.getOrderForUser(orderId, req.user);
     return this.filesService.findByOrder(orderId);
   }
 
   @Get(':id/timeline')
   @UseGuards(JwtAuthGuard)
-  getTimeline(@Param('id') id: string) {
+  async getTimeline(@Param('id') id: string, @Request() req: any) {
+    await this.ordersService.getOrderForUser(id, req.user);
     return this.ops.getTimeline(id);
   }
 
   @Get(':id/status-logs')
   @UseGuards(JwtAuthGuard)
-  getStatusLogs(@Param('id') id: string) {
+  async getStatusLogs(@Param('id') id: string, @Request() req: any) {
+    await this.ordersService.getOrderForUser(id, req.user);
     return this.ops.getStatusLogs(id);
   }
 
@@ -267,7 +273,7 @@ export class OrdersController {
   }
 
   @Post(':id/reassign-vendor')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, AdminGuard)
   reassignVendor(@Param('id') id: string, @Body() body: { vendor_id: string }) {
     return this.ordersService.reassignVendor(id, body.vendor_id);
   }
