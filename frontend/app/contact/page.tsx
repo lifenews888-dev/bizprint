@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import { apiFetch } from '@/lib/api'
+import { sanitizeEmbed } from '@/lib/sanitize'
 
 /* ── Fallback data ── */
 const DEFAULTS = {
@@ -76,7 +77,7 @@ export default function ContactPage() {
       {/* Map embed */}
       {d.map_embed && (
         <div style={{ marginBottom: 40, borderRadius: 14, overflow: 'hidden', border: '1px solid var(--border)' }}
-          dangerouslySetInnerHTML={{ __html: d.map_embed }} />
+          dangerouslySetInnerHTML={{ __html: sanitizeEmbed(d.map_embed) }} />
       )}
 
       <div style={{ display: 'flex', gap: 12, justifyContent: 'center' }}>

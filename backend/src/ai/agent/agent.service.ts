@@ -10,10 +10,25 @@ export class AgentService {
   private readonly logger = new Logger(AgentService.name)
   private anthropic: Anthropic
 
+  // Balanced reasoning + tool use for the chat agent. Bare alias resolves to
+  // the current Sonnet 4.6 snapshot.
+  private static readonly MODEL = 'claude-sonnet-4-6'
+  private static readonly MAX_TOOL_ITERATIONS = 8
+
   constructor(
     @InjectRepository(Order) private orderRepo: Repository<Order>,
   ) {
     this.anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+  }
+
+  /** Log token usage + cache effectiveness for cost visibility. */
+  private logUsage(response: any) {
+    const u = response?.usage
+    if (!u) return
+    this.logger.log(
+      `tokens in=${u.input_tokens} out=${u.output_tokens} ` +
+        `cache_write=${u.cache_creation_input_tokens ?? 0} cache_read=${u.cache_read_input_tokens ?? 0}`,
+    )
   }
 
   /**
@@ -56,21 +71,36 @@ export class AgentService {
       { role: 'user', content: message },
     ]
 
-    // Add user context to system prompt
-    const systemPrompt = `${SYSTEM_PROMPT}\n\n👤 ОДООГИЙН ХЭРЭГЛЭГЧ:\n- ID: ${userId}\n- Role: ${userRole}\n- Хандалт: ${this.getRoleAccess(userRole)}`
+    // System is split into a STABLE block (cached) and a VOLATILE per-user
+    // block. cache_control on the stable block caches tools + the stable
+    // system prompt together (render order is tools → system), so multi-turn
+    // tool loops re-read an identical prefix instead of re-paying for it.
+    // The per-user context is appended after the breakpoint so it never
+    // invalidates the cache.
+    const system: any[] = [
+      { type: 'text', text: SYSTEM_PROMPT, cache_control: { type: 'ephemeral' } },
+      {
+        type: 'text',
+        text: `👤 ОДООГИЙН ХЭРЭГЛЭГЧ:\n- ID: ${userId}\n- Role: ${userRole}\n- Хандалт: ${this.getRoleAccess(userRole)}`,
+      },
+    ]
+    const baseRequest = {
+      model: AgentService.MODEL,
+      max_tokens: 2048,
+      system,
+      tools: AGENT_TOOLS as any,
+    }
 
     // Call Claude with tools
-    let response = await this.anthropic.messages.create({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: 2048,
-      system: systemPrompt,
-      tools: AGENT_TOOLS as any,
-      messages,
-    })
+    let response = await this.anthropic.messages.create({ ...baseRequest, messages })
+    this.logUsage(response)
 
-    // Process tool calls in a loop
+    // Process tool calls in a loop, bounded so a misbehaving model can't spin
+    // forever re-calling tools.
     const toolResults: any[] = []
-    while (response.stop_reason === 'tool_use') {
+    let iterations = 0
+    while (response.stop_reason === 'tool_use' && iterations < AgentService.MAX_TOOL_ITERATIONS) {
+      iterations++
       const toolBlocks = response.content.filter(
         (block): block is Anthropic.ToolUseBlock => block.type === 'tool_use',
       )
@@ -79,13 +109,25 @@ export class AgentService {
       for (const toolCall of toolBlocks) {
         this.logger.log(`Tool call: ${toolCall.name}(${JSON.stringify(toolCall.input)})`)
 
-        const result = await this.executeTool(toolCall.name, toolCall.input, userId, userRole)
+        let result: any
+        let isError = false
+        try {
+          result = await this.executeTool(toolCall.name, toolCall.input, userId, userRole)
+          // Tools return { error } on failure — flag it so Claude can recover
+          // instead of treating the error string as valid data.
+          isError = !!(result && typeof result === 'object' && result.error)
+        } catch (e: any) {
+          this.logger.error(`Tool ${toolCall.name} threw: ${e?.message}`)
+          result = { error: e?.message || 'tool execution failed' }
+          isError = true
+        }
         toolResults.push({ tool: toolCall.name, input: toolCall.input, result })
 
         toolResultMessages.push({
           type: 'tool_result',
           tool_use_id: toolCall.id,
           content: JSON.stringify(result),
+          is_error: isError,
         })
       }
 
@@ -93,13 +135,11 @@ export class AgentService {
       messages.push({ role: 'assistant', content: response.content as any })
       messages.push({ role: 'user', content: toolResultMessages })
 
-      response = await this.anthropic.messages.create({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 2048,
-        system: systemPrompt,
-        tools: AGENT_TOOLS as any,
-        messages,
-      })
+      response = await this.anthropic.messages.create({ ...baseRequest, messages })
+      this.logUsage(response)
+    }
+    if (iterations >= AgentService.MAX_TOOL_ITERATIONS) {
+      this.logger.warn(`Agent tool loop hit max iterations (${AgentService.MAX_TOOL_ITERATIONS})`)
     }
 
     // Extract final text response

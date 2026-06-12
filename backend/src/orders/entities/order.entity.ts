@@ -1,5 +1,5 @@
 ﻿import {
-  Entity, PrimaryGeneratedColumn, Column,
+  Entity, PrimaryGeneratedColumn, Column, Index,
   CreateDateColumn, UpdateDateColumn, ManyToOne, OneToMany, JoinColumn,
 } from 'typeorm';
 import { User } from '../../users/user.entity';
@@ -31,6 +31,7 @@ export class Order {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
+  @Index()
   @Column({ nullable: true })
   customer_id: string;
 
@@ -84,6 +85,7 @@ export class Order {
   @Column({ nullable: true })
   finishing: string;
 
+  @Index()
   @Column({ nullable: true })
   factory_id: string;
 
@@ -104,6 +106,7 @@ export class Order {
   @Column({ nullable: true })
   notes: string;
 
+  @Index()
   @Column({ default: OrderStatus.DRAFT })
   status: string;
 
@@ -113,6 +116,7 @@ export class Order {
   @Column({ nullable: true })
   payment_method: string;
 
+  @Index()
   @Column({ nullable: true })
   invoice_no: string;
 
@@ -187,6 +191,7 @@ export class Order {
   @OneToMany(() => Shipment, (s) => s.order)
   shipments: Shipment[];
 
+  @Index()
   @CreateDateColumn()
   created_at: Date;
 

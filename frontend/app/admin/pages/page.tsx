@@ -1,5 +1,6 @@
 'use client'
 import { apiFetch } from '@/lib/api'
+import { sanitizeHtml } from '@/lib/sanitize'
 import { useState, useEffect, useCallback } from 'react'
 import { AdminPageHeader } from '@/components/admin/AdminPageHeader'
 import { Button } from '@/components/ui/button'
@@ -318,7 +319,7 @@ export default function AdminPagesPage() {
           </div>
           {preview ? (
             <div className="prose prose-sm max-w-none p-4 rounded-lg border bg-background min-h-[200px]"
-              dangerouslySetInnerHTML={{ __html: form.content || '<p class="text-muted-foreground">Агуулга байхгүй</p>' }} />
+              dangerouslySetInnerHTML={{ __html: form.content ? sanitizeHtml(form.content) : '<p class="text-muted-foreground">Агуулга байхгүй</p>' }} />
           ) : (
             <>
               <div className="flex gap-1 mb-2 flex-wrap">

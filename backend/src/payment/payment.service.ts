@@ -325,12 +325,22 @@ export class PaymentService implements OnModuleInit {
   }
 
   // ─── CALLBACK ──────────────────────────────────────────
+  // SECURITY: TDB callback bodies are unsigned and untrusted. Never confirm
+  // a payment from the callback body alone — re-query TDB's own invoice
+  // status endpoint (checkTdbStatus), which only confirms when the gateway
+  // itself reports PAID. Mirrors the QPay callback hardening.
   async handleTdbCallback(body: any) {
     const invoiceNo = body?.invoiceNo || body?.invoice_code || body?.invoiceCode
-    if (invoiceNo) {
-      return this.confirmPayment(invoiceNo)
+    if (!invoiceNo) {
+      return { success: false, msg: 'invoice_code missing' }
     }
-    return { success: false, msg: 'invoice_code missing' }
+    try {
+      const result = await this.checkTdbStatus(invoiceNo)
+      return { success: true, ...result }
+    } catch (e: any) {
+      this.logger.warn(`TDB callback status re-check failed for ${invoiceNo}: ${e?.message}`)
+      return { success: false, msg: 'status_check_failed' }
+    }
   }
 
   // ─── CONFIRM ───────────────────────────────────────────

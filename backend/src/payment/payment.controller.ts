@@ -8,6 +8,7 @@ import { PaymentService } from './payment.service'
 import { QPayService } from './qpay.service'
 import { BonumService } from './bonum.service'
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard'
+import { AdminGuard } from '../admin/admin.guard'
 import { Order } from '../orders/entities/order.entity'
 import { PaymentLog } from './payment-log.entity'
 
@@ -38,7 +39,11 @@ export class PaymentController {
     return this.paymentService.handleTdbCallback(body)
   }
 
+  // SECURITY: Manual confirmation marks an order PAID without contacting the
+  // gateway, so it is admin-only (reconciliation/recovery). The normal client
+  // flow verifies via GET /payment/status/:invoiceNo, which re-queries TDB.
   @Post('confirm/:invoiceCode')
+  @UseGuards(JwtAuthGuard, AdminGuard)
   async confirm(@Param('invoiceCode') invoiceCode: string) {
     return this.paymentService.confirmPayment(invoiceCode)
   }
@@ -52,13 +57,27 @@ export class PaymentController {
 
   @UseGuards(JwtAuthGuard)
   @Get('invoices/:id')
-  async getInvoice(@Param('id') id: string) {
-    return this.paymentService.getInvoiceById(id)
+  async getInvoice(@Param('id') id: string, @Req() req: any) {
+    const invoice = await this.paymentService.getInvoiceById(id)
+    this.assertInvoiceOwner(invoice, req.user)
+    return invoice
   }
 
+  @UseGuards(JwtAuthGuard)
   @Get('invoices/number/:number')
-  async getInvoiceByNumber(@Param('number') number: string) {
-    return this.paymentService.getInvoiceByNumber(number)
+  async getInvoiceByNumber(@Param('number') number: string, @Req() req: any) {
+    const invoice = await this.paymentService.getInvoiceByNumber(number)
+    this.assertInvoiceOwner(invoice, req.user)
+    return invoice
+  }
+
+  // IDOR guard: an invoice exposes a customer's financial record, so only the
+  // owning customer or an admin may read it.
+  private assertInvoiceOwner(invoice: any, user: any) {
+    const isAdmin = ['admin', 'superadmin'].includes(user?.role)
+    if (!isAdmin && invoice?.customer_id && invoice.customer_id !== user?.id) {
+      throw new UnauthorizedException('Энэ нэхэмжлэхийг үзэх эрхгүй')
+    }
   }
 
   // ── QPay endpoints ──
@@ -331,8 +350,14 @@ export class PaymentController {
   // to verify the full flow works. Secret-protected to prevent abuse.
   @Post('bonum/test-e2e')
   async bonumTestE2E(@Body() body: { secret: string; amount?: number }) {
-    const expected = process.env.BOOTSTRAP_SECRET || 'bizprint-bootstrap-2026';
-    if (body.secret !== expected) return { error: 'Invalid secret' };
+    // SECURITY: creates real DB orders + live invoices, so it is a dev-only
+    // smoke test. Disabled in production and requires an explicitly-set secret
+    // (no hardcoded fallback).
+    if (process.env.NODE_ENV === 'production') {
+      return { error: 'Not available in production' };
+    }
+    const expected = process.env.BOOTSTRAP_SECRET;
+    if (!expected || body.secret !== expected) return { error: 'Invalid secret' };
     const amount = Math.max(1, Math.min(10, Math.round(body.amount || 1)));
 
     // Create minimal test order

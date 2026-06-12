@@ -5,7 +5,7 @@ import Anthropic from '@anthropic-ai/sdk';
 export class AiQuoteService {
   private readonly logger = new Logger(AiQuoteService.name);
   private anthropic: Anthropic;
-  private readonly model = 'claude-sonnet-4-20250514';
+  private readonly model = 'claude-sonnet-4-6';
 
   constructor() {
     const apiKey = process.env.ANTHROPIC_API_KEY;
