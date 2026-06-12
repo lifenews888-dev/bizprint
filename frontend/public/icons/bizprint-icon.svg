@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Bizprint">
+  <rect width="512" height="512" rx="112" fill="#FF6B00"/>
+  <path d="M128 142c0-22 18-40 40-40h176c22 0 40 18 40 40v72h16c31 0 56 25 56 56v86c0 20-16 36-36 36h-36v-50H128v50H92c-20 0-36-16-36-36v-86c0-31 25-56 56-56h16v-72Z" fill="#fff"/>
+  <path d="M172 128h168c10 0 18 8 18 18v68H154v-68c0-10 8-18 18-18Z" fill="#111827"/>
+  <path d="M154 342h204v48c0 17-13 30-30 30H184c-17 0-30-13-30-30v-48Z" fill="#111827"/>
+  <path d="M342 270h58v34h-58v-34Z" fill="#FFB27A"/>
+</svg>
