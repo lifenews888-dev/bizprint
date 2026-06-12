@@ -67,6 +67,7 @@ export default function AdminBusinessCardsPage() {
   const [productId, setProductId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [loadError, setLoadError] = useState<string | null>(null)
 
   const [tiers, setTiers] = useState([
     { quantity: 100, standard: 30, laminated: 45, embossed: 65 },
@@ -82,6 +83,7 @@ export default function AdminBusinessCardsPage() {
 
   const load = useCallback(async () => {
     setLoading(true)
+    setLoadError(null)
     try {
       const d = await apiFetch('/admin/business-cards')
       const products: any[] = Array.isArray(d) ? d : []
@@ -99,11 +101,58 @@ export default function AdminBusinessCardsPage() {
             embossed: Number(t.embossed ?? (t.unit_price ? t.unit_price * 2.1 : 65)),
           })))
         }
+      } else {
+        setProductId(null)
+        setAllLayouts([])
       }
-    } catch {} finally { setLoading(false) }
+    } catch (e: any) {
+      setProductId(null)
+      setAllLayouts([])
+      setLoadError(e?.message || 'Нэрийн хуудасны загваруудыг ачаалж чадсангүй')
+    } finally { setLoading(false) }
   }, [])
 
   useEffect(() => { load() }, [load])
+
+  const createStarterProduct = async () => {
+    setSaving(true)
+    try {
+      let pid = productId
+      if (!pid) {
+        const product: any = await apiFetch('/admin/business-cards', { method: 'POST', body: {
+          name: 'Business Cards',
+          name_mn: 'Нэрийн хуудас',
+          slug: `business-cards-${Date.now()}`,
+          description: 'Нэрийн хуудасны хэвлэл, загвар сонголт',
+          base_price: 3000,
+          vat_enabled: true,
+          is_active: true,
+        }})
+        pid = product?.id || null
+      }
+      if (!pid) throw new Error('Бүтээгдэхүүн үүсгэж чадсангүй')
+
+      const res: any = await apiFetch(`/admin/business-cards/${pid}/layouts`, { method: 'POST', body: {
+        name: `Layout ${allLayouts.length + 1}`,
+        name_mn: `Загвар ${allLayouts.length + 1}`,
+        type: 'business',
+        canvas_data: { accent: '#FF6B00', bg: '#FFFFFF', textDark: '#111111', textLight: '#6B7280' },
+        front_json: DEFAULT_ZONES.map(z => ({ ...z })),
+        back_json: [],
+      }})
+
+      await apiFetch(`/admin/business-cards/${pid}/pricing`, { method: 'POST', body: { tiers } }).catch(() => {})
+      await load()
+      if (res?.id) {
+        setEditIdx(allLayouts.length)
+        setView('editor')
+      }
+    } catch (e: any) {
+      alert(e?.message || 'Анхны загвар үүсгэж чадсангүй')
+    } finally {
+      setSaving(false)
+    }
+  }
 
   const updateLayout = (idx: number, field: string, value: any) => {
     setAllLayouts(prev => { const c = [...prev]; c[idx] = { ...c[idx], [field]: value }; return c })
@@ -137,8 +186,11 @@ export default function AdminBusinessCardsPage() {
             <h1 style={{ fontSize: 22, fontWeight: 800, color: 'var(--text)', margin: 0 }}>Нэрийн хуудас</h1>
             <p style={{ fontSize: 13, color: 'var(--text3)', margin: '4px 0 0' }}>{allLayouts.length} загвар</p>
           </div>
-          <button onClick={async () => {
-            if (!productId) return
+          <button disabled={saving} onClick={async () => {
+            if (!productId) {
+              await createStarterProduct()
+              return
+            }
             try {
               const res: any = await apiFetch(`/admin/business-cards/${productId}/layouts`, { method: 'POST', body: {
                 name: `Layout ${allLayouts.length + 1}`, name_mn: `Загвар ${allLayouts.length + 1}`,
@@ -147,15 +199,26 @@ export default function AdminBusinessCardsPage() {
               }})
               if (res?.id) { await load(); setEditIdx(allLayouts.length); setView('editor') }
             } catch (e: any) { alert(e?.message || 'Алдаа') }
-          }} style={btn('#FF6B00', '#fff')}>+ Шинэ загвар</button>
+          }} style={{ ...btn('#FF6B00', '#fff'), opacity: saving ? 0.6 : 1 }}>{saving ? 'Үүсгэж байна...' : '+ Шинэ загвар'}</button>
         </div>
 
         {loading ? (
           <div style={{ color: 'var(--text3)', padding: 40, textAlign: 'center' }}>Ачааллаж байна...</div>
+        ) : loadError ? (
+          <div style={{ textAlign: 'center', padding: 60, color: 'var(--text3)' }}>
+            <div style={{ fontSize: 40, marginBottom: 12 }}>!</div>
+            <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>Загвар ачаалсангүй</div>
+            <div style={{ fontSize: 12, marginTop: 6, maxWidth: 420, marginLeft: 'auto', marginRight: 'auto' }}>{loadError}</div>
+            <button onClick={load} style={{ ...btn('#FF6B00', '#fff'), marginTop: 16 }}>Дахин ачаалах</button>
+          </div>
         ) : allLayouts.length === 0 ? (
           <div style={{ textAlign: 'center', padding: 60, color: 'var(--text3)' }}>
-            <div style={{ fontSize: 40, marginBottom: 12 }}>💳</div>
-            <div style={{ fontSize: 14 }}>Загвар байхгүй</div>
+            <div style={{ fontSize: 40, marginBottom: 12 }}>□</div>
+            <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)' }}>Загвар байхгүй</div>
+            <div style={{ fontSize: 12, marginTop: 6 }}>Анхны нэрийн хуудасны бүтээгдэхүүн болон default загварыг үүсгээд засварлаж эхэлнэ.</div>
+            <button disabled={saving} onClick={createStarterProduct} style={{ ...btn('#FF6B00', '#fff'), marginTop: 16, opacity: saving ? 0.6 : 1 }}>
+              {saving ? 'Үүсгэж байна...' : 'Анхны загвар үүсгэх'}
+            </button>
           </div>
         ) : (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: 14 }}>
