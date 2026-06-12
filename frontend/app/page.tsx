@@ -7,18 +7,42 @@ import InstantQuoteWidget from '@/components/InstantQuoteWidget'
 import { useSiteSettings } from '@/contexts/SiteSettingsContext'
 import { trackEvent } from '@/lib/analytics'
 
+interface ProductCardItem {
+  id: string
+  thumbnail_url?: string | null
+  images?: string[] | null
+  name_mn?: string | null
+  name?: string | null
+  category?: string | null
+  sale_price?: number | string | null
+  base_price?: number | string | null
+  price?: number | string | null
+  slug?: string | null
+  is_out_of_stock?: boolean
+  stock_quantity?: number | null
+  badge?: string | null
+  is_bestseller?: boolean
+  is_featured?: boolean
+  video_url?: string | null
+  requires_dimensions?: boolean
+  pricing_mode?: string | null
+  min_quantity?: number
+  lead_time_days?: number
+}
+
+interface CategoryItem { id: string | number; name_mn?: string; name?: string; isActive?: boolean }
+interface HeroSlide { id?: string | number; title?: string; image_url?: string; video_url?: string }
+interface ProductsResponse { data?: ProductCardItem[] }
+interface Testimonial { text: string; name: string; role: string; category?: string }
+interface ReviewResponse { text?: string; customer_name?: string; customer_company?: string; product_category?: string }
+interface ReviewSummaryResponse { avgRating?: number }
+
 /* ── Carousel helper ── */
-function ProductCarousel({ items }: { items: any[] }) {
-  const ref = useRef<HTMLDivElement>(null)
+function ProductGrid({ items }: { items: ProductCardItem[] }) {
   if (!items.length) return null
-  const scroll = (d: 'l' | 'r') => ref.current?.scrollBy({ left: d === 'l' ? -260 : 260, behavior: 'smooth' })
   return (
-    <div className="relative group/c">
-      <button onClick={() => scroll('l')} className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-3 z-10 w-10 h-10 rounded-full bg-white shadow-lg items-center justify-center opacity-0 group-hover/c:opacity-100 transition-opacity hidden md:flex"><svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg></button>
-      <div ref={ref} className="flex gap-4 overflow-x-auto pb-2 scroll-smooth" style={{ scrollbarWidth: 'none' }}>
-        {items.map((p: any, i: number) => <div key={p.id || i} className="flex-shrink-0 w-[220px]"><GlobalProductCard product={p} /></div>)}
-      </div>
-      <button onClick={() => scroll('r')} className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-3 z-10 w-10 h-10 rounded-full bg-white shadow-lg items-center justify-center opacity-0 group-hover/c:opacity-100 transition-opacity hidden md:flex"><svg width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg></button>
+    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4">
+      {items.slice(0, 8).map((p, i) => <GlobalProductCard key={p.id || i} product={p} />)}
     </div>
   )
 }
@@ -28,10 +52,10 @@ function ProductCarousel({ items }: { items: any[] }) {
    ═══════════════════════════════════════════ */
 export default function HomePage() {
   const { settings } = useSiteSettings()
-  const [categories, setCategories] = useState<any[]>([])
+  const [categories, setCategories] = useState<CategoryItem[]>([])
   const [activeCategory, setActiveCategory] = useState<string | null>(null)
-  const [productsByCategory, setProductsByCategory] = useState<Record<string, any[]>>({})
-  const [heroSlides, setHeroSlides] = useState<any[]>([])
+  const [productsByCategory, setProductsByCategory] = useState<Record<string, ProductCardItem[]>>({})
+  const [heroSlides, setHeroSlides] = useState<HeroSlide[]>([])
   const [heroIdx, setHeroIdx] = useState(0)
 
   const heroNext = useCallback(() => setHeroIdx(p => (p + 1) % Math.max(heroSlides.length, 1)), [heroSlides.length])
@@ -43,15 +67,15 @@ export default function HomePage() {
   }, [heroSlides.length, heroNext])
 
   useEffect(() => {
-    apiFetch<any>('/cms/hero-slides/public', { auth: false }).then(d => {
+    apiFetch<HeroSlide[]>('/cms/hero-slides/public', { auth: false }).then(d => {
       if (Array.isArray(d)) setHeroSlides(d)
     }).catch(() => {})
   }, [])
 
   useEffect(() => {
-    apiFetch<any>('/categories', { auth: false }).then(d => {
+    apiFetch<CategoryItem[]>('/categories', { auth: false }).then(d => {
       if (Array.isArray(d)) {
-        const cats = d.filter((c: any) => c.isActive !== false).slice(0, 8)
+        const cats = d.filter(c => c.isActive !== false).slice(0, 8)
         setCategories(cats)
         if (cats.length > 0) setActiveCategory(String(cats[0].id))
       }
@@ -64,9 +88,9 @@ export default function HomePage() {
     if (!unfetched.length) return
     Promise.all(
       unfetched.map(cat =>
-        apiFetch<any>(`/products?categoryId=${cat.id}&limit=10`, { auth: false })
+        apiFetch<ProductsResponse | ProductCardItem[]>(`/products?categoryId=${cat.id}&limit=10`, { auth: false })
           .then(d => ({ id: String(cat.id), list: Array.isArray(d) ? d : (d?.data ?? []) }))
-          .catch(() => ({ id: String(cat.id), list: [] as any[] }))
+          .catch(() => ({ id: String(cat.id), list: [] as ProductCardItem[] }))
       )
     ).then(results => {
       setProductsByCategory(prev => {
@@ -83,7 +107,7 @@ export default function HomePage() {
       {/* ═══════════════════════════════════════
           HERO — CMS slides background + overlay text
           ═══════════════════════════════════════ */}
-      <section className="relative overflow-hidden h-[420px] sm:h-[500px] md:h-[600px] lg:h-[680px]">
+      <section className="relative overflow-hidden h-[380px] sm:h-[430px] md:h-[500px] lg:h-[540px]">
         {/* Background: CMS slides or fallback gradient */}
         {heroSlides.length > 0 ? (
           heroSlides.map((slide, i) => (
@@ -191,25 +215,39 @@ export default function HomePage() {
               {/* CTA buttons */}
               <div className="flex flex-wrap gap-3 mb-5">
                 <Link
-                  href={settings.hero_cta_primary_url || '/quote'}
+                  href={settings.hero_cta_primary_url || '/shop'}
                   onClick={() => trackEvent('hero_cta_primary_click', { pathname: '/' })}
                   className="no-underline group"
                 >
                   <span className="inline-flex items-center gap-2 px-7 py-3.5 bg-[#FF6B00] hover:bg-[#E55D00] text-white rounded-xl text-sm md:text-base font-bold transition-all hover:shadow-lg hover:shadow-[#FF6B00]/25">
-                    {settings.hero_cta_primary_text || 'Захиалга өгөх'}
+                    {settings.hero_cta_primary_text || 'Бараа сонгох'}
                     <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24" className="group-hover:translate-x-0.5 transition-transform"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
                   </span>
                 </Link>
-                <a
-                  href="tel:72000444"
-                  onClick={() => trackEvent('hero_cta_call_click', { pathname: '/' })}
+                <Link
+                  href="/quote"
+                  onClick={() => trackEvent('hero_cta_quote_click', { pathname: '/' })}
                   className="no-underline"
                 >
                   <span className="inline-flex items-center gap-2 px-7 py-3.5 bg-white/10 hover:bg-white/15 backdrop-blur-sm border border-white/15 text-white rounded-xl text-sm md:text-base font-semibold transition-all">
-                    <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72 12.84 12.84 0 00.7 2.81 2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45 12.84 12.84 0 002.81.7A2 2 0 0122 16.92z"/></svg>
-                    {settings.hero_cta_secondary_text || '72000444 руу залгах'}
+                    <svg width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
+                    {settings.hero_cta_secondary_text || 'Үнэ тооцоолох'}
                   </span>
-                </a>
+                </Link>
+              </div>
+
+              <div className="flex flex-wrap gap-2 mb-5">
+                {[
+                  { label: 'Нэрийн хуудас', href: '/shop?q=нэрийн%20хуудас' },
+                  { label: 'Баннер', href: '/shop?q=баннер' },
+                  { label: 'Стикер', href: '/shop?q=стикер' },
+                  { label: 'Постер', href: '/shop?q=постер' },
+                  { label: 'Туг далбаа', href: '/shop?q=туг' },
+                ].map(item => (
+                  <Link key={item.label} href={item.href} className="no-underline rounded-full border border-white/15 bg-white/10 px-3 py-1.5 text-xs font-semibold text-white/85 backdrop-blur-sm transition-colors hover:bg-white/15">
+                    {item.label}
+                  </Link>
+                ))}
               </div>
 
               {/* Trust mini-line */}
@@ -222,6 +260,81 @@ export default function HomePage() {
               </div>
             </div>
           </div>
+        </div>
+      </section>
+
+      {/* Shop-first product grid */}
+      {categories.length > 0 && (
+        <section className="max-w-[1100px] mx-auto px-5 py-8 md:py-12">
+          <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between mb-5">
+            <div>
+              <h2 className="text-xl md:text-3xl font-black tracking-tight" style={{ color: 'var(--text)' }}>
+                Хамгийн их захиалагддаг хэвлэлүүд
+              </h2>
+              <p className="text-sm mt-1" style={{ color: 'var(--text3)' }}>
+                Бараагаа сонгоод хэмжээ, тоо ширхэг, материалаа оруулж шууд захиална.
+              </p>
+            </div>
+            <Link href="/shop" className="no-underline text-sm font-bold text-[#FF6B00] hover:underline">
+              Бүх бүтээгдэхүүн харах →
+            </Link>
+          </div>
+
+          <div className="flex gap-2 overflow-x-auto pb-4" style={{ scrollbarWidth: 'none' }}>
+            {categories.map(cat => {
+              const id = String(cat.id)
+              return (
+                <button key={id} onClick={() => setActiveCategory(id)}
+                  className="flex-shrink-0 rounded-full px-4 py-2 text-sm font-semibold transition-colors"
+                  style={{
+                    background: activeCategory === id ? '#FF6B00' : 'var(--surface)',
+                    border: activeCategory === id ? '1px solid #FF6B00' : '1px solid var(--border)',
+                    color: activeCategory === id ? '#fff' : 'var(--text2)',
+                  }}>
+                  {cat.name_mn || cat.name}
+                </button>
+              )
+            })}
+          </div>
+
+          {activeCategory && productsByCategory[activeCategory] ? (
+            productsByCategory[activeCategory].length > 0
+              ? <ProductGrid items={productsByCategory[activeCategory]} />
+              : <div className="text-center py-10 text-sm" style={{ color: 'var(--text4)' }}>Бүтээгдэхүүн олдсонгүй</div>
+          ) : (
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4">
+              {Array.from({ length: 8 }).map((_, i) => (
+                <div key={i} className="h-[280px] rounded-xl animate-pulse" style={{ background: 'var(--surface2)' }} />
+              ))}
+            </div>
+          )}
+        </section>
+      )}
+
+      {/* ═══ INSTANT QUOTE WIDGET ═══ */}
+      <section className="max-w-[1100px] mx-auto px-5 pb-10 md:pb-16">
+        <div className="grid md:grid-cols-2 gap-6 md:gap-10 items-center">
+          <div>
+            <h2 className="text-xl md:text-2xl font-bold mb-3 tracking-tight" style={{ color: 'var(--text)' }}>
+              Хэвлэлийн үнэ мэдэх
+            </h2>
+            <p className="text-sm leading-relaxed mb-6" style={{ color: 'var(--text3)' }}>
+              Бүтээгдэхүүн, тираж сонгоод шууд үнэ мэдэгдэнэ. Бүртгэл шаардлагагүй.
+            </p>
+            <div className="space-y-3">
+              {[
+                { n: '01', t: 'Бүтээгдэхүүний төрөл сонгох' },
+                { n: '02', t: 'Тираж тоо оруулах' },
+                { n: '03', t: 'Шууд үнэ мэдэгдэнэ' },
+              ].map(s => (
+                <div key={s.n} className="flex items-center gap-3">
+                  <span className="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-black" style={{ background: 'rgba(255,107,0,0.08)', color: '#FF6B00' }}>{s.n}</span>
+                  <span className="text-sm" style={{ color: 'var(--text2)' }}>{s.t}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+          <InstantQuoteWidget />
         </div>
       </section>
 
@@ -255,65 +368,6 @@ export default function HomePage() {
           ))}
         </div>
       </section>
-
-      {/* ═══ INSTANT QUOTE WIDGET ═══ */}
-      <section className="max-w-[1100px] mx-auto px-5 pb-10 md:pb-16">
-        <div className="grid md:grid-cols-2 gap-6 md:gap-10 items-center">
-          <div>
-            <h2 className="text-xl md:text-2xl font-bold mb-3 tracking-tight" style={{ color: 'var(--text)' }}>
-              Хэвлэлийн үнэ мэдэх
-            </h2>
-            <p className="text-sm leading-relaxed mb-6" style={{ color: 'var(--text3)' }}>
-              Бүтээгдэхүүн, тираж сонгоод шууд үнэ мэдэгдэнэ. Бүртгэл шаардлагагүй.
-            </p>
-            <div className="space-y-3">
-              {[
-                { n: '01', t: 'Бүтээгдэхүүний төрөл сонгох' },
-                { n: '02', t: 'Тираж тоо оруулах' },
-                { n: '03', t: 'Шууд үнэ мэдэгдэнэ' },
-              ].map(s => (
-                <div key={s.n} className="flex items-center gap-3">
-                  <span className="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-black" style={{ background: 'rgba(255,107,0,0.08)', color: '#FF6B00' }}>{s.n}</span>
-                  <span className="text-sm" style={{ color: 'var(--text2)' }}>{s.t}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-          <InstantQuoteWidget />
-        </div>
-      </section>
-
-      {/* ═══ PRODUCT TABS ═══ */}
-      {categories.length > 0 && (
-        <section className="max-w-[1100px] mx-auto px-5 pb-10 md:pb-16">
-          <div className="rounded-2xl overflow-hidden" style={{ background: 'var(--surface)', border: '1px solid var(--border)' }}>
-            <div className="flex overflow-x-auto" style={{ borderBottom: '1px solid var(--border)', scrollbarWidth: 'none' }}>
-              {categories.map(cat => {
-                const id = String(cat.id)
-                return (
-                  <button key={id} onClick={() => setActiveCategory(id)}
-                    className="flex-shrink-0 px-5 py-4 text-sm font-medium transition-colors whitespace-nowrap"
-                    style={{
-                      borderBottom: `2px solid ${activeCategory === id ? '#FF6B00' : 'transparent'}`,
-                      color: activeCategory === id ? '#FF6B00' : 'var(--text3)',
-                    }}>
-                    {cat.name_mn || cat.name}
-                  </button>
-                )
-              })}
-            </div>
-            <div className="p-5">
-              {activeCategory && productsByCategory[activeCategory] ? (
-                productsByCategory[activeCategory].length > 0
-                  ? <ProductCarousel items={productsByCategory[activeCategory]} />
-                  : <div className="text-center py-10 text-sm" style={{ color: 'var(--text4)' }}>Бүтээгдэхүүн олдсонгүй</div>
-              ) : (
-                <div className="flex gap-4">{[1,2,3,4,5].map(i => <div key={i} className="flex-shrink-0 w-[220px] h-[280px] rounded-xl animate-pulse" style={{ background: 'var(--surface2)' }} />)}</div>
-              )}
-            </div>
-          </div>
-        </section>
-      )}
 
       {/* ═══ HOW IT WORKS ═══ */}
       <section className="max-w-[1100px] mx-auto px-5 pb-10 md:pb-16">
@@ -414,7 +468,7 @@ const STATS = [
   { value: 4.8, suffix: '★', label: 'Дундаж үнэлгээ', decimal: true },
 ]
 
-const TESTIMONIALS = [
+const TESTIMONIALS: Testimonial[] = [
   { text: 'Нэрийн хуудасны чанар гайхалтай байсан. 3 хоногт хүргэж өгсөн. Дахин захиална!', name: 'Б.Мөнхбаяр', role: 'StartupMN LLC', category: 'Нэрийн хуудас' },
   { text: 'Үнэ тооцоолуур маш хялбар байлаа. Флаер болон брошур захиалсан, чанар маш сайн.', name: 'Д.Энхжаргал', role: 'Marketing Pro', category: 'Флаер' },
   { text: 'Арга хэмжээний баннер болон backdrop маш хурдан хийж өгсөн. Үнэ боломжийн.', name: 'Г.Баярмаа', role: 'Event Masters', category: 'Баннер' },
@@ -432,14 +486,19 @@ function SocialProofSection() {
 
   // Fetch real reviews from API
   useEffect(() => {
-    fetch(`${API_URL}/api/reviews?approved=true`).then(r => r.json())
-      .then((data: any[]) => {
+    fetch(`${API_URL}/api/reviews?approved=true`).then(r => r.ok ? r.json() as Promise<ReviewResponse[]> : [])
+      .then(data => {
         if (Array.isArray(data) && data.length >= 2) {
-          setLiveTestimonials(data.slice(0, 6).map(r => ({ text: r.text, name: r.customer_name, role: r.customer_company || '', category: r.product_category || '' })))
+          setLiveTestimonials(data.slice(0, 3).map(r => ({
+            text: r.text || '',
+            name: r.customer_name || 'BizPrint хэрэглэгч',
+            role: r.customer_company || '',
+            category: r.product_category || '',
+          })))
         }
       }).catch(() => {})
-    fetch(`${API_URL}/api/reviews/summary`).then(r => r.json())
-      .then((data: any) => { if (data?.avgRating > 0) STATS[3].value = data.avgRating })
+    fetch(`${API_URL}/api/reviews/summary`).then(r => r.ok ? r.json() as Promise<ReviewSummaryResponse> : null)
+      .then(data => { if (data?.avgRating && data.avgRating > 0) STATS[3].value = data.avgRating })
       .catch(() => {})
   }, [])
 
@@ -496,7 +555,7 @@ function SocialProofSection() {
             <p style={{ fontSize: 13, color: 'var(--text3)', marginTop: 4 }}>Бидний үйлчлүүлэгчдийн бодит үнэлгээ</p>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 16 }}>
-            {liveTestimonials.slice(0, 6).map((t, i) => (
+            {liveTestimonials.slice(0, 3).map((t, i) => (
               <div key={i} style={{ padding: 20, borderRadius: 16, border: '1px solid var(--border)', background: 'var(--bg)' }}>
                 <div style={{ fontSize: 14, color: '#F59E0B', marginBottom: 8 }}>★★★★★</div>
                 <p style={{ fontSize: 14, color: 'var(--text)', lineHeight: 1.6, marginBottom: 12 }}>
@@ -509,12 +568,17 @@ function SocialProofSection() {
                   <div>
                     <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text)' }}>{t.name}</div>
                     <div style={{ fontSize: 11, color: 'var(--text3)' }}>
-                      {t.role}{(t as any).category ? ` · ${(t as any).category}` : ''}
+                      {t.role}{t.category ? ` · ${t.category}` : ''}
                     </div>
                   </div>
                 </div>
               </div>
             ))}
+          </div>
+          <div style={{ textAlign: 'center', marginTop: 18 }}>
+            <Link href="/about" className="text-sm font-semibold text-[#FF6B00] no-underline hover:underline">
+              Бүх сэтгэгдэл харах →
+            </Link>
           </div>
         </div>
       </section>
