@@ -1,13 +1,78 @@
 'use client'
 import { apiFetch, API_URL } from '@/lib/api'
 import { useState, useEffect, useCallback } from 'react'
+import type { CSSProperties } from 'react'
 
-const inp: React.CSSProperties = { padding: '8px 12px', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text)', fontSize: 13, width: '100%', outline: 'none' }
+type PrintType = 'standard' | 'laminated' | 'embossed'
+type EditorSide = 'front' | 'back'
+type LayoutField = keyof Pick<BusinessCardLayout, 'name' | 'name_mn' | 'backgrounds' | 'front_json' | 'back_json' | 'canvas_data'>
+
+type CanvasData = {
+  accent?: string
+  bg?: string
+  textLight?: string
+  textDark?: string
+  randomVariant?: number
+}
+
+type LayoutZone = {
+  key: string
+  label: string
+  x: number
+  y: number
+  w?: number
+  h?: number
+  fontSize?: number
+  fontWeight?: 'normal' | 'bold' | string
+  fill?: 'accent' | 'light' | 'dark' | string
+  type?: 'logo' | 'qr' | 'social' | string
+  align?: CSSProperties['textAlign']
+}
+
+type BusinessCardBackground = {
+  id?: string
+  name?: string
+  url?: string
+  side?: EditorSide | string
+}
+
+type PricingTier = Record<PrintType, number> & {
+  quantity: number
+  unit_price?: number
+}
+
+type BusinessCardLayout = {
+  id?: string
+  name?: string
+  name_mn?: string
+  type?: string
+  is_active?: boolean
+  canvas_data?: CanvasData
+  front_json?: LayoutZone[]
+  back_json?: LayoutZone[]
+  backgrounds?: BusinessCardBackground[]
+}
+
+type BusinessCardProduct = {
+  id?: string
+  vat_enabled?: boolean
+  layouts?: BusinessCardLayout[]
+  pricingTiers?: PricingTier[]
+}
+
+type DragZoneElement = HTMLDivElement & {
+  _startX?: number
+  _startY?: number
+}
+
+const errorMessage = (err: unknown, fallback: string) => err instanceof Error ? err.message : fallback
+
+const inp: CSSProperties = { padding: '8px 12px', background: 'var(--surface2)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text)', fontSize: 13, width: '100%', outline: 'none' }
 const num = (v: string) => { const n = parseFloat(v); return isNaN(n) ? 0 : n }
-const lbl: React.CSSProperties = { fontSize: 11, fontWeight: 600, color: 'var(--text2)', marginBottom: 4, display: 'block', textTransform: 'uppercase', letterSpacing: '0.5px' }
-const btn = (bg: string, color: string): React.CSSProperties => ({ padding: '8px 16px', background: bg, color, border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer' })
+const lbl: CSSProperties = { fontSize: 11, fontWeight: 600, color: 'var(--text2)', marginBottom: 4, display: 'block', textTransform: 'uppercase', letterSpacing: '0.5px' }
+const btn = (bg: string, color: string): CSSProperties => ({ padding: '8px 16px', background: bg, color, border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer' })
 
-function MiniPreview({ cd, zones, w = 180, h = 110 }: { cd: any; zones?: any[]; w?: number; h?: number }) {
+function MiniPreview({ cd, zones, w = 180, h = 110 }: { cd?: CanvasData; zones?: LayoutZone[]; w?: number; h?: number }) {
   const accent = cd?.accent || '#FF6B00'
   const bg = cd?.bg || '#fff'
   const tl = cd?.textLight || '#6B7280'
@@ -18,7 +83,7 @@ function MiniPreview({ cd, zones, w = 180, h = 110 }: { cd: any; zones?: any[]; 
   if (zones?.length) {
     return (
       <div style={{ width: w, height: h, background: bg, borderRadius: 6, position: 'relative', overflow: 'hidden', border: '1px solid var(--border)', flexShrink: 0, boxShadow: '0 2px 8px rgba(0,0,0,0.08)' }}>
-        {zones.map((z: any) => {
+        {zones.map(z => {
           const x = Math.round(z.x * sx), y = Math.round(z.y * sy)
           const zw = Math.round((z.w || 100) * sx), zh = Math.round((z.h || 20) * sy)
           const fs = Math.max(4, Math.round((z.fontSize || 10) * ((sx + sy) / 2)))
@@ -45,7 +110,7 @@ function MiniPreview({ cd, zones, w = 180, h = 110 }: { cd: any; zones?: any[]; 
   )
 }
 
-const DEFAULT_ZONES = [
+const DEFAULT_ZONES: LayoutZone[] = [
   { key: 'company_name', label: 'Company Name', x: 20, y: 12, w: 220, h: 26, fontSize: 14, fontWeight: 'bold', fill: 'accent' },
   { key: 'company_message', label: 'Company Message', x: 20, y: 38, w: 220, h: 20, fontSize: 11, fill: 'light' },
   { key: 'full_name', label: 'Full Name', x: 20, y: 70, w: 240, h: 30, fontSize: 22, fontWeight: 'bold', fill: 'accent' },
@@ -60,10 +125,79 @@ const DEFAULT_ZONES = [
   { key: 'qr', label: 'QR', x: 360, y: 195, w: 64, h: 64, type: 'qr' },
 ]
 
+const DEFAULT_BACK_ZONES: LayoutZone[] = [
+  { key: 'company_name', label: 'Company Name', x: 32, y: 62, w: 386, h: 30, fontSize: 17, fontWeight: 'bold', fill: 'accent', align: 'center' },
+  { key: 'company_message', label: 'Company Message', x: 72, y: 98, w: 306, h: 22, fontSize: 11, fill: 'light', align: 'center' },
+  { key: 'website', label: 'Web / Other', x: 120, y: 206, w: 210, h: 22, fontSize: 12, fill: 'light', align: 'center' },
+  { key: 'social', label: 'Social', x: 175, y: 132, w: 100, h: 34, type: 'social' },
+  { key: 'qr', label: 'QR', x: 194, y: 172, w: 62, h: 62, type: 'qr' },
+]
+
+const cloneZones = (zones: LayoutZone[]) => zones.map(z => ({ ...z }))
+const baseZonesForSide = (side: EditorSide) => cloneZones(side === 'front' ? DEFAULT_ZONES : DEFAULT_BACK_ZONES)
+const zoneSignature = (zones?: LayoutZone[]) => (zones || [])
+  .map(z => [z.key, Math.round(z.x), Math.round(z.y), Math.round(z.w || 0), Math.round(z.h || 0), z.fontSize || 0, z.align || ''].join(':'))
+  .sort()
+  .join('|')
+
+const mergeZoneLayout = (source: LayoutZone[], side: EditorSide, variant: number): LayoutZone[] => {
+  const zones = source.length ? cloneZones(source) : baseZonesForSide(side)
+  const byKey = new Map(zones.map(z => [z.key, z]))
+  const ensure = (base: LayoutZone) => byKey.get(base.key) || { ...base }
+  const front = baseZonesForSide('front').map(ensure)
+  const back = baseZonesForSide('back').map(ensure)
+  const pad = [20, 28, 36, 24, 42, 18][variant % 6]
+
+  const frontLayouts: Record<string, Partial<LayoutZone>>[][] = [
+    [
+      { logo: { x: 32, y: 32, w: 82, h: 82 }, company_name: { x: 136, y: 38, w: 250, h: 24, align: 'left' }, company_message: { x: 136, y: 66, w: 250, h: 18, align: 'left' }, full_name: { x: 136, y: 118, w: 250, h: 34, fontSize: 24, fontWeight: 'bold', align: 'left' }, job_title: { x: 136, y: 152, w: 220, h: 20, align: 'left' }, email: { x: 136, y: 192, w: 210, h: 18, align: 'left' }, phone: { x: 136, y: 214, w: 210, h: 18, align: 'left' }, website: { x: 136, y: 236, w: 210, h: 18, align: 'left' }, qr: { x: 368, y: 188, w: 54, h: 54 }, social: { x: 32, y: 206, w: 82, h: 30 } },
+    ],
+    [
+      { logo: { x: 348, y: 28, w: 72, h: 72 }, company_name: { x: 34, y: 34, w: 260, h: 24, align: 'left' }, company_message: { x: 34, y: 62, w: 250, h: 18, align: 'left' }, full_name: { x: 34, y: 120, w: 270, h: 34, fontSize: 26, fontWeight: 'bold', align: 'left' }, job_title: { x: 34, y: 155, w: 220, h: 20, align: 'left' }, email: { x: 34, y: 202, w: 200, h: 18, align: 'left' }, phone: { x: 34, y: 224, w: 200, h: 18, align: 'left' }, address1: { x: 238, y: 202, w: 176, h: 18, align: 'right' }, address2: { x: 238, y: 224, w: 176, h: 18, align: 'right' }, qr: { x: 362, y: 112, w: 58, h: 58 }, social: { x: 34, y: 84, w: 96, h: 26 } },
+    ],
+    [
+      { logo: { x: 189, y: 24, w: 72, h: 72 }, company_name: { x: 64, y: 106, w: 322, h: 24, align: 'center' }, company_message: { x: 84, y: 132, w: 282, h: 18, align: 'center' }, full_name: { x: 48, y: 166, w: 354, h: 34, fontSize: 24, fontWeight: 'bold', align: 'center' }, job_title: { x: 98, y: 200, w: 254, h: 20, align: 'center' }, email: { x: 70, y: 232, w: 150, h: 18, align: 'center' }, phone: { x: 230, y: 232, w: 150, h: 18, align: 'center' }, qr: { x: 24, y: 196, w: 50, h: 50 }, social: { x: 350, y: 198, w: 76, h: 28 } },
+    ],
+    [
+      { logo: { x: 24, y: 178, w: 64, h: 64 }, company_name: { x: 32, y: 34, w: 340, h: 24, align: 'left' }, company_message: { x: 32, y: 62, w: 260, h: 18, align: 'left' }, full_name: { x: 32, y: 102, w: 330, h: 38, fontSize: 30, fontWeight: 'bold', align: 'left' }, job_title: { x: 32, y: 145, w: 240, h: 20, align: 'left' }, email: { x: 126, y: 190, w: 260, h: 18, align: 'left' }, phone: { x: 126, y: 212, w: 260, h: 18, align: 'left' }, website: { x: 126, y: 234, w: 260, h: 18, align: 'left' }, qr: { x: 370, y: 28, w: 52, h: 52 }, social: { x: 314, y: 142, w: 90, h: 28 } },
+    ],
+  ]
+
+  const backLayouts: Record<string, Partial<LayoutZone>>[] = [
+    { company_name: { x: 62, y: 70, w: 326, h: 34, fontSize: 20, align: 'center' }, company_message: { x: 88, y: 110, w: 274, h: 20, align: 'center' }, social: { x: 174, y: 146, w: 102, h: 30 }, website: { x: 95, y: 218, w: 260, h: 20, align: 'center' }, qr: { x: 198, y: 164, w: 54, h: 54 } },
+    { logo: { x: 52, y: 92, w: 76, h: 76 }, company_name: { x: 154, y: 90, w: 240, h: 28, align: 'left' }, company_message: { x: 154, y: 124, w: 240, h: 20, align: 'left' }, website: { x: 154, y: 166, w: 210, h: 20, align: 'left' }, qr: { x: 360, y: 188, w: 54, h: 54 }, social: { x: 154, y: 198, w: 92, h: 28 } },
+    { company_name: { x: 40, y: 40, w: 370, h: 30, align: 'center' }, company_message: { x: 66, y: 75, w: 318, h: 20, align: 'center' }, qr: { x: 48, y: 160, w: 58, h: 58 }, website: { x: 126, y: 178, w: 244, h: 20, align: 'left' }, social: { x: 126, y: 206, w: 100, h: 28 } },
+    { company_name: { x: pad, y: 190, w: 450 - pad * 2, h: 30, align: 'center' }, company_message: { x: pad, y: 226, w: 450 - pad * 2, h: 20, align: 'center' }, logo: { x: 187, y: 54, w: 76, h: 76 }, social: { x: 174, y: 140, w: 102, h: 30 }, qr: { x: 362, y: 30, w: 54, h: 54 } },
+  ]
+
+  const layout = side === 'front' ? frontLayouts[variant % frontLayouts.length][0] : backLayouts[variant % backLayouts.length]
+  const target = side === 'front' ? front : back
+  return target.map(z => ({ ...z, ...(layout[z.key] || {}) }))
+}
+
+const nextUniquePair = (layout: BusinessCardLayout, allLayouts: BusinessCardLayout[]) => {
+  const used = new Set(allLayouts.map(l => `${zoneSignature(l.front_json)}::${zoneSignature(l.back_json)}`).filter(Boolean))
+  const baseFront = layout.front_json?.length ? layout.front_json : baseZonesForSide('front')
+  const baseBack = layout.back_json?.length ? layout.back_json : baseZonesForSide('back')
+  for (let offset = 0; offset < 16; offset += 1) {
+    const variant = (Date.now() + offset) % 16
+    const front = mergeZoneLayout(baseFront, 'front', variant)
+    const back = mergeZoneLayout(baseBack, 'back', variant + 3)
+    const signature = `${zoneSignature(front)}::${zoneSignature(back)}`
+    if (!used.has(signature)) return { front, back, variant }
+  }
+  const variant = Date.now() % 16
+  return {
+    front: mergeZoneLayout(baseFront, 'front', variant),
+    back: mergeZoneLayout(baseBack, 'back', variant + 3),
+    variant,
+  }
+}
+
 export default function AdminBusinessCardsPage() {
   const [view, setView] = useState<'grid' | 'editor' | 'pricing'>('grid')
   const [editIdx, setEditIdx] = useState<number | null>(null)
-  const [allLayouts, setAllLayouts] = useState<any[]>([])
+  const [allLayouts, setAllLayouts] = useState<BusinessCardLayout[]>([])
   const [productId, setProductId] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -77,24 +211,29 @@ export default function AdminBusinessCardsPage() {
   ])
   const [vatEnabled, setVatEnabled] = useState(true)
   const [calcQty, setCalcQty] = useState(100)
-  const [calcType, setCalcType] = useState<'standard' | 'laminated' | 'embossed'>('standard')
-  const [layoutEditorSide, setLayoutEditorSide] = useState<'front' | 'back'>('front')
+  const [calcType, setCalcType] = useState<PrintType>('standard')
+  const [layoutEditorSide, setLayoutEditorSide] = useState<EditorSide>('front')
   const [selectedZoneKey, setSelectedZoneKey] = useState<string | null>(null)
 
   const load = useCallback(async () => {
     setLoading(true)
     setLoadError(null)
     try {
-      const d = await apiFetch('/admin/business-cards')
-      const products: any[] = Array.isArray(d) ? d : []
+      const d = await apiFetch<BusinessCardProduct[]>('/admin/business-cards')
+      const products = Array.isArray(d) ? d : []
       // Pick the product with the most layouts
       if (products.length > 0) {
         const best = products.reduce((a, b) => ((a.layouts || []).length >= (b.layouts || []).length ? a : b), products[0])
-        setProductId(best.id)
-        setAllLayouts((best.layouts || []).map((l: any) => ({ ...l, backgrounds: l.backgrounds || [] })))
+        setProductId(best.id ?? null)
+        setAllLayouts((best.layouts || []).map(l => ({
+          ...l,
+          backgrounds: l.backgrounds || [],
+          front_json: l.front_json?.length ? l.front_json : baseZonesForSide('front'),
+          back_json: l.back_json?.length ? l.back_json : baseZonesForSide('back'),
+        })))
         setVatEnabled(best.vat_enabled !== false)
         if (best.pricingTiers?.length) {
-          setTiers(best.pricingTiers.map((t: any) => ({
+          setTiers(best.pricingTiers.map(t => ({
             quantity: t.quantity,
             standard: Number(t.standard ?? t.unit_price ?? 30),
             laminated: Number(t.laminated ?? (t.unit_price ? t.unit_price * 1.5 : 45)),
@@ -105,10 +244,10 @@ export default function AdminBusinessCardsPage() {
         setProductId(null)
         setAllLayouts([])
       }
-    } catch (e: any) {
+    } catch (e: unknown) {
       setProductId(null)
       setAllLayouts([])
-      setLoadError(e?.message || 'Нэрийн хуудасны загваруудыг ачаалж чадсангүй')
+      setLoadError(errorMessage(e, 'Нэрийн хуудасны загваруудыг ачаалж чадсангүй'))
     } finally { setLoading(false) }
   }, [])
 
@@ -119,7 +258,7 @@ export default function AdminBusinessCardsPage() {
     try {
       let pid = productId
       if (!pid) {
-        const product: any = await apiFetch('/admin/business-cards', { method: 'POST', body: {
+        const product = await apiFetch<BusinessCardProduct>('/admin/business-cards', { method: 'POST', body: {
           name: 'Business Cards',
           name_mn: 'Нэрийн хуудас',
           slug: `business-cards-${Date.now()}`,
@@ -128,33 +267,33 @@ export default function AdminBusinessCardsPage() {
           vat_enabled: true,
           is_active: true,
         }})
-        pid = product?.id || null
+        pid = product?.id ?? null
       }
       if (!pid) throw new Error('Бүтээгдэхүүн үүсгэж чадсангүй')
 
-      const res: any = await apiFetch(`/admin/business-cards/${pid}/layouts`, { method: 'POST', body: {
+      const layout = await apiFetch<BusinessCardLayout>(`/admin/business-cards/${pid}/layouts`, { method: 'POST', body: {
         name: `Layout ${allLayouts.length + 1}`,
         name_mn: `Загвар ${allLayouts.length + 1}`,
         type: 'business',
         canvas_data: { accent: '#FF6B00', bg: '#FFFFFF', textDark: '#111111', textLight: '#6B7280' },
         front_json: DEFAULT_ZONES.map(z => ({ ...z })),
-        back_json: [],
+        back_json: baseZonesForSide('back'),
       }})
 
       await apiFetch(`/admin/business-cards/${pid}/pricing`, { method: 'POST', body: { tiers } }).catch(() => {})
       await load()
-      if (res?.id) {
+      if (layout?.id) {
         setEditIdx(allLayouts.length)
         setView('editor')
       }
-    } catch (e: any) {
-      alert(e?.message || 'Анхны загвар үүсгэж чадсангүй')
+    } catch (e: unknown) {
+      alert(errorMessage(e, 'Анхны загвар үүсгэж чадсангүй'))
     } finally {
       setSaving(false)
     }
   }
 
-  const updateLayout = (idx: number, field: string, value: any) => {
+  const updateLayout = <K extends LayoutField>(idx: number, field: K, value: BusinessCardLayout[K]) => {
     setAllLayouts(prev => { const c = [...prev]; c[idx] = { ...c[idx], [field]: value }; return c })
   }
 
@@ -192,13 +331,13 @@ export default function AdminBusinessCardsPage() {
               return
             }
             try {
-              const res: any = await apiFetch(`/admin/business-cards/${productId}/layouts`, { method: 'POST', body: {
+              const res = await apiFetch<BusinessCardLayout>(`/admin/business-cards/${productId}/layouts`, { method: 'POST', body: {
                 name: `Layout ${allLayouts.length + 1}`, name_mn: `Загвар ${allLayouts.length + 1}`,
                 type: 'business', canvas_data: { accent: '#FF6B00', bg: '#FFFFFF', textDark: '#111111', textLight: '#6B7280' },
-                front_json: DEFAULT_ZONES.map(z => ({ ...z })), back_json: [],
+                front_json: baseZonesForSide('front'), back_json: baseZonesForSide('back'),
               }})
               if (res?.id) { await load(); setEditIdx(allLayouts.length); setView('editor') }
-            } catch (e: any) { alert(e?.message || 'Алдаа') }
+            } catch (e: unknown) { alert(errorMessage(e, 'Алдаа')) }
           }} style={{ ...btn('#FF6B00', '#fff'), opacity: saving ? 0.6 : 1 }}>{saving ? 'Үүсгэж байна...' : '+ Шинэ загвар'}</button>
         </div>
 
@@ -230,7 +369,16 @@ export default function AdminBusinessCardsPage() {
                 onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = '#FF6B00'; (e.currentTarget as HTMLElement).style.boxShadow = '0 4px 12px rgba(255,107,0,0.15)' }}
                 onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--border)'; (e.currentTarget as HTMLElement).style.boxShadow = 'none' }}
               >
-                <MiniPreview cd={l.canvas_data} zones={l.front_json} />
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, padding: 8, background: 'var(--surface2)' }}>
+                  <div>
+                    <div style={{ fontSize: 9, color: 'var(--text3)', marginBottom: 4, fontWeight: 700 }}>Өвөр</div>
+                    <MiniPreview cd={l.canvas_data} zones={l.front_json} w={88} h={54} />
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 9, color: 'var(--text3)', marginBottom: 4, fontWeight: 700 }}>Ар</div>
+                    <MiniPreview cd={l.canvas_data} zones={l.back_json?.length ? l.back_json : baseZonesForSide('back')} w={88} h={54} />
+                  </div>
+                </div>
                 <div style={{ padding: '8px 10px' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)', overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis', flex: 1 }}>{l.name_mn || l.name}</div>
@@ -267,7 +415,7 @@ export default function AdminBusinessCardsPage() {
                   try {
                     await apiFetch(`/admin/business-cards/${productId}/pricing`, { method: 'POST', body: { tiers } })
                     alert('Үнэ хадгалагдлаа!')
-                  } catch (e: any) { alert(e?.message || 'Алдаа') }
+                  } catch (e: unknown) { alert(errorMessage(e, 'Алдаа')) }
                 }} style={btn('#FF6B00', '#fff')}>Үнэ хадгалах</button>
               </div>
             </div>
@@ -368,51 +516,78 @@ export default function AdminBusinessCardsPage() {
     if (!l) { setEditIdx(null); setView('grid'); return null }
     const i = editIdx
     const CW = 450, CH = 275
-    const zones: any[] = l.front_json || []
-    const backZones: any[] = l.back_json || []
+    const canvasScale = 1.45
+    const canvasDisplayW = Math.round(CW * canvasScale)
+    const canvasDisplayH = Math.round(CH * canvasScale)
+    const zones: LayoutZone[] = l.front_json || []
+    const backZones: LayoutZone[] = l.back_json || []
     const edSide = layoutEditorSide
     const setEdSide = setLayoutEditorSide
     const currentZones = edSide === 'front' ? zones : backZones
     const zoneKey = edSide === 'front' ? 'front_json' : 'back_json'
 
-    const addZone = (zone: any) => {
-      const existing = currentZones.find((z: any) => z.key === zone.key)
+    const addZone = (zone: LayoutZone) => {
+      const existing = currentZones.find(z => z.key === zone.key)
       if (existing) return
       updateLayout(i, zoneKey, [...currentZones, { ...zone }])
     }
 
     const removeZone = (zIdx: number) => {
-      updateLayout(i, zoneKey, currentZones.filter((_: any, j: number) => j !== zIdx))
+      updateLayout(i, zoneKey, currentZones.filter((_, j) => j !== zIdx))
     }
 
     return (
-      <div style={{ padding: 24 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-          <button onClick={() => { setView('grid'); setEditIdx(null) }} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--surface)', cursor: 'pointer', fontSize: 13, color: 'var(--text)' }}>
+      <div style={{ padding: 16, minHeight: 'calc(100vh - 56px)', background: 'var(--bg)' }}>
+        <div style={{ position: 'sticky', top: 0, zIndex: 20, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, marginBottom: 16, padding: 12, borderRadius: 14, border: '1px solid var(--border)', background: 'var(--surface)', boxShadow: '0 10px 30px rgba(15,23,42,0.06)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <button onClick={() => { setView('grid'); setEditIdx(null) }} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 12px', borderRadius: 9, border: '1px solid var(--border)', background: 'var(--surface2)', cursor: 'pointer', fontSize: 13, color: 'var(--text)', fontWeight: 700 }}>
             ← Бүх загвар
-          </button>
-          <button onClick={() => saveLayout(i)} disabled={saving} style={{ ...btn('#FF6B00', '#fff'), opacity: saving ? 0.5 : 1 }}>{saving ? 'Хадгалж байна...' : 'Хадгалах'}</button>
+            </button>
+            <div>
+              <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--text)' }}>{l.name_mn || l.name || 'Нэрийн хуудасны загвар'}</div>
+              <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>{edSide === 'front' ? 'Өвөр тал' : 'Ар тал'} · {currentZones.length} элемент · 90×55 мм</div>
+            </div>
+          </div>
+          <button onClick={() => saveLayout(i)} disabled={saving} style={{ ...btn('#FF6B00', '#fff'), minWidth: 120, opacity: saving ? 0.5 : 1 }}>{saving ? 'Хадгалж байна...' : 'Хадгалах'}</button>
         </div>
 
-        <div style={{ display: 'flex', gap: 16 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '280px minmax(720px, 1fr)', gap: 16, alignItems: 'start' }}>
           {/* Left panel — zone controls */}
-          <div style={{ width: 200, flexShrink: 0 }}>
+          <div style={{ position: 'sticky', top: 86, borderRadius: 14, border: '1px solid var(--border)', background: 'var(--surface)', padding: 14, boxShadow: '0 10px 30px rgba(15,23,42,0.05)' }}>
             <div style={{ marginBottom: 12 }}>
               <label style={lbl}>Загварын нэр</label>
               <input style={inp} value={l.name_mn || l.name || ''} onChange={e => { updateLayout(i, 'name', e.target.value); updateLayout(i, 'name_mn', e.target.value) }} />
             </div>
 
             {/* Side toggle */}
-            <div style={{ display: 'flex', gap: 4, marginBottom: 12 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, marginBottom: 12 }}>
               {(['front', 'back'] as const).map(s => (
-                <button key={s} onClick={() => setEdSide(s)} style={{ flex: 1, padding: '8px 0', borderRadius: 8, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600, background: edSide === s ? '#FF6B00' : 'var(--surface2)', color: edSide === s ? '#fff' : 'var(--text3)' }}>
+                <button key={s} onClick={() => setEdSide(s)} style={{ padding: '9px 0', borderRadius: 9, border: edSide === s ? '1px solid #FF6B00' : '1px solid var(--border)', cursor: 'pointer', fontSize: 12, fontWeight: 700, background: edSide === s ? '#FF6B00' : 'var(--surface2)', color: edSide === s ? '#fff' : 'var(--text3)' }}>
                   {s === 'front' ? 'Өвөр' : 'Ар тал'}
+                </button>
+              ))}
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 12 }}>
+              {(['front', 'back'] as const).map(s => (
+                <button key={s} onClick={() => { setEdSide(s); setSelectedZoneKey(null) }} style={{ padding: 8, borderRadius: 10, border: edSide === s ? '2px solid #FF6B00' : '1px solid var(--border)', background: 'var(--surface2)', cursor: 'pointer', textAlign: 'left' }}>
+                  <div style={{ fontSize: 10, color: edSide === s ? '#FF6B00' : 'var(--text3)', fontWeight: 800, marginBottom: 6 }}>{s === 'front' ? 'Өвөр загвар' : 'Ар загвар'}</div>
+                  <MiniPreview cd={l.canvas_data} zones={s === 'front' ? zones : backZones} w={110} h={68} />
                 </button>
               ))}
             </div>
 
             {/* Professional print layout engine */}
             <button onClick={() => {
+              const useUniquePairEngine = true
+              if (useUniquePairEngine) {
+                const pair = nextUniquePair(l, allLayouts)
+                updateLayout(i, 'front_json', pair.front)
+                updateLayout(i, 'back_json', pair.back)
+                updateLayout(i, 'canvas_data', { ...(l.canvas_data || {}), randomVariant: pair.variant })
+                setLayoutEditorSide('front')
+                setSelectedZoneKey(null)
+              } else {
               if (currentZones.length === 0) return
               const CW = 450, CH = 275
               const R = (a: number, b: number) => Math.round(a + Math.random() * (b - a))
@@ -420,13 +595,13 @@ export default function AdminBusinessCardsPage() {
 
               // ── Layout style ──
               const style = pick(['minimal', 'corporate', 'bold', 'centered'])
-              const align = pick(['left', 'right', 'center']) as string
+              const align = pick(['left', 'right', 'center'] as const)
               const spacing = pick(['compact', 'balanced', 'airy'])
               const pad = spacing === 'compact' ? R(15, 20) : spacing === 'balanced' ? R(20, 28) : R(28, 36)
 
               // ── Zone definitions ──
-              const has = (k: string) => currentZones.some((z: any) => z.key === k)
-              const texts = currentZones.filter((z: any) => !z.type)
+              const has = (k: string) => currentZones.some(z => z.key === k)
+              const texts = currentZones.filter(z => !z.type)
               const nameScale = style === 'bold' ? R(24, 32) : style === 'minimal' ? R(16, 20) : R(18, 24)
               const titleScale = Math.round(nameScale * 0.55)
               const contactScale = Math.round(nameScale * 0.5)
@@ -466,8 +641,8 @@ export default function AdminBusinessCardsPage() {
               let curY = logoCenter ? logoPos.y + logoS + sectionGap : pad
 
               // ── Build result ──
-              const result: any[] = []
-              const place = (z: any, x: number, y: number, w: number, h: number, extra?: any) => {
+              const result: LayoutZone[] = []
+              const place = (z: LayoutZone, x: number, y: number, w: number, h: number, extra?: Partial<LayoutZone>) => {
                 result.push({ ...z, x, y, w, h, fontSize: fsMap[z.key] || z.fontSize, ...extra })
               }
 
@@ -546,17 +721,18 @@ export default function AdminBusinessCardsPage() {
               }
 
               updateLayout(i, zoneKey, result)
-            }} style={{ width: '100%', padding: '8px 0', borderRadius: 8, border: '2px dashed #FF6B00', background: '#FFF7ED', cursor: 'pointer', fontSize: 12, fontWeight: 600, color: '#FF6B00', marginBottom: 12 }}>
-              🎲 Random ({currentZones.length})
+              }
+            }} style={{ width: '100%', padding: '10px 0', borderRadius: 10, border: '1px dashed #FF6B00', background: '#FFF7ED', cursor: 'pointer', fontSize: 12, fontWeight: 800, color: '#FF6B00', marginBottom: 12 }}>
+              🎲 2 талыг unique random
             </button>
 
             {/* Add zones */}
-            <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text2)', marginBottom: 6 }}>Элемент нэмэх:</div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--text2)', marginBottom: 6 }}>Элемент нэмэх:</div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 5, maxHeight: 300, overflowY: 'auto', paddingRight: 2 }}>
               {DEFAULT_ZONES.map(z => {
-                const exists = currentZones.some((cz: any) => cz.key === z.key)
+                const exists = currentZones.some(cz => cz.key === z.key)
                 return (
-                  <button key={z.key} onClick={() => addZone(z)} disabled={exists} style={{ padding: '6px 10px', borderRadius: 6, border: '1px solid var(--border)', background: exists ? 'var(--surface2)' : 'var(--surface)', cursor: exists ? 'default' : 'pointer', fontSize: 11, color: exists ? 'var(--text3)' : 'var(--text)', textAlign: 'left', opacity: exists ? 0.5 : 1 }}>
+                  <button key={z.key} onClick={() => addZone(z)} disabled={exists} style={{ padding: '8px 10px', borderRadius: 8, border: '1px solid var(--border)', background: exists ? 'var(--surface2)' : 'var(--surface)', cursor: exists ? 'default' : 'pointer', fontSize: 11, color: exists ? 'var(--text3)' : 'var(--text)', textAlign: 'left', opacity: exists ? 0.5 : 1 }}>
                     {exists ? '✓ ' : '+ '}{z.label}
                   </button>
                 )
@@ -577,22 +753,22 @@ export default function AdminBusinessCardsPage() {
                     fd.append('name', `${edSide}-${file.name}`)
                     fd.append('side', edSide)
                     try {
-                      const result: any = await apiFetch(`/admin/business-cards/${productId}/layouts/${l.id}/backgrounds`, { method: 'POST', body: fd } as any)
+                      const result = await apiFetch<BusinessCardBackground>(`/admin/business-cards/${productId}/layouts/${l.id}/backgrounds`, { method: 'POST', body: fd })
                       if (result) { result.side = edSide; updateLayout(i, 'backgrounds', [...(l.backgrounds || []), result]) }
-                    } catch (err: any) { alert('Upload алдаа: ' + (err?.message || '')) }
+                    } catch (err: unknown) { alert('Upload алдаа: ' + errorMessage(err, '')) }
                   }} />
                 </label>
               ) : (
                 <div style={{ fontSize: 10, color: 'var(--text3)', textAlign: 'center', padding: 8 }}>Эхлээд хадгалж, дараа нь зураг оруулна</div>
               )}
               {/* Show uploaded bgs */}
-              {(l.backgrounds || []).filter((bg: any) => bg.side === edSide).map((bg: any) => (
+              {(l.backgrounds || []).filter(bg => bg.side === edSide).map(bg => (
                 <div key={bg.id} style={{ position: 'relative', marginTop: 6, borderRadius: 6, overflow: 'hidden', border: '1px solid var(--border)' }}>
                   <img src={bg.url?.startsWith('http') ? bg.url : `${API_URL}${bg.url}`} alt="" style={{ width: '100%', height: 60, objectFit: 'cover' }} />
                   <button onClick={async () => {
                     if (!productId || !l.id) return
                     await apiFetch(`/admin/business-cards/${productId}/layouts/${l.id}/backgrounds/${bg.id}`, { method: 'DELETE' }).catch(() => {})
-                    updateLayout(i, 'backgrounds', (l.backgrounds || []).filter((b: any) => b.id !== bg.id))
+                    updateLayout(i, 'backgrounds', (l.backgrounds || []).filter(b => b.id !== bg.id))
                   }} style={{ position: 'absolute', top: 2, right: 2, width: 18, height: 18, borderRadius: 9, background: '#EF4444', color: '#fff', border: 'none', fontSize: 10, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>×</button>
                 </div>
               ))}
@@ -600,20 +776,33 @@ export default function AdminBusinessCardsPage() {
           </div>
 
           {/* Right — visual card canvas */}
-          <div style={{ flex: 1 }}>
-            <div style={{ fontSize: 11, color: 'var(--text3)', marginBottom: 6, textAlign: 'center' }}>Элементүүдийг чирж байрлуулна уу (90×55 мм)</div>
-            <div style={{ display: 'flex', justifyContent: 'center' }}>
+          <div style={{ minHeight: 590, borderRadius: 16, border: '1px solid var(--border)', background: 'linear-gradient(180deg, var(--surface) 0%, var(--surface2) 100%)', padding: 18, boxShadow: '0 10px 35px rgba(15,23,42,0.06)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 16 }}>
+              <div>
+                <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--text)' }}>Design canvas</div>
+                <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 2 }}>Элементүүдийг чирж байрлуулна · scale {Math.round(canvasScale * 100)}%</div>
+              </div>
+              <div style={{ display: 'flex', gap: 6 }}>
+                {(['front', 'back'] as const).map(s => (
+                  <button key={s} onClick={() => setEdSide(s)} style={{ padding: '7px 12px', borderRadius: 999, border: edSide === s ? '1px solid #FF6B00' : '1px solid var(--border)', background: edSide === s ? '#FF6B00' : 'var(--surface)', color: edSide === s ? '#fff' : 'var(--text2)', fontSize: 11, fontWeight: 800, cursor: 'pointer' }}>
+                    {s === 'front' ? 'Өвөр' : 'Ар'}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: canvasDisplayH + 40 }}>
+              <div style={{ width: canvasDisplayW, height: canvasDisplayH, position: 'relative' }}>
               <div
-                style={{ width: CW, height: CH, background: l.canvas_data?.bg || '#fff', borderRadius: 6, position: 'relative', overflow: 'hidden', border: '1px solid var(--border)', boxShadow: '0 4px 20px rgba(0,0,0,0.1)', cursor: 'crosshair' }}
+                style={{ width: CW, height: CH, background: l.canvas_data?.bg || '#fff', borderRadius: 8, position: 'relative', overflow: 'hidden', border: '1px solid var(--border)', boxShadow: '0 18px 45px rgba(15,23,42,0.18)', cursor: 'crosshair', transform: `scale(${canvasScale})`, transformOrigin: 'top left' }}
               >
                 {/* Background image */}
                 {(() => {
-                  const bgImg = (l.backgrounds || []).find((bg: any) => bg.side === edSide)
+                  const bgImg = (l.backgrounds || []).find(bg => bg.side === edSide)
                   return bgImg ? <img src={bgImg.url?.startsWith('http') ? bgImg.url : `${API_URL}${bgImg.url}`} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover' }} /> : null
                 })()}
 
                 {/* Zones */}
-                {currentZones.map((z: any, zIdx: number) => {
+                {currentZones.map((z, zIdx) => {
                   const accent = l.canvas_data?.accent || '#FF6B00'
                   const textDark = l.canvas_data?.textDark || '#111'
                   const textLight = l.canvas_data?.textLight || '#6B7280'
@@ -628,25 +817,27 @@ export default function AdminBusinessCardsPage() {
                         e.dataTransfer.setData('zoneIdx', String(zIdx))
                         e.dataTransfer.setDragImage(e.currentTarget, 0, 0)
                         const rect = e.currentTarget.parentElement!.getBoundingClientRect()
-                        ;(e.currentTarget as any)._startX = e.clientX - rect.left - z.x
-                        ;(e.currentTarget as any)._startY = e.clientY - rect.top - z.y
+                        const target = e.currentTarget as DragZoneElement
+                        target._startX = (e.clientX - rect.left) / canvasScale - z.x
+                        target._startY = (e.clientY - rect.top) / canvasScale - z.y
                       }}
                       onDrag={e => {
                         if (e.clientX === 0) return
                         const rect = e.currentTarget.parentElement!.getBoundingClientRect()
-                        const nx = Math.max(0, Math.min(CW - (z.w || 50), e.clientX - rect.left - ((e.currentTarget as any)._startX || 0)))
-                        const ny = Math.max(0, Math.min(CH - (z.h || 20), e.clientY - rect.top - ((e.currentTarget as any)._startY || 0)))
+                        const target = e.currentTarget as DragZoneElement
+                        const nx = Math.max(0, Math.min(CW - (z.w || 50), (e.clientX - rect.left) / canvasScale - (target._startX || 0)))
+                        const ny = Math.max(0, Math.min(CH - (z.h || 20), (e.clientY - rect.top) / canvasScale - (target._startY || 0)))
                         const updated = [...currentZones]
                         updated[zIdx] = { ...z, x: Math.round(nx), y: Math.round(ny) }
                         updateLayout(i, zoneKey, updated)
                       }}
                       style={{
                         position: 'absolute', left: z.x, top: z.y, width: z.w || 'auto', height: z.h || 'auto',
-                        border: '1px dashed rgba(0,0,0,0.3)', borderRadius: 3, cursor: 'grab',
+                        border: selectedZoneKey === z.key ? '1.5px solid #FF6B00' : '1px dashed rgba(0,0,0,0.28)', borderRadius: 4, cursor: 'grab',
                         display: 'flex', alignItems: 'center', justifyContent: isSpecial ? 'center' : 'flex-start',
                         padding: isSpecial ? 0 : '0 4px',
                         fontSize: z.fontSize || 12, fontWeight: z.fontWeight === 'bold' ? 700 : 400, color,
-                        background: isSpecial ? 'rgba(0,0,0,0.05)' : 'transparent',
+                        background: isSpecial ? 'rgba(15,23,42,0.05)' : selectedZoneKey === z.key ? 'rgba(255,107,0,0.05)' : 'transparent',
                         userSelect: 'none',
                       }}
                     >
@@ -675,12 +866,13 @@ export default function AdminBusinessCardsPage() {
                   )
                 })}
               </div>
+              </div>
             </div>
 
             {/* Zone list with coordinates */}
             {currentZones.length > 0 && (
-              <div style={{ marginTop: 12, fontSize: 10, color: 'var(--text3)', display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center' }}>
-                {currentZones.map((z: any) => (
+              <div style={{ margin: '16px auto 0', maxWidth: canvasDisplayW, maxHeight: 76, overflowY: 'auto', fontSize: 10, color: 'var(--text3)', display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'center' }}>
+                {currentZones.map(z => (
                   <span key={z.key} style={{ background: 'var(--surface2)', padding: '3px 8px', borderRadius: 4 }}>{z.label}: ({z.x}, {z.y})</span>
                 ))}
               </div>
@@ -724,7 +916,7 @@ export default function AdminBusinessCardsPage() {
               await saveLayout(i)
               alert('Загвар хадгалагдлаа')
               setView('grid'); setEditIdx(null)
-            } catch (e: any) { alert(e?.message || 'Алдаа') } finally { setSaving(false) }
+            } catch (e: unknown) { alert(errorMessage(e, 'Алдаа')) } finally { setSaving(false) }
           }} style={{ ...btn('var(--surface2)', 'var(--text)'), opacity: saving ? 0.5 : 1 }}>
             {saving ? '...' : 'Загвар хадгалах'}
           </button>
@@ -735,7 +927,7 @@ export default function AdminBusinessCardsPage() {
               // 1. Template layout хадгалах
               await saveLayout(i)
               // 2. Шинэ бүтээгдэхүүн үүсгэх
-              const product: any = await apiFetch('/admin/business-cards', { method: 'POST', body: {
+              const product = await apiFetch<BusinessCardProduct>('/admin/business-cards', { method: 'POST', body: {
                 name: l.name || 'Business Card',
                 name_mn: l.name_mn || l.name || 'Нэрийн хуудас',
                 base_price: 3000, vat_enabled: true, is_active: true,
@@ -743,7 +935,7 @@ export default function AdminBusinessCardsPage() {
               const pid = product?.id
               if (!pid) throw new Error('Бүтээгдэхүүн үүсгэж чадсангүй')
               // 3. Layout хуулах (фон, zone бүгд)
-              const newLayout: any = await apiFetch(`/admin/business-cards/${pid}/layouts`, { method: 'POST', body: {
+              const newLayout = await apiFetch<BusinessCardLayout>(`/admin/business-cards/${pid}/layouts`, { method: 'POST', body: {
                 name: l.name, name_mn: l.name_mn || l.name, type: l.type || 'business',
                 canvas_data: l.canvas_data, front_json: l.front_json || [], back_json: l.back_json || [],
               }})
@@ -751,7 +943,7 @@ export default function AdminBusinessCardsPage() {
               if (l.backgrounds?.length && newLayout?.id) {
                 for (const bg of l.backgrounds) {
                   // Background URL-г шинэ layout руу reference хийх
-                  await apiFetch(`/admin/business-cards/${pid}/layouts/${newLayout.id}/backgrounds`, { method: 'POST', body: { name: bg.name, url: bg.url, side: bg.side } } as any).catch(() => {})
+                  await apiFetch<BusinessCardBackground>(`/admin/business-cards/${pid}/layouts/${newLayout.id}/backgrounds`, { method: 'POST', body: { name: bg.name, url: bg.url, side: bg.side } }).catch(() => {})
                 }
               }
               // 5. Үнэ хадгалах
@@ -761,7 +953,7 @@ export default function AdminBusinessCardsPage() {
               alert(`"${l.name_mn || l.name}" бүтээгдэхүүн нийтлэгдлээ!`)
               await load()
               setView('grid'); setEditIdx(null)
-            } catch (e: any) { alert(e?.message || 'Алдаа гарлаа') } finally { setSaving(false) }
+            } catch (e: unknown) { alert(errorMessage(e, 'Алдаа гарлаа')) } finally { setSaving(false) }
           }} style={{ ...btn('#10B981', '#fff'), opacity: saving ? 0.5 : 1 }}>
             {saving ? 'Үүсгэж байна...' : '🚀 Бүтээгдэхүүн нийтлэх'}
           </button>
