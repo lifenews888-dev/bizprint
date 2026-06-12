@@ -381,9 +381,10 @@ const nextUniquePair = (layout: BusinessCardLayout, allLayouts: BusinessCardLayo
 const nextUniqueSide = (layout: BusinessCardLayout, allLayouts: BusinessCardLayout[], side: EditorSide) => {
   const key = side === 'front' ? 'front_json' : 'back_json'
   const variantKey = side === 'front' ? 'randomFrontVariant' : 'randomBackVariant'
+  const currentSignature = zoneSignature(layout[key])
   const used = new Set(allLayouts.map(l => zoneSignature(l[key])).filter(Boolean))
-  used.delete(zoneSignature(layout[key]))
-  const base = layout[key]?.length ? layout[key] : baseZonesForSide(side)
+  used.delete(currentSignature)
+  const base = baseZonesForSide(side)
   const fallbackVariant = Number.isFinite(layout.canvas_data?.randomVariant) ? Number(layout.canvas_data?.randomVariant) : -1
   const startVariant = Number.isFinite(layout.canvas_data?.[variantKey])
     ? Number(layout.canvas_data?.[variantKey])
@@ -393,11 +394,18 @@ const nextUniqueSide = (layout: BusinessCardLayout, allLayouts: BusinessCardLayo
     const variant = startVariant + offset
     const zones = mergeZoneLayout(base, side, variant)
     const signature = zoneSignature(zones)
-    if (!used.has(signature) && !hasUnsafeLayout(zones)) return { zones, variant }
+    if (signature !== currentSignature && !used.has(signature) && !hasUnsafeLayout(zones)) return { zones, variant }
+  }
+
+  for (let offset = 1; offset <= 220; offset += 1) {
+    const variant = startVariant + offset
+    const zones = mergeZoneLayout(base, side, variant)
+    const signature = zoneSignature(zones)
+    if (signature !== currentSignature && !hasUnsafeLayout(zones)) return { zones, variant }
   }
 
   const variant = startVariant + 1
-  return { zones: mergeZoneLayout(base, side, variant), variant }
+  return { zones: nudgeLayout(base, variant), variant }
 }
 
 const safeZones = (zones: LayoutZone[] | undefined, side: EditorSide, seed = 0) => {
