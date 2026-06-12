@@ -13,6 +13,8 @@ type CanvasData = {
   textLight?: string
   textDark?: string
   randomVariant?: number
+  randomFrontVariant?: number
+  randomBackVariant?: number
 }
 
 type LayoutZone = {
@@ -374,6 +376,28 @@ const nextUniquePair = (layout: BusinessCardLayout, allLayouts: BusinessCardLayo
     back: mergeZoneLayout(baseBack, 'back', variant + 3),
     variant,
   }
+}
+
+const nextUniqueSide = (layout: BusinessCardLayout, allLayouts: BusinessCardLayout[], side: EditorSide) => {
+  const key = side === 'front' ? 'front_json' : 'back_json'
+  const variantKey = side === 'front' ? 'randomFrontVariant' : 'randomBackVariant'
+  const used = new Set(allLayouts.map(l => zoneSignature(l[key])).filter(Boolean))
+  used.delete(zoneSignature(layout[key]))
+  const base = layout[key]?.length ? layout[key] : baseZonesForSide(side)
+  const fallbackVariant = Number.isFinite(layout.canvas_data?.randomVariant) ? Number(layout.canvas_data?.randomVariant) : -1
+  const startVariant = Number.isFinite(layout.canvas_data?.[variantKey])
+    ? Number(layout.canvas_data?.[variantKey])
+    : fallbackVariant
+
+  for (let offset = 1; offset <= 220; offset += 1) {
+    const variant = startVariant + offset
+    const zones = mergeZoneLayout(base, side, variant)
+    const signature = zoneSignature(zones)
+    if (!used.has(signature) && !hasUnsafeLayout(zones)) return { zones, variant }
+  }
+
+  const variant = startVariant + 1
+  return { zones: mergeZoneLayout(base, side, variant), variant }
 }
 
 const safeZones = (zones: LayoutZone[] | undefined, side: EditorSide, seed = 0) => {
@@ -771,17 +795,20 @@ export default function AdminBusinessCardsPage() {
             <button onClick={() => {
               setAllLayouts(prev => {
                 const current = prev[i] || l
-                const pair = nextUniquePair(current, prev)
+                const result = nextUniqueSide(current, prev, edSide)
+                const sideKey = edSide === 'front' ? 'front_json' : 'back_json'
+                const variantKey = edSide === 'front' ? 'randomFrontVariant' : 'randomBackVariant'
                 const updated = [...prev]
                 updated[i] = {
                   ...current,
-                  front_json: pair.front,
-                  back_json: pair.back,
-                  canvas_data: { ...(current.canvas_data || {}), randomVariant: pair.variant },
+                  [sideKey]: result.zones,
+                  canvas_data: {
+                    ...(current.canvas_data || {}),
+                    [variantKey]: result.variant,
+                  },
                 }
                 return updated
               })
-              setLayoutEditorSide('front')
               setSelectedZoneKey(null)
             }} style={{ width: '100%', padding: '10px 0', borderRadius: 10, border: '1px dashed #FF6B00', background: '#FFF7ED', cursor: 'pointer', fontSize: 12, fontWeight: 800, color: '#FF6B00', marginBottom: 12 }}>
               🎲 Давтагдашгүй random
