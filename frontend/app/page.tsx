@@ -37,7 +37,15 @@ interface Testimonial { text: string; name: string; role: string; category?: str
 interface ReviewResponse { text?: string; customer_name?: string; customer_company?: string; product_category?: string }
 interface ReviewSummaryResponse { avgRating?: number }
 
-/* ── Carousel helper ── */
+const fallbackCategories: CategoryItem[] = [
+  { id: 'business-cards', name_mn: 'Нэрийн хуудас' },
+  { id: 'banners', name_mn: 'Баннер' },
+  { id: 'stickers', name_mn: 'Стикер' },
+  { id: 'posters', name_mn: 'Постер' },
+  { id: 'flags', name_mn: 'Туг далбаа' },
+]
+
+/* ── Product grid helper ── */
 function ProductGrid({ items }: { items: ProductCardItem[] }) {
   if (!items.length) return null
   return (
@@ -57,6 +65,9 @@ export default function HomePage() {
   const [productsByCategory, setProductsByCategory] = useState<Record<string, ProductCardItem[]>>({})
   const [heroSlides, setHeroSlides] = useState<HeroSlide[]>([])
   const [heroIdx, setHeroIdx] = useState(0)
+  const displayCategories = categories.length > 0 ? categories : fallbackCategories
+  const selectedCategoryId = activeCategory ?? String(displayCategories[0]?.id ?? '')
+  const selectedProducts = selectedCategoryId ? productsByCategory[selectedCategoryId] : undefined
 
   const heroNext = useCallback(() => setHeroIdx(p => (p + 1) % Math.max(heroSlides.length, 1)), [heroSlides.length])
 
@@ -264,52 +275,50 @@ export default function HomePage() {
       </section>
 
       {/* Shop-first product grid */}
-      {categories.length > 0 && (
-        <section className="max-w-[1100px] mx-auto px-5 py-8 md:py-12">
-          <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between mb-5">
-            <div>
-              <h2 className="text-xl md:text-3xl font-black tracking-tight" style={{ color: 'var(--text)' }}>
-                Хамгийн их захиалагддаг хэвлэлүүд
-              </h2>
-              <p className="text-sm mt-1" style={{ color: 'var(--text3)' }}>
-                Бараагаа сонгоод хэмжээ, тоо ширхэг, материалаа оруулж шууд захиална.
-              </p>
-            </div>
-            <Link href="/shop" className="no-underline text-sm font-bold text-[#FF6B00] hover:underline">
-              Бүх бүтээгдэхүүн харах →
-            </Link>
+      <section className="max-w-[1100px] mx-auto px-5 py-8 md:py-12">
+        <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between mb-5">
+          <div>
+            <h2 className="text-xl md:text-3xl font-black tracking-tight" style={{ color: 'var(--text)' }}>
+              Хамгийн их захиалагддаг хэвлэлүүд
+            </h2>
+            <p className="text-sm mt-1" style={{ color: 'var(--text3)' }}>
+              Бараагаа сонгоод хэмжээ, тоо ширхэг, материалаа оруулж шууд захиална.
+            </p>
           </div>
+          <Link href="/shop" className="no-underline text-sm font-bold text-[#FF6B00] hover:underline">
+            Бүх бүтээгдэхүүн харах →
+          </Link>
+        </div>
 
-          <div className="flex gap-2 overflow-x-auto pb-4" style={{ scrollbarWidth: 'none' }}>
-            {categories.map(cat => {
-              const id = String(cat.id)
-              return (
-                <button key={id} onClick={() => setActiveCategory(id)}
-                  className="flex-shrink-0 rounded-full px-4 py-2 text-sm font-semibold transition-colors"
-                  style={{
-                    background: activeCategory === id ? '#FF6B00' : 'var(--surface)',
-                    border: activeCategory === id ? '1px solid #FF6B00' : '1px solid var(--border)',
-                    color: activeCategory === id ? '#fff' : 'var(--text2)',
-                  }}>
-                  {cat.name_mn || cat.name}
-                </button>
-              )
-            })}
+        <div className="flex gap-2 overflow-x-auto pb-4" style={{ scrollbarWidth: 'none' }}>
+          {displayCategories.map(cat => {
+            const id = String(cat.id)
+            return (
+              <button key={id} onClick={() => setActiveCategory(id)}
+                className="flex-shrink-0 rounded-full px-4 py-2 text-sm font-semibold transition-colors"
+                style={{
+                  background: selectedCategoryId === id ? '#FF6B00' : 'var(--surface)',
+                  border: selectedCategoryId === id ? '1px solid #FF6B00' : '1px solid var(--border)',
+                  color: selectedCategoryId === id ? '#fff' : 'var(--text2)',
+                }}>
+                {cat.name_mn || cat.name}
+              </button>
+            )
+          })}
+        </div>
+
+        {selectedProducts ? (
+          selectedProducts.length > 0
+            ? <ProductGrid items={selectedProducts} />
+            : <div className="text-center py-10 text-sm" style={{ color: 'var(--text4)' }}>Бүтээгдэхүүн олдсонгүй</div>
+        ) : (
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <div key={i} className="h-[280px] rounded-xl animate-pulse" style={{ background: 'var(--surface2)' }} />
+            ))}
           </div>
-
-          {activeCategory && productsByCategory[activeCategory] ? (
-            productsByCategory[activeCategory].length > 0
-              ? <ProductGrid items={productsByCategory[activeCategory]} />
-              : <div className="text-center py-10 text-sm" style={{ color: 'var(--text4)' }}>Бүтээгдэхүүн олдсонгүй</div>
-          ) : (
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4">
-              {Array.from({ length: 8 }).map((_, i) => (
-                <div key={i} className="h-[280px] rounded-xl animate-pulse" style={{ background: 'var(--surface2)' }} />
-              ))}
-            </div>
-          )}
-        </section>
-      )}
+        )}
+      </section>
 
       {/* ═══ INSTANT QUOTE WIDGET ═══ */}
       <section className="max-w-[1100px] mx-auto px-5 pb-10 md:pb-16">
