@@ -1,9 +1,10 @@
-import ProGate from '@/components/ProGate'
+import { Suspense } from 'react'
+import DesignEditorGate from './DesignEditorGate'
 
 export default function EditorLayout({ children }: { children: React.ReactNode }) {
   return (
-    <ProGate feature="Design editor" description="Design editor ашиглахад Basic төлөвлөгөө шаардлагатай" plan="basic">
-      {children}
-    </ProGate>
+    <Suspense fallback={<>{children}</>}>
+      <DesignEditorGate>{children}</DesignEditorGate>
+    </Suspense>
   )
 }
