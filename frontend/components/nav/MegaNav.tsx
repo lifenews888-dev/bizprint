@@ -872,7 +872,7 @@ export default function MegaNav() {
               <div className="text-[11px] font-bold text-[#999] uppercase tracking-widest mb-3 px-1">Ангилал</div>
               <div className="grid grid-cols-2 gap-2">
                 {[
-                  { label: 'Нэрийн хуудас', url: '/shop?cat=business-card', icon: '🪪' },
+                  { label: 'Нэрийн хуудас', url: '/business-cards', icon: '🪪' },
                   { label: 'Флаер & Постер', url: '/shop?cat=flyer', icon: '📄' },
                   { label: 'Стикер', url: '/shop?cat=sticker', icon: '🏷️' },
                   { label: 'Баннер', url: '/shop?cat=banner', icon: '🪧' },

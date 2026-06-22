@@ -89,7 +89,7 @@ const normalizeHelpCard = (value: unknown): FooterHelpCard | null => {
 }
 
 const FALLBACK_COLUMNS: FooterColumn[] = [
-  { title: 'ҮЙЛЧИЛГЭЭ', links: [{ label: 'Нэрийн хуудас', url: '/shop?cat=business-card' }, { label: 'Стикер', url: '/shop?cat=sticker' }, { label: 'Баннер', url: '/shop?cat=banner' }, { label: 'Үнийн мэдээлэл', url: '/pricing' }, { label: 'B2B харилцагч', url: '/b2b' }] },
+  { title: 'ҮЙЛЧИЛГЭЭ', links: [{ label: 'Нэрийн хуудас', url: '/business-cards' }, { label: 'Стикер', url: '/shop?cat=sticker' }, { label: 'Баннер', url: '/shop?cat=banner' }, { label: 'Үнийн мэдээлэл', url: '/pricing' }, { label: 'B2B харилцагч', url: '/b2b' }] },
   { title: 'КОМПАНИ', links: [{ label: 'Бидний тухай', url: '/page/about' }, { label: 'Холбоо барих', url: '/contact' }] },
   { title: 'ТУСЛАМЖ', links: [{ label: 'FAQ', url: '/faq' }, { label: 'Хүргэлт', url: '/delivery' }, { label: 'Захиалга хянах', url: '/track' }] },
 ]

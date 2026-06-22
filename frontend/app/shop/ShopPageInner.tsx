@@ -48,7 +48,7 @@ interface ShopCategory {
 }
 
 const FALLBACK_PRODUCTS = [
-  { icon: '💼', title: 'Нэрийн хуудас', desc: 'Стандарт болон премиум цаас, ламинат, 2 талт хэвлэл', href: '/quote?product=business-card', price: '₮35,000-аас' },
+  { icon: '💼', title: 'Нэрийн хуудас', desc: 'Үнэгүй загвар сонгоод хэвлэлд бэлэн файл үүсгэнэ', href: '/business-cards', price: 'Загвар үнэгүй' },
   { icon: '📄', title: 'Флаер & постер', desc: 'A5/A4 сурталчилгааны материал, олон тоогоор хурдан хэвлэл', href: '/quote?product=flyer', price: '₮120-аас' },
   { icon: '🪧', title: 'Баннер', desc: 'Гадна болон дотор сурталчилгааны баннер, хэмжээ сонголттой', href: '/quote?product=banner', price: '₮18,000/м²-аас' },
   { icon: '🏷️', title: 'Стикер & шошго', desc: 'Бүтээгдэхүүний шошго, наалт, хэлбэртэй тайралт', href: '/quote?product=sticker', price: '₮90-аас' },

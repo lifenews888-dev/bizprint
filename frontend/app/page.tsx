@@ -249,7 +249,7 @@ export default function HomePage() {
 
               <div className="flex flex-wrap gap-2 mb-5">
                 {[
-                  { label: 'Нэрийн хуудас', href: '/shop?q=нэрийн%20хуудас' },
+                  { label: 'Нэрийн хуудас', href: '/business-cards' },
                   { label: 'Баннер', href: '/shop?q=баннер' },
                   { label: 'Стикер', href: '/shop?q=стикер' },
                   { label: 'Постер', href: '/shop?q=постер' },
