@@ -21,7 +21,7 @@ export default function FBLandingPage() {
 
         <div style={{ display: 'flex', gap: 12, justifyContent: 'center', marginTop: 32, marginBottom: 36, flexWrap: 'wrap' }}>
           {[
-            { product: 'Нэрийн хуудас', price: '45,000₮-с', icon: '💳', qty: '500ш' },
+            { product: 'Нэрийн хуудас', price: 'Загвар үнэгүй', icon: '💳', qty: 'editor' },
             { product: 'A5 Флаер', price: '89,000₮-с', icon: '📄', qty: '500ш' },
             { product: 'Роллап', price: '85,000₮-с', icon: '🏗️', qty: '1ш' },
           ].map(p => (
@@ -34,8 +34,8 @@ export default function FBLandingPage() {
           ))}
         </div>
 
-        <Link href="/quick-order" style={{ display: 'inline-block', padding: '16px 48px', background: '#FF6B00', color: '#fff', fontWeight: 700, fontSize: 17, borderRadius: 16, textDecoration: 'none', boxShadow: '0 8px 24px rgba(255,107,0,0.3)' }}>
-          Одоо захиалах →
+        <Link href="/business-cards" style={{ display: 'inline-block', padding: '16px 48px', background: '#FF6B00', color: '#fff', fontWeight: 700, fontSize: 17, borderRadius: 16, textDecoration: 'none', boxShadow: '0 8px 24px rgba(255,107,0,0.3)' }}>
+          Нэрийн хуудас үнэгүй бүтээх →
         </Link>
         <p style={{ color: '#666', fontSize: 13, marginTop: 12 }}>30 минутад хариу өгнө</p>
 
