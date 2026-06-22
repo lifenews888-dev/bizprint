@@ -18,8 +18,8 @@ const SERVICES = [
     desc: 'Хэвлэхэд бэлэн мэргэжлийн дизайн файл',
     longDesc: 'Хэвлэхэд бэлэн мэргэжлийн дизайн файлыг таны шаардлагад нийцүүлэн бэлтгэнэ. Zoom screen share-р хамтарч, эцсийн файлаа хавсаргана.',
     forWhom: ['Компани', 'Ресторан', 'Event зохион байгуулагч'],
-    benefits: ['Постер & Баннер', 'Нэрийн хуудас & Брошур', 'Print-ready PDF файл'],
-    example: 'A3 постер, business card, меню дизайн, каталог',
+    benefits: ['Постер & Баннер', 'Брошур & Меню', 'Print-ready PDF файл'],
+    example: 'A3 постер, меню дизайн, каталог, баннер',
   },
   {
     key: 'live' as const, icon: '📡', label: 'Лайв борлуулалт', color: '#EC4899',
@@ -49,7 +49,7 @@ const SERVICE_CONTENT_TYPES: Record<string, { key: string; label: string; icon: 
     { key: 'logo', label: 'Лого', icon: '💎', price: 80000 },
   ],
   prepress: [
-    { key: 'business_card', label: 'Нэрийн хуудас', icon: '🪪', price: 20000 },
+    { key: 'business_card', label: 'Нэрийн хуудас', icon: '🪪', price: 0 },
     { key: 'brochure', label: 'Брошур', icon: '📰', price: 40000 },
     { key: 'menu', label: 'Цэс/Меню', icon: '🍽️', price: 35000 },
     { key: 'banner_print', label: 'Хэвлэл баннер', icon: '🪧', price: 50000 },
@@ -242,9 +242,16 @@ export default function CustomerUgcPage() {
 
   const selectedDbPkg = dbPackages.find(p => p.id === selectedPkgId)
 
-  const unitPrice = (SERVICE_CONTENT_TYPES[serviceType] || CONTENT_TYPES).find(c => c.key === contentType)?.price || CONTENT_TYPES.find(c => c.key === contentType)?.price || 30000
+  const unitPrice = (SERVICE_CONTENT_TYPES[serviceType] || CONTENT_TYPES).find(c => c.key === contentType)?.price ?? CONTENT_TYPES.find(c => c.key === contentType)?.price ?? 30000
   const pieceTotal = unitPrice * quantity
   const totalPrice = mode === 'piece' ? pieceTotal : Number(selectedDbPkg?.discount_price || selectedDbPkg?.price || 0)
+  const openContentType = (key: string) => {
+    if (key === 'business_card') {
+      router.push('/business-cards')
+      return
+    }
+    setContentType(key)
+  }
 
   const resetForm = () => {
     setTitle(''); setDescription(''); setContentType('poster'); setServiceType('social')
@@ -277,6 +284,10 @@ export default function CustomerUgcPage() {
   const [payProcessing, setPayProcessing] = useState(false)
 
   const handleSubmit = async () => {
+    if (contentType === 'business_card') {
+      router.push('/business-cards')
+      return
+    }
     if (!title.trim() || !description.trim()) return alert('Гарчиг, тайлбар бичнэ үү')
     setSubmitting(true)
     try {
@@ -548,7 +559,7 @@ export default function CustomerUgcPage() {
             <div className="mb-8">
               <h3 className="text-lg font-bold text-[var(--text)] mb-4">Шилдэг Creators</h3>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                {topCreators.map((c, i) => (
+                {topCreators.map(c => (
                   <div key={c.user_id} className="bg-[var(--surface)] border border-[var(--border)] rounded-xl p-4 flex items-center gap-3 hover:shadow-sm transition-all">
                     <div className="w-11 h-11 rounded-full bg-gradient-to-br from-[#8B5CF6] to-[#EC4899] flex items-center justify-center text-white text-sm font-bold shrink-0">
                       {c.full_name?.charAt(0)?.toUpperCase() || '?'}
@@ -576,11 +587,17 @@ export default function CustomerUgcPage() {
             <h3 className="text-lg font-bold text-[var(--text)] mb-4">Контентын төрлүүд</h3>
             <div className="grid grid-cols-5 gap-3">
               {CONTENT_TYPES.map(ct => (
-                <button key={ct.key} onClick={() => { setMode('piece'); setContentType(ct.key); resetForm(); setContentType(ct.key); setShowForm(true); setStep(2) }}
+                <button key={ct.key} onClick={() => {
+                    if (ct.key === 'business_card') {
+                      router.push('/business-cards')
+                      return
+                    }
+                    setMode('piece'); setContentType(ct.key); resetForm(); setContentType(ct.key); setShowForm(true); setStep(2)
+                  }}
                   className="bg-[var(--surface)] border border-[var(--border)] rounded-xl p-4 text-center hover:border-[#FF6B00] hover:shadow-sm transition-all">
                   <div className="text-2xl mb-2">{ct.icon}</div>
                   <div className="text-xs font-medium text-[var(--text)]">{ct.label}</div>
-                  <div className="text-[10px] text-[#FF6B00] font-bold mt-1">₮{ct.price.toLocaleString()}</div>
+                  <div className="text-[10px] text-[#FF6B00] font-bold mt-1">{ct.key === 'business_card' ? 'Үнэгүй editor' : `₮${ct.price.toLocaleString()}`}</div>
                 </button>
               ))}
             </div>
@@ -882,7 +899,7 @@ export default function CustomerUgcPage() {
                         <label className="text-sm font-bold text-[var(--text)] mb-3 block">Контентын төрөл</label>
                         <div className={`grid gap-2 ${(SERVICE_CONTENT_TYPES[serviceType]?.length || 0) <= 4 ? 'grid-cols-3' : 'grid-cols-4'}`}>
                           {(SERVICE_CONTENT_TYPES[serviceType] || []).map(c => (
-                            <button key={c.key} onClick={() => setContentType(c.key)}
+                            <button key={c.key} onClick={() => openContentType(c.key)}
                               className={`p-3 rounded-xl text-center transition-all ${
                                 contentType === c.key
                                   ? 'text-white shadow-lg scale-105'
@@ -891,7 +908,7 @@ export default function CustomerUgcPage() {
                               style={contentType === c.key ? { background: SERVICES.find(s => s.key === serviceType)?.color, boxShadow: `0 4px 12px ${SERVICES.find(s => s.key === serviceType)?.color}30` } : {}}>
                               <div className="text-xl">{c.icon}</div>
                               <div className="text-[10px] font-medium mt-1">{c.label}</div>
-                              <div className="text-[9px] mt-0.5 opacity-75">₮{c.price.toLocaleString()}</div>
+                              <div className="text-[9px] mt-0.5 opacity-75">{c.key === 'business_card' ? 'Үнэгүй editor' : `₮${c.price.toLocaleString()}`}</div>
                             </button>
                           ))}
                         </div>
@@ -999,7 +1016,7 @@ export default function CustomerUgcPage() {
                         <label className="text-sm font-bold text-[var(--text)] mb-2 block">Үндсэн контентын төрөл</label>
                         <div className="grid grid-cols-5 gap-2">
                           {CONTENT_TYPES.slice(0, 5).map(c => (
-                            <button key={c.key} onClick={() => setContentType(c.key)}
+                            <button key={c.key} onClick={() => openContentType(c.key)}
                               className={`p-2.5 rounded-xl text-center text-xs transition-all ${
                                 contentType === c.key ? 'bg-[#FF6B00] text-white' : 'bg-[var(--bg)] text-[var(--text2)] border border-[var(--border)] hover:border-[#FF6B00]'
                               }`}>
@@ -1010,7 +1027,7 @@ export default function CustomerUgcPage() {
                         </div>
                         <div className="grid grid-cols-5 gap-2 mt-2">
                           {CONTENT_TYPES.slice(5).map(c => (
-                            <button key={c.key} onClick={() => setContentType(c.key)}
+                            <button key={c.key} onClick={() => openContentType(c.key)}
                               className={`p-2.5 rounded-xl text-center text-xs transition-all ${
                                 contentType === c.key ? 'bg-[#FF6B00] text-white' : 'bg-[var(--bg)] text-[var(--text2)] border border-[var(--border)] hover:border-[#FF6B00]'
                               }`}>
