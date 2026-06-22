@@ -32,7 +32,7 @@ const SORT_OPTIONS = [
 /* Demo data — replaced by API in production */
 const DEMO_CREATORS: Creator[] = [
   { id: '1', name: 'Болор Б.', level: 'elite', rating: 4.9, reviewCount: 128, tags: ['Сошиал контент', 'Reels', 'TikTok'], startingPrice: 80000, deliveryDays: 2, matchScore: 95, type: 'social', completedJobs: 245, responseTime: '1 цаг' },
-  { id: '2', name: 'Тэмүүлэн О.', level: 'expert', rating: 4.8, reviewCount: 87, tags: ['Лого дизайн', 'Нэрийн хуудас', 'Брэндинг'], startingPrice: 120000, deliveryDays: 3, matchScore: 88, type: 'print', completedJobs: 180, responseTime: '2 цаг' },
+  { id: '2', name: 'Тэмүүлэн О.', level: 'expert', rating: 4.8, reviewCount: 87, tags: ['Лого дизайн', 'Брэндинг', 'Брошур'], startingPrice: 120000, deliveryDays: 3, matchScore: 88, type: 'print', completedJobs: 180, responseTime: '2 цаг' },
   { id: '3', name: 'Сарангэрэл Д.', level: 'pro', rating: 4.7, reviewCount: 64, tags: ['Live борлуулалт', 'Facebook', 'Бүтээгдэхүүн'], startingPrice: 200000, deliveryDays: 1, matchScore: 82, type: 'live', completedJobs: 95, responseTime: '30 мин' },
   { id: '4', name: 'Ганбаатар М.', level: 'expert', rating: 4.9, reviewCount: 156, tags: ['AI контент', 'Midjourney', 'Зураг боловсруулалт'], startingPrice: 60000, deliveryDays: 1, matchScore: 91, type: 'ai', completedJobs: 320, responseTime: '1 цаг' },
   { id: '5', name: 'Оюунтунгалаг Б.', level: 'pro', rating: 4.6, reviewCount: 42, tags: ['UGC видео', 'Бүтээгдэхүүн танилцуулга'], startingPrice: 150000, deliveryDays: 3, matchScore: 75, type: 'ugc', completedJobs: 67, responseTime: '3 цаг' },
@@ -130,6 +130,16 @@ export default function MarketplacePage() {
     [creators]
   )
 
+  const handleSearch = (q: string) => {
+    const normalized = q.toLowerCase()
+    if (normalized.includes('нэрийн хуудас') || normalized.includes('business card') || normalized.includes('name card')) {
+      router.push('/business-cards')
+      return
+    }
+    setActiveSearch(q)
+    setSearch(q)
+  }
+
   return (
     <div style={{ background: 'var(--bg)', minHeight: '100vh' }}>
       {/* Hero */}
@@ -145,7 +155,7 @@ export default function MarketplacePage() {
             Монголын шилдэг контент бүтээгчдийг олж, бизнесээ өсгө
           </p>
 
-          <SearchBar value={search} onChange={setSearch} onSearch={q => { setActiveSearch(q); setSearch(q) }} />
+          <SearchBar value={search} onChange={setSearch} onSearch={handleSearch} />
 
           {/* Type tabs */}
           <div className="flex flex-wrap justify-center gap-2 mt-8">
