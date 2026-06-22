@@ -1,6 +1,7 @@
 'use client'
 import { useState, useRef, useEffect } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { API_URL } from '@/lib/api'
 import { fbPixel } from '@/components/FacebookPixel'
 
@@ -25,7 +26,7 @@ const isQuoteConfig = (value: unknown): value is QuoteConfig =>
 // Static fallback used while API loads or if it errors out
 const FALLBACK_TYPES: PrintType[] = [
   { id: 'flyer', name: 'Флаер', icon: '📄', price: '89,000₮-аас' },
-  { id: 'business-card', name: 'Нэрийн хуудас', icon: '💳', price: '45,000₮-аас' },
+  { id: 'business-card', name: 'Нэрийн хуудас', icon: '💳', price: 'Загвар үнэгүй' },
   { id: 'banner', name: 'Баннер', icon: '🏗️', price: '35,000₮-аас' },
   { id: 'poster', name: 'Постер', icon: '🖼️', price: '15,000₮-аас' },
   { id: 'sticker', name: 'Стикер', icon: '📎', price: '25,000₮-аас' },
@@ -35,6 +36,7 @@ const FALLBACK_TYPES: PrintType[] = [
 type Step = 1 | 2 | 3 | 4
 
 export default function QuickOrderPage() {
+  const router = useRouter()
   const fileRef = useRef<HTMLInputElement>(null)
   const [step, setStep] = useState<Step>(1)
   const [PRINT_TYPES, setPrintTypes] = useState<PrintType[]>(FALLBACK_TYPES)
@@ -123,7 +125,14 @@ export default function QuickOrderPage() {
               <p style={{ fontSize: 15, fontWeight: 600, color: 'var(--text)', marginBottom: 16 }}>Ямар бүтээгдэхүүн хэвлүүлэх вэ?</p>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
                 {PRINT_TYPES.map(t => (
-                  <button key={t.id} onClick={() => { setSelected(t.id); setStep(2) }}
+                  <button key={t.id} onClick={() => {
+                    if (['business-card', 'business-cards'].includes(t.id)) {
+                      router.push('/business-cards')
+                      return
+                    }
+                    setSelected(t.id)
+                    setStep(2)
+                  }}
                     style={{
                       padding: 16, borderRadius: 12, textAlign: 'left', cursor: 'pointer',
                       border: `2px solid ${selected === t.id ? '#FF6B00' : 'var(--border)'}`,
