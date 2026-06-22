@@ -4,6 +4,42 @@ import { useRouter } from 'next/navigation'
 
 const F = "'DM Sans','Segoe UI',system-ui,sans-serif"
 
+type LayoutZone = {
+  key?: string
+  type?: string
+  x: number
+  y: number
+  w?: number
+  h?: number
+  fontSize?: number
+  fontWeight?: string
+  fill?: string
+  align?: 'left' | 'center' | 'right'
+}
+
+type BusinessCardLayout = {
+  id: string
+  name?: string
+  name_mn?: string
+  type?: string
+  canvas_data?: {
+    accent?: string
+    bg?: string
+    textDark?: string
+    textLight?: string
+  }
+  front_json?: LayoutZone[]
+  _card?: BusinessCard
+}
+
+type BusinessCard = {
+  id: string
+  layouts?: BusinessCardLayout[]
+  pricingTiers?: { unit_price?: number | string; quantity?: number | string }[]
+}
+
+type BusinessCardsResponse = BusinessCard[] | { value?: BusinessCard[] }
+
 const CATEGORIES = [
   { key: 'all', label: 'Бүгд', icon: '◎' },
   { key: 'minimal', label: 'Минимал', icon: '○' },
@@ -13,14 +49,14 @@ const CATEGORIES = [
   { key: 'bold', label: 'Тод', icon: '◉' },
 ]
 
-function CardPreview({ layout }: { layout: any; card?: any }) {
+function CardPreview({ layout }: { layout: BusinessCardLayout }) {
   const cd = layout?.canvas_data
   const accent = cd?.accent || '#FF6B00'
   const bg = cd?.bg || '#FFFFFF'
   const td = cd?.textDark || '#111'
   const tl = cd?.textLight || '#6B7280'
   const isDark = ['#111111','#1F2937','#0F0F1A','#0C1929','#0A1A0D','#0F1A2E','#1C1917'].includes(bg)
-  const zones: any[] = layout?.front_json || []
+  const zones = layout?.front_json || []
   const PW = 280, PH = 170
   const sx = PW / 450, sy = PH / 275
 
@@ -28,7 +64,7 @@ function CardPreview({ layout }: { layout: any; card?: any }) {
   if (zones.length > 0 && zones[0].key) {
     return (
       <div style={{ width: PW, height: PH, background: bg, borderRadius: 8, position: 'relative', overflow: 'hidden', boxShadow: '0 4px 20px rgba(0,0,0,0.12)' }}>
-        {zones.map((z: any) => {
+        {zones.map(z => {
           const x = Math.round(z.x * sx), y = Math.round(z.y * sy)
           const zw = Math.round((z.w || 200) * sx), zh = Math.round((z.h || 20) * sy)
           const fs = Math.max(5, Math.round((z.fontSize || 11) * ((sx + sy) / 2)))
@@ -60,7 +96,7 @@ export default function BusinessCardsPage() {
   const router = useRouter()
   const [cat, setCat] = useState('all')
   const [hoverId, setHoverId] = useState<string | null>(null)
-  const [layouts, setLayouts] = useState<any[]>([])
+  const [layouts, setLayouts] = useState<BusinessCardLayout[]>([])
   const [loading, setLoading] = useState(true)
 
   const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'
@@ -70,14 +106,14 @@ export default function BusinessCardsPage() {
       setLoading(true)
       try {
         const res = await fetch(`${API}/api/business-cards`, { cache: 'no-store' })
-        const data = await res.json()
+        const data = (await res.json()) as BusinessCardsResponse
         const cards = Array.isArray(data) ? data : (data.value || [])
-        const all: any[] = []
-        cards.forEach((card: any) => {
+        const all: BusinessCardLayout[] = []
+        cards.forEach(card => {
           if (card.layouts && card.layouts.length > 0) {
             card.layouts
-              .filter((l: any) => l.canvas_data)
-              .forEach((l: any) => all.push({ ...l, _card: card }))
+              .filter(l => l.canvas_data)
+              .forEach(l => all.push({ ...l, _card: card }))
           }
         })
         setLayouts(all)
@@ -98,10 +134,14 @@ export default function BusinessCardsPage() {
         <div style={{ position: 'absolute', top: -40, right: -40, width: 200, height: 200, borderRadius: '50%', background: 'rgba(255,255,255,0.08)' }} />
         <div style={{ position: 'absolute', bottom: -60, left: -30, width: 160, height: 160, borderRadius: '50%', background: 'rgba(255,255,255,0.06)' }} />
         <div style={{ maxWidth: 700, margin: '0 auto', position: 'relative', zIndex: 1 }}>
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '8px 14px', borderRadius: 999, background: 'rgba(255,255,255,0.18)', color: '#fff', fontSize: 13, fontWeight: 700, marginBottom: 14, border: '1px solid rgba(255,255,255,0.28)' }}>
+            <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#fff', display: 'inline-block' }} />
+            Загвар бүтээх үйлчилгээ үнэгүй
+          </div>
           <h1 style={{ fontSize: 36, fontWeight: 800, color: '#fff', margin: 0 }}>Нэрийн хуудас <span style={{ opacity: 0.9 }}>2 минутанд</span></h1>
-          <p style={{ fontSize: 16, color: 'rgba(255,255,255,0.9)', marginTop: 12, lineHeight: 1.6 }}>Загвар сонго → мэдээлэл бөглө → захиал. Дижитал QR карт үнэгүй.</p>
+          <p style={{ fontSize: 16, color: 'rgba(255,255,255,0.9)', marginTop: 12, lineHeight: 1.6 }}>Загвар сонго → мэдээлэл бөглө → хэвлэлд бэлэн файл үүсгэ. Editor ашиглахад төлбөр, Basic plan шаардлагагүй.</p>
           <div style={{ display: 'flex', justifyContent: 'center', gap: 32, marginTop: 24 }}>
-            {[{ num: `${filtered.length || layouts.length}+`, label: 'Загвар' }, { num: '90×55', label: 'мм стандарт' }, { num: '1-2', label: 'өдөрт бэлэн' }].map(s => (
+            {[{ num: '0₮', label: 'загвар бүтээх' }, { num: `${filtered.length || layouts.length}+`, label: 'Загвар' }, { num: '90×55', label: 'мм стандарт' }, { num: '1-2', label: 'өдөрт бэлэн' }].map(s => (
               <div key={s.label} style={{ textAlign: 'center' }}>
                 <div style={{ fontSize: 22, fontWeight: 800, color: '#fff' }}>{s.num}</div>
                 <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.75)' }}>{s.label}</div>
@@ -148,6 +188,7 @@ export default function BusinessCardsPage() {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 18, paddingBottom: 48 }}>
             {filtered.map(layout => {
               const card = layout._card
+              if (!card) return null
               const isHover = hoverId === layout.id
               const accent = layout.canvas_data?.accent || '#FF6B00'
               const bg = layout.canvas_data?.bg || '#fff'
@@ -162,7 +203,7 @@ export default function BusinessCardsPage() {
                   onMouseLeave={() => setHoverId(null)}
                   style={{ background: '#fff', borderRadius: 16, overflow: 'hidden', cursor: 'pointer', boxShadow: isHover ? '0 12px 40px rgba(0,0,0,0.14)' : '0 2px 8px rgba(0,0,0,0.06)', border: '1px solid #E5E7EB', transform: isHover ? 'translateY(-4px)' : 'none', transition: 'all 0.25s cubic-bezier(0.4,0,0.2,1)' }}>
                   <div onClick={() => goEditor(card.id, layout.id)} style={{ padding: 24, background: '#F5F5F5', display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 220, position: 'relative' }}>
-                    <CardPreview layout={layout} card={card} />
+                    <CardPreview layout={layout} />
                     <div style={{ position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: isHover ? 1 : 0, transition: 'opacity 0.2s', borderRadius: '16px 16px 0 0' }}>
                       <div style={{ padding: '12px 28px', background: '#FF6B00', color: '#fff', borderRadius: 12, fontSize: 14, fontWeight: 700, boxShadow: '0 4px 16px rgba(255,107,0,0.4)' }}>Энэ загвар ашиглах</div>
                     </div>

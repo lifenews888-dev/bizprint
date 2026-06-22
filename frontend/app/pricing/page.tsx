@@ -34,8 +34,46 @@ const FAQ: [string, string][] = [
   ['B2B захиалгад хямдрал байна уу?', 'Тийм. Тогтмол захиалагчдад 5-25% хямдрал олгоно. /b2b хуудсаас дэлгэрэнгүй мэдээлэл авна уу.'],
 ]
 
+const BUSINESS_CARD_EDITOR_FEATURE = 'Нэрийн хуудас editor'
+const FREE_BUSINESS_CARD_FEATURE = 'Нэрийн хуудасны загвар үнэгүй'
+
+function normalizeBusinessCardEditorPlans(plans: PricingPlan[]): PricingPlan[] {
+  return plans.map(plan => {
+    let features: string[] | null = null
+    if (Array.isArray(plan.features_list)) {
+      features = plan.features_list
+    } else if (typeof plan.features_list === 'string') {
+      try {
+        const parsed: unknown = JSON.parse(plan.features_list)
+        if (Array.isArray(parsed)) features = parsed.filter((item): item is string => typeof item === 'string')
+      } catch {}
+    }
+    if (!features) return plan
+
+    const withoutPaidEditor = features.filter(feature => {
+      const normalized = feature.toLowerCase()
+      return !(normalized.includes('нэрийн хуудас') && normalized.includes('editor'))
+    })
+
+    if (plan.slug === 'free' || plan.id === 'free') {
+      return {
+        ...plan,
+        features_list: withoutPaidEditor.includes(FREE_BUSINESS_CARD_FEATURE)
+          ? withoutPaidEditor
+          : [...withoutPaidEditor, FREE_BUSINESS_CARD_FEATURE],
+      }
+    }
+
+    if (withoutPaidEditor.length !== features.length || features.includes(BUSINESS_CARD_EDITOR_FEATURE)) {
+      return { ...plan, features_list: withoutPaidEditor }
+    }
+
+    return plan
+  })
+}
+
 export default function PricingPage() {
-  const [plans, setPlans] = useState<PricingPlan[]>(FALLBACK_PLANS)
+  const [plans, setPlans] = useState<PricingPlan[]>(normalizeBusinessCardEditorPlans(FALLBACK_PLANS))
   const [billing, setBilling] = useState<'monthly' | 'yearly'>('monthly')
   const [loading, setLoading] = useState(true)
 
@@ -44,7 +82,7 @@ export default function PricingPage() {
       .then(data => {
         const list = Array.isArray(data) ? data : (data?.data || [])
         if (list.length > 0) {
-          setPlans(list.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0)))
+          setPlans(normalizeBusinessCardEditorPlans(list.sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0))))
         }
       })
       .catch(() => {})
