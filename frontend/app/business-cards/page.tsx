@@ -178,9 +178,13 @@ export default function BusinessCardsPage() {
         )}
 
         {!loading && filtered.length === 0 && (
-          <div style={{ textAlign: 'center', padding: 60, color: '#9CA3AF' }}>
+          <div style={{ textAlign: 'center', padding: 60, color: '#9CA3AF', background: '#fff', border: '1px solid #E5E7EB', borderRadius: 18, marginBottom: 48 }}>
             <div style={{ fontSize: 40, marginBottom: 12 }}>📄</div>
-            <div style={{ fontSize: 16, fontWeight: 500, color: '#374151' }}>Загвар олдсонгүй</div>
+            <div style={{ fontSize: 18, fontWeight: 800, color: '#111827' }}>Загвар түр ачаалагдсангүй</div>
+            <p style={{ fontSize: 14, color: '#6B7280', margin: '8px auto 20px', maxWidth: 420, lineHeight: 1.5 }}>Та бэлэн загвар хүлээлгүйгээр үнэгүй editor нээж, мэдээллээ бөглөөд хэвлэлд бэлэн файл үүсгэж болно.</p>
+            <button onClick={() => router.push('/business-cards/editor')} style={{ padding: '12px 28px', background: '#FF6B00', color: '#fff', border: 'none', borderRadius: 12, fontSize: 14, fontWeight: 700, cursor: 'pointer' }}>
+              Үнэгүй editor эхлүүлэх
+            </button>
           </div>
         )}
 
@@ -244,7 +248,7 @@ export default function BusinessCardsPage() {
 
         <div style={{ textAlign: 'center', padding: '32px 0 48px' }}>
           <p style={{ fontSize: 14, color: '#6B7280', marginBottom: 12 }}>Хүссэн загвараа олохгүй байна уу?</p>
-          <a href="/quote" style={{ display: 'inline-block', padding: '12px 32px', background: '#111', color: '#fff', borderRadius: 12, textDecoration: 'none', fontSize: 14, fontWeight: 600 }}>Тусгай загвар захиалах</a>
+          <button onClick={() => router.push('/business-cards/editor')} style={{ display: 'inline-block', padding: '12px 32px', background: '#111', color: '#fff', border: 'none', borderRadius: 12, textDecoration: 'none', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>Blank загвараас үнэгүй эхлэх</button>
         </div>
       </div>
 
