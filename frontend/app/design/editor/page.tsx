@@ -41,6 +41,16 @@ function EditorContent() {
   const router = useRouter()
   const productType = params.get('type') || 'business-card'
   const designRequestId = params.get('designRequestId')
+  const templateId = params.get('templateId')
+  const isBusinessCard = ['', 'business-card', 'business-cards'].includes(String(params.get('type') || '').toLowerCase())
+
+  useEffect(() => {
+    if (designRequestId || !isBusinessCard) return
+    const target = new URLSearchParams()
+    if (templateId) target.set('template', templateId)
+    const qs = target.toString()
+    router.replace(`/business-cards/editor${qs ? `?${qs}` : ''}`)
+  }, [designRequestId, isBusinessCard, router, templateId])
 
   const canvasW = CARD_W * SCALE
   const canvasH = CARD_H * SCALE
@@ -62,7 +72,6 @@ function EditorContent() {
   const [templateName, setTemplateName] = useState('')
 
   // Load template from API if templateId is provided
-  const templateId = params.get('templateId')
   useEffect(() => {
     if (!templateId) return
     fetch(`${API_URL}/api/templates/${templateId}`)
