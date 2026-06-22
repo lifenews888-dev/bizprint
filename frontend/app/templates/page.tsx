@@ -58,8 +58,15 @@ export default function TemplatesPage() {
     !search || (t.title_mn || t.title || '').toLowerCase().includes(search.toLowerCase())
   )
 
+  const isBusinessCardTemplate = (template: Template) =>
+    ['business-card', 'business-cards'].includes(String(template.category || '').toLowerCase())
+
   const handleUse = (template: Template) => {
     fetch(`${API_URL}/api/templates/${template.id}/use`, { method: 'PATCH' }).catch(() => {})
+    if (isBusinessCardTemplate(template)) {
+      router.push(`/business-cards/editor?template=${template.id}`)
+      return
+    }
     router.push(`/design/editor?type=${template.category || 'business-card'}&templateId=${template.id}`)
   }
 
@@ -147,7 +154,7 @@ export default function TemplatesPage() {
       <div style={{ textAlign: 'center', marginTop: 48, padding: '36px 24px', background: 'var(--surface)', borderRadius: 20, border: '1px solid var(--border)' }}>
         <h2 style={{ fontSize: 20, fontWeight: 700, color: 'var(--text)', marginBottom: 8 }}>Өөрийн загвар хэрэгтэй юу?</h2>
         <p style={{ fontSize: 13, color: 'var(--text3)', marginBottom: 20 }}>Scratch-аас эхлэн өөрийн дизайн бүтээнэ үү</p>
-        <Link href="/design/editor" style={{ display: 'inline-block', padding: '12px 32px', background: '#FF6B00', color: '#fff', borderRadius: 12, textDecoration: 'none', fontSize: 14, fontWeight: 600 }}>🎨 Шинэ загвар үүсгэх</Link>
+        <Link href={category === 'business-card' ? '/business-cards/editor' : '/design/editor'} style={{ display: 'inline-block', padding: '12px 32px', background: '#FF6B00', color: '#fff', borderRadius: 12, textDecoration: 'none', fontSize: 14, fontWeight: 600 }}>🎨 Шинэ загвар үүсгэх</Link>
       </div>
 
       <style>{`

@@ -687,7 +687,7 @@ export default function ProductPageClient({ initialProduct, slug: slugProp }: { 
             </div>
 
             {/* Design editor link */}
-            <a href={`/design/editor?type=${p.category || 'business-card'}&productId=${p.id}`}
+            <a href={['business-card', 'business-cards'].includes(String(p.category || '').toLowerCase()) ? '/business-cards' : `/design/editor?type=${p.category || 'business-card'}&productId=${p.id}`}
               className="block w-full py-2.5 border-2 border-[#FF6B00]/30 text-[#FF6B00] text-center text-[12px] font-bold rounded-lg hover:bg-[#FF6B00]/5 transition-colors no-underline">
               🎨 ДИЗАЙН ХИЙХ
             </a>
