@@ -115,17 +115,21 @@ function EditorInner() {
           setBcPricing(product.pricingTiers.map((t: any) => ({ qty: Number(t.quantity), unit_price: Number(t.unit_price) })))
         }
 
-        // Auto-select initial layout from URL param
-        if (initialLayoutId) {
-          const match = valid.find((l: any) => l.id === initialLayoutId)
-          if (match) {
-            setSelectedBcLayout(initialLayoutId)
-            if (match.canvas_data) {
-              setT({ accent: match.canvas_data.accent || '#FF6B00', bg: match.canvas_data.bg || '#FFFFFF', textDark: match.canvas_data.textDark || '#111111', textLight: match.canvas_data.textLight || '#6B7280', dividerY: match.canvas_data.dividerY || 0 })
-            }
-            if (match.front_json?.length) setZoneLayout(convertZones(match.front_json))
-            if (match.back_json?.length) setBackZoneLayout(convertZones(match.back_json))
+        // Auto-select the URL layout, otherwise fall back to the first valid saved template.
+        const selectedLayout = (initialLayoutId ? valid.find((l: any) => l.id === initialLayoutId) : null) || valid[0]
+        if (selectedLayout) {
+          setSelectedBcLayout(selectedLayout.id)
+          if (selectedLayout.canvas_data) {
+            setT({
+              accent: selectedLayout.canvas_data.accent || '#FF6B00',
+              bg: selectedLayout.canvas_data.bg || '#FFFFFF',
+              textDark: selectedLayout.canvas_data.textDark || '#111111',
+              textLight: selectedLayout.canvas_data.textLight || '#6B7280',
+              dividerY: selectedLayout.canvas_data.dividerY || 0,
+            })
           }
+          if (selectedLayout.front_json?.length) setZoneLayout(convertZones(selectedLayout.front_json))
+          if (selectedLayout.back_json?.length) setBackZoneLayout(convertZones(selectedLayout.back_json))
         }
       }
     }).catch(() => {})
