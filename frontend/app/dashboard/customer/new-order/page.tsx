@@ -1,5 +1,5 @@
 'use client'
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { apiFetch } from '@/lib/api'
 
@@ -179,7 +179,13 @@ export default function NewOrderPage() {
           <h2 style={{ fontSize: 16, fontWeight: 700, marginBottom: 16 }}>Бүтээгдэхүүний төрөл сонгох</h2>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 12 }}>
             {PRODUCT_CATEGORIES.map(cat => (
-              <button key={cat.key} onClick={() => { setCategory(cat.key); setStep('details') }}
+              <button key={cat.key} onClick={() => {
+                  if (cat.key === 'business_card') {
+                    router.push('/business-cards')
+                    return
+                  }
+                  setCategory(cat.key); setStep('details')
+                }}
                 style={{
                   display: 'flex', alignItems: 'center', gap: 14, padding: '18px 20px',
                   borderRadius: 14, border: `2px solid ${category === cat.key ? O : 'var(--border)'}`,
@@ -192,7 +198,7 @@ export default function NewOrderPage() {
                 <span style={{ fontSize: 28 }}>{cat.icon}</span>
                 <div>
                   <div style={{ fontSize: 14, fontWeight: 600 }}>{cat.label}</div>
-                  <div style={{ fontSize: 12, color: 'var(--text3)' }}>{cat.desc}</div>
+                  <div style={{ fontSize: 12, color: 'var(--text3)' }}>{cat.key === 'business_card' ? 'Загвар үнэгүй үүсгээд хэвлэлд бэлэн файл гаргана' : cat.desc}</div>
                 </div>
               </button>
             ))}

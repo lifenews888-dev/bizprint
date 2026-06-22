@@ -119,7 +119,7 @@ export default function CustomerHomePage() {
         <QuickAction icon="📦" label="Шинэ захиалга" onClick={() => router.push('/dashboard/customer/new-order')} />
         <QuickAction icon="💰" label="Үнэ тооцоо" onClick={() => router.push('/dashboard/customer/quote-calc')} />
         <QuickAction icon="🛒" label="Marketplace" onClick={() => router.push('/dashboard/customer/shop')} />
-        <QuickAction icon="🪪" label="Нэрийн хуудас" onClick={() => router.push('/dashboard/customer/business-cards')} />
+        <QuickAction icon="🪪" label="Нэрийн хуудас" onClick={() => router.push('/business-cards')} />
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 20 }}>

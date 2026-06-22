@@ -9,7 +9,7 @@ const ORANGE = '#FF6B00'
 const NAV = [
   { section: 'Удирдлага', items: [
     { label: 'Dashboard', href: '/dashboard/customer/home', icon: '🏠' },
-    { label: 'Нэрийн хуудас', href: '/dashboard/customer/business-cards', icon: '🪪' },
+    { label: 'Нэрийн хуудас', href: '/business-cards', icon: '🪪' },
     { label: 'Захиалгууд', href: '/dashboard/customer/orders', icon: '📦' },
     { label: 'Үнийн санал', href: '/dashboard/customer/quotes', icon: '💰' },
     { label: 'Нэхэмжлэх', href: '/dashboard/customer/invoices', icon: '🧾' },
