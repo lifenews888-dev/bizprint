@@ -16,6 +16,7 @@ import { Referral } from '../referral/referral.entity';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { MailService } from '../mail/mail.service';
+import { MarketingService } from '../marketing/marketing.service';
 
 const REFRESH_TOKEN_DAYS = 30;
 const RESET_TOKEN_HOURS = 2;
@@ -37,6 +38,7 @@ export class AuthService {
     private referralRepo: Repository<Referral>,
     private jwtService: JwtService,
     private mailService: MailService,
+    private marketingService: MarketingService,
   ) {}
 
   private static readonly BUSINESS_ROLES = ['vendor', 'factory', 'sales'];
@@ -120,6 +122,17 @@ export class AuthService {
     });
 
     await this.userRepository.save(user);
+
+    await this.marketingService.upsertEmailContact({
+      email: user.email,
+      name: user.full_name,
+      phone: user.phone,
+      company: user.company_name,
+      user_id: user.id,
+      source: 'registered_user',
+      tags: ['registered'],
+      last_synced_at: new Date(),
+    }).catch(() => {});
 
     // Link the referral row so the agent's stats reflect the new signup.
     if (referredBySalesId && referralCodeUsed) {

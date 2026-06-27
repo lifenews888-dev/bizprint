@@ -40,6 +40,7 @@ export const ADMIN_NAV: AdminNavGroup[] = [
       { label: 'Dashboard', href: '/admin', icon: Home },
       { label: 'Тайлан', href: '/admin/reports', icon: BarChart3 },
       { label: 'Маркетинг', href: '/admin/marketing', icon: Megaphone },
+      { label: 'Имэйл маркетинг', href: '/admin/email-marketing', icon: Mail },
     ],
   },
   {

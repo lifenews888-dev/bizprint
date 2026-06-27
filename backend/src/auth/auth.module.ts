@@ -11,12 +11,14 @@ import { Role } from './entities/role.entity';
 import { PasswordReset } from './entities/password-reset.entity';
 import { Referral } from '../referral/referral.entity';
 import { MailModule } from '../mail/mail.module';
+import { MarketingModule } from '../marketing/marketing.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([User, RefreshToken, Role, PasswordReset, Referral]),
     PassportModule,
     MailModule,
+    MarketingModule,
     JwtModule.registerAsync({
       useFactory: () => {
         const secret = process.env.JWT_SECRET;

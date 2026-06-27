@@ -933,6 +933,27 @@ export class MailService {
     })
   }
 
+  async sendMarketingEmail(params: {
+    to: string
+    name: string
+    subject: string
+    html: string
+    unsubscribeUrl?: string
+    fromName?: string
+    fromEmail?: string
+  }) {
+    const from = params.fromEmail
+      ? `"${params.fromName || 'BizPrint'}" <${params.fromEmail}>`
+      : undefined
+    return this.mailerService.sendMail({
+      to: params.to,
+      from,
+      subject: params.subject,
+      html: params.html,
+      headers: params.unsubscribeUrl ? { 'List-Unsubscribe': `<${params.unsubscribeUrl}>` } : undefined,
+    })
+  }
+
   /* ═══════════════════════════════════════
    *  SHARED EMAIL TEMPLATE — мэргэжлийн загвар
    *  Бүх имэйлд ашиглах боломжтой
