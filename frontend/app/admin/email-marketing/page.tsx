@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Mail, RefreshCw, Send, Upload, UserPlus } from 'lucide-react'
+import { Download, FileSpreadsheet, Mail, RefreshCw, Send, Upload, UserPlus } from 'lucide-react'
 import { apiFetch } from '@/lib/api'
 
 type EmailSummary = {
@@ -72,6 +72,30 @@ const inputClass = 'h-10 rounded-md border border-slate-200 bg-white px-3 text-s
 const areaClass = 'min-h-28 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm outline-none transition focus:border-orange-400 focus:ring-2 focus:ring-orange-100'
 const buttonClass = 'inline-flex h-10 items-center justify-center gap-2 rounded-md bg-orange-600 px-4 text-sm font-semibold text-white transition hover:bg-orange-700 disabled:cursor-not-allowed disabled:opacity-50'
 const ghostButtonClass = 'inline-flex h-10 items-center justify-center gap-2 rounded-md border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:border-orange-200 hover:bg-orange-50'
+const mutedButtonClass = 'inline-flex h-9 items-center justify-center gap-2 rounded-md border border-slate-200 bg-slate-50 px-3 text-xs font-semibold text-slate-600 transition hover:bg-white'
+
+const csvEscape = (value: string) => {
+  if (!/[",\n\r]/.test(value)) return value
+  return `"${value.replace(/"/g, '""')}"`
+}
+
+const cellText = (value: unknown) => {
+  if (value == null) return ''
+  if (typeof value === 'object' && 'text' in value && typeof value.text === 'string') return value.text.trim()
+  if (typeof value === 'object' && 'result' in value) return cellText(value.result)
+  return String(value).trim()
+}
+
+const normalizeHeader = (value: string) => value.toLowerCase().replace(/\s+/g, '_').replace(/[()]/g, '')
+
+const mapColumnKey = (header: string, index: number) => {
+  const key = normalizeHeader(header)
+  if (['email', 'e-mail', 'mail', 'имэйл', 'и-мэйл'].includes(key)) return 'email'
+  if (['name', 'full_name', 'fullname', 'нэр', 'харилцагчийн_нэр'].includes(key)) return 'name'
+  if (['company', 'organization', 'org', 'компани', 'байгууллага'].includes(key)) return 'company'
+  if (['phone', 'mobile', 'tel', 'утас', 'дугаар'].includes(key)) return 'phone'
+  return ['email', 'name', 'company', 'phone'][index] || ''
+}
 
 export default function AdminEmailMarketingPage() {
   const [summary, setSummary] = useState<EmailSummary>(emptySummary)
@@ -84,6 +108,7 @@ export default function AdminEmailMarketingPage() {
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState('')
   const [message, setMessage] = useState('')
+  const [importInfo, setImportInfo] = useState('')
 
   const [contactForm, setContactForm] = useState({
     email: '',
@@ -159,6 +184,59 @@ export default function AdminEmailMarketingPage() {
     () => apiFetch('/marketing/email/contacts/import', { method: 'POST', body: { csv, source: 'admin_upload', tag: 'admin-import' } }),
     'Import дууслаа',
   )
+
+  const downloadImportTemplate = () => {
+    const template = 'email,name,company,phone\ninfo@company.mn,Company LLC,Company LLC,+976'
+    const blob = new Blob([template], { type: 'text/csv;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = 'bizprint-email-import-template.csv'
+    link.click()
+    URL.revokeObjectURL(url)
+  }
+
+  const handleImportFile = async (file?: File) => {
+    if (!file) return
+    setBusy('file-import')
+    setMessage('')
+    setImportInfo('')
+    try {
+      if (file.name.toLowerCase().endsWith('.csv')) {
+        const text = await file.text()
+        setCsv(text.trim())
+        const rows = text.split(/\r?\n/).filter(Boolean).length
+        setImportInfo(`${file.name}: ${Math.max(0, rows - 1)} rows loaded`)
+        return
+      }
+
+      const ExcelJS = await import('exceljs')
+      const workbook = new ExcelJS.Workbook()
+      await workbook.xlsx.load(await file.arrayBuffer())
+      const worksheet = workbook.worksheets[0]
+      if (!worksheet) throw new Error('Excel sheet not found')
+
+      const headerRow = worksheet.getRow(1)
+      const columnKeys = [1, 2, 3, 4].map((column) => mapColumnKey(headerRow.getCell(column).text, column - 1))
+      const lines = ['email,name,company,phone']
+      worksheet.eachRow((row, rowNumber) => {
+        if (rowNumber === 1) return
+        const record: Record<string, string> = { email: '', name: '', company: '', phone: '' }
+        columnKeys.forEach((key, index) => {
+          if (!key) return
+          record[key] = cellText(row.getCell(index + 1).value)
+        })
+        if (!record.email && !record.name && !record.company && !record.phone) return
+        lines.push([record.email, record.name, record.company, record.phone].map(csvEscape).join(','))
+      })
+      setCsv(lines.join('\n'))
+      setImportInfo(`${file.name}: ${Math.max(0, lines.length - 1)} rows converted from Excel`)
+    } catch (error: unknown) {
+      setMessage(error instanceof Error ? error.message : 'Excel file could not be read')
+    } finally {
+      setBusy('')
+    }
+  }
 
   const syncUsers = () => runAction(
     'sync',
@@ -242,14 +320,34 @@ export default function AdminEmailMarketingPage() {
         <div className="rounded-md border border-slate-200 bg-white p-5">
           <div className="mb-4 flex items-center justify-between gap-3">
             <div className="flex items-center gap-2">
-              <Upload size={18} className="text-orange-600" />
-              <h2 className="font-bold">CSV import</h2>
+              <FileSpreadsheet size={18} className="text-orange-600" />
+              <h2 className="font-bold">Excel / CSV import</h2>
             </div>
             <button className={ghostButtonClass} onClick={syncUsers} disabled={busy === 'sync'}>
               <RefreshCw size={16} />
               Registered user sync
             </button>
           </div>
+          <div className="mb-3 flex flex-wrap items-center gap-2">
+            <label className={mutedButtonClass}>
+              <FileSpreadsheet size={14} />
+              Excel/CSV сонгох
+              <input
+                type="file"
+                accept=".xlsx,.xls,.csv"
+                className="hidden"
+                onChange={(event) => handleImportFile(event.target.files?.[0])}
+              />
+            </label>
+            <button className={mutedButtonClass} onClick={downloadImportTemplate}>
+              <Download size={14} />
+              Загвар татах
+            </button>
+            {importInfo && <span className="text-xs font-semibold text-emerald-600">{importInfo}</span>}
+          </div>
+          <p className="mb-2 text-xs text-slate-500">
+            Excel баганын дараалал: email, нэр, компани, утас. Эхний мөр header байвал автоматаар танина.
+          </p>
           <textarea className={`${areaClass} w-full font-mono`} value={csv} onChange={(e) => setCsv(e.target.value)} />
           <button className={`${buttonClass} mt-4`} onClick={importContacts} disabled={busy === 'import'}>
             <Upload size={16} />
