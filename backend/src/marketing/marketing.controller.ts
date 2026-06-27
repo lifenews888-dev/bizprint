@@ -37,8 +37,13 @@ export class MarketingController {
 
   @Get('email/contacts')
   @UseGuards(AdminGuard)
-  emailContacts(@Query('search') search?: string) {
-    return this.service.findEmailContacts(search);
+  emailContacts(
+    @Query('search') search?: string,
+    @Query('status') status?: string,
+    @Query('source') source?: string,
+    @Query('tag') tag?: string,
+  ) {
+    return this.service.findEmailContacts({ search, status, source, tag });
   }
 
   @Post('email/contacts')

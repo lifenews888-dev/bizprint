@@ -29,6 +29,7 @@ type EmailCampaign = {
   id: string
   name: string
   subject: string
+  segment?: string
   status: string
   total_recipients: number
   sent_count: number
@@ -46,6 +47,27 @@ const emptySummary: EmailSummary = {
   failed: 0,
 }
 
+const EMAIL_TEMPLATES = [
+  {
+    key: 'offer',
+    label: 'Санал / урамшуулал',
+    subject: 'BizPrint-ийн шинэ санал',
+    html: '<h2>Сайн байна уу, {{name}}</h2><p>Танд зориулсан хэвлэлийн шинэ санал бэлэн боллоо.</p><p><a href="https://bizprint.mn/shop">Дэлгүүр үзэх</a></p><p><a href="{{unsubscribe_url}}">И-мэйлээс гарах</a></p>',
+  },
+  {
+    key: 'reorder',
+    label: 'Дахин захиалга',
+    subject: 'Дахин хэвлүүлэхэд бэлэн үү?',
+    html: '<h2>{{company}} хэвлэлийн ажлаа үргэлжлүүлэх үү?</h2><p>Өмнөх загвар, хэмжээ, материал дээрээ хурдан шинэ захиалга үүсгэх боломжтой.</p><p><a href="https://bizprint.mn/quick-order">Шуурхай захиалах</a></p><p><a href="{{unsubscribe_url}}">И-мэйлээс гарах</a></p>',
+  },
+  {
+    key: 'welcome',
+    label: 'Шинэ хэрэглэгч',
+    subject: 'BizPrint-д тавтай морил',
+    html: '<h2>Тавтай морил, {{name}}</h2><p>Нэрийн хуудас, баннер, каталог, сав баглаа боодол зэрэг хэвлэлийн захиалгаа нэг дор удирдаарай.</p><p><a href="https://bizprint.mn">BizPrint нээх</a></p><p><a href="{{unsubscribe_url}}">И-мэйлээс гарах</a></p>',
+  },
+]
+
 const inputClass = 'h-10 rounded-md border border-slate-200 bg-white px-3 text-sm outline-none transition focus:border-orange-400 focus:ring-2 focus:ring-orange-100'
 const areaClass = 'min-h-28 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm outline-none transition focus:border-orange-400 focus:ring-2 focus:ring-orange-100'
 const buttonClass = 'inline-flex h-10 items-center justify-center gap-2 rounded-md bg-orange-600 px-4 text-sm font-semibold text-white transition hover:bg-orange-700 disabled:cursor-not-allowed disabled:opacity-50'
@@ -56,6 +78,9 @@ export default function AdminEmailMarketingPage() {
   const [contacts, setContacts] = useState<EmailContact[]>([])
   const [campaigns, setCampaigns] = useState<EmailCampaign[]>([])
   const [search, setSearch] = useState('')
+  const [statusFilter, setStatusFilter] = useState('')
+  const [sourceFilter, setSourceFilter] = useState('')
+  const [tagFilter, setTagFilter] = useState('')
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState('')
   const [message, setMessage] = useState('')
@@ -71,17 +96,23 @@ export default function AdminEmailMarketingPage() {
     name: '',
     subject: '',
     preheader: '',
+    segment: 'all',
     sender_name: 'BizPrint',
     sender_email: '',
     html: '<h2>Сайн байна уу, {{name}}</h2><p>BizPrint-ийн шинэ санал танд хүрч байна.</p><p><a href="{{unsubscribe_url}}">И-мэйлээс гарах</a></p>',
   })
 
-  const load = useCallback(async (term = '') => {
+  const load = useCallback(async (term = '', status = '', source = '', tag = '') => {
     setLoading(true)
-    const query = term.trim()
+    const params = new URLSearchParams()
+    if (term.trim()) params.set('search', term.trim())
+    if (status) params.set('status', status)
+    if (source) params.set('source', source)
+    if (tag.trim()) params.set('tag', tag.trim())
+    const query = params.toString()
     const [summaryData, contactData, campaignData] = await Promise.all([
       apiFetch<EmailSummary>('/marketing/email/summary').catch(() => emptySummary),
-      apiFetch<EmailContact[]>(`/marketing/email/contacts${query ? `?search=${encodeURIComponent(query)}` : ''}`).catch(() => []),
+      apiFetch<EmailContact[]>(`/marketing/email/contacts${query ? `?${query}` : ''}`).catch(() => []),
       apiFetch<EmailCampaign[]>('/marketing/email/campaigns').catch(() => []),
     ])
     setSummary(summaryData || emptySummary)
@@ -150,6 +181,18 @@ export default function AdminEmailMarketingPage() {
     )
   }
 
+  const refreshContacts = () => load(search, statusFilter, sourceFilter, tagFilter)
+
+  const applyTemplate = (key: string) => {
+    const template = EMAIL_TEMPLATES.find(item => item.key === key)
+    if (!template) return
+    setCampaignForm({
+      ...campaignForm,
+      subject: campaignForm.subject || template.subject,
+      html: template.html,
+    })
+  }
+
   return (
     <main className="min-h-screen bg-slate-50 px-6 py-6 text-slate-900">
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
@@ -157,7 +200,7 @@ export default function AdminEmailMarketingPage() {
           <h1 className="text-2xl font-bold">Имэйл маркетинг</h1>
           <p className="mt-1 text-sm text-slate-500">Контакт дата хадгалах, бөөнөөр import хийх, registered user sync, campaign dry-run хийх суурь.</p>
         </div>
-        <button className={ghostButtonClass} onClick={() => load(search)} disabled={loading}>
+        <button className={ghostButtonClass} onClick={refreshContacts} disabled={loading}>
           <RefreshCw size={16} />
           Шинэчлэх
         </button>
@@ -220,12 +263,26 @@ export default function AdminEmailMarketingPage() {
           <Send size={18} className="text-orange-600" />
           <h2 className="font-bold">Campaign үүсгэх</h2>
         </div>
+        <div className="mb-4 flex flex-wrap gap-2">
+          {EMAIL_TEMPLATES.map((template) => (
+            <button key={template.key} className={ghostButtonClass} onClick={() => applyTemplate(template.key)}>
+              {template.label}
+            </button>
+          ))}
+        </div>
         <div className="grid gap-3 lg:grid-cols-2">
           <input className={inputClass} placeholder="Campaign нэр" value={campaignForm.name} onChange={(e) => setCampaignForm({ ...campaignForm, name: e.target.value })} />
           <input className={inputClass} placeholder="Subject" value={campaignForm.subject} onChange={(e) => setCampaignForm({ ...campaignForm, subject: e.target.value })} />
           <input className={inputClass} placeholder="Preheader" value={campaignForm.preheader} onChange={(e) => setCampaignForm({ ...campaignForm, preheader: e.target.value })} />
           <input className={inputClass} placeholder="Sender email (сонголттой)" value={campaignForm.sender_email} onChange={(e) => setCampaignForm({ ...campaignForm, sender_email: e.target.value })} />
           <input className={inputClass} placeholder="Sender name" value={campaignForm.sender_name} onChange={(e) => setCampaignForm({ ...campaignForm, sender_name: e.target.value })} />
+          <select className={inputClass} value={campaignForm.segment} onChange={(e) => setCampaignForm({ ...campaignForm, segment: e.target.value })}>
+            <option value="all">Бүх subscribed контакт</option>
+            <option value="registered">Бүртгүүлсэн хэрэглэгчид</option>
+            <option value="manual">Гараар нэмсэн контакт</option>
+            <option value="imported">CSV import контакт</option>
+            <option value="tag:admin-import">admin-import tag</option>
+          </select>
           <div className="text-sm text-slate-500">Variables: {'{{name}}'}, {'{{company}}'}, {'{{email}}'}, {'{{unsubscribe_url}}'}</div>
           <textarea className={`${areaClass} lg:col-span-2`} value={campaignForm.html} onChange={(e) => setCampaignForm({ ...campaignForm, html: e.target.value })} />
         </div>
@@ -239,9 +296,21 @@ export default function AdminEmailMarketingPage() {
         <div className="rounded-md border border-slate-200 bg-white p-5">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
             <h2 className="font-bold">Контактууд</h2>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <input className={inputClass} placeholder="Хайх" value={search} onChange={(e) => setSearch(e.target.value)} />
-              <button className={ghostButtonClass} onClick={() => load(search)}>Хайх</button>
+              <select className={inputClass} value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+                <option value="">Бүх төлөв</option>
+                <option value="subscribed">Subscribed</option>
+                <option value="unsubscribed">Unsubscribed</option>
+              </select>
+              <select className={inputClass} value={sourceFilter} onChange={(e) => setSourceFilter(e.target.value)}>
+                <option value="">Бүх эх сурвалж</option>
+                <option value="manual">Manual</option>
+                <option value="admin_upload">CSV import</option>
+                <option value="registered_user">Registered user</option>
+              </select>
+              <input className={inputClass} placeholder="tag" value={tagFilter} onChange={(e) => setTagFilter(e.target.value)} />
+              <button className={ghostButtonClass} onClick={refreshContacts}>Хайх</button>
             </div>
           </div>
           <div className="overflow-x-auto">
@@ -252,6 +321,7 @@ export default function AdminEmailMarketingPage() {
                   <th>Нэр</th>
                   <th>Компани</th>
                   <th>Эх сурвалж</th>
+                  <th>Tag</th>
                   <th>Төлөв</th>
                 </tr>
               </thead>
@@ -262,11 +332,12 @@ export default function AdminEmailMarketingPage() {
                     <td>{contact.name || '-'}</td>
                     <td>{contact.company || '-'}</td>
                     <td>{contact.source || '-'}</td>
+                    <td>{contact.tags?.join(', ') || '-'}</td>
                     <td>{contact.status || '-'}</td>
                   </tr>
                 ))}
                 {!contacts.length && (
-                  <tr><td colSpan={5} className="py-8 text-center text-slate-400">Контакт олдсонгүй</td></tr>
+                  <tr><td colSpan={6} className="py-8 text-center text-slate-400">Контакт олдсонгүй</td></tr>
                 )}
               </tbody>
             </table>
@@ -283,7 +354,7 @@ export default function AdminEmailMarketingPage() {
                     <p className="font-bold">{campaign.name}</p>
                     <p className="mt-1 text-sm text-slate-500">{campaign.subject}</p>
                     <p className="mt-2 text-xs text-slate-400">
-                      {campaign.status} · sent {campaign.sent_count} · failed {campaign.failed_count} · dry {campaign.dry_run_count}
+                      {campaign.status} · {campaign.segment || 'all'} · sent {campaign.sent_count} · failed {campaign.failed_count} · dry {campaign.dry_run_count}
                     </p>
                   </div>
                   <span className="rounded-full bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-500">

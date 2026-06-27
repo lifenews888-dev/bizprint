@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { ILike, Repository } from 'typeorm';
+import { FindOptionsWhere, ILike, Repository } from 'typeorm';
 import { MarketingCampaign } from './marketing-campaign.entity';
 import { MarketingEmailCampaign } from './email-campaign.entity';
 import { MarketingEmailContact } from './email-contact.entity';
@@ -81,13 +81,27 @@ export class MarketingService {
     return { total, subscribed, unsubscribed, campaigns, sent, failed };
   }
 
-  findEmailContacts(search?: string) {
+  findEmailContacts(filters: { search?: string; status?: string; source?: string; tag?: string } = {}) {
+    const search = String(filters.search || '').trim();
+    const status = String(filters.status || '').trim();
+    const source = String(filters.source || '').trim();
+    const tag = String(filters.tag || '').trim();
+    const base: FindOptionsWhere<MarketingEmailContact> = {};
+    if (status) base.status = status;
+    if (source) base.source = source;
+    const where = search
+      ? [
+          { ...base, email: ILike(`%${search}%`) },
+          { ...base, name: ILike(`%${search}%`) },
+          { ...base, company: ILike(`%${search}%`) },
+        ]
+      : base;
     const s = String(search || '').trim();
     return this.contacts.find({
-      where: s ? [{ email: ILike(`%${s}%`) }, { name: ILike(`%${s}%`) }, { company: ILike(`%${s}%`) }] : undefined,
+      where: s ? where as FindOptionsWhere<MarketingEmailContact>[] : where,
       order: { created_at: 'DESC' },
       take: 500,
-    });
+    }).then(rows => tag ? rows.filter(row => (row.tags || []).includes(tag)) : rows);
   }
 
   async upsertEmailContact(data: Partial<MarketingEmailContact>) {
@@ -176,15 +190,30 @@ export class MarketingService {
     }));
   }
 
+  private async contactsForCampaign(campaign: MarketingEmailCampaign, limit: number) {
+    const segment = String(campaign.segment || 'all').trim();
+    const where: FindOptionsWhere<MarketingEmailContact> = { status: 'subscribed' };
+    if (segment === 'registered') where.source = 'registered_user';
+    if (segment === 'manual') where.source = 'manual';
+    if (segment === 'imported') where.source = 'admin_upload';
+    if (segment.startsWith('source:')) where.source = segment.slice('source:'.length);
+    const contacts = await this.contacts.find({ where, order: { created_at: 'ASC' }, take: limit });
+    if (segment.startsWith('tag:')) {
+      const tag = segment.slice('tag:'.length);
+      return contacts.filter(contact => (contact.tags || []).includes(tag));
+    }
+    return contacts;
+  }
+
   async sendEmailCampaign(id: string, body: { dry_run?: boolean; limit?: number }) {
     const campaign = await this.emailCampaigns.findOne({ where: { id } });
     if (!campaign) throw new NotFoundException('Email campaign not found');
     const dryRun = body.dry_run !== false;
     const limit = Math.max(1, Math.min(Number(body.limit || 50), 500));
-    const contacts = await this.contacts.find({ where: { status: 'subscribed' }, order: { created_at: 'ASC' }, take: limit });
+    const contacts = await this.contactsForCampaign(campaign, limit);
     let sent = 0, failed = 0, skipped = 0, dry = 0;
     for (const contact of contacts) {
-      const unsubscribeUrl = `${process.env.FRONTEND_URL || 'https://bizprint.mn'}/api/marketing/email/unsubscribe?email=${encodeURIComponent(contact.email)}`;
+      const unsubscribeUrl = `${process.env.FRONTEND_URL || 'https://bizprint.mn'}/email/unsubscribe?email=${encodeURIComponent(contact.email)}`;
       const html = this.renderTemplate(campaign.html, {
         email: contact.email,
         name: contact.name || 'Харилцагч',
