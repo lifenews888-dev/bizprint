@@ -23,8 +23,15 @@ export async function generateMetadata({ params }: Params): Promise<Metadata> {
   const { slug } = await params
   const post = await fetchPost(slug)
 
+  // Байхгүй/драфт нийтлэл. Доорх notFound() нь 404 хуудсыг render хийдэг ч
+  // client компонент бүхий модонд streaming эрт flush болдог тул HTTP статус
+  // 200 хэвээр үлддэг (Next-ийн зан үйл). Тиймээс noindex-ийг ил тод тавьж,
+  // эдгээр хаяг индексжихээс сэргийлнэ.
   if (!post) {
-    return { title: 'Нийтлэл олдсонгүй', robots: { index: false, follow: true } }
+    return {
+      title: 'Нийтлэл олдсонгүй',
+      robots: { index: false, follow: true },
+    }
   }
 
   const title = post.seo_title || post.title
@@ -65,7 +72,8 @@ export default async function PostDetailPage({ params }: Params) {
   const { slug } = await params
   const post = await fetchPost(slug)
 
-  // Байхгүй эсвэл драфт нийтлэл — Next-ийн бодит 404 (soft 404 болохгүй)
+  // Байхгүй эсвэл драфт нийтлэл — 404 хуудас render хийнэ (metadata нь
+  // noindex тавьсан)
   if (!post) notFound()
 
   const related = await fetchRelatedPosts(slug, 3)
