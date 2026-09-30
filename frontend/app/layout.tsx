@@ -10,6 +10,7 @@ import FacebookMessengerChat from '@/components/FacebookMessengerChat'
 import { UTMTracker } from '@/components/UTMTracker'
 import MobileStickyCTA from '@/components/MobileStickyCTA'
 import PWAInstallPrompt from '@/components/PWAInstallPrompt'
+import { SITE_NAME, SITE_URL, absoluteUrl, jsonLdScript } from '@/lib/seo'
 
 const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000'
 
@@ -43,8 +44,13 @@ export async function generateMetadata(): Promise<Metadata> {
   } catch {}
 
   return {
+    metadataBase: new URL(SITE_URL),
     title,
     description,
+    alternates: {
+      canonical: '/',
+      types: { 'application/rss+xml': `${SITE_URL}/posts/rss.xml` },
+    },
     manifest: '/manifest.webmanifest',
     applicationName: 'Bizprint.mn',
     appleWebApp: {
@@ -58,8 +64,9 @@ export async function generateMetadata(): Promise<Metadata> {
     icons: favicon ? { icon: favicon } : undefined,
     openGraph: {
       type: 'website',
+      url: SITE_URL,
       locale: 'mn_MN',
-      siteName: 'Bizprint.mn',
+      siteName: SITE_NAME,
       title,
       description,
       images: ogImage ? [{ url: ogImage }] : undefined,
@@ -73,6 +80,52 @@ export async function generateMetadata(): Promise<Metadata> {
   }
 }
 
+/**
+ * Сайтын хэмжээний бүтэцлэгдсэн өгөгдөл.
+ *
+ * Organization нь Google-д брэндийг танихад (knowledge panel, sitelinks),
+ * WebSite + SearchAction нь хайлтын үр дүнд сайт дотоод хайлтын хэсэг
+ * харуулахад хэрэглэгддэг.
+ */
+const siteJsonLd = {
+  '@context': 'https://schema.org',
+  '@graph': [
+    {
+      '@type': 'Organization',
+      '@id': `${SITE_URL}#organization`,
+      name: SITE_NAME,
+      alternateName: 'BizPrint',
+      url: SITE_URL,
+      logo: {
+        '@type': 'ImageObject',
+        url: absoluteUrl('/icons/bizprint-icon-192.png'),
+        width: 192,
+        height: 192,
+      },
+      description:
+        'Монголын хэвлэлийн онлайн платформ — нэрийн хуудас, постер, баннер, '
+        + 'стикер болон бүх төрлийн хэвлэлийн захиалга, дизайн, хүргэлт.',
+      areaServed: { '@type': 'Country', name: 'Mongolia' },
+    },
+    {
+      '@type': 'WebSite',
+      '@id': `${SITE_URL}#website`,
+      url: SITE_URL,
+      name: SITE_NAME,
+      inLanguage: 'mn-MN',
+      publisher: { '@id': `${SITE_URL}#organization` },
+      potentialAction: {
+        '@type': 'SearchAction',
+        target: {
+          '@type': 'EntryPoint',
+          urlTemplate: `${SITE_URL}/search?q={search_term_string}`,
+        },
+        'query-input': 'required name=search_term_string',
+      },
+    },
+  ],
+}
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="mn" data-theme="light">
@@ -84,6 +137,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-title" content="Bizprint" />
         <meta name="theme-color" content="#FF6B00" />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: jsonLdScript(siteJsonLd) }}
+        />
         <link rel="apple-touch-icon" href="/icons/bizprint-icon-192.png" />
         {process.env.NEXT_PUBLIC_GA_ID && (
           <>

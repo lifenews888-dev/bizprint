@@ -1,6 +1,8 @@
 import type { MetadataRoute } from 'next'
+import { fetchPosts, postDate } from '@/lib/blog-api'
+import { SITE_URL } from '@/lib/seo'
 
-const base = 'https://bizprint.mn'
+const base = SITE_URL
 
 const STATIC_ROUTES: MetadataRoute.Sitemap = [
   { url: base, lastModified: new Date(), changeFrequency: 'daily', priority: 1.0 },
@@ -27,46 +29,25 @@ const STATIC_ROUTES: MetadataRoute.Sitemap = [
   { url: `${base}/register`, lastModified: new Date(), changeFrequency: 'monthly', priority: 0.3 },
 ]
 
-interface SitemapPost {
-  slug: string
-  published_at?: string | null
-  updated_at?: string
-}
-
 /**
- * Нийтлэгдсэн нийтлэлүүдийг sitemap-д нэмнэ.
+ * Нийтлэгдсэн нийтлэл бүрийг sitemap-д нэмнэ.
  *
- * Build үед backend руу нэг удаа хандана. Хэрэв API хүрэхгүй бол (env
- * тохируулагдаагүй, backend унтарсан) sitemap статик жагсаалтаараа гарна —
- * build унахгүй, зөвхөн нийтлэлүүд дараагийн deploy хүртэл орохгүй.
+ * `fetchPosts` нь API хүрэхгүй үед хоосон буцаадаг тул sitemap хэзээ ч
+ * унахгүй — зөвхөн нийтлэлүүд дараагийн revalidate хүртэл орохгүй.
  */
-async function fetchPostRoutes(): Promise<MetadataRoute.Sitemap> {
-  const apiUrl = process.env.API_URL || process.env.NEXT_PUBLIC_API_URL
-  if (!apiUrl) return []
-
-  try {
-    const res = await fetch(`${apiUrl}/api/posts?limit=50`, {
-      next: { revalidate: 3600 },
-    })
-    if (!res.ok) return []
-
-    const data = (await res.json()) as { items?: SitemapPost[] }
-    const items = Array.isArray(data?.items) ? data.items : []
-
-    return items
-      .filter(post => typeof post?.slug === 'string' && post.slug.length > 0)
-      .map(post => ({
-        url: `${base}/posts/${post.slug}`,
-        lastModified: new Date(post.updated_at || post.published_at || Date.now()),
-        changeFrequency: 'monthly' as const,
-        priority: 0.6,
-      }))
-  } catch {
-    return []
-  }
-}
-
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const posts = await fetchPostRoutes()
-  return [...STATIC_ROUTES, ...posts]
+  const { items } = await fetchPosts({ limit: 50 })
+
+  const postRoutes: MetadataRoute.Sitemap = items
+    .filter(post => typeof post?.slug === 'string' && post.slug.length > 0)
+    .map(post => ({
+      url: `${base}/posts/${post.slug}`,
+      lastModified: new Date(postDate(post)),
+      changeFrequency: 'monthly' as const,
+      priority: 0.6,
+      // Зургийн sitemap — Google Images нийтлэлийн хавтасны зургийг индексжүүлнэ
+      ...(post.thumbnail ? { images: [post.thumbnail] } : {}),
+    }))
+
+  return [...STATIC_ROUTES, ...postRoutes]
 }

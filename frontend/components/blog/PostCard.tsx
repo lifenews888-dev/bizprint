@@ -47,7 +47,7 @@ export function PostCard({ post }: { post: BlogPost }) {
       className="group flex flex-col overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--surface)] no-underline transition-colors hover:border-[#FF6B00]"
     >
       {post.thumbnail
-        ? <img src={post.thumbnail} alt="" className="h-40 w-full object-cover" />
+        ? <img src={post.thumbnail} alt={post.title} className="h-40 w-full object-cover" />
         : <div className="flex h-40 items-center justify-center bg-[var(--surface2)]">
             <Newspaper size={24} className="text-[var(--text4)]" />
           </div>}
@@ -76,7 +76,7 @@ export function LeadPostCard({ post }: { post: BlogPost }) {
     >
       <div className="grid md:grid-cols-2">
         {post.thumbnail
-          ? <img src={post.thumbnail} alt="" className="h-56 w-full object-cover md:h-full" />
+          ? <img src={post.thumbnail} alt={post.title} className="h-56 w-full object-cover md:h-full" />
           : <div className="hidden bg-[var(--surface2)] md:block" />}
         <div className="flex flex-col justify-center p-6 sm:p-8">
           {post.category && (

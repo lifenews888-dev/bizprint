@@ -1,4 +1,4 @@
-import { Controller, Get, Post as HttpPost, Patch, Delete, Param, Body, Query, Req, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post as HttpPost, Patch, Delete, Param, Body, Query, Req, HttpCode, UseGuards } from '@nestjs/common';
 import { PostsService } from './posts.service';
 import { CreatePostDto, LimitDto, QueryPostsDto, UpdatePostDto } from './dto/post.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -57,11 +57,21 @@ export class PostsController {
     return this.svc.findRelated(slug, query.limit || 3);
   }
 
+  /**
+   * Дэлгэрэнгүй. Үзэлт ЭНД тоологдохгүй: хуудас нь server-side render
+   * болдог тул crawler болон ISR revalidate бүр тоог хөөрөгдөнө. Клиент
+   * `POST :slug/view`-ээр тоолуулна.
+   */
   @Get(':slug')
-  async findBySlug(@Param('slug') slug: string) {
-    const post = await this.svc.findPublishedBySlug(slug);
+  findBySlug(@Param('slug') slug: string) {
+    return this.svc.findPublishedBySlug(slug);
+  }
+
+  /** Бодит уншигч хуудсыг үзсэнийг тоолно (нийтлэгдсэн нийтлэлд л) */
+  @HttpPost(':slug/view')
+  @HttpCode(204)
+  async countView(@Param('slug') slug: string) {
     await this.svc.incrementView(slug);
-    return post;
   }
 
   @HttpPost()

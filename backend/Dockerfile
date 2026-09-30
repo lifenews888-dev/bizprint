@@ -30,6 +30,11 @@ RUN apk del python3 make g++
 # Copy compiled output
 COPY --from=builder /app/dist ./dist
 
+# Schema migrations — MigrationsRunnerService нь эдгээрийг boot дээр уншдаг.
+# Хуулаагүй үед runner "No migrations folder found" гээд чимээгүй өнгөрдөг
+# тул схемийн өөрчлөлт production-д хэзээ ч хэрэгждэггүй байсан.
+COPY --from=builder /app/migrations ./migrations
+
 # Create uploads dir
 RUN mkdir -p uploads
 
