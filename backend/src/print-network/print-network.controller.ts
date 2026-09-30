@@ -123,6 +123,20 @@ export class PrintNetworkAdminController {
     return this.svc.upsertProfiles(id, dto)
   }
 
+  @Delete('devices/:id/profiles/:code')
+  deleteProfile(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('code') code: string,
+    @Query('media') media?: string,
+  ) {
+    return this.svc.deleteProfile(id, code, media ?? '')
+  }
+
+  @Get('orders')
+  printOrders(@Query('limit') limit?: string) {
+    return this.svc.listPrintOrders(limit ? Number(limit) : undefined)
+  }
+
   // Агент
   @Get('agents')
   listAgents() {

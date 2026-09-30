@@ -266,6 +266,32 @@ export class PrintNetworkService {
     return { device: device.name, tolerance: device.deltaETolerance, passed: results.filter((r) => r.pass).length, results }
   }
 
+  async deleteProfile(deviceId: string, code: string, media = '') {
+    const color = await this.colors.findOne({ where: { code: code.toUpperCase() } })
+    if (!color) throw new NotFoundException('Өнгө олдсонгүй')
+    const r = await this.profiles.delete({ deviceId, colorCodeId: color.id, media })
+    return { deleted: r.affected ?? 0 }
+  }
+
+  /** Админ: desktop/вэбээс өгсөн хэвлэлийн (productType-тэй) захиалгууд + тасалбарын төлөв */
+  async listPrintOrders(limit = 100) {
+    // order_items.order_id нь varchar, orders.id нь uuid тул ::text-ээр харьцуулна
+    return this.ds.query(
+      `SELECT o.id, o.invoice_no, o.status, o.total_price, o.created_at, o.customer_name, o.customer_email,
+              json_agg(json_build_object('id', i.id, 'quantity', i.quantity, 'specs', i.specs) ORDER BY i.created_at) AS items,
+              (SELECT coalesce(json_agg(json_build_object('id', t.id, 'status', t.status, 'deviceId', t.device_id,
+                                                          'error', t.error, 'createdAt', t.created_at) ORDER BY t.created_at), '[]')
+                 FROM print_tickets t WHERE t.order_id = o.id) AS tickets
+         FROM orders o
+         JOIN order_items i ON i.order_id = o.id::text
+        WHERE i.specs ? 'productType'
+        GROUP BY o.id
+        ORDER BY o.created_at DESC
+        LIMIT $1`,
+      [Math.min(Math.max(limit, 1), 500)],
+    )
+  }
+
   // ─── Агент ─────────────────────────────────────────────────────
 
   async createAgent(dto: CreateAgentDto) {
