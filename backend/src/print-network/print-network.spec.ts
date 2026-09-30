@@ -120,3 +120,32 @@ describe('ticketFileName', () => {
     expect(ticketFileName('X', 'abcdef123456', 'not a url')).toBe('X_abcdef12.pdf')
   })
 })
+
+describe('PrintNetworkSeedService', () => {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const { PrintNetworkSeedService } = require('./print-network-seed.service')
+  const { SEED_COLORS, SEED_PRODUCT_TYPES } = require('./seed-data')
+  const repo = (count: number) => ({ count: jest.fn(async () => count), insert: jest.fn(async () => ({})) })
+
+  it('seeds only empty tables', async () => {
+    const colors = repo(0)
+    const types = repo(3)
+    await new PrintNetworkSeedService(colors, types).onApplicationBootstrap()
+    expect(colors.insert).toHaveBeenCalledWith(SEED_COLORS)
+    expect(types.insert).not.toHaveBeenCalled()
+    expect(SEED_COLORS).toHaveLength(32)
+    expect(SEED_PRODUCT_TYPES.map((t: any) => t.key)).toContain('dtf_transfer')
+  })
+
+  it('never throws on DB errors', async () => {
+    const broken = { count: jest.fn(async () => { throw new Error('relation does not exist') }), insert: jest.fn() }
+    await expect(new PrintNetworkSeedService(broken, broken).onApplicationBootstrap()).resolves.toBeUndefined()
+  })
+
+  it('seed Lab values match the hex they were derived from', () => {
+    for (const c of SEED_COLORS) {
+      const lab = hexToLab(c.hex)
+      expect([c.labL, c.labA, c.labB]).toEqual([lab.l, lab.a, lab.b])
+    }
+  })
+})

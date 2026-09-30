@@ -10,6 +10,7 @@ import { Order } from '../orders/entities/order.entity'
 import { OrderItem } from '../orders/entities/order-item.entity'
 import { PrintNetworkService } from './print-network.service'
 import { PrintAgentGuard } from './print-agent.guard'
+import { PrintNetworkSeedService } from './print-network-seed.service'
 import { ColorCatalogController, PrintOrderingController, PrintAgentController, PrintNetworkAdminController } from './print-network.controller'
 
 /**
@@ -19,7 +20,7 @@ import { ColorCatalogController, PrintOrderingController, PrintAgentController, 
 @Module({
   imports: [TypeOrmModule.forFeature([ColorCode, PrintDevice, DeviceColorProfile, PrintAgent, PrintTicket, PrintProductType, Order, OrderItem])],
   controllers: [ColorCatalogController, PrintOrderingController, PrintNetworkAdminController, PrintAgentController],
-  providers: [PrintNetworkService, PrintAgentGuard],
+  providers: [PrintNetworkService, PrintAgentGuard, PrintNetworkSeedService],
   exports: [PrintNetworkService],
 })
 export class PrintNetworkModule {}
