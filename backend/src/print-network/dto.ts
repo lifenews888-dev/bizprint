@@ -237,6 +237,10 @@ export class DispatchItemDto {
 export class DispatchOrderDto {
   @IsOptional() @IsArray() @ValidateNested({ each: true }) @Type(() => DispatchItemDto)
   items?: DispatchItemDto[]
+
+  /** Аль хэдийн хэвлэгдсэн мөрийг дахин хэвлэх */
+  @IsOptional() @IsBoolean()
+  reprint?: boolean
 }
 
 export class AgentHeartbeatDto {
@@ -253,7 +257,7 @@ export class AgentPollDto extends AgentHeartbeatDto {
 }
 
 export class AgentTicketStatusDto {
-  @IsIn([PrintTicketStatus.IN_HOTFOLDER, PrintTicketStatus.PRINTING, PrintTicketStatus.PRINTED, PrintTicketStatus.FAILED])
+  @IsIn([PrintTicketStatus.CLAIMED, PrintTicketStatus.IN_HOTFOLDER, PrintTicketStatus.PRINTING, PrintTicketStatus.PRINTED, PrintTicketStatus.FAILED])
   status: string
 
   @IsOptional() @IsString() @MaxLength(2000)

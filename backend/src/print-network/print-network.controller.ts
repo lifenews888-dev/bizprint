@@ -2,8 +2,8 @@ import {
   Body, Controller, Delete, Get, Param, ParseUUIDPipe, Patch, Post, Put, Query, Req, UploadedFile, UseGuards, UseInterceptors,
 } from '@nestjs/common'
 import { FileInterceptor } from '@nestjs/platform-express'
-import { SkipThrottle } from '@nestjs/throttler'
-import { PRINT_FILE_MAX_BYTES, printFileFilter, printFileStorage, verifyPrintFile } from './print-files'
+import { SkipThrottle, Throttle } from '@nestjs/throttler'
+import { PRINT_FILE_MAX_BYTES, PerUserThrottlerGuard, printFileFilter, printFileStorage, verifyPrintFile } from './print-files'
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard'
 import { RolesGuard } from '../auth/guards/roles.guard'
 import { Roles } from '../auth/decorators/roles.decorator'
@@ -42,7 +42,8 @@ export class PrintOrderingController {
   }
 
   @Post('files')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, PerUserThrottlerGuard)
+  @Throttle({ default: { limit: 30, ttl: 60 * 60 * 1000 } })
   @UseInterceptors(FileInterceptor('file', {
     storage: printFileStorage,
     fileFilter: printFileFilter,

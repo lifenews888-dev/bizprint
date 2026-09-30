@@ -149,3 +149,86 @@ describe('PrintNetworkSeedService', () => {
     }
   })
 })
+
+describe('safeUploadedFileUrl', () => {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const { safeUploadedFileUrl } = require('./print-network.service')
+  const os = require('os')
+  const fsx = require('fs')
+  const pathx = require('path')
+  const root = fsx.mkdtempSync(pathx.join(os.tmpdir(), 'bp-up-'))
+  fsx.mkdirSync(pathx.join(root, 'print-files'))
+  fsx.writeFileSync(pathx.join(root, 'print-files', '1-abc.pdf'), '%PDF')
+  fsx.writeFileSync(pathx.join(root, '2-web.PNG'), 'x')
+  fsx.writeFileSync(pathx.join(root, 'evil.hta'), 'x')
+
+  it('accepts only existing print files under /uploads', () => {
+    expect(safeUploadedFileUrl('/uploads/print-files/1-abc.pdf', root)).toBe('/uploads/print-files/1-abc.pdf')
+    expect(safeUploadedFileUrl('/uploads/2-web.PNG', root)).toBe('/uploads/2-web.PNG')
+    for (const bad of [
+      'http://192.168.1.1/admin.pdf', 'https://evil.example/x.pdf', 'file:///C:/Windows/win.ini',
+      '/uploads/evil.hta', '/uploads/../.env', '/uploads/print-files/../../x.pdf', '/uploads/print-files/missing.pdf',
+      '//evil.example/uploads/x.pdf', '/uploads/inquiries/a.pdf',
+    ]) expect(safeUploadedFileUrl(bad, root)).toBeNull()
+  })
+
+  it('ticketFileName never keeps a dangerous extension', () => {
+    expect(ticketFileName('INV', 'abcdef123456', 'https://evil/x.hta')).toBe('INV_abcdef12.pdf')
+    expect(ticketFileName('INV', 'abcdef123456', '/uploads/print-files/a.TIF')).toBe('INV_abcdef12.tif')
+  })
+})
+
+describe('dispatchOrder (security)', () => {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const { PrintNetworkService } = require('./print-network.service')
+  const fsx = require('fs')
+
+  function build(itemSpecs: any, productId = 'prod-cheap') {
+    const inserted: any[] = []
+    const repo = (over: any = {}) => ({ find: jest.fn(async () => []), findOne: jest.fn(async () => null), ...over })
+    const svc = new PrintNetworkService(
+      repo({ find: jest.fn(async () => [{ id: 'c1', code: 'BP-R101', name: 'Улаан', labL: 48, labA: 73, labB: 63, isActive: true }]) }),
+      repo({ find: jest.fn(async () => [{ id: 'd1', name: 'F2100', technology: 'dtf', agentId: null, hotfolderKey: 'k' }]) }),
+      repo(), repo(),
+      repo({ find: jest.fn(async () => []), create: (x: any) => x, insert: jest.fn(async (x: any) => { inserted.push(x) }) }),
+      repo({ findOne: jest.fn(async () => ({ id: 'o1', status: 'confirmed', invoice_no: 'INV-1', quantity: 1 })) }),
+      repo({ find: jest.fn(async () => [{ id: 'i1', product_id: productId, quantity: 3, specs: itemSpecs }]) }),
+      repo({ find: jest.fn(async () => [{ key: 'dtf_transfer', productId: 'prod-dtf', isActive: true }]) }),
+      { query: jest.fn(async () => []) },
+    )
+    jest.spyOn(svc, 'loadDeviceStates').mockResolvedValue([{
+      id: 'd1', name: 'F2100', technology: 'dtf', status: 'active', productTypes: ['dtf_transfer', 'uv_print'], media: [],
+      maxWidthMm: 600, deltaETolerance: 3, online: true, queueLength: 0,
+      profiles: new Map([['BP-R101', [{ media: '', deltaE: 1 }]]]),
+    }])
+    return { svc, inserted }
+  }
+  const existsSpy = jest.spyOn(fsx, 'existsSync')
+  afterAll(() => existsSpy.mockRestore())
+
+  it('uses the paid product mapping and ignores spoofed specs', async () => {
+    existsSpy.mockReturnValue(true)
+    const { svc, inserted } = build({ productType: 'uv_print', color_codes: ['bp-r101'], file_url: '/uploads/print-files/1-a.pdf' }, 'prod-dtf')
+    const r = await svc.dispatchOrder('o1', {})
+    expect(r.created).toHaveLength(1)
+    expect(inserted[0].payload.productType).toBe('dtf_transfer')
+    expect(inserted[0].jdf).toContain('BP-R101')
+    expect(inserted[0].id).toBe(inserted[0].payload.ticketId)
+  })
+
+  it('refuses unmapped products and foreign file URLs', async () => {
+    existsSpy.mockReturnValue(true)
+    let { svc } = build({ productType: 'dtf_transfer', file_url: '/uploads/print-files/1-a.pdf' }, 'prod-cheap')
+    expect((await svc.dispatchOrder('o1', {})).skipped[0].reason).toMatch(/холбогдоогүй/)
+    ;({ svc } = build({ file_url: 'http://192.168.1.10/x.pdf', color_codes: 'BP-R101' }, 'prod-dtf'))
+    const r = await svc.dispatchOrder('o1', {})
+    expect(r.created).toHaveLength(0)
+    expect(r.skipped[0].reason).toMatch(/файл буруу/)
+  })
+
+  it('silently skips non-print items', async () => {
+    const { svc } = build({ size: 'A4' }, 'prod-cheap')
+    const r = await svc.dispatchOrder('o1', {})
+    expect(r).toMatchObject({ created: [], skipped: [], nonPrintItems: 1 })
+  })
+})

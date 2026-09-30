@@ -1,7 +1,8 @@
 import * as fs from 'fs'
 import * as path from 'path'
 import { randomBytes } from 'crypto'
-import { BadRequestException } from '@nestjs/common'
+import { BadRequestException, Injectable } from '@nestjs/common'
+import { ThrottlerGuard } from '@nestjs/throttler'
 import { diskStorage } from 'multer'
 
 /**
@@ -55,5 +56,13 @@ export function verifyPrintFile(file: Express.Multer.File | undefined) {
     file_url: `/uploads/print-files/${file.filename}`,
     original_name: path.basename(file.originalname),
     size_bytes: file.size,
+  }
+}
+
+/** Хэрэглэгч тус бүрээр тоолох throttler (proxy-ийн ард IP найдваргүй). JwtAuthGuard-ийн ДАРАА ажиллана. */
+@Injectable()
+export class PerUserThrottlerGuard extends ThrottlerGuard {
+  protected async getTracker(req: Record<string, any>): Promise<string> {
+    return req.user?.id ? `user:${req.user.id}` : req.ip
   }
 }

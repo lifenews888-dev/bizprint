@@ -104,10 +104,15 @@ export class OrdersController {
     return this.ordersService.createFromQuote(body.quote_id, req.user.id, body.payment_method);
   }
 
+  // Admin/superadmin бүх захиалгыг, бусад нь зөвхөн өөрийнхөө захиалгыг харна.
+  // (Өмнө нь нэвтэрсэн хэн ч бүх хэрэглэгчийн захиалгыг авч чаддаг байсан —
+  // customer dashboard энэ endpoint-ыг дууддаг.)
   @Get()
   @UseGuards(JwtAuthGuard)
-  getAll() {
-    return this.ordersService.getOrders();
+  getAll(@Request() req: any) {
+    const role = req.user?.role;
+    if (role === 'admin' || role === 'superadmin') return this.ordersService.getOrders();
+    return this.ordersService.getOrdersByCustomer(req.user.id);
   }
 
   // Admin-only: read any customer's orders. Customers use /orders/my (which is

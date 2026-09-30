@@ -30,6 +30,9 @@ export interface TicketData {
 
 const esc = (v: unknown) =>
   String(v ?? '')
+    // XML 1.0-д хориотой удирдах тэмдэгт (захиалагчийн тайлбараас) RIP-ийн parser-ийг эвддэг
+    // eslint-disable-next-line no-control-regex
+    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, ' ')
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')

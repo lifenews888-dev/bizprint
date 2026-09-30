@@ -1,7 +1,9 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common'
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm'
-import { DataSource, In, Repository } from 'typeorm'
-import { createHash, randomBytes } from 'crypto'
+import { DataSource, In, IsNull, Repository } from 'typeorm'
+import { createHash, randomBytes, randomUUID } from 'crypto'
+import * as fs from 'fs'
+import * as path from 'path'
 import { ColorCode } from './entities/color-code.entity'
 import { PrintDevice } from './entities/print-device.entity'
 import { DeviceColorProfile } from './entities/device-color-profile.entity'
@@ -21,7 +23,7 @@ import {
 /** Агент энэ хугацаанд heartbeat илгээгээгүй бол офлайн гэж үзнэ */
 const AGENT_ONLINE_MS = 2 * 60 * 1000
 /** claimed төлөвт ийм удаан гацсан тасалбарыг дахин дараалалд оруулна */
-const STALE_CLAIM_MINUTES = 10
+const STALE_CLAIM_MINUTES = 30
 
 const OPEN_STATUSES = [
   PrintTicketStatus.QUEUED, PrintTicketStatus.CLAIMED, PrintTicketStatus.IN_HOTFOLDER, PrintTicketStatus.PRINTING,
@@ -133,8 +135,10 @@ export class PrintNetworkService {
       const code = dto.code.toUpperCase()
       const existing = await this.colors.findOne({ where: { code } })
       if (existing) {
+        const before = [existing.labL, existing.labA, existing.labB].join()
         Object.assign(existing, this.normalizeColor(dto, existing))
-        await this.colors.save(existing)
+        const saved = await this.colors.save(existing)
+        if ([saved.labL, saved.labA, saved.labB].join() !== before) await this.recomputeDeltaE(saved)
         updated++
       } else {
         await this.colors.save(this.colors.create(this.normalizeColor(dto)))
@@ -183,7 +187,9 @@ export class PrintNetworkService {
             .map((c) => ({ code: c.code, name: c.name, hex: c.hex, deltaE: round2(deltaE2000(labOf(color), labOf(c))) }))
             .sort((a, b) => a.deltaE - b.deltaE)
             .slice(0, 3)
-      return { code, known: true, name: color.name, hex: color.hex, available: devices.length > 0, devices, suggestions }
+      // Нийтийн endpoint — принтерийн id/нэрийг задруулахгүй
+      const pub = devices.map((d) => ({ technology: d.technology, deltaE: d.deltaE }))
+      return { code, known: true, name: color.name, hex: color.hex, available: devices.length > 0, devices: pub, suggestions }
     })
 
     return { productType: dto.productType, allAvailable: results.every((r) => r.available), results }
@@ -219,7 +225,8 @@ export class PrintNetworkService {
     const d = await this.devices.findOne({ where: { id } })
     if (!d) throw new NotFoundException('Принтер олдсонгүй')
     if (dto.agentId) await this.requireAgent(dto.agentId)
-    Object.assign(d, dto)
+    const clean = Object.fromEntries(Object.entries(dto).filter(([k, v]) => v !== null || ['agentId', 'maxWidthMm', 'hotfolderKey', 'notes'].includes(k)))
+    Object.assign(d, clean)
     return this.devices.save(d)
   }
 
@@ -274,7 +281,7 @@ export class PrintNetworkService {
   }
 
   /** Админ: desktop/вэбээс өгсөн хэвлэлийн (productType-тэй) захиалгууд + тасалбарын төлөв */
-  async listPrintOrders(limit = 100) {
+  async listPrintOrders(limit?: number) {
     // order_items.order_id нь varchar, orders.id нь uuid тул ::text-ээр харьцуулна
     return this.ds.query(
       `SELECT o.id, o.invoice_no, o.status, o.total_price, o.created_at, o.customer_name, o.customer_email,
@@ -284,11 +291,12 @@ export class PrintNetworkService {
                  FROM print_tickets t WHERE t.order_id = o.id) AS tickets
          FROM orders o
          JOIN order_items i ON i.order_id = o.id::text
-        WHERE i.specs ? 'productType'
+        WHERE i.specs ? 'productType' OR i.specs ? 'product_type'
+           OR i.product_id IN (SELECT product_id::text FROM print_product_types WHERE product_id IS NOT NULL)
         GROUP BY o.id
         ORDER BY o.created_at DESC
         LIMIT $1`,
-      [Math.min(Math.max(limit, 1), 500)],
+      [clampLimit(limit, 100)],
     )
   }
 
@@ -411,37 +419,58 @@ export class PrintNetworkService {
 
     const colorCatalog = await this.colors.find({ where: { isActive: true } })
     const colorBy = new Map(colorCatalog.map((c) => [c.code, c]))
+    // Хэвлэлийн төрлийг захиалагчийн specs-ээс биш, ТӨЛСӨН бүтээгдэхүүнээс нь тодорхойлно
+    const typeByProduct = new Map(
+      (await this.productTypes.find({ where: { isActive: true } }))
+        .filter((t) => t.productId)
+        .map((t) => [String(t.productId), t.key]),
+    )
     const states = await this.loadDeviceStates()
     const devicesById = new Map((await this.devices.find()).map((d) => [d.id, d]))
     const orderNumber = (order as any).order_number ?? order.invoice_no ?? null
 
     const created: PrintTicket[] = []
     const skipped: { orderItemId: string | null; reason: string; rejected?: any[] }[] = []
+    let nonPrintItems = 0
 
     for (const { item, o } of jobs) {
-      const specs = item?.specs ?? {}
+      const specs: Record<string, any> = item?.specs && typeof item.specs === 'object' ? item.specs : {}
       const itemId = item?.id ?? null
 
-      if (itemId) {
-        const open = await this.tickets.count({ where: { orderItemId: itemId, status: In(OPEN_STATUSES) } })
-        if (open) {
-          skipped.push({ orderItemId: itemId, reason: 'Идэвхтэй тасалбар аль хэдийн байна' })
-          continue
-        }
+      const mappedType = item?.product_id ? typeByProduct.get(String(item.product_id)) : undefined
+      const claimedType = str(specs.productType ?? specs.product_type ?? specs.print_type)
+      // Админ гараар заасан төрөл > бүтээгдэхүүний холбоос. Хэвлэлийн бус мөрийг (өөр бараа) чимээгүй алгасна.
+      const productType = o.productType ?? mappedType
+      if (!productType) {
+        if (claimedType) skipped.push({ orderItemId: itemId, reason: 'Бүтээгдэхүүн хэвлэлийн төрөлтэй холбогдоогүй (Админ → 1-р алхам)' })
+        else nonPrintItems++
+        continue
+      }
+
+      const existing = await this.tickets.find({ where: itemId ? { orderItemId: itemId } : { orderId, orderItemId: IsNull() } })
+      if (existing.some((t) => OPEN_STATUSES.includes(t.status as PrintTicketStatus))) {
+        skipped.push({ orderItemId: itemId, reason: 'Хэвлэлт явагдаж байна (идэвхтэй тасалбар бий)' })
+        continue
+      }
+      if (!dto.reprint && existing.some((t) => t.status === PrintTicketStatus.PRINTED)) {
+        skipped.push({ orderItemId: itemId, reason: 'Аль хэдийн хэвлэгдсэн — дахин хэвлэх бол "reprint" сонгоно' })
+        continue
       }
 
       const req: RouteRequest = {
-        productType: o.productType ?? specs.productType ?? specs.product_type ?? specs.print_type,
-        colorCodes: (o.colorCodes ?? specs.colorCodes ?? specs.color_codes ?? []).map((c: string) => String(c).toUpperCase()),
+        productType,
+        colorCodes: strList(o.colorCodes ?? specs.colorCodes ?? specs.color_codes).map((c) => c.toUpperCase()),
         widthMm: o.widthMm ?? num(specs.width_mm ?? specs.widthMm) ?? num(order.width_mm),
         heightMm: o.heightMm ?? num(specs.height_mm ?? specs.heightMm) ?? num(order.height_mm),
-        media: o.media ?? specs.media ?? null,
+        media: o.media ?? str(specs.media),
       }
-      const fileUrl: string | undefined = o.fileUrl ?? specs.file_url ?? specs.fileUrl ?? order.file_url
+      const rawFileUrl = o.fileUrl ?? str(specs.file_url ?? specs.fileUrl) ?? order.file_url
       const quantity = o.quantity ?? item?.quantity ?? order.quantity ?? 1
 
-      if (!req.productType) { skipped.push({ orderItemId: itemId, reason: 'productType тодорхойгүй' }); continue }
-      if (!fileUrl) { skipped.push({ orderItemId: itemId, reason: 'Хэвлэх файл байхгүй' }); continue }
+      if (!rawFileUrl) { skipped.push({ orderItemId: itemId, reason: 'Хэвлэх файл байхгүй' }); continue }
+      // Цехийн агент зөвхөн манай серверт upload хийгдсэн файлыг татна (SSRF, аюултай өргөтгөлөөс хамгаална)
+      const fileUrl = safeUploadedFileUrl(rawFileUrl)
+      if (!fileUrl) { skipped.push({ orderItemId: itemId, reason: 'Хэвлэх файл буруу эсвэл серверт олдсонгүй' }); continue }
       const unknown = req.colorCodes.filter((c) => !colorBy.has(c))
       if (unknown.length) { skipped.push({ orderItemId: itemId, reason: `Каталогт байхгүй өнгө: ${unknown.join(', ')}` }); continue }
 
@@ -466,28 +495,33 @@ export class PrintNetworkService {
       })
       await this.attachRecipes(device.id, ticketColors, req.media)
 
-      const ticket = this.tickets.create({
-        orderId, orderItemId: itemId, orderNumber, deviceId: device.id, agentId: device.agentId,
-        status: PrintTicketStatus.QUEUED, fileUrl, payload: {}, jdf: '',
-      })
-      await this.tickets.save(ticket) // id авахын тулд эхлээд хадгална
-
-      const fileName = ticketFileName(orderNumber ?? orderId.slice(0, 8), ticket.id, fileUrl)
+      // Бүрэн бэлэн тасалбарыг НЭГ удаа insert хийнэ — агент хагас бичигдсэн мөр авах боломжгүй
+      const ticketId = randomUUID()
+      const fileName = ticketFileName(orderNumber ?? orderId.slice(0, 8), ticketId, fileUrl)
       const data = {
-        ticketId: ticket.id, orderId, orderNumber, productType: req.productType, quantity,
+        ticketId, orderId, orderNumber, productType: req.productType, quantity,
         widthMm: req.widthMm, heightMm: req.heightMm, media: req.media, fileUrl, fileName,
         colors: ticketColors,
         device: { id: device.id, name: device.name, technology: device.technology },
         hotfolderKey: device.hotfolderKey,
-        notes: o.notes ?? specs.notes ?? null,
+        notes: o.notes ?? str(specs.notes),
       }
-      ticket.payload = data
-      ticket.jdf = buildJdf(data)
-      created.push(await this.tickets.save(ticket))
+      const ticket = this.tickets.create({
+        id: ticketId, orderId, orderItemId: itemId, orderNumber, deviceId: device.id, agentId: device.agentId,
+        status: PrintTicketStatus.QUEUED, fileUrl, payload: data, jdf: buildJdf(data),
+      })
+      try {
+        await this.tickets.insert(ticket)
+      } catch (e: any) {
+        // uq_print_tickets_open: зэрэг илгээсэн (давхар дарсан) хүсэлт
+        if (e?.code === '23505') { skipped.push({ orderItemId: itemId, reason: 'Хэвлэлт явагдаж байна (идэвхтэй тасалбар бий)' }); continue }
+        throw e
+      }
+      created.push(ticket)
       st.queueLength++ // дараагийн мөрийн чиглүүлэлтэд ачааллыг тусгана
     }
 
-    return { orderId, created: created.map(stripJdf), skipped }
+    return { orderId, created: created.map(stripJdf), skipped, nonPrintItems }
   }
 
   /** RIP-ийн spot сангийн нэр / хольцыг тасалбарт хавсаргана */
@@ -509,9 +543,9 @@ export class PrintNetworkService {
   async listTickets(opts: { status?: string; orderId?: string; deviceId?: string; limit?: number }) {
     const where: any = {}
     if (opts.status) where.status = opts.status
-    if (opts.orderId) where.orderId = opts.orderId
-    if (opts.deviceId) where.deviceId = opts.deviceId
-    const list = await this.tickets.find({ where, order: { createdAt: 'DESC' }, take: Math.min(opts.limit ?? 100, 500) })
+    if (opts.orderId) where.orderId = requireUuid(opts.orderId, 'orderId')
+    if (opts.deviceId) where.deviceId = requireUuid(opts.deviceId, 'deviceId')
+    const list = await this.tickets.find({ where, order: { createdAt: 'DESC' }, take: clampLimit(opts.limit, 100) })
     return list.map(stripJdf)
   }
 
@@ -527,7 +561,12 @@ export class PrintNetworkService {
       throw new BadRequestException(`"${t.status}" төлөвөөс дахин дараалалд оруулах боломжгүй`)
     }
     Object.assign(t, { status: PrintTicketStatus.QUEUED, error: null, claimedAt: null, finishedAt: null })
-    return stripJdf(await this.tickets.save(t))
+    try {
+      return stripJdf(await this.tickets.save(t))
+    } catch (e: any) {
+      if (e?.code === '23505') throw new ConflictException('Энэ мөрөнд өөр идэвхтэй тасалбар байна')
+      throw e
+    }
   }
 
   async cancelTicket(id: string) {
@@ -573,24 +612,76 @@ export class PrintNetworkService {
     }
   }
 
+  /**
+   * Агентын төлөв мэдэгдэл. Нөхцөлтэй UPDATE тул админы цуцлалтыг дарж бичихгүй.
+   * status=claimed (ижил) → keep-alive: том файл татаж байх үед claimed_at-ийг сунгана.
+   */
   async agentUpdateTicket(agent: PrintAgent, id: string, dto: AgentTicketStatusDto) {
+    await this.touchAgent(agent, {})
+    const fromStatuses = dto.status === PrintTicketStatus.CLAIMED
+      ? [PrintTicketStatus.CLAIMED]
+      : Object.entries(AGENT_TRANSITIONS).filter(([, to]) => to.includes(dto.status)).map(([from]) => from).concat(dto.status)
+    const finished = dto.status === PrintTicketStatus.PRINTED || dto.status === PrintTicketStatus.FAILED
+    const res = await this.tickets
+      .createQueryBuilder()
+      .update(PrintTicket)
+      .set({
+        status: dto.status,
+        ...(dto.status === PrintTicketStatus.CLAIMED ? { claimedAt: () => 'now()' } : {}),
+        ...(dto.status === PrintTicketStatus.FAILED ? { error: dto.error ?? 'Тодорхойгүй алдаа' } : dto.status !== PrintTicketStatus.CLAIMED ? { error: null } : {}),
+        ...(finished ? { finishedAt: () => 'now()' } : {}),
+      })
+      .where('id = :id AND agent_id = :agent AND status IN (:...from)', { id, agent: agent.id, from: fromStatuses })
+      .execute()
     const t = await this.tickets.findOne({ where: { id } })
     if (!t || t.agentId !== agent.id) throw new NotFoundException('Тасалбар олдсонгүй')
-    if (t.status === dto.status) return stripJdf(t)
-    const allowed = AGENT_TRANSITIONS[t.status] ?? []
-    if (!allowed.includes(dto.status)) {
+    if (!res.affected) {
+      if (t.status === PrintTicketStatus.CANCELLED) throw new ConflictException('Тасалбар цуцлагдсан')
       throw new BadRequestException(`${t.status} → ${dto.status} шилжилт зөвшөөрөгдөхгүй`)
     }
-    t.status = dto.status
-    t.error = dto.status === PrintTicketStatus.FAILED ? dto.error ?? 'Тодорхойгүй алдаа' : null
-    if (dto.status === PrintTicketStatus.PRINTED || dto.status === PrintTicketStatus.FAILED) t.finishedAt = new Date()
-    await this.touchAgent(agent, {})
-    return stripJdf(await this.tickets.save(t))
+    return stripJdf(t)
   }
+}
+
+function clampLimit(v: unknown, dflt: number) {
+  const n = Math.floor(Number(v))
+  return Number.isFinite(n) && n > 0 ? Math.min(n, 500) : dflt
+}
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+function requireUuid(v: string, name: string) {
+  if (!UUID_RE.test(v)) throw new BadRequestException(`${name} буруу байна`)
+  return v
 }
 
 function round2(v: number) {
   return Math.round(v * 100) / 100
+}
+
+/** Захиалагчийн specs-ийн утга string биш бол хаяна */
+function str(v: unknown): string | null {
+  return typeof v === 'string' && v.trim() ? v.trim() : null
+}
+
+function strList(v: unknown): string[] {
+  return Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string' && !!x.trim()).map((x) => x.trim()) : []
+}
+
+const PRINT_EXTS = ['pdf', 'png', 'jpg', 'jpeg', 'tif', 'tiff']
+const UPLOADS_ROOT = path.join(process.cwd(), 'uploads')
+
+/**
+ * Зөвхөн манай /uploads/ (эсвэл /uploads/print-files/) дотор upload хийгдсэн,
+ * хэвлэлийн өргөтгөлтэй, дискэнд БАЙГАА файлыг зөвшөөрнө. Бусад бүх URL
+ * (гадны хост, LAN хаяг, file://, ../) → null.
+ */
+export function safeUploadedFileUrl(raw: string, root = UPLOADS_ROOT): string | null {
+  const m = /^\/uploads\/((?:print-files\/)?[A-Za-z0-9][A-Za-z0-9._-]{0,200})$/.exec(String(raw).trim())
+  if (!m || m[1].includes('..')) return null
+  const ext = m[1].split('.').pop()!.toLowerCase()
+  if (!PRINT_EXTS.includes(ext)) return null
+  if (!fs.existsSync(path.join(root, m[1]))) return null
+  return `/uploads/${m[1]}`
 }
 
 function num(v: unknown): number | null {
@@ -605,10 +696,10 @@ function stripJdf(t: PrintTicket) {
 
 export function ticketFileName(prefix: string, ticketId: string, fileUrl: string) {
   let ext = '.pdf'
-  try {
-    const m = /\.([a-z0-9]{2,5})$/i.exec(new URL(fileUrl).pathname)
-    if (m) ext = '.' + m[1].toLowerCase()
-  } catch { /* харьцангуй зам — .pdf гэж үзнэ */ }
+  let pathname = fileUrl
+  try { pathname = new URL(fileUrl, 'http://x').pathname } catch { /* буруу зам — .pdf */ }
+  const m = /\.([a-z0-9]{2,5})$/i.exec(pathname)
+  if (m && PRINT_EXTS.includes(m[1].toLowerCase())) ext = '.' + m[1].toLowerCase()
   const safe = String(prefix).replace(/[^A-Za-z0-9_-]/g, '_')
   return `${safe}_${ticketId.slice(0, 8)}${ext}`
 }
