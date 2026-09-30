@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import Link from 'next/link'
 import GlobalProductCard from '@/components/ProductCard'
 import InstantQuoteWidget from '@/components/InstantQuoteWidget'
+import BlogSection from '@/components/blog/BlogSection'
 import { useSiteSettings } from '@/contexts/SiteSettingsContext'
 import { trackEvent } from '@/lib/analytics'
 
@@ -435,6 +436,10 @@ export default function HomePage() {
           </div>
         </div>
       </section>
+
+      {/* ═══ МЭДЭЭ & НИЙТЛЭЛ ═══ */}
+      {/* Нийтлэл байхгүй бол BlogSection нь null буцааж, хэсэг харагдахгүй */}
+      <BlogSection />
 
       {/* ═══ BOTTOM CTA ═══ */}
       <section className="max-w-[1100px] mx-auto px-5 pb-16">
