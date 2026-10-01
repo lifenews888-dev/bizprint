@@ -249,8 +249,14 @@ export default function MegaNav() {
   ]
 
   // DB-д quick links байвал ашиглах, үгүй бол default
-  const quickLinks: QuickLink[] =
+  const configuredQuickLinks: QuickLink[] =
     headerQuickLinks && headerQuickLinks.length > 0 ? headerQuickLinks : DEFAULT_QUICK_LINKS
+
+  // Мэдээний булан нь CMS тохиргооноос үл хамааран цэсэнд байна. Админ
+  // header_quick_links дотроо /posts нэмбэл түүний нэр, өнгө давамгайлна.
+  const quickLinks: QuickLink[] = configuredQuickLinks.some(l => (l.url || '').startsWith('/posts'))
+    ? configuredQuickLinks
+    : [...configuredQuickLinks, { label: 'Мэдээ', url: '/posts', icon: '📰', color: '#0EA5E9' }]
   const [openId, setOpenId] = useState<string | null>(null)
   const [mobileState, setMobileState] = useState<MobileState>(() => ({ pathname, open: false, accordion: null }))
   const mobileOpen = mobileState.pathname === pathname ? mobileState.open : false
@@ -878,6 +884,7 @@ export default function MegaNav() {
                   { label: 'Баннер', url: '/shop?cat=banner', icon: '🪧' },
                   { label: 'Ном & Каталог', url: '/shop?cat=book', icon: '📗' },
                   { label: 'Загвар сан', url: '/templates', icon: '🎨' },
+                  { label: 'Мэдээ & Нийтлэл', url: '/posts', icon: '📰' },
                 ].map(c => (
                   <a key={c.label} href={c.url} onClick={() => setMobileOpen(false)}
                     className="flex items-center gap-2 px-3 py-2.5 rounded-lg border border-[#EBEBEB] text-[13px] text-[#333] no-underline hover:border-[#FF6B00] transition-colors">

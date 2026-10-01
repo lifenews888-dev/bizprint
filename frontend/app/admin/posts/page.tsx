@@ -1,18 +1,16 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { apiFetch, apiUpload } from '@/lib/api'
-import { sanitizeHtml } from '@/lib/sanitize'
 import { AdminPageHeader } from '@/components/admin/AdminPageHeader'
+import RichTextEditor from '@/components/admin/RichTextEditor'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { toast } from 'sonner'
 import {
   Plus, Pencil, Trash2, Eye, EyeOff, Star, ExternalLink, Search,
-  Newspaper, ImagePlus, ArrowLeft, Save, FileText, Clock,
-  Bold, Italic, Heading2, Heading3, List, ListOrdered, Quote, Link as LinkIcon,
-  Minus, Code,
+  Newspaper, ImagePlus, ArrowLeft, Save, Clock, ChevronDown, Wand2, X,
 } from 'lucide-react'
 
 interface AdminPost {
@@ -68,6 +66,20 @@ const errorMessage = (err: unknown) =>
 const inputClass = 'w-full rounded-lg border border-input bg-background px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring'
 const labelClass = 'mb-1.5 block text-xs font-semibold text-muted-foreground'
 
+/** HTML агуулгаас тоймд тохирох энгийн текст гаргана */
+const excerptFromContent = (html: string) => {
+  const text = html
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&[a-z]+;/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+  if (text.length <= 180) return text
+  const cut = text.slice(0, 180)
+  const lastStop = Math.max(cut.lastIndexOf('. '), cut.lastIndexOf('! '), cut.lastIndexOf('? '))
+  return (lastStop > 80 ? cut.slice(0, lastStop + 1) : `${cut.trimEnd()}...`).trim()
+}
+
 export default function AdminPostsPage() {
   const [posts, setPosts] = useState<AdminPost[]>([])
   const [tab, setTab] = useState<'list' | 'edit'>('list')
@@ -75,7 +87,7 @@ export default function AdminPostsPage() {
   const [form, setForm] = useState<PostForm>({ ...emptyForm })
   const [saving, setSaving] = useState(false)
   const [uploading, setUploading] = useState(false)
-  const [preview, setPreview] = useState(false)
+  const [showAdvanced, setShowAdvanced] = useState(false)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<'all' | 'published' | 'draft'>('all')
 
@@ -116,7 +128,7 @@ export default function AdminPostsPage() {
   const openCreate = () => {
     setEditing(null)
     setForm({ ...emptyForm })
-    setPreview(false)
+    setShowAdvanced(false)
     setTab('edit')
   }
 
@@ -136,40 +148,38 @@ export default function AdminPostsPage() {
       seo_title: post.seo_title || '',
       seo_description: post.seo_description || '',
     })
-    setPreview(false)
+    setShowAdvanced(false)
     setTab('edit')
   }
 
-  /** Хоосон талбаруудыг явуулахгүй — backend дээр null биш хоосон тэмдэгт болж хуримтлахаас сэргийлнэ */
-  const buildPayload = () => {
-    const tags = form.tags.split(',').map(t => t.trim()).filter(Boolean)
-    return {
-      title: form.title.trim(),
-      ...(form.slug.trim() ? { slug: form.slug.trim() } : {}),
-      excerpt: form.excerpt.trim(),
-      content: form.content,
-      thumbnail: form.thumbnail.trim(),
-      category: form.category.trim(),
-      tags,
-      author_name: form.author_name.trim(),
-      is_published: form.is_published,
-      is_featured: form.is_featured,
-      seo_title: form.seo_title.trim(),
-      seo_description: form.seo_description.trim(),
-    }
-  }
+  const buildPayload = () => ({
+    title: form.title.trim(),
+    ...(form.slug.trim() ? { slug: form.slug.trim() } : {}),
+    excerpt: form.excerpt.trim(),
+    content: form.content,
+    thumbnail: form.thumbnail.trim(),
+    category: form.category.trim(),
+    tags: form.tags.split(',').map(t => t.trim()).filter(Boolean),
+    author_name: form.author_name.trim(),
+    is_published: form.is_published,
+    is_featured: form.is_featured,
+    seo_title: form.seo_title.trim(),
+    seo_description: form.seo_description.trim(),
+  })
 
-  const save = async () => {
+  /** `publish` өгвөл тухайн төлвөөр хадгална (товч дээрээс шууд нийтлэх) */
+  const save = async (publish?: boolean) => {
     if (!form.title.trim()) { toast.error('Гарчиг оруулна уу'); return }
+    const willPublish = publish ?? form.is_published
     setSaving(true)
     try {
-      const payload = buildPayload()
+      const payload = { ...buildPayload(), is_published: willPublish }
       if (editing) {
         await apiFetch(`/posts/${editing.id}`, { method: 'PATCH', body: payload })
-        toast.success('Нийтлэл шинэчлэгдлээ ✓')
+        toast.success(willPublish ? 'Нийтлэл шинэчлэгдлээ ✓' : 'Драфт хадгалагдлаа')
       } else {
         await apiFetch('/posts', { method: 'POST', body: payload })
-        toast.success(form.is_published ? 'Нийтлэл нийтлэгдлээ ✓' : 'Драфт хадгалагдлаа ✓')
+        toast.success(willPublish ? 'Нийтлэл сайт дээр гарлаа ✓' : 'Драфт хадгалагдлаа')
       }
       await load()
       setTab('list')
@@ -181,10 +191,7 @@ export default function AdminPostsPage() {
 
   const togglePublished = async (post: AdminPost) => {
     try {
-      await apiFetch(`/posts/${post.id}`, {
-        method: 'PATCH',
-        body: { is_published: !post.is_published },
-      })
+      await apiFetch(`/posts/${post.id}`, { method: 'PATCH', body: { is_published: !post.is_published } })
       toast.success(post.is_published ? 'Драфт болголоо' : 'Нийтлэгдлээ ✓')
       await load()
     } catch (err) {
@@ -194,10 +201,7 @@ export default function AdminPostsPage() {
 
   const toggleFeatured = async (post: AdminPost) => {
     try {
-      await apiFetch(`/posts/${post.id}`, {
-        method: 'PATCH',
-        body: { is_featured: !post.is_featured },
-      })
+      await apiFetch(`/posts/${post.id}`, { method: 'PATCH', body: { is_featured: !post.is_featured } })
       toast.success(post.is_featured ? 'Онцлохоос хаслаа' : 'Нүүр хуудсанд онцлогдлоо ✓')
       await load()
     } catch (err) {
@@ -216,92 +220,35 @@ export default function AdminPostsPage() {
     }
   }
 
-  // ─── Агуулгын редактор ───────────────────────────────────────────────────
-  const contentRef = useRef<HTMLTextAreaElement>(null)
-
-  /**
-   * Сонгосон текстийг таг-аар хүрээлнэ. Сонголт хоосон бол placeholder-ийг
-   * оруулаад курсорыг шинэ агуулгын төгсгөлд тавина.
-   */
-  const wrapSelection = (before: string, after: string, placeholder: string) => {
-    const textarea = contentRef.current
-    if (!textarea) return
-
-    const { selectionStart: start, selectionEnd: end } = textarea
-    const selected = form.content.slice(start, end) || placeholder
-    const next = form.content.slice(0, start) + before + selected + after + form.content.slice(end)
-    field('content', next)
-
-    // React дахин render хийсний дараа курсорыг сэргээнэ
-    requestAnimationFrame(() => {
-      textarea.focus()
-      const caret = start + before.length + selected.length
-      textarea.setSelectionRange(caret, caret)
-    })
-  }
-
-  const insertAtCursor = (snippet: string) => {
-    const textarea = contentRef.current
-    if (!textarea) {
-      field('content', form.content + snippet)
-      return
-    }
-    const { selectionStart: start } = textarea
-    field('content', form.content.slice(0, start) + snippet + form.content.slice(start))
-    requestAnimationFrame(() => {
-      textarea.focus()
-      const caret = start + snippet.length
-      textarea.setSelectionRange(caret, caret)
-    })
-  }
-
-  const insertLink = () => {
-    const url = prompt('Линкийн URL:')
-    if (!url) return
-    wrapSelection(`<a href="${url}" target="_blank" rel="noopener noreferrer">`, '</a>', 'линкийн текст')
-  }
-
-  /** Нийтлэлийн дунд зураг оруулах — upload хийгээд шууд <img> болгож тавина */
-  const uploadContentImage = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-    setUploading(true)
+  /** Cloudinary руу хуулаад URL буцаана (засварлагч болон хавтас хоёрт нийтлэг) */
+  const uploadImage = async (file: File): Promise<string | null> => {
     try {
       const fd = new FormData()
       fd.append('file', file)
       const res = await apiUpload<{ url?: string; error?: string }>('/upload/media', fd)
-      if (res?.url) {
-        insertAtCursor(`\n<img src="${res.url}" alt="" />\n`)
-        toast.success('Зураг агуулгад орлоо')
-      } else {
-        toast.error('Upload алдаа: ' + (res?.error || 'URL буцаагдсангүй'))
-      }
+      if (res?.url) return res.url
+      toast.error('Upload алдаа: ' + (res?.error || 'URL буцаагдсангүй'))
     } catch (err) {
       toast.error('Upload алдаа: ' + errorMessage(err))
     }
-    setUploading(false)
-    e.target.value = ''
+    return null
   }
 
   const uploadThumbnail = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
+    e.target.value = ''
     if (!file) return
     setUploading(true)
-    try {
-      const fd = new FormData()
-      fd.append('file', file)
-      const res = await apiUpload<{ url?: string; error?: string }>('/upload/media', fd)
-      if (res?.url) {
-        field('thumbnail', res.url)
-        toast.success('Зураг орлоо')
-      } else {
-        toast.error('Upload алдаа: ' + (res?.error || 'URL буцаагдсангүй'))
-      }
-    } catch (err) {
-      toast.error('Upload алдаа: ' + errorMessage(err))
-    }
+    const url = await uploadImage(file)
+    if (url) { field('thumbnail', url); toast.success('Зураг орлоо') }
     setUploading(false)
-    e.target.value = ''
+  }
+
+  const fillExcerpt = () => {
+    const text = excerptFromContent(form.content)
+    if (!text) { toast.error('Эхлээд агуулга бичнэ үү'); return }
+    field('excerpt', text.slice(0, 600))
+    toast.success('Тойм бөглөгдлөө')
   }
 
   // ─── Хэсэг: засварлах ──────────────────────────────────────────────────────
@@ -310,13 +257,16 @@ export default function AdminPostsPage() {
       <div className="p-5 sm:p-6">
         <AdminPageHeader
           title={editing ? 'Нийтлэл засах' : 'Шинэ нийтлэл'}
-          description={editing ? `/posts/${editing.slug}` : 'Гарчиг, агуулга оруулаад нийтэлнэ'}
+          description={editing ? `bizprint.mn/posts/${editing.slug}` : 'Гарчиг, агуулгаа бичээд нийтэлнэ'}
         >
           <Button variant="outline" size="sm" onClick={() => setTab('list')}>
-            <ArrowLeft />Жагсаалт
+            <ArrowLeft />Буцах
           </Button>
-          <Button size="sm" onClick={save} disabled={saving}>
-            <Save />{saving ? 'Хадгалж байна...' : 'Хадгалах'}
+          <Button variant="outline" size="sm" onClick={() => save(false)} disabled={saving}>
+            <Save />Драфт хадгалах
+          </Button>
+          <Button size="sm" onClick={() => save(true)} disabled={saving}>
+            {saving ? 'Хадгалж байна...' : editing && editing.is_published ? 'Шинэчлэх' : 'Нийтлэх'}
           </Button>
         </AdminPageHeader>
 
@@ -329,138 +279,85 @@ export default function AdminPostsPage() {
                 value={form.title}
                 onChange={e => field('title', e.target.value)}
                 placeholder="Офсет ба дижитал хэвлэлийн ялгаа"
+                className="h-11 text-base font-semibold"
               />
-            </div>
-
-            <div>
-              <label className={labelClass}>Тойм (жагсаалт болон нүүр хуудсанд харагдана)</label>
-              <textarea
-                value={form.excerpt}
-                onChange={e => field('excerpt', e.target.value)}
-                maxLength={600}
-                placeholder="1-2 өгүүлбэрээр нийтлэлийн гол санааг бичнэ..."
-                className={`${inputClass} min-h-[72px] resize-y`}
-              />
-              <p className="mt-1 text-[11px] text-muted-foreground">{form.excerpt.length}/600</p>
             </div>
 
             <div>
               <div className="mb-1.5 flex items-center justify-between">
-                <label className={labelClass + ' mb-0'}>Агуулга (HTML)</label>
-                <Button variant="ghost" size="xs" onClick={() => setPreview(p => !p)}>
-                  {preview ? <><FileText />Засах</> : <><Eye />Preview</>}
-                </Button>
+                <label className={labelClass + ' mb-0'}>Товч тайлбар</label>
+                <button
+                  type="button"
+                  onClick={fillExcerpt}
+                  className="inline-flex items-center gap-1 text-[11px] font-semibold text-primary hover:underline"
+                >
+                  <Wand2 size={12} />Агуулгаас бөглөх
+                </button>
               </div>
+              <textarea
+                value={form.excerpt}
+                onChange={e => field('excerpt', e.target.value)}
+                maxLength={600}
+                placeholder="1-2 өгүүлбэрээр гол санааг бичнэ. Жагсаалт, нүүр хуудас, Google-ийн хайлтын үр дүнд харагдана."
+                className={`${inputClass} min-h-[66px] resize-y`}
+              />
+            </div>
 
-              {preview ? (
-                <div className="min-h-[360px] rounded-lg border border-input bg-background p-5">
-                  {form.content
-                    ? <div
-                        className="post-content text-sm"
-                        dangerouslySetInnerHTML={{ __html: sanitizeHtml(form.content) }}
-                      />
-                    : <p className="text-sm text-muted-foreground">Агуулга хоосон байна</p>}
-                </div>
-              ) : (
-                <div className="overflow-hidden rounded-lg border border-input">
-                  <div className="flex flex-wrap items-center gap-0.5 border-b border-input bg-muted/40 p-1.5">
-                    <ToolbarButton title="Дэд гарчиг (H2)" onClick={() => wrapSelection('<h2>', '</h2>', 'Дэд гарчиг')}>
-                      <Heading2 />
-                    </ToolbarButton>
-                    <ToolbarButton title="Дэд дэд гарчиг (H3)" onClick={() => wrapSelection('<h3>', '</h3>', 'Дэд гарчиг')}>
-                      <Heading3 />
-                    </ToolbarButton>
-                    <ToolbarDivider />
-                    <ToolbarButton title="Тод" onClick={() => wrapSelection('<strong>', '</strong>', 'тод текст')}>
-                      <Bold />
-                    </ToolbarButton>
-                    <ToolbarButton title="Налуу" onClick={() => wrapSelection('<em>', '</em>', 'налуу текст')}>
-                      <Italic />
-                    </ToolbarButton>
-                    <ToolbarDivider />
-                    <ToolbarButton title="Цэгтэй жагсаалт" onClick={() => insertAtCursor('\n<ul>\n  <li>Санал 1</li>\n  <li>Санал 2</li>\n</ul>\n')}>
-                      <List />
-                    </ToolbarButton>
-                    <ToolbarButton title="Дугаартай жагсаалт" onClick={() => insertAtCursor('\n<ol>\n  <li>Эхний алхам</li>\n  <li>Дараагийн алхам</li>\n</ol>\n')}>
-                      <ListOrdered />
-                    </ToolbarButton>
-                    <ToolbarButton title="Хэсэг (paragraph)" onClick={() => wrapSelection('<p>', '</p>', 'Догол мөр')}>
-                      <FileText />
-                    </ToolbarButton>
-                    <ToolbarDivider />
-                    <ToolbarButton title="Линк" onClick={insertLink}>
-                      <LinkIcon />
-                    </ToolbarButton>
-                    <ToolbarButton title="Иш татах" onClick={() => wrapSelection('<blockquote>', '</blockquote>', 'Иш татсан текст')}>
-                      <Quote />
-                    </ToolbarButton>
-                    <ToolbarButton title="Код" onClick={() => wrapSelection('<code>', '</code>', 'код')}>
-                      <Code />
-                    </ToolbarButton>
-                    <ToolbarButton title="Хуваах зураас" onClick={() => insertAtCursor('\n<hr />\n')}>
-                      <Minus />
-                    </ToolbarButton>
-                    <ToolbarDivider />
-                    <label
-                      title="Зураг оруулах"
-                      className="inline-flex size-7 cursor-pointer items-center justify-center rounded text-muted-foreground transition-colors hover:bg-accent hover:text-foreground [&_svg]:size-3.5"
-                    >
-                      <ImagePlus />
-                      <input type="file" accept="image/*" onChange={uploadContentImage} className="hidden" disabled={uploading} />
-                    </label>
-                  </div>
-                  <textarea
-                    ref={contentRef}
-                    value={form.content}
-                    onChange={e => field('content', e.target.value)}
-                    placeholder={'<h2>Дэд гарчиг</h2>\n<p>Нийтлэлийн эхний догол мөр...</p>\n<ul><li>Санал 1</li></ul>'}
-                    className="w-full min-h-[360px] resize-y bg-background px-3 py-2.5 text-sm font-mono outline-none"
-                  />
-                </div>
-              )}
-              <p className="mt-1 text-[11px] text-muted-foreground">
-                Зөвшөөрөгдөх: h2–h6, p, ul/ol, strong, em, a, img, blockquote, table, pre/code, hr.
-                Script болон бусад тагийг сайт дээр харуулахаас өмнө автоматаар цэвэрлэнэ.
+            <div>
+              <label className={labelClass}>Агуулга</label>
+              <RichTextEditor
+                value={form.content}
+                onChange={html => field('content', html)}
+                onUploadImage={uploadImage}
+                placeholder="Энд бичнэ үү. Текстээ сонгоод дээрх товчуудаар гарчиг, тод, жагсаалт болгоно."
+              />
+              <p className="mt-1.5 text-[11px] text-muted-foreground">
+                Бичсэн шигээ сайт дээр харагдана. Word-оос хуулж буулгахад формат автоматаар цэвэрлэгдэнэ.
               </p>
             </div>
           </div>
 
           {/* Хажуугийн тохиргоо */}
           <div className="space-y-4">
-            <SidebarCard title="Төлөв">
-              <ToggleRow
-                label="Нийтлэх"
-                hint="Салхилуулахгүй бол зөвхөн админ харна"
-                checked={form.is_published}
-                onChange={v => field('is_published', v)}
-              />
+            <SidebarCard title="Хаана харагдах вэ">
+              <ul className="space-y-1.5 text-[11px] leading-relaxed text-muted-foreground">
+                <li>• <strong className="text-foreground">Мэдээ хуудас</strong> — нийтэлсэн бүх нийтлэл</li>
+                <li>• <strong className="text-foreground">Нүүр хуудас</strong> — зөвхөн онцолсон нийтлэлүүд</li>
+                <li>• <strong className="text-foreground">Цэс ба footer</strong> — &laquo;Мэдээ&raquo; холбоос байнга байна</li>
+              </ul>
               <ToggleRow
                 label="Нүүр хуудсанд онцлох"
-                hint="Нүүрийн блок дээр эхэлж харагдана"
+                hint="Нүүрэн дээрх блокод эхэлж гарна"
                 checked={form.is_featured}
                 onChange={v => field('is_featured', v)}
               />
             </SidebarCard>
 
             <SidebarCard title="Хавтасны зураг">
-              {form.thumbnail && (
-                <img
-                  src={form.thumbnail}
-                  alt=""
-                  className="mb-2 h-32 w-full rounded-lg border border-border object-cover"
-                />
+              {form.thumbnail ? (
+                <div className="relative">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={form.thumbnail}
+                    alt=""
+                    className="h-32 w-full rounded-lg border border-border object-cover"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => field('thumbnail', '')}
+                    title="Зураг хасах"
+                    className="absolute right-1.5 top-1.5 inline-flex size-6 items-center justify-center rounded-md bg-background/90 text-muted-foreground hover:text-destructive"
+                  >
+                    <X size={13} />
+                  </button>
+                </div>
+              ) : (
+                <label className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed border-input px-3 py-5 text-xs font-semibold text-muted-foreground transition-colors hover:border-primary hover:text-primary">
+                  <ImagePlus size={14} />
+                  {uploading ? 'Хуулж байна...' : 'Зураг сонгох'}
+                  <input type="file" accept="image/*" onChange={uploadThumbnail} className="hidden" disabled={uploading} />
+                </label>
               )}
-              <label className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed border-input px-3 py-2.5 text-xs font-semibold text-muted-foreground transition-colors hover:border-primary hover:text-primary">
-                <ImagePlus size={14} />
-                {uploading ? 'Хуулж байна...' : 'Зураг сонгох'}
-                <input type="file" accept="image/*" onChange={uploadThumbnail} className="hidden" disabled={uploading} />
-              </label>
-              <Input
-                value={form.thumbnail}
-                onChange={e => field('thumbnail', e.target.value)}
-                placeholder="эсвэл зургийн URL"
-                className="mt-2"
-              />
             </SidebarCard>
 
             <SidebarCard title="Ангилал & таг">
@@ -494,60 +391,64 @@ export default function AdminPostsPage() {
               </div>
             </SidebarCard>
 
-            <SidebarCard title="URL">
-              <div>
-                <label className={labelClass}>Slug</label>
-                <Input
-                  value={form.slug}
-                  onChange={e => field('slug', e.target.value)}
-                  placeholder="хоосон бол гарчгаас автоматаар"
-                />
-                <p className="mt-1 text-[11px] text-muted-foreground">
-                  {editing
-                    ? 'Slug солих нь тархсан хуучин линкүүдийг эвдэнэ.'
-                    : 'Монгол гарчиг автоматаар латинчлагдана.'}
-                </p>
-              </div>
-            </SidebarCard>
+            {/* Ховор хэрэглэгддэг талбаруудыг нугалж нуусан */}
+            <div className="rounded-xl border border-border bg-card">
+              <button
+                type="button"
+                onClick={() => setShowAdvanced(s => !s)}
+                className="flex w-full items-center justify-between p-4 text-xs font-bold uppercase tracking-wider text-muted-foreground"
+              >
+                Нэмэлт тохиргоо
+                <ChevronDown size={14} className={showAdvanced ? 'rotate-180 transition-transform' : 'transition-transform'} />
+              </button>
 
-            <SidebarCard title="SEO (сонголттой)">
-              <div>
-                <label className={labelClass}>SEO гарчиг</label>
-                <Input
-                  value={form.seo_title}
-                  onChange={e => field('seo_title', e.target.value)}
-                  placeholder="Хоосон бол нийтлэлийн гарчиг"
-                />
-              </div>
-              <div>
-                <label className={labelClass}>Meta description</label>
-                <textarea
-                  value={form.seo_description}
-                  onChange={e => field('seo_description', e.target.value)}
-                  maxLength={400}
-                  className={`${inputClass} min-h-[64px] resize-y`}
-                />
-              </div>
-            </SidebarCard>
+              {showAdvanced && (
+                <div className="space-y-3 border-t border-border p-4">
+                  <div>
+                    <label className={labelClass}>Хаягийн төгсгөл (slug)</label>
+                    <Input
+                      value={form.slug}
+                      onChange={e => field('slug', e.target.value)}
+                      placeholder="хоосон бол гарчгаас автоматаар"
+                    />
+                    <p className="mt-1 text-[11px] text-muted-foreground">
+                      {editing
+                        ? 'Солих нь тархсан хуучин линкүүдийг эвдэнэ.'
+                        : 'Монгол гарчиг автоматаар латинчлагдана.'}
+                    </p>
+                  </div>
+                  <div>
+                    <label className={labelClass}>Google-д харагдах гарчиг</label>
+                    <Input
+                      value={form.seo_title}
+                      onChange={e => field('seo_title', e.target.value)}
+                      placeholder="Хоосон бол нийтлэлийн гарчиг"
+                    />
+                  </div>
+                  <div>
+                    <label className={labelClass}>Google-д харагдах тайлбар</label>
+                    <textarea
+                      value={form.seo_description}
+                      onChange={e => field('seo_description', e.target.value)}
+                      maxLength={400}
+                      placeholder="Хоосон бол товч тайлбар хэрэглэгдэнэ"
+                      className={`${inputClass} min-h-[64px] resize-y`}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
 
             {editing && (
               <SidebarCard title="Статистик">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-muted-foreground">Үзсэн</span>
-                  <span className="font-bold">{editing.view_count}</span>
-                </div>
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-muted-foreground">Унших хугацаа</span>
-                  <span className="font-bold">{editing.reading_minutes || 1} мин</span>
-                </div>
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-muted-foreground">Нийтэлсэн</span>
-                  <span className="font-bold">
-                    {editing.published_at
-                      ? new Date(editing.published_at).toLocaleDateString('mn-MN')
-                      : '—'}
-                  </span>
-                </div>
+                <StatRow label="Үзсэн" value={String(editing.view_count)} />
+                <StatRow label="Унших хугацаа" value={`${editing.reading_minutes || 1} мин`} />
+                <StatRow
+                  label="Нийтэлсэн"
+                  value={editing.published_at
+                    ? new Date(editing.published_at).toLocaleDateString('mn-MN')
+                    : '—'}
+                />
               </SidebarCard>
             )}
           </div>
@@ -641,6 +542,7 @@ export default function AdminPostsPage() {
               className="flex flex-col gap-3 rounded-xl border border-border bg-card p-3 sm:flex-row sm:items-center"
             >
               {post.thumbnail
+                /* eslint-disable-next-line @next/next/no-img-element */
                 ? <img src={post.thumbnail} alt="" className="h-14 w-20 shrink-0 rounded-lg object-cover" />
                 : <div className="flex h-14 w-20 shrink-0 items-center justify-center rounded-lg bg-muted">
                     <Newspaper size={16} className="text-muted-foreground" />
@@ -669,7 +571,6 @@ export default function AdminPostsPage() {
                   <span>
                     {new Date(post.published_at || post.created_at).toLocaleDateString('mn-MN')}
                   </span>
-                  <span className="truncate font-mono opacity-70">/{post.slug}</span>
                 </div>
               </div>
 
@@ -718,31 +619,20 @@ export default function AdminPostsPage() {
   )
 }
 
-function ToolbarButton({
-  title, onClick, children,
-}: { title: string; onClick: () => void; children: React.ReactNode }) {
-  return (
-    <button
-      type="button"
-      title={title}
-      aria-label={title}
-      onClick={onClick}
-      className="inline-flex size-7 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-accent hover:text-foreground [&_svg]:size-3.5"
-    >
-      {children}
-    </button>
-  )
-}
-
-function ToolbarDivider() {
-  return <span className="mx-0.5 h-5 w-px bg-border" />
-}
-
 function StatCard({ label, value }: { label: string; value: number }) {
   return (
     <div className="rounded-xl border border-border bg-card p-3.5">
       <div className="text-xs text-muted-foreground">{label}</div>
       <div className="mt-0.5 text-xl font-bold">{value.toLocaleString('mn-MN')}</div>
+    </div>
+  )
+}
+
+function StatRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-center justify-between text-xs">
+      <span className="text-muted-foreground">{label}</span>
+      <span className="font-bold">{value}</span>
     </div>
   )
 }
@@ -760,7 +650,7 @@ function ToggleRow({
   label, hint, checked, onChange,
 }: { label: string; hint?: string; checked: boolean; onChange: (v: boolean) => void }) {
   return (
-    <label className="flex cursor-pointer items-start gap-2.5">
+    <label className="flex cursor-pointer items-start gap-2.5 rounded-lg bg-muted/40 p-2.5">
       <input
         type="checkbox"
         checked={checked}
