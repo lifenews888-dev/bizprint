@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common'
+import { shouldSynchronizeSchema } from './config/db-sync'
 import { ChatModule } from './chat/chat.module'
 import { ConfigModule } from '@nestjs/config'
 import { TypeOrmModule } from '@nestjs/typeorm'
@@ -110,7 +111,7 @@ import { PrintNetworkModule } from './print-network/print-network.module'
             type: 'postgres',
             url: process.env.DATABASE_URL,
             autoLoadEntities: true,
-            synchronize: process.env.NODE_ENV !== 'production',
+            synchronize: shouldSynchronizeSchema(),
             ssl: process.env.DATABASE_SSL === 'true' ? { rejectUnauthorized: true } : false,
             logging: false,
           }
@@ -122,7 +123,7 @@ import { PrintNetworkModule } from './print-network/print-network.module'
             password: process.env.DB_PASSWORD || process.env.DB_PASS || 'postgres',
             database: process.env.DB_DATABASE || process.env.DB_NAME || 'bizprint',
             autoLoadEntities: true,
-            synchronize: process.env.NODE_ENV !== 'production',
+            synchronize: shouldSynchronizeSchema(),
             dropSchema: false,
             logging: false,
           },
