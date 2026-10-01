@@ -284,7 +284,9 @@ export class PrintNetworkService {
   async listPrintOrders(limit?: number) {
     // order_items.order_id нь varchar, orders.id нь uuid тул ::text-ээр харьцуулна
     return this.ds.query(
-      `SELECT o.id, o.invoice_no, o.status, o.total_price, o.created_at, o.customer_name, o.customer_email,
+      `SELECT o.id, o.invoice_no, o.status, o.payment_status, o.total_price, o.created_at, o.customer_name, o.customer_email,
+              (SELECT json_build_object('state', a.state, 'detail', a.detail, 'updatedAt', a.updated_at)
+                 FROM print_order_automation a WHERE a.order_id = o.id) AS automation,
               json_agg(json_build_object('id', i.id, 'quantity', i.quantity, 'specs', i.specs) ORDER BY i.created_at) AS items,
               (SELECT coalesce(json_agg(json_build_object('id', t.id, 'status', t.status, 'deviceId', t.device_id,
                                                           'error', t.error, 'createdAt', t.created_at) ORDER BY t.created_at), '[]')

@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Headers, Param, Post, Req, UseGuards, UnauthorizedException, Logger } from '@nestjs/common'
+import { Body, Controller, Get, Headers, Param, Post, Req, UseGuards, UnauthorizedException, Logger, NotFoundException, BadRequestException } from '@nestjs/common'
 import { Throttle } from '@nestjs/throttler'
 import { InjectRepository } from '@nestjs/typeorm'
 import { Repository, LessThan } from 'typeorm'
@@ -26,7 +26,17 @@ export class PaymentController {
 
   @Post('create')
   async create(@Body() body: { amount: number; orderId: string; method?: 'qr' | 'bank' | 'cash' }) {
-    return this.paymentService.createTdbInvoice(body.orderId, body.amount, body.method || 'qr')
+    // SECURITY: дүнг клиентээс биш захиалгаас авна (өмнө нь 1₮-ийн нэхэмжлэл
+    // үүсгээд төлж захиалгыг "paid" болгох боломжтой байсан).
+    const order = body?.orderId ? await this.orderRepo.findOne({ where: { id: body.orderId } }).catch(() => null) : null
+    if (!order) throw new NotFoundException('Захиалга олдсонгүй')
+    if (order.payment_status === 'paid') throw new BadRequestException('Захиалгын төлбөр аль хэдийн төлөгдсөн')
+    const total = Number(order.total_price)
+    if (!(total > 0)) throw new BadRequestException('Захиалгын дүн тодорхойгүй')
+    if (Number(body.amount) && Math.round(Number(body.amount)) !== Math.round(total)) {
+      this.logger.warn(`payment/create amount mismatch for ${order.id}: client=${body.amount} order=${total}`)
+    }
+    return this.paymentService.createTdbInvoice(order.id, total, body.method || 'qr')
   }
 
   @Get('status/:invoiceNo')

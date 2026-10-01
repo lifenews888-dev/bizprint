@@ -9,6 +9,7 @@ import { RolesGuard } from '../auth/guards/roles.guard'
 import { Roles } from '../auth/decorators/roles.decorator'
 import { PrintNetworkService } from './print-network.service'
 import { PrintAgentGuard } from './print-agent.guard'
+import { PrintAutomationService } from './print-automation.service'
 import {
   AgentHeartbeatDto, AgentPollDto, AgentTicketStatusDto, BulkColorCodesDto, CheckColorsDto, ColorCodeDto,
   CreateAgentDto, DispatchOrderDto, PrintDeviceDto, PrintProductTypeDto, RoutePreviewDto, UpdateColorCodeDto, UpdatePrintDeviceDto,
@@ -59,7 +60,7 @@ export class PrintOrderingController {
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles('admin', 'superadmin')
 export class PrintNetworkAdminController {
-  constructor(private readonly svc: PrintNetworkService) {}
+  constructor(private readonly svc: PrintNetworkService, private readonly automation: PrintAutomationService) {}
 
   // Өнгө
   @Get('colors')
@@ -138,6 +139,12 @@ export class PrintNetworkAdminController {
     return this.svc.listPrintOrders(limit ? Number(limit) : undefined)
   }
 
+  /** Файлын шалгалтын анхааруулгыг үл харгалзан хэвлэлд оруулах */
+  @Post('orders/:orderId/approve')
+  approve(@Param('orderId', ParseUUIDPipe) orderId: string) {
+    return this.automation.approve(orderId)
+  }
+
   // Агент
   @Get('agents')
   listAgents() {
@@ -196,7 +203,7 @@ export class PrintNetworkAdminController {
 @UseGuards(PrintAgentGuard)
 @SkipThrottle()
 export class PrintAgentController {
-  constructor(private readonly svc: PrintNetworkService) {}
+  constructor(private readonly svc: PrintNetworkService, private readonly automation: PrintAutomationService) {}
 
   @Post('heartbeat')
   async heartbeat(@Req() req: any, @Body() dto: AgentHeartbeatDto) {
@@ -210,7 +217,10 @@ export class PrintAgentController {
   }
 
   @Post('tickets/:id/status')
-  status(@Req() req: any, @Param('id', ParseUUIDPipe) id: string, @Body() dto: AgentTicketStatusDto) {
-    return this.svc.agentUpdateTicket(req.printAgent, id, dto)
+  async status(@Req() req: any, @Param('id', ParseUUIDPipe) id: string, @Body() dto: AgentTicketStatusDto) {
+    const t = await this.svc.agentUpdateTicket(req.printAgent, id, dto)
+    // Захиалгын төлөв ба мэдэгдэл (keep-alive-д биш). Алдаа нь агентын хариуг саатуулахгүй.
+    if (dto.status !== 'claimed') void this.automation.onTicketStatus(t.orderId, dto.status, { id: t.id, error: t.error })
+    return t
   }
 }
