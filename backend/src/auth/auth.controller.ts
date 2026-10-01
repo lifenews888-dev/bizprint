@@ -27,6 +27,13 @@ export class AuthController {
     return this.authService.refresh(refreshToken);
   }
 
+  /** Desktop апп → апп доторх сайтын хэсэгт тусдаа сесс */
+  @UseGuards(JwtAuthGuard)
+  @Post('handoff')
+  handoff(@Request() req: any, @Body('refresh_token') refreshToken: string) {
+    return this.authService.handoff(req.user?.id, refreshToken);
+  }
+
   @Post('logout')
   logout(@Body('refresh_token') refreshToken: string) {
     return this.authService.logout(refreshToken);

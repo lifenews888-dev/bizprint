@@ -221,6 +221,25 @@ export class AuthService {
     return this.generateTokens(user, record.device_id, record.device_name, record.platform);
   }
 
+  /**
+   * Desktop апп доторх вэб хэсэгт (bizprint.mn) ТУСДАА сесс олгоно.
+   * Нэг refresh token-ыг апп ба сайт хуваалцвал refresh бүрд нөгөөгөө гаргачихна
+   * (rotation). Хүчинтэй access + өөрийн refresh token-оо нотолсон хэрэглэгчид л —
+   * өөр төхөөрөмж дээр нэвтэрсэнтэй адил.
+   */
+  async handoff(userId: string, refreshTokenStr: string) {
+    if (!userId || !refreshTokenStr) throw new UnauthorizedException('Нэвтрэлт хүчингүй');
+    const record = await this.refreshTokenRepo.findOne({
+      where: { token: refreshTokenStr, is_revoked: false },
+    });
+    if (!record || record.user_id !== userId || record.expires_at < new Date()) {
+      throw new UnauthorizedException('Нэвтрэлт хүчингүй эсвэл хугацаа дууссан');
+    }
+    const user = await this.userRepository.findOne({ where: { id: userId } });
+    if (!user || !user.is_active) throw new UnauthorizedException('Хэрэглэгч олдсонгүй');
+    return this.generateTokens(user, `${record.device_id || 'desktop'}:web`, 'BizPrint Desktop (сайт)', 'desktop-web');
+  }
+
   async logout(refreshTokenStr: string) {
     const record = await this.refreshTokenRepo.findOne({
       where: { token: refreshTokenStr },
