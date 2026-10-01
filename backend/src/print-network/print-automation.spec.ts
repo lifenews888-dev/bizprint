@@ -9,7 +9,7 @@ const VALID: Record<string, string[]> = {
   in_production: ['finishing'],
 }
 
-function setup(opts: { preflight?: any; dispatch?: any; status?: string } = {}) {
+function setup(opts: { preflight?: any; dispatch?: any; status?: string; missingFiles?: number } = {}) {
   const order: any = { id: 'o1', status: opts.status ?? OrderStatus.PENDING_FILE, invoice_no: 'INV-9', customer_id: 'u1' }
   const history: string[] = []
   const orders = {
@@ -29,11 +29,14 @@ function setup(opts: { preflight?: any; dispatch?: any; status?: string } = {}) 
     findOne: jest.fn(async ({ where }: any) => store.get(where.orderId) ?? null),
     save: jest.fn(async (x: any) => { store.set(x.orderId, x) }),
   }
-  const ds = { query: jest.fn(async () => [{ n: 0 }]) }
-  const svc = new PrintAutomationService(network as any, orders as any, notifications as any, inspector as any, automation as any, ds as any)
+  const queries: string[] = []
+  const ds = { query: jest.fn(async (sql: string) => { queries.push(sql); return [{ n: sql.includes("specs->>'file_url'") ? opts.missingFiles ?? 0 : 0 }] }) }
+  const eventBus = { on: jest.fn() }
+  ;(orders as any).reassignVendor = jest.fn(async () => {})
+  const svc = new PrintAutomationService(network as any, orders as any, notifications as any, inspector as any, automation as any, ds as any, eventBus as any)
   if (opts.preflight) jest.spyOn(svc, 'preflight').mockResolvedValue(opts.preflight)
   else jest.spyOn(svc, 'preflight').mockResolvedValue([])
-  return { svc, order, history, network, notes, store }
+  return { svc, order, history, network, notes, store, orders, queries, eventBus }
 }
 
 describe('PrintAutomationService', () => {
@@ -80,5 +83,53 @@ describe('PrintAutomationService', () => {
     const { svc, notes } = setup({ status: OrderStatus.IN_PRODUCTION })
     await expect(svc.onTicketStatus('o1', 'failed', { id: 't1', error: 'RIP offline' })).resolves.toBeUndefined()
     expect(notes[0]).toMatchObject({ user_id: 'admin', message: 'RIP offline' })
+  })
+})
+
+describe('PrintAutomationService — designer & vendor network', () => {
+  it('waits (no transition) while a print item has no file yet, e.g. design in progress', async () => {
+    const { svc, history, network } = setup({ missingFiles: 1 })
+    await svc.advance('o1')
+    expect(history).toEqual([])
+    expect(network.dispatchOrder).not.toHaveBeenCalled()
+  })
+
+  it('design approval attaches the file to print items and continues to the printer', async () => {
+    const { svc, history, network, queries, eventBus } = setup({ status: OrderStatus.FILE_REVIEW })
+    svc.onModuleInit()
+    expect(eventBus.on).toHaveBeenCalledWith('design.approved', expect.any(Function))
+    const fsx = require('fs')
+    const spy = jest.spyOn(fsx, 'existsSync').mockReturnValue(true)
+    await svc.onDesignApproved({ orderId: 'o1', designRequestId: 'dr1', designerId: 'des1', fileUrl: '/uploads/print-files/9-final.pdf' })
+    spy.mockRestore()
+    const upd = queries.find((q) => q.includes('UPDATE order_items'))
+    expect(upd).toBeDefined()
+    expect(history).toEqual(['confirmed'])
+    expect(network.dispatchOrder).toHaveBeenCalled()
+  })
+
+  it('refuses design files from foreign hosts and alerts admin', async () => {
+    const { svc, notes, queries } = setup({ status: OrderStatus.FILE_REVIEW })
+    await svc.onDesignApproved({ orderId: 'o1', fileUrl: 'https://evil.example/final.pdf' })
+    expect(queries.some((q) => q.includes('UPDATE order_items'))).toBe(false)
+    expect(notes[0]).toMatchObject({ user_id: 'admin' })
+  })
+
+  it('reassigns the order to the vendor whose printer took the job', async () => {
+    const { svc, orders } = setup({
+      status: OrderStatus.CONFIRMED,
+      dispatch: { created: [{ id: 't1' }], skipped: [], vendorIds: ['vendor-B'], preferredVendorId: 'vendor-A' },
+    })
+    await svc.advance('o1')
+    expect((orders as any).reassignVendor).toHaveBeenCalledWith('o1', 'vendor-B')
+  })
+
+  it('keeps the vendor when the assigned vendor prints it', async () => {
+    const { svc, orders } = setup({
+      status: OrderStatus.CONFIRMED,
+      dispatch: { created: [{ id: 't1' }], skipped: [], vendorIds: ['vendor-A'], preferredVendorId: 'vendor-A' },
+    })
+    await svc.advance('o1')
+    expect((orders as any).reassignVendor).not.toHaveBeenCalled()
   })
 })

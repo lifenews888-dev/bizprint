@@ -16,7 +16,7 @@ import { PrintNetworkService } from './print-network.service'
 import { PrintAgentGuard } from './print-agent.guard'
 import { PrintNetworkSeedService } from './print-network-seed.service'
 import { PrintAutomationService } from './print-automation.service'
-import { ColorCatalogController, PrintOrderingController, PrintAgentController, PrintNetworkAdminController } from './print-network.controller'
+import { ColorCatalogController, PrintOrderingController, PrintAgentController, PrintNetworkAdminController, PrintNetworkVendorController } from './print-network.controller'
 
 /**
  * Хэвлэлийн сүлжээ: өнгөний код → принтерийн чадвар (ΔE) → чиглүүлэлт →
@@ -30,7 +30,7 @@ import { ColorCatalogController, PrintOrderingController, PrintAgentController, 
     NotificationModule,
     PdfInspectorModule,
   ],
-  controllers: [ColorCatalogController, PrintOrderingController, PrintNetworkAdminController, PrintAgentController],
+  controllers: [ColorCatalogController, PrintOrderingController, PrintNetworkAdminController, PrintNetworkVendorController, PrintAgentController],
   providers: [PrintNetworkService, PrintAgentGuard, PrintNetworkSeedService, PrintAutomationService],
   exports: [PrintNetworkService],
 })

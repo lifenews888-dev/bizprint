@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common'
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common'
 import { Cron } from '@nestjs/schedule'
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm'
 import { DataSource, Repository } from 'typeorm'
@@ -11,6 +11,9 @@ import { PdfInspectorService } from '../ai/pdf-inspector/pdf-inspector.service'
 import { PrintNetworkService, safeUploadedFileUrl } from './print-network.service'
 import { AutomationState, PrintOrderAutomation } from './entities/print-order-automation.entity'
 import { PrintTicketStatus } from './entities/print-ticket.entity'
+import { EventBusService } from '../events/event-bus.service'
+import { BizEvent } from '../events/event-types'
+import { importDesignFile } from './design-file'
 
 const PREFLIGHT_MAX_BYTES = 100 * 1024 * 1024
 const UPLOADS_ROOT = path.join(process.cwd(), 'uploads')
@@ -24,7 +27,7 @@ const UPLOADS_ROOT = path.join(process.cwd(), 'uploads')
  *   агент: in_hotfolder/printing → IN_PRODUCTION, бүгд printed → FINISHING
  */
 @Injectable()
-export class PrintAutomationService {
+export class PrintAutomationService implements OnModuleInit {
   private readonly logger = new Logger(PrintAutomationService.name)
   private running = false
 
@@ -35,7 +38,34 @@ export class PrintAutomationService {
     private readonly inspector: PdfInspectorService,
     @InjectRepository(PrintOrderAutomation) private readonly automation: Repository<PrintOrderAutomation>,
     @InjectDataSource() private readonly ds: DataSource,
+    private readonly eventBus: EventBusService,
   ) {}
+
+  onModuleInit() {
+    // Дизайнерын ажлыг харилцагч батлахад → эцсийн файлыг хэвлэлийн мөрт оноож автомат урсгалд оруулна
+    this.eventBus.on(BizEvent.DESIGN_APPROVED, (p: any) => {
+      this.onDesignApproved(p).catch((e) => this.logger.error(`design→print ${p?.orderId}: ${e.message}`))
+    })
+  }
+
+  /** Батлагдсан дизайны файлыг захиалгын хэвлэлийн мөрүүдэд тавьж, урсгалыг урагшлуулна */
+  async onDesignApproved(p: { orderId?: string; designRequestId?: string; designerId?: string; fileUrl?: string }) {
+    if (!p?.orderId || !p.fileUrl) return
+    const fileUrl = await importDesignFile(p.fileUrl)
+    if (!fileUrl) {
+      await this.notifyAdmin('Дизайны файлыг хэвлэлд татаж чадсангүй', `${p.fileUrl} — зөвшөөрөгдсөн эх сурвалж биш эсвэл буруу төрөл`, p.orderId)
+      return
+    }
+    const res = await this.ds.query(
+      `UPDATE order_items
+          SET specs = coalesce(specs, '{}'::jsonb) || $2::jsonb
+        WHERE order_id::text = $1
+          AND product_id::text IN (SELECT product_id::text FROM print_product_types WHERE product_id IS NOT NULL AND is_active)`,
+      [p.orderId, JSON.stringify({ file_url: fileUrl, design_request_id: p.designRequestId ?? null, designer_id: p.designerId ?? null })],
+    )
+    this.logger.log(`design file attached to order ${p.orderId}: ${fileUrl} (${Array.isArray(res) ? res[1] : '?'} мөр)`)
+    await this.advance(p.orderId).catch((e) => this.logger.warn(`advance after design ${p.orderId}: ${e.message}`))
+  }
 
   @Cron('*/30 * * * * *')
   async tick() {
@@ -71,12 +101,14 @@ export class PrintAutomationService {
     const current = await this.automation.findOne({ where: { orderId } })
 
     if (order.status === OrderStatus.PENDING_FILE) {
-      // Хэвлэлийн файл захиалгатай хамт ирсэн тул шууд шалгалтад оруулна
+      // Файл захиалгатай хамт ирсэн бол шууд шалгалтад. Дизайн хүлээж буй бол дизайн батлагдах хүртэл хүлээнэ.
+      if (!(await this.allPrintItemsHaveFile(orderId))) return
       await this.orders.updateStatus(orderId, OrderStatus.FILE_REVIEW)
       order = await this.orders.getOrderById(orderId)
     }
 
     if (order.status === OrderStatus.FILE_REVIEW) {
+      if (!(await this.allPrintItemsHaveFile(orderId))) return // дизайн/файл хүлээгдэж байна
       if (current?.state !== AutomationState.APPROVED) {
         const problems = await this.preflight(orderId)
         if (problems.length) {
@@ -100,6 +132,12 @@ export class PrintAutomationService {
       const res = await this.network.dispatchOrder(orderId, {})
       if (res.created.length) {
         await this.setState(orderId, AutomationState.DISPATCHED, `${res.created.length} тасалбар`)
+        // Хэвлэх үйлдвэр нь оноогдсоноос өөр бол шимтгэл/escrow зөв үйлдвэрт очихоор оноолтыг шинэчилнэ
+        const vendors = (res.vendorIds ?? []).filter(Boolean) as string[]
+        if (vendors.length === 1 && vendors[0] !== res.preferredVendorId) {
+          await this.orders.reassignVendor(orderId, vendors[0])
+            .catch((e: any) => this.logger.warn(`vendor reassign ${orderId} → ${vendors[0]}: ${e.message}`))
+        }
         return
       }
       const detail = res.skipped.map((s) => s.reason + ((s.rejected ?? []).length
@@ -110,6 +148,17 @@ export class PrintAutomationService {
       }
       await this.setState(orderId, AutomationState.NO_PRINTER, detail)
     }
+  }
+
+  private async allPrintItemsHaveFile(orderId: string) {
+    const rows: { n: number }[] = await this.ds.query(
+      `SELECT count(*)::int AS n FROM order_items
+        WHERE order_id::text = $1
+          AND product_id::text IN (SELECT product_id::text FROM print_product_types WHERE product_id IS NOT NULL AND is_active)
+          AND coalesce(specs->>'file_url', '') = ''`,
+      [orderId],
+    )
+    return !rows[0]?.n
   }
 
   /** Захиалгын PDF файлуудыг шалгаж, ЗӨВХӨН ноцтой асуудлыг буцаана */

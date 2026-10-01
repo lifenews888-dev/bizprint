@@ -224,3 +224,98 @@ export class PrintAgentController {
     return t
   }
 }
+
+/**
+ * Үйлдвэр (vendor/factory): ӨӨРИЙН агент, принтер, өнгөний калибровк, тасалбар.
+ * Хүрээг нэвтэрсэн хэрэглэгчийн vendors.user_id-аар серверт тогтооно — клиентээс авахгүй.
+ */
+@Controller('print-network/vendor')
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles('vendor', 'factory')
+export class PrintNetworkVendorController {
+  constructor(private readonly svc: PrintNetworkService) {}
+
+  private vendor(req: any) {
+    return this.svc.vendorIdForUser(req.user.id)
+  }
+
+  @Get('me')
+  async me(@Req() req: any) {
+    return { vendorId: await this.vendor(req) }
+  }
+
+  @Get('product-types')
+  productTypes() {
+    return this.svc.listProductTypes()
+  }
+
+  @Get('colors')
+  colors() {
+    return this.svc.listColors({})
+  }
+
+  @Get('devices')
+  async listDevices(@Req() req: any) {
+    return this.svc.listDevices(await this.vendor(req))
+  }
+
+  @Post('devices')
+  async createDevice(@Req() req: any, @Body() dto: PrintDeviceDto) {
+    return this.svc.createDevice(dto, await this.vendor(req))
+  }
+
+  @Patch('devices/:id')
+  async updateDevice(@Req() req: any, @Param('id', ParseUUIDPipe) id: string, @Body() dto: UpdatePrintDeviceDto) {
+    return this.svc.updateDevice(id, dto, await this.vendor(req))
+  }
+
+  @Get('devices/:id/profiles')
+  async getProfiles(@Req() req: any, @Param('id', ParseUUIDPipe) id: string) {
+    return this.svc.getProfiles(id, await this.vendor(req))
+  }
+
+  @Put('devices/:id/profiles')
+  async upsertProfiles(@Req() req: any, @Param('id', ParseUUIDPipe) id: string, @Body() dto: UpsertProfilesDto) {
+    return this.svc.upsertProfiles(id, dto, await this.vendor(req))
+  }
+
+  @Delete('devices/:id/profiles/:code')
+  async deleteProfile(@Req() req: any, @Param('id', ParseUUIDPipe) id: string, @Param('code') code: string, @Query('media') media?: string) {
+    return this.svc.deleteProfile(id, code, media ?? '', await this.vendor(req))
+  }
+
+  @Get('agents')
+  async listAgents(@Req() req: any) {
+    return this.svc.listAgents(await this.vendor(req))
+  }
+
+  @Post('agents')
+  async createAgent(@Req() req: any, @Body() dto: CreateAgentDto) {
+    return this.svc.createAgent(dto, await this.vendor(req))
+  }
+
+  @Post('agents/:id/rotate-token')
+  async rotateToken(@Req() req: any, @Param('id', ParseUUIDPipe) id: string) {
+    return this.svc.rotateAgentToken(id, await this.vendor(req))
+  }
+
+  @Get('orders')
+  async orders(@Req() req: any, @Query('limit') limit?: string) {
+    return this.svc.listPrintOrders(limit ? Number(limit) : undefined, await this.vendor(req))
+  }
+
+  @Get('tickets')
+  async tickets(@Req() req: any, @Query('status') status?: string, @Query('limit') limit?: string) {
+    return this.svc.listTickets({ status, limit: limit ? Number(limit) : undefined }, await this.vendor(req))
+  }
+
+  @Post('tickets/:id/requeue')
+  async requeue(@Req() req: any, @Param('id', ParseUUIDPipe) id: string) {
+    return this.svc.requeueTicket(id, await this.vendor(req))
+  }
+
+  @Post('tickets/:id/cancel')
+  async cancel(@Req() req: any, @Param('id', ParseUUIDPipe) id: string) {
+    return this.svc.cancelTicket(id, await this.vendor(req))
+  }
+}

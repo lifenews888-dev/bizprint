@@ -17,6 +17,8 @@ export interface RouteRequest {
   widthMm?: number | null
   heightMm?: number | null
   media?: string | null
+  /** Захиалгад оноогдсон үйлдвэр — түүний принтерийг давуу сонгоно (шимтгэл зөв очих) */
+  preferredVendorId?: string | null
 }
 
 export interface ProfilePoint {
@@ -35,6 +37,8 @@ export interface DeviceState {
   deltaETolerance: number
   online: boolean
   queueLength: number
+  /** null = BizPrint-ийн өөрийн цех */
+  vendorId?: string | null
   /** өнгөний код → хэмжилтүүд */
   profiles: Map<string, ProfilePoint[]>
 }
@@ -46,6 +50,7 @@ export interface ColorFit {
 
 export interface RouteCandidate {
   deviceId: string
+  vendorId?: string | null
   name: string
   technology: string
   online: boolean
@@ -107,13 +112,16 @@ export function evaluateDevice(d: DeviceState, req: RouteRequest): RouteCandidat
   const maxDeltaE = colors.reduce((m, c) => Math.max(m, c.deltaE), 0)
   return {
     deviceId: d.id,
+    vendorId: d.vendorId ?? null,
     name: d.name,
     technology: d.technology,
     online: d.online,
     queueLength: d.queueLength,
     maxDeltaE,
     colors,
-    score: d.queueLength * 10 + (d.online ? 0 : 1000) + maxDeltaE,
+    // Оноогдсон үйлдвэрийнх биш принтер → ачааллаас үл хамааран сүүлд
+    score: d.queueLength * 10 + (d.online ? 0 : 1000) + maxDeltaE +
+      (req.preferredVendorId && (d.vendorId ?? null) !== req.preferredVendorId ? 500 : 0),
   }
 }
 

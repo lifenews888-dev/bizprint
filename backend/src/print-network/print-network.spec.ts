@@ -232,3 +232,55 @@ describe('dispatchOrder (security)', () => {
     expect(r).toMatchObject({ created: [], skipped: [], nonPrintItems: 1 })
   })
 })
+
+describe('vendor network', () => {
+  const dev = (id: string, vendorId: string | null, queueLength = 0): DeviceState => ({
+    id, name: id, technology: 'dtf', status: 'active', productTypes: ['dtf_transfer'], media: [], maxWidthMm: 600,
+    deltaETolerance: 3, online: true, queueLength, vendorId, profiles: new Map([['BP-R101', [{ media: '', deltaE: 1 }]]]),
+  })
+  const req = { productType: 'dtf_transfer', colorCodes: ['BP-R101'] }
+
+  it('prefers the assigned vendor even when it is busier; falls back when it cannot print', () => {
+    expect(routeJob([dev('own', null, 0), dev('vA', 'A', 4)], { ...req, preferredVendorId: 'A' }).chosen?.deviceId).toBe('vA')
+    expect(routeJob([dev('own', null, 0), dev('vA', 'A', 4)], req).chosen?.deviceId).toBe('own')
+    const r = routeJob([dev('vB', 'B', 0)], { ...req, preferredVendorId: 'A' })
+    expect(r.chosen).toMatchObject({ deviceId: 'vB', vendorId: 'B' })
+  })
+
+  it('only our own Cloudinary account is a trusted design file source', () => {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const { isOwnCloudinaryUrl } = require('./design-file')
+    expect(isOwnCloudinaryUrl('https://res.cloudinary.com/bizprint/image/upload/v1/a.pdf', 'bizprint')).toBe(true)
+    expect(isOwnCloudinaryUrl('https://res.cloudinary.com/other/image/upload/v1/a.pdf', 'bizprint')).toBe(false)
+    expect(isOwnCloudinaryUrl('http://res.cloudinary.com/bizprint/a.pdf', 'bizprint')).toBe(false)
+    expect(isOwnCloudinaryUrl('https://res.cloudinary.com.evil.io/bizprint/a.pdf', 'bizprint')).toBe(false)
+    expect(isOwnCloudinaryUrl('https://res.cloudinary.com/bizprint/a.pdf', undefined)).toBe(false)
+  })
+
+  it('vendor scope hides other vendors devices, agents and forces own vendorId', async () => {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const { PrintNetworkService } = require('./print-network.service')
+    const devices = new Map([['d-A', { id: 'd-A', vendorId: 'A', deltaETolerance: 3 }], ['d-B', { id: 'd-B', vendorId: 'B', deltaETolerance: 3 }]])
+    const agents = new Map([['ag-B', { id: 'ag-B', vendorId: 'B' }]])
+    const saved: any[] = []
+    const svc = new PrintNetworkService(
+      { findBy: jest.fn(async () => []) },
+      {
+        findOne: jest.fn(async ({ where }: any) => devices.get(where.id) ?? null),
+        create: (x: any) => x, save: jest.fn(async (x: any) => { saved.push(x); return x }),
+      },
+      { find: jest.fn(async () => []) },
+      { findOne: jest.fn(async ({ where }: any) => agents.get(where.id) ?? null) },
+      {}, {}, {}, {},
+      { query: jest.fn(async () => [{ id: 'A' }]) },
+    )
+    await expect(svc.getProfiles('d-B', 'A')).rejects.toThrow('Принтер олдсонгүй')
+    await expect(svc.getProfiles('d-A', 'A')).resolves.toEqual([])
+    await expect(svc.createDevice({ name: 'x', technology: 'dtf', productTypes: [], agentId: 'ag-B' }, 'A')).rejects.toThrow('Агент олдсонгүй')
+    await svc.createDevice({ name: 'x', technology: 'dtf', productTypes: [], vendorId: 'B' } as any, 'A')
+    expect(saved[0].vendorId).toBe('A')
+    await svc.updateDevice('d-A', { vendorId: 'B', name: 'renamed' } as any, 'A')
+    expect(saved[1]).toMatchObject({ vendorId: 'A', name: 'renamed' })
+    expect(await svc.vendorIdForUser('user-1')).toBe('A')
+  })
+})

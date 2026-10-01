@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common'
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common'
 import { InjectDataSource, InjectRepository } from '@nestjs/typeorm'
 import { DataSource, In, IsNull, Repository } from 'typeorm'
 import { createHash, randomBytes, randomUUID } from 'crypto'
@@ -206,9 +206,27 @@ export class PrintNetworkService {
 
   // ─── Принтер ба калибровк ───────────────────────────────────────
 
-  async listDevices() {
+  // ─── Үйлдвэрийн (vendor) хүрээ ──────────────────────────────────
+  // vendor = undefined → админ (бүгд). Утгатай бол зөвхөн тухайн үйлдвэрийн агент/принтер/тасалбар.
+
+  /** Нэвтэрсэн vendor/factory хэрэглэгчийн vendors.id */
+  async vendorIdForUser(userId: string): Promise<string> {
+    const rows: { id: string }[] = await this.ds.query(
+      `SELECT id FROM vendors WHERE user_id::text = $1 AND coalesce(status::text, 'active') <> 'suspended' LIMIT 1`, [userId],
+    )
+    if (!rows[0]) throw new ForbiddenException('Таны бүртгэл үйлдвэр (vendor)-тэй холбогдоогүй байна')
+    return rows[0].id
+  }
+
+  private async requireDevice(id: string, vendor?: string) {
+    const d = await this.devices.findOne({ where: { id } })
+    if (!d || (vendor !== undefined && d.vendorId !== vendor)) throw new NotFoundException('Принтер олдсонгүй')
+    return d
+  }
+
+  async listDevices(vendor?: string) {
     const states = await this.loadDeviceStates()
-    const all = await this.devices.find({ order: { name: 'ASC' } })
+    const all = await this.devices.find({ where: vendor !== undefined ? { vendorId: vendor } : {}, order: { name: 'ASC' } })
     const stateById = new Map(states.map((s) => [s.id, s]))
     return all.map((d) => {
       const s = stateById.get(d.id)!
@@ -216,23 +234,23 @@ export class PrintNetworkService {
     })
   }
 
-  async createDevice(dto: PrintDeviceDto) {
-    if (dto.agentId) await this.requireAgent(dto.agentId)
+  async createDevice(dto: PrintDeviceDto, vendor?: string) {
+    if (vendor !== undefined) dto = { ...dto, vendorId: vendor } // үйлдвэр өөр үйлдвэрийн нэрээр бүртгэж чадахгүй
+    if (dto.agentId) await this.requireAgent(dto.agentId, vendor)
     return this.devices.save(this.devices.create({ ...dto, media: dto.media ?? [] }))
   }
 
-  async updateDevice(id: string, dto: UpdatePrintDeviceDto) {
-    const d = await this.devices.findOne({ where: { id } })
-    if (!d) throw new NotFoundException('Принтер олдсонгүй')
-    if (dto.agentId) await this.requireAgent(dto.agentId)
+  async updateDevice(id: string, dto: UpdatePrintDeviceDto, vendor?: string) {
+    const d = await this.requireDevice(id, vendor)
+    if (vendor !== undefined) { const { vendorId: _ignored, ...rest } = dto; dto = rest }
+    if (dto.agentId) await this.requireAgent(dto.agentId, vendor)
     const clean = Object.fromEntries(Object.entries(dto).filter(([k, v]) => v !== null || ['agentId', 'maxWidthMm', 'hotfolderKey', 'notes'].includes(k)))
     Object.assign(d, clean)
     return this.devices.save(d)
   }
 
-  async getProfiles(deviceId: string) {
-    const device = await this.devices.findOne({ where: { id: deviceId } })
-    if (!device) throw new NotFoundException('Принтер олдсонгүй')
+  async getProfiles(deviceId: string, vendor?: string) {
+    const device = await this.requireDevice(deviceId, vendor)
     const rows = await this.profiles.find({ where: { deviceId } })
     const colors = await this.colors.findBy({ id: In(rows.map((r) => r.colorCodeId)) })
     const byId = new Map(colors.map((c) => [c.id, c]))
@@ -245,9 +263,8 @@ export class PrintNetworkService {
   }
 
   /** Спектрофотометрийн хэмжилтийг хадгалж ΔE00-г тооцоолно */
-  async upsertProfiles(deviceId: string, dto: UpsertProfilesDto) {
-    const device = await this.devices.findOne({ where: { id: deviceId } })
-    if (!device) throw new NotFoundException('Принтер олдсонгүй')
+  async upsertProfiles(deviceId: string, dto: UpsertProfilesDto, vendor?: string) {
+    const device = await this.requireDevice(deviceId, vendor)
 
     const codes = [...new Set(dto.measurements.map((m) => m.code.toUpperCase()))]
     const colors = await this.colors.findBy({ code: In(codes) })
@@ -273,7 +290,8 @@ export class PrintNetworkService {
     return { device: device.name, tolerance: device.deltaETolerance, passed: results.filter((r) => r.pass).length, results }
   }
 
-  async deleteProfile(deviceId: string, code: string, media = '') {
+  async deleteProfile(deviceId: string, code: string, media = '', vendor?: string) {
+    await this.requireDevice(deviceId, vendor)
     const color = await this.colors.findOne({ where: { code: code.toUpperCase() } })
     if (!color) throw new NotFoundException('Өнгө олдсонгүй')
     const r = await this.profiles.delete({ deviceId, colorCodeId: color.id, media })
@@ -281,7 +299,7 @@ export class PrintNetworkService {
   }
 
   /** Админ: desktop/вэбээс өгсөн хэвлэлийн (productType-тэй) захиалгууд + тасалбарын төлөв */
-  async listPrintOrders(limit?: number) {
+  async listPrintOrders(limit?: number, vendor?: string) {
     // order_items.order_id/product_id нь орчноос хамаарч uuid эсвэл varchar — хоёр талыг ::text болгож харьцуулна
     return this.ds.query(
       `SELECT o.id, o.invoice_no, o.status, o.payment_status, o.total_price, o.created_at, o.customer_name, o.customer_email,
@@ -293,35 +311,39 @@ export class PrintNetworkService {
                  FROM print_tickets t WHERE t.order_id = o.id) AS tickets
          FROM orders o
          JOIN order_items i ON i.order_id::text = o.id::text
-        WHERE i.specs ? 'productType' OR i.specs ? 'product_type'
-           OR i.product_id::text IN (SELECT product_id::text FROM print_product_types WHERE product_id IS NOT NULL)
+        WHERE (i.specs ? 'productType' OR i.specs ? 'product_type'
+           OR i.product_id::text IN (SELECT product_id::text FROM print_product_types WHERE product_id IS NOT NULL))
+          AND ($2::uuid IS NULL OR EXISTS (
+                SELECT 1 FROM print_tickets t JOIN print_devices d ON d.id = t.device_id
+                 WHERE t.order_id = o.id AND d.vendor_id = $2::uuid))
         GROUP BY o.id
         ORDER BY o.created_at DESC
         LIMIT $1`,
-      [clampLimit(limit, 100)],
+      [clampLimit(limit, 100), vendor ?? null],
     )
   }
 
   // ─── Агент ─────────────────────────────────────────────────────
 
-  async createAgent(dto: CreateAgentDto) {
+  async createAgent(dto: CreateAgentDto, vendor?: string) {
     const token = 'bpa_' + randomBytes(24).toString('base64url')
+    const vendorId = vendor !== undefined ? vendor : dto.vendorId ?? null
     const agent = await this.agents.save(
-      this.agents.create({ name: dto.name, vendorId: dto.vendorId ?? null, tokenHash: hashAgentToken(token) }),
+      this.agents.create({ name: dto.name, vendorId, tokenHash: hashAgentToken(token) }),
     )
     const { tokenHash: _omit, ...safe } = agent
     // Токеныг зөвхөн нэг удаа буцаана
     return { agent: safe, token }
   }
 
-  async listAgents() {
-    const list = await this.agents.find({ order: { createdAt: 'DESC' } })
+  async listAgents(vendor?: string) {
+    const list = await this.agents.find({ where: vendor !== undefined ? { vendorId: vendor } : {}, order: { createdAt: 'DESC' } })
     const now = Date.now()
     return list.map((a) => ({ ...a, online: !!a.lastSeenAt && now - a.lastSeenAt.getTime() < AGENT_ONLINE_MS }))
   }
 
-  async rotateAgentToken(id: string) {
-    await this.requireAgent(id)
+  async rotateAgentToken(id: string, vendor?: string) {
+    await this.requireAgent(id, vendor)
     const token = 'bpa_' + randomBytes(24).toString('base64url')
     await this.agents.update(id, { tokenHash: hashAgentToken(token) })
     return { token }
@@ -341,9 +363,9 @@ export class PrintNetworkService {
     })
   }
 
-  private async requireAgent(id: string) {
+  private async requireAgent(id: string, vendor?: string) {
     const a = await this.agents.findOne({ where: { id } })
-    if (!a) throw new NotFoundException('Агент олдсонгүй')
+    if (!a || (vendor !== undefined && a.vendorId !== vendor)) throw new NotFoundException('Агент олдсонгүй')
     return a
   }
 
@@ -388,6 +410,7 @@ export class PrintNetworkService {
       // Агентгүй принтер = гараар hotfolder-т хуулдаг (MVP) → онлайн гэж тооцно
       online: d.agentId ? !!agentOnline.get(d.agentId) : true,
       queueLength: queueBy.get(d.id) ?? 0,
+      vendorId: d.vendorId ?? null,
       profiles: profilesBy.get(d.id) ?? new Map(),
     }))
   }
@@ -430,6 +453,11 @@ export class PrintNetworkService {
     const states = await this.loadDeviceStates()
     const devicesById = new Map((await this.devices.find()).map((d) => [d.id, d]))
     const orderNumber = (order as any).order_number ?? order.invoice_no ?? null
+    // Захиалгад оноогдсон үйлдвэр (order_vendor_groups эсвэл хуучин factory_id)
+    const vg: { vendor_id: string }[] = await this.ds.query(
+      `SELECT vendor_id FROM order_vendor_groups WHERE order_id::text = $1 AND vendor_id IS NOT NULL LIMIT 1`, [orderId],
+    ).catch(() => [])
+    const preferredVendorId: string | null = vg[0]?.vendor_id ?? (order as any).factory_id ?? null
 
     const created: PrintTicket[] = []
     const skipped: { orderItemId: string | null; reason: string; rejected?: any[] }[] = []
@@ -465,6 +493,7 @@ export class PrintNetworkService {
         widthMm: o.widthMm ?? num(specs.width_mm ?? specs.widthMm) ?? num(order.width_mm),
         heightMm: o.heightMm ?? num(specs.height_mm ?? specs.heightMm) ?? num(order.height_mm),
         media: o.media ?? str(specs.media),
+        preferredVendorId,
       }
       const rawFileUrl = o.fileUrl ?? str(specs.file_url ?? specs.fileUrl) ?? order.file_url
       const quantity = o.quantity ?? item?.quantity ?? order.quantity ?? 1
@@ -523,7 +552,8 @@ export class PrintNetworkService {
       st.queueLength++ // дараагийн мөрийн чиглүүлэлтэд ачааллыг тусгана
     }
 
-    return { orderId, created: created.map(stripJdf), skipped, nonPrintItems }
+    const vendorIds = [...new Set(created.map((t) => devicesById.get(t.deviceId)?.vendorId ?? null))]
+    return { orderId, created: created.map(stripJdf), skipped, nonPrintItems, preferredVendorId, vendorIds }
   }
 
   /** RIP-ийн spot сангийн нэр / хольцыг тасалбарт хавсаргана */
@@ -542,8 +572,13 @@ export class PrintNetworkService {
 
   // ─── Тасалбар ──────────────────────────────────────────────────
 
-  async listTickets(opts: { status?: string; orderId?: string; deviceId?: string; limit?: number }) {
+  async listTickets(opts: { status?: string; orderId?: string; deviceId?: string; limit?: number }, vendor?: string) {
     const where: any = {}
+    if (vendor !== undefined) {
+      const own = (await this.devices.find({ where: { vendorId: vendor }, select: { id: true } })).map((d) => d.id)
+      if (!own.length) return []
+      where.deviceId = In(own)
+    }
     if (opts.status) where.status = opts.status
     if (opts.orderId) where.orderId = requireUuid(opts.orderId, 'orderId')
     if (opts.deviceId) where.deviceId = requireUuid(opts.deviceId, 'deviceId')
@@ -551,14 +586,15 @@ export class PrintNetworkService {
     return list.map(stripJdf)
   }
 
-  async getTicket(id: string) {
+  async getTicket(id: string, vendor?: string) {
     const t = await this.tickets.findOne({ where: { id } })
     if (!t) throw new NotFoundException('Тасалбар олдсонгүй')
+    if (vendor !== undefined) await this.requireDevice(t.deviceId, vendor).catch(() => { throw new NotFoundException('Тасалбар олдсонгүй') })
     return t
   }
 
-  async requeueTicket(id: string) {
-    const t = await this.getTicket(id)
+  async requeueTicket(id: string, vendor?: string) {
+    const t = await this.getTicket(id, vendor)
     if (![PrintTicketStatus.FAILED, PrintTicketStatus.CLAIMED, PrintTicketStatus.CANCELLED].includes(t.status as PrintTicketStatus)) {
       throw new BadRequestException(`"${t.status}" төлөвөөс дахин дараалалд оруулах боломжгүй`)
     }
@@ -571,8 +607,8 @@ export class PrintNetworkService {
     }
   }
 
-  async cancelTicket(id: string) {
-    const t = await this.getTicket(id)
+  async cancelTicket(id: string, vendor?: string) {
+    const t = await this.getTicket(id, vendor)
     if (t.status === PrintTicketStatus.PRINTED) throw new BadRequestException('Хэвлэгдсэн тасалбарыг цуцлах боломжгүй')
     Object.assign(t, { status: PrintTicketStatus.CANCELLED, finishedAt: new Date() })
     return stripJdf(await this.tickets.save(t))
