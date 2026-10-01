@@ -282,7 +282,7 @@ export class PrintNetworkService {
 
   /** Админ: desktop/вэбээс өгсөн хэвлэлийн (productType-тэй) захиалгууд + тасалбарын төлөв */
   async listPrintOrders(limit?: number) {
-    // order_items.order_id нь varchar, orders.id нь uuid тул ::text-ээр харьцуулна
+    // order_items.order_id/product_id нь орчноос хамаарч uuid эсвэл varchar — хоёр талыг ::text болгож харьцуулна
     return this.ds.query(
       `SELECT o.id, o.invoice_no, o.status, o.payment_status, o.total_price, o.created_at, o.customer_name, o.customer_email,
               (SELECT json_build_object('state', a.state, 'detail', a.detail, 'updatedAt', a.updated_at)
@@ -292,9 +292,9 @@ export class PrintNetworkService {
                                                           'error', t.error, 'createdAt', t.created_at) ORDER BY t.created_at), '[]')
                  FROM print_tickets t WHERE t.order_id = o.id) AS tickets
          FROM orders o
-         JOIN order_items i ON i.order_id = o.id::text
+         JOIN order_items i ON i.order_id::text = o.id::text
         WHERE i.specs ? 'productType' OR i.specs ? 'product_type'
-           OR i.product_id IN (SELECT product_id::text FROM print_product_types WHERE product_id IS NOT NULL)
+           OR i.product_id::text IN (SELECT product_id::text FROM print_product_types WHERE product_id IS NOT NULL)
         GROUP BY o.id
         ORDER BY o.created_at DESC
         LIMIT $1`,

@@ -47,8 +47,8 @@ export class PrintAutomationService {
           WHERE o.payment_status = 'paid'
             AND o.status IN ('pending_file', 'file_review', 'confirmed')
             AND EXISTS (
-              SELECT 1 FROM order_items i WHERE i.order_id = o.id::text
-                 AND i.product_id IN (SELECT product_id::text FROM print_product_types WHERE product_id IS NOT NULL AND is_active))
+              SELECT 1 FROM order_items i WHERE i.order_id::text = o.id::text
+                 AND i.product_id::text IN (SELECT product_id::text FROM print_product_types WHERE product_id IS NOT NULL AND is_active))
             AND NOT EXISTS (SELECT 1 FROM print_tickets t WHERE t.order_id = o.id)
             AND NOT EXISTS (SELECT 1 FROM print_order_automation a WHERE a.order_id = o.id
                               AND a.state IN ('preflight_failed', 'dispatched'))
@@ -115,7 +115,7 @@ export class PrintAutomationService {
   /** Захиалгын PDF файлуудыг шалгаж, ЗӨВХӨН ноцтой асуудлыг буцаана */
   async preflight(orderId: string): Promise<string[]> {
     const items: { specs: any; product_id: string }[] = await this.ds.query(
-      `SELECT specs, product_id FROM order_items WHERE order_id = $1`, [orderId],
+      `SELECT specs, product_id FROM order_items WHERE order_id::text = $1`, [orderId],
     )
     const problems: string[] = []
     for (const it of items) {
