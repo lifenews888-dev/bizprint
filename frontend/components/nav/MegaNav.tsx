@@ -894,6 +894,20 @@ export default function MegaNav() {
               </div>
             </div>
 
+            {/* Утсандаа суулгах — PWAInstallPrompt эвентийг сонсож заавар нээнэ */}
+            <div className="px-4 pb-1">
+              <button
+                type="button"
+                onClick={() => {
+                  setMobileOpen(false)
+                  window.dispatchEvent(new Event('bizprint:open-install'))
+                }}
+                className="flex w-full items-center justify-center gap-2 rounded-xl border border-[#FF6B00] bg-[#FFF5EF] px-3 py-3 text-[13px] font-bold text-[#FF6B00]"
+              >
+                📲 Утсандаа суулгах
+              </button>
+            </div>
+
             {/* Currency + Language (mobile) */}
             <div className="flex gap-3 px-4 py-3 border-t border-[#EBEBEB]">
               <select className="flex-1 bg-[#F8F8F8] text-[13px] font-medium text-[#555] px-3 py-2.5 rounded-lg border border-[#EBEBEB] outline-none cursor-pointer" style={{ appearance: 'auto' }}>

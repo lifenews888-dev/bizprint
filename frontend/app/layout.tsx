@@ -126,6 +126,40 @@ const siteJsonLd = {
   ],
 }
 
+/**
+ * PWA суулгалтын эвентийг React ачаалахаас ӨМНӨ барина.
+ *
+ * Chrome нь `beforeinstallprompt`-ийг хуудас ачаалмагц, ихэвчлэн hydration
+ * дуусахаас өмнө ажиллуулдаг. Листенерийг компонент дотор бүртгэвэл эвент
+ * аль хэдийн өнгөрсөн байж, "Суулгах" товч хэзээ ч ажиллахгүй. Тиймээс
+ * эвентийг энд барьж window дээр хадгалаад, компонент бэлэн болоход
+ * өөрийн эвентээр мэдэгдэнэ.
+ *
+ * Service worker-ийг мөн энд бүртгэнэ — Chrome суулгах боломжтой эсэхийг
+ * шийдэхдээ SW шаарддаг тул эрт бүртгэсэн нь дээр.
+ */
+const PWA_BOOTSTRAP = `
+(function () {
+  try {
+    window.__bizprintInstallEvent = null;
+    window.addEventListener('beforeinstallprompt', function (event) {
+      event.preventDefault();
+      window.__bizprintInstallEvent = event;
+      window.dispatchEvent(new Event('bizprint:installable'));
+    });
+    window.addEventListener('appinstalled', function () {
+      window.__bizprintInstallEvent = null;
+      window.dispatchEvent(new Event('bizprint:installed'));
+    });
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', function () {
+        navigator.serviceWorker.register('/sw.js').catch(function () {});
+      });
+    }
+  } catch (e) {}
+})();
+`
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="mn" data-theme="light">
@@ -137,6 +171,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-title" content="Bizprint" />
         <meta name="theme-color" content="#FF6B00" />
+        <script dangerouslySetInnerHTML={{ __html: PWA_BOOTSTRAP }} />
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: jsonLdScript(siteJsonLd) }}
