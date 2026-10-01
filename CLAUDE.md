@@ -56,7 +56,9 @@ cd frontend && npm run dev         # localhost:3000
 
 - PostgreSQL on `localhost:5432`, database: `bizprint`
 - Credentials: `postgres`/`postgres`
-- TypeORM with `synchronize: true` (dev mode)
+- TypeORM `synchronize` is controlled by `DB_SYNCHRONIZE` (see
+  `backend/src/config/db-sync.ts`): on in dev, **off in production**.
+  Schema changes reach production only through `backend/migrations/*.sql`.
 - 141 entities across 75 modules
 
 ## Key Rules

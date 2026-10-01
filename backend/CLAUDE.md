@@ -195,3 +195,7 @@ NOT TEXT[] array
 5. State transitions → validated against matrix
 6. Cart ops → check status='active'
 7. Multi-vendor → create order_vendor_groups
+8. **Entity зассан → `backend/migrations/`-д SQL migration ЗААВАЛ бичнэ.**
+   Production дээр `DB_SYNCHRONIZE=false` тул TypeORM схемийг автоматаар
+   өөрчлөхөө больсон — migration байхгүй бол шинэ багана production-д
+   огт үүсэхгүй. Нэрлэх дүрэм, жишээг `backend/migrations/README.md`-ээс үз.
