@@ -282,6 +282,9 @@ export class PrintProductTypeDto {
   @IsOptional() @IsUUID()
   productId?: string | null
 
+  @IsOptional() @IsIn(['print', 'service'])
+  kind?: string
+
   @IsOptional() @IsArray() @ValidateNested({ each: true }) @Type(() => PrintMediaOptionDto)
   media?: PrintMediaOptionDto[]
 

@@ -60,7 +60,7 @@ export class PrintAutomationService implements OnModuleInit {
       `UPDATE order_items
           SET specs = coalesce(specs, '{}'::jsonb) || $2::jsonb
         WHERE order_id::text = $1
-          AND product_id::text IN (SELECT product_id::text FROM print_product_types WHERE product_id IS NOT NULL AND is_active)`,
+          AND product_id::text IN (SELECT product_id::text FROM print_product_types WHERE kind = 'print' AND product_id IS NOT NULL AND is_active)`,
       [p.orderId, JSON.stringify({ file_url: fileUrl, design_request_id: p.designRequestId ?? null, designer_id: p.designerId ?? null })],
     )
     this.logger.log(`design file attached to order ${p.orderId}: ${fileUrl} (${Array.isArray(res) ? res[1] : '?'} мөр)`)
@@ -78,7 +78,7 @@ export class PrintAutomationService implements OnModuleInit {
             AND o.status IN ('pending_file', 'file_review', 'confirmed')
             AND EXISTS (
               SELECT 1 FROM order_items i WHERE i.order_id::text = o.id::text
-                 AND i.product_id::text IN (SELECT product_id::text FROM print_product_types WHERE product_id IS NOT NULL AND is_active))
+                 AND i.product_id::text IN (SELECT product_id::text FROM print_product_types WHERE kind = 'print' AND product_id IS NOT NULL AND is_active))
             AND NOT EXISTS (SELECT 1 FROM print_tickets t WHERE t.order_id = o.id)
             AND NOT EXISTS (SELECT 1 FROM print_order_automation a WHERE a.order_id = o.id
                               AND a.state IN ('preflight_failed', 'dispatched'))
@@ -154,7 +154,7 @@ export class PrintAutomationService implements OnModuleInit {
     const rows: { n: number }[] = await this.ds.query(
       `SELECT count(*)::int AS n FROM order_items
         WHERE order_id::text = $1
-          AND product_id::text IN (SELECT product_id::text FROM print_product_types WHERE product_id IS NOT NULL AND is_active)
+          AND product_id::text IN (SELECT product_id::text FROM print_product_types WHERE kind = 'print' AND product_id IS NOT NULL AND is_active)
           AND coalesce(specs->>'file_url', '') = ''`,
       [orderId],
     )

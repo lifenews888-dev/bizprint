@@ -16,6 +16,10 @@ export class PrintProductType {
   @Column({ length: 120 })
   name: string
 
+  /** print = принтерт чиглүүлэгдэнэ; service = зөвхөн үнэтэй мөр (жишээ нь дизайн үйлчилгээ) */
+  @Column({ length: 16, default: 'print' })
+  kind: string
+
   @Column({ name: 'product_id', type: 'uuid', nullable: true })
   productId: string | null
 

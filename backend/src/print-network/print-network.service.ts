@@ -67,10 +67,24 @@ export class PrintNetworkService {
       order: { sortOrder: 'ASC', name: 'ASC' },
     })
     const states = await this.loadDeviceStates()
-    return list.map((t) => ({
-      ...t,
-      orderable: !!t.productId && states.some((d) => d.status === 'active' && d.productTypes.includes(t.key)),
-    }))
+    // Үнэ = сайтын бүтээгдэхүүний үнэ (нэг эх сурвалж — админ сайт дээр өөрчилнө)
+    const ids = list.map((t) => t.productId).filter(Boolean)
+    const prices: { id: string; price: string | null }[] = ids.length
+      ? await this.ds.query(
+          `SELECT id::text AS id, coalesce(nullif(sale_price, 0), base_price) AS price FROM products WHERE id::text = ANY($1)`, [ids],
+        ).catch(() => [])
+      : []
+    const priceBy = new Map(prices.map((p) => [p.id, p.price === null ? null : Number(p.price)]))
+    return list.map((t) => {
+      const price = t.productId ? priceBy.get(String(t.productId)) ?? null : null
+      return {
+        ...t,
+        price,
+        orderable: t.kind === 'service'
+          ? !!t.productId && !!price
+          : !!t.productId && states.some((d) => d.status === 'active' && d.productTypes.includes(t.key)),
+      }
+    })
   }
 
   async upsertProductType(dto: PrintProductTypeDto) {
@@ -312,7 +326,7 @@ export class PrintNetworkService {
          FROM orders o
          JOIN order_items i ON i.order_id::text = o.id::text
         WHERE (i.specs ? 'productType' OR i.specs ? 'product_type'
-           OR i.product_id::text IN (SELECT product_id::text FROM print_product_types WHERE product_id IS NOT NULL))
+           OR i.product_id::text IN (SELECT product_id::text FROM print_product_types WHERE kind = 'print' AND product_id IS NOT NULL))
           AND ($2::uuid IS NULL OR EXISTS (
                 SELECT 1 FROM print_tickets t JOIN print_devices d ON d.id = t.device_id
                  WHERE t.order_id = o.id AND d.vendor_id = $2::uuid))
@@ -447,7 +461,7 @@ export class PrintNetworkService {
     // Хэвлэлийн төрлийг захиалагчийн specs-ээс биш, ТӨЛСӨН бүтээгдэхүүнээс нь тодорхойлно
     const typeByProduct = new Map(
       (await this.productTypes.find({ where: { isActive: true } }))
-        .filter((t) => t.productId)
+        .filter((t) => t.productId && t.kind !== 'service')
         .map((t) => [String(t.productId), t.key]),
     )
     const states = await this.loadDeviceStates()
