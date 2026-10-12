@@ -5,6 +5,8 @@ import * as fs from 'fs'
 import * as path from 'path'
 import { createHash } from 'crypto'
 
+const sha256 = (text: string) => createHash('sha256').update(text).digest('hex')
+
 /**
  * MigrationsRunnerService — runs pending SQL migrations from
  * `backend/migrations/*.sql` BEFORE the app accepts traffic.
@@ -71,7 +73,11 @@ export class MigrationsRunnerService implements OnApplicationBootstrap {
 
       const existing = applied.get(file)
       if (existing) {
-        if (existing.checksum && existing.checksum !== hash) {
+        // Windows checkout (core.autocrlf) нь файлыг CRLF болгодог тул өмнөх deploy-ууд зарим
+        // migration-ийг LF, заримыг CRLF хэлбэрээр бүртгэсэн. Мөр төгсгөлийн ялгааг засвар гэж үзэхгүй.
+        const lf = sql.replace(/\r\n/g, '\n')
+        const variants = new Set([hash, sha256(lf), sha256(lf.replace(/\n/g, '\r\n'))])
+        if (existing.checksum && !variants.has(existing.checksum)) {
           // Applied migrations are immutable — editing one in-place would
           // mean different environments end up with different schemas.
           // Crash the boot so the operator notices instead of papering over.
