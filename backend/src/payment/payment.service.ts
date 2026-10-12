@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, Logger, NotFoundException, OnModuleInit } from '@nestjs/common'
+import { BadRequestException, Injectable, Logger, NotFoundException, OnModuleInit, ServiceUnavailableException } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
 import { Repository } from 'typeorm'
 import axios from 'axios'
@@ -12,21 +12,14 @@ import { EventBusService } from '../events/event-bus.service'
 import { BizEvent } from '../events/event-types'
 import { WalletService } from '../wallet/wallet.service'
 
-const TDB_QR_BASE = process.env.TDB_QR_BASE || 'https://qrservice.tdbmlabs.mn'
-const TDB_QR_USER = process.env.TDB_QR_USER || 'tdbm'
-const TDB_QR_PASS = process.env.TDB_QR_PASS || 'tdbm'
-const TDB_QR_TERMINAL = process.env.TDB_QR_TERMINAL || '91200026'
-const TDB_OAUTH_URL = process.env.TDB_OAUTH_URL || 'https://api-sandbox.tdbmlabs.mn:8443/oauth2/token'
-const TDB_CLIENT_ID = process.env.TDB_CLIENT_ID || ''
-const TDB_CLIENT_SECRET = process.env.TDB_CLIENT_SECRET || ''
-const TDB_BIZPRINT_IBAN = process.env.TDB_BIZPRINT_IBAN || ''
-const TDB_BIZPRINT_ACCOUNT = process.env.TDB_BIZPRINT_ACCOUNT || ''
-const TDB_BIZPRINT_ACCOUNT_NAME = process.env.TDB_BIZPRINT_ACCOUNT_NAME || 'ЮүЭмБи Верто ХХК'
+import { loadTdbConfig, missingTdbOAuthEnv, missingTdbQrEnv, TdbConfig } from './tdb-config'
 
 @Injectable()
 export class PaymentService implements OnModuleInit {
   private readonly logger = new Logger(PaymentService.name)
   private cachedToken: { access_token: string; expires_at: number } | null = null
+  // SECURITY: no hard-coded credential defaults — see tdb-config.ts.
+  private readonly tdb: TdbConfig = loadTdbConfig()
 
   constructor(
     @InjectRepository(Payment)
@@ -43,6 +36,17 @@ export class PaymentService implements OnModuleInit {
   ) {}
 
   onModuleInit() {
+    // Fail closed: report missing TDB settings by NAME only (never values).
+    const missing = missingTdbQrEnv(this.tdb)
+    if (missing.length) {
+      const msg = `TDB QR payment is NOT configured — missing env: ${missing.join(', ')}. ` +
+        'QR invoices are disabled (bank-transfer fallback only) and status checks will be refused.'
+      if (process.env.NODE_ENV === 'production') this.logger.error(msg)
+      else this.logger.warn(msg + ' For local dev set TDB_SANDBOX=true plus sandbox credentials.')
+    } else if (this.tdb.sandbox) {
+      this.logger.warn('TDB QR is running against the SANDBOX gateway (TDB_SANDBOX=true).')
+    }
+
     // Auto-refund when an order is cancelled, applying the policy below.
     // We pass previousStatus so the refund percentage reflects the state
     // *before* CANCELLED was set, not the cancelled state itself (which
@@ -133,15 +137,20 @@ export class PaymentService implements OnModuleInit {
   }
 
   // ─── Helpers ───────────────────────────────────────────
+  // Currently unused by the QR flow; kept for the TDB OAuth API.
   private async fetchOAuthToken(): Promise<string> {
     const now = Date.now()
     if (this.cachedToken && this.cachedToken.expires_at > now + 60_000) return this.cachedToken.access_token
+    const missing = missingTdbOAuthEnv(this.tdb)
+    if (missing.length) {
+      throw new ServiceUnavailableException(`TDB OAuth тохируулаагүй (${missing.join(', ')})`)
+    }
     const body = new URLSearchParams({
       grant_type: 'client_credentials',
-      client_id: TDB_CLIENT_ID,
-      client_secret: TDB_CLIENT_SECRET,
+      client_id: this.tdb.clientId,
+      client_secret: this.tdb.clientSecret,
     })
-    const res = await axios.post(TDB_OAUTH_URL, body.toString(), {
+    const res = await axios.post(this.tdb.oauthUrl, body.toString(), {
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     })
     const token = res.data?.access_token
@@ -150,10 +159,18 @@ export class PaymentService implements OnModuleInit {
     return token
   }
 
+  private assertTdbQrConfigured() {
+    const missing = missingTdbQrEnv(this.tdb)
+    if (missing.length) {
+      throw new ServiceUnavailableException(`TDB QR төлбөр тохируулаагүй (${missing.join(', ')})`)
+    }
+  }
+
   private async fetchQrToken(): Promise<string> {
-    const res = await axios.post(`${TDB_QR_BASE}/api/v1/login`, {
-      username: TDB_QR_USER,
-      password: TDB_QR_PASS,
+    this.assertTdbQrConfigured()
+    const res = await axios.post(`${this.tdb.qrBase}/api/v1/login`, {
+      username: this.tdb.qrUser,
+      password: this.tdb.qrPass,
     })
     return res.data?.data?.token || ''
   }
@@ -175,9 +192,9 @@ export class PaymentService implements OnModuleInit {
         method,
         payment_id: payment.id,
         invoice_code: refCode,
-        accountName: TDB_BIZPRINT_ACCOUNT_NAME,
-        iban: TDB_BIZPRINT_IBAN,
-        accountNumber: TDB_BIZPRINT_ACCOUNT,
+        accountName: this.tdb.accountName,
+        iban: this.tdb.iban,
+        accountNumber: this.tdb.account,
         bank: 'Худалдаа Хөгжлийн Банк (TDB)',
         bankCode: 4,
         description: `BizPrint ${refCode}`,
@@ -204,16 +221,16 @@ export class PaymentService implements OnModuleInit {
     // Try TDB QR service
     try {
       const qrToken = await this.fetchQrToken()
-      const callbackUrl = process.env.PAYMENT_CALLBACK_URL || 'http://localhost:4000/payment/callback'
-      const res = await axios.post(`${TDB_QR_BASE}/api/v1/invoice`, {
+      const callbackUrl = this.tdb.callbackUrl
+      const res = await axios.post(`${this.tdb.qrBase}/api/v1/invoice`, {
         qrType: 'dynamic',
         transactionType: 1,
         qrGenerator: 'TDBM',
-        accountNumber: TDB_BIZPRINT_ACCOUNT,
+        accountNumber: this.tdb.account,
         amount,
         bankCode: 'TDBMNUB',
         curCode: 'MNT',
-        terminalId: TDB_QR_TERMINAL,
+        terminalId: this.tdb.qrTerminal,
         additional: {
           purposeTransaction: 'BizPrint ' + order_id,
           callbackUrl,
@@ -245,7 +262,7 @@ export class PaymentService implements OnModuleInit {
         }
       }
     } catch (e) {
-      console.log('TDB QR service error, falling back to bank transfer:', (e as any).message)
+      this.logger.warn(`TDB QR unavailable, falling back to bank transfer: ${(e as any).message}`)
     }
 
     // Fallback: QR service байхгүй бол банк шилжүүлгийн мэдээлэл буцаана
@@ -263,9 +280,9 @@ export class PaymentService implements OnModuleInit {
       method: 'bank_fallback',
       payment_id: fallbackPayment.id,
       invoice_code: refCode,
-      accountName: TDB_BIZPRINT_ACCOUNT_NAME,
-      iban: TDB_BIZPRINT_IBAN,
-      accountNumber: TDB_BIZPRINT_ACCOUNT,
+      accountName: this.tdb.accountName,
+      iban: this.tdb.iban,
+      accountNumber: this.tdb.account,
       bank: 'Худалдаа Хөгжлийн Банк (TDB)',
       description: `BizPrint ${refCode}`,
       amount,
@@ -314,7 +331,7 @@ export class PaymentService implements OnModuleInit {
   // ─── STATUS ────────────────────────────────────────────
   async checkTdbStatus(invoiceNo: string) {
     const qrToken = await this.fetchQrToken()
-    const res = await axios.get(`${TDB_QR_BASE}/api/v1/invoice/${invoiceNo}`, {
+    const res = await axios.get(`${this.tdb.qrBase}/api/v1/invoice/${encodeURIComponent(invoiceNo)}`, {
       headers: { Authorization: 'Bearer ' + qrToken },
     })
     const status = res.data?.data?.status
@@ -347,6 +364,11 @@ export class PaymentService implements OnModuleInit {
   async confirmPayment(invoice_code: string) {
     const payment = await this.paymentRepo.findOne({ where: { invoice_code } })
     if (!payment) throw new NotFoundException('Payment not found')
+    // Idempotent: repeated status polls / callbacks must not re-run side
+    // effects (notifications, emails, ORDER_PAID events).
+    if (payment.status === 'paid') {
+      return { success: true, invoice_code, status: 'paid', alreadyPaid: true }
+    }
 
     payment.status = 'paid'
     payment.paid_at = new Date()

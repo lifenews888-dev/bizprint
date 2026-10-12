@@ -1,6 +1,7 @@
 ﻿import { Controller, Get, Post, Patch, Body, Param, UseGuards, Request } from '@nestjs/common';
 import { WalletService } from './wallet.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { AdminGuard } from '../admin/admin.guard';
 
 @Controller('wallet')
 @UseGuards(JwtAuthGuard)
@@ -33,17 +34,22 @@ export class WalletController {
     );
   }
 
+  // SECURITY: admin-only — exposes every user's bank details and lets the
+  // caller approve/reject payouts (previously any logged-in user could).
   @Get('withdraw-requests')
+  @UseGuards(AdminGuard)
   getAllWithdrawRequests() {
     return this.svc.getAllWithdrawRequests();
   }
 
   @Patch('withdraw-requests/:id/approve')
+  @UseGuards(AdminGuard)
   approveWithdraw(@Param('id') id: string) {
     return this.svc.approveWithdraw(id);
   }
 
   @Patch('withdraw-requests/:id/reject')
+  @UseGuards(AdminGuard)
   rejectWithdraw(@Param('id') id: string, @Body() body: { reason: string }) {
     return this.svc.rejectWithdraw(id, body.reason);
   }

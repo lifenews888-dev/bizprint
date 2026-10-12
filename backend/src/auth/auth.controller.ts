@@ -5,6 +5,7 @@ import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { AdminGuard } from '../admin/admin.guard';
 
@@ -72,6 +73,14 @@ export class AuthController {
   @Throttle({ default: { limit: 10, ttl: 60000 } })
   resetPassword(@Body() dto: ResetPasswordDto) {
     return this.authService.resetPassword(dto.token, dto.password);
+  }
+
+  // ─── Change own password (authenticated) ───
+  @UseGuards(JwtAuthGuard)
+  @Post('change-password')
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
+  changePassword(@Request() req: any, @Body() dto: ChangePasswordDto) {
+    return this.authService.changePassword(req.user?.id, dto.currentPassword, dto.newPassword, dto.refresh_token);
   }
 
   @Get('validate-reset-token/:token')

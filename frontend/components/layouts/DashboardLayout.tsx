@@ -296,6 +296,13 @@ export default function DashboardLayout({ children, navGroups, creatorNavGroups,
             </svg>
             {!collapsed && <span>Сайт харах</span>}
           </button>
+          <button onClick={() => router.push('/dashboard/password')} className="nb" title={collapsed ? 'Нууц үг солих' : undefined}
+            style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '9px', padding: collapsed ? '8px 0' : '8px 10px', borderRadius: '8px', border: 'none', background: 'transparent', color: 'var(--text4)', cursor: 'pointer', fontFamily: "'Segoe UI',system-ui,sans-serif", fontSize: '13px', justifyContent: collapsed ? 'center' : 'flex-start', marginBottom: '2px', transition: 'all .15s' }}>
+            <svg width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24" style={{ flexShrink: 0 }}>
+              <rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/>
+            </svg>
+            {!collapsed && <span>Нууц үг солих</span>}
+          </button>
           <button onClick={logout}
             style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '9px', padding: collapsed ? '8px 0' : '8px 10px', borderRadius: '8px', border: 'none', background: 'transparent', color: 'var(--text4)', cursor: 'pointer', fontFamily: "'Segoe UI',system-ui,sans-serif", fontSize: '13px', justifyContent: collapsed ? 'center' : 'flex-start', transition: 'all .15s' }}
             onMouseEnter={e => { e.currentTarget.style.background = 'rgba(226,75,74,0.08)'; e.currentTarget.style.color = '#e24b4a' }}

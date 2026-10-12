@@ -1,6 +1,12 @@
 ﻿import { DataSource } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 
+const ADMIN_PASSWORD: string = process.env.SEED_ADMIN_PASSWORD || '';
+if (!ADMIN_PASSWORD) {
+  console.error('SEED_ADMIN_PASSWORD орчны хувьсагч шаардлагатай (нууц үгийг кодонд бүү бич).');
+  process.exit(1);
+}
+
 const ds = new DataSource({
   type: 'postgres',
   host: 'localhost',
@@ -15,7 +21,7 @@ async function main() {
 
   // ===== SUPERADMIN USER =====
   const adminEmail = 'admin@bizprint.mn';
-  const adminPassword = 'Admin@2026';
+  const adminPassword = ADMIN_PASSWORD;
   const existing = await ds.query(`SELECT id FROM users WHERE email = $1`, [adminEmail]);
   if (existing.length === 0) {
     const hash = await bcrypt.hash(adminPassword, 12);
@@ -23,12 +29,12 @@ async function main() {
       INSERT INTO users (id, email, password_hash, full_name, role, is_active)
       VALUES (gen_random_uuid(), $1, $2, 'Super Admin', 'superadmin', true)
     `, [adminEmail, hash]);
-    console.log(`✅ Superadmin үүсгэлээ: ${adminEmail} / ${adminPassword}`);
+    console.log(`✅ Superadmin үүсгэлээ: ${adminEmail}`);
   } else {
     // Update password in case it was forgotten
     const hash = await bcrypt.hash(adminPassword, 12);
     await ds.query(`UPDATE users SET password_hash = $1, role = 'superadmin' WHERE email = $2`, [hash, adminEmail]);
-    console.log(`🔄 Superadmin нууц үг шинэчлэгдлээ: ${adminEmail} / ${adminPassword}`);
+    console.log(`🔄 Superadmin нууц үг шинэчлэгдлээ: ${adminEmail}`);
   }
 
   // Categories

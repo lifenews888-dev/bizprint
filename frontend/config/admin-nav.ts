@@ -5,7 +5,7 @@ import {
   Settings, Edit3, Mail, Ticket, Archive, BarChart2,
   MessageCircle, Server, Shield, TrendingUp, Link, DollarSign,
   BookOpen, CreditCard as CreditCardIcon, ExternalLink, LogOut,
-  PanelTop, GalleryHorizontalEnd, Bot, Newspaper,
+  PanelTop, GalleryHorizontalEnd, Bot, Newspaper, KeyRound,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
@@ -107,6 +107,12 @@ export const ADMIN_NAV: AdminNavGroup[] = [
     items: [
       { label: 'Chat', href: '/admin/chat', icon: MessageCircle },
       { label: 'Чатбот холболт', href: '/admin/chatbot', icon: Bot },
+    ],
+  },
+  {
+    section: 'Миний бүртгэл',
+    items: [
+      { label: 'Нууц үг солих', href: '/admin/account/password', icon: KeyRound },
     ],
   },
 ]

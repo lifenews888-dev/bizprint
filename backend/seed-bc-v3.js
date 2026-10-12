@@ -1,3 +1,9 @@
+const ADMIN_PASSWORD = process.env.SEED_ADMIN_PASSWORD;
+if (!ADMIN_PASSWORD) {
+  console.error('SEED_ADMIN_PASSWORD орчны хувьсагч шаардлагатай (нууц үгийг кодонд бүү бич).');
+  process.exit(1);
+}
+
 /**
  * Seed 20 business card layouts v3 — full fields + icons
  * node seed-bc-v3.js
@@ -6,7 +12,7 @@ const PID = '57229fb9-12d5-4104-863f-d95e619f30d8'
 const API = 'http://localhost:4000'
 
 async function getToken() {
-  const r = await fetch(`${API}/auth/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: 'admin@bizprint.mn', password: 'Admin@2026' }) })
+  const r = await fetch(`${API}/auth/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: 'admin@bizprint.mn', password: ADMIN_PASSWORD }) })
   return (await r.json()).access_token
 }
 

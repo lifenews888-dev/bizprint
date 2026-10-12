@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, LessThan } from 'typeorm';
+import { Repository, LessThan, Not } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { randomBytes, createHash } from 'crypto';
 import { User } from '../users/user.entity';
@@ -440,6 +440,57 @@ export class AuthService {
     await this.resetRepo.save(record);
 
     return { success: true, message: 'Нууц үг амжилттай шинэчлэгдлээ. Нэвтэрнэ үү.' };
+  }
+
+  // ─── Change own password (logged-in user) ────────────────────
+
+  /**
+   * Нэвтэрсэн хэрэглэгч өөрийн нууц үгийг солино.
+   * Одоогийн нууц үгийг bcrypt-ээр шалгаж, амжилттай бол бусад бүх
+   * сессийн refresh token-ыг хүчингүй болгоно (keepRefreshToken-оос бусад).
+   * Анхаар: буруу нууц үгэнд 401 биш 400 буцаана — frontend 401-д автоматаар гаргачихдаг.
+   */
+  async changePassword(
+    userId: string,
+    currentPassword: string,
+    newPassword: string,
+    keepRefreshToken?: string,
+  ) {
+    if (!userId) throw new UnauthorizedException('Нэвтрэлт хүчингүй');
+    if (!currentPassword) {
+      throw new BadRequestException('Одоогийн нууц үгээ оруулна уу');
+    }
+    if (!newPassword || newPassword.length < 8) {
+      throw new BadRequestException('Нууц үг хамгийн багадаа 8 тэмдэгт байх ёстой');
+    }
+    if (newPassword === currentPassword) {
+      throw new BadRequestException('Шинэ нууц үг одоогийн нууц үгээс өөр байх ёстой');
+    }
+
+    // password_hash нь select:false тул тусгайлан сонгоно
+    const user = await this.userRepository.createQueryBuilder('u')
+      .addSelect('u.password_hash')
+      .where('u.id = :id', { id: userId })
+      .getOne();
+    if (!user || !user.is_active) throw new UnauthorizedException('Хэрэглэгч олдсонгүй');
+
+    const isMatch = !!user.password_hash && await bcrypt.compare(currentPassword, user.password_hash);
+    if (!isMatch) {
+      throw new BadRequestException('Одоогийн нууц үг буруу байна');
+    }
+
+    const password_hash = await bcrypt.hash(newPassword, 12);
+    await this.userRepository.update(user.id, { password_hash });
+
+    // Бусад төхөөрөмж/сессийг хаана (одоогийн сессийг үлдээнэ)
+    await this.refreshTokenRepo.update(
+      keepRefreshToken
+        ? { user_id: user.id, is_revoked: false, token: Not(keepRefreshToken) }
+        : { user_id: user.id, is_revoked: false },
+      { is_revoked: true },
+    );
+
+    return { ok: true, message: 'Нууц үг амжилттай солигдлоо' };
   }
 
   async validateResetToken(rawToken: string) {

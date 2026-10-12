@@ -164,7 +164,15 @@ export class ZoomWebhookController {
 
   private verifySignature(body: any, signature: string, timestamp: string): boolean {
     const secret = process.env.ZOOM_WEBHOOK_SECRET
-    if (!secret) return true // Skip verification if no secret configured (dev mode)
+    // SECURITY: fail closed in production — an unsigned webhook can change
+    // design-session/order state. Only local dev may skip verification.
+    if (!secret) {
+      if (process.env.NODE_ENV === 'production') {
+        this.logger.error('Zoom webhook rejected: ZOOM_WEBHOOK_SECRET not configured')
+        return false
+      }
+      return true
+    }
 
     try {
       const message = `v0:${timestamp}:${JSON.stringify(body)}`

@@ -1,4 +1,10 @@
 // Seed packages for ALL services (run: node seed-all-packages.js)
+const ADMIN_PASSWORD = process.env.SEED_ADMIN_PASSWORD;
+if (!ADMIN_PASSWORD) {
+  console.error('SEED_ADMIN_PASSWORD орчны хувьсагч шаардлагатай (нууц үгийг кодонд бүү бич).');
+  process.exit(1);
+}
+
 const fetch = (...args) => import('node-fetch').then(({default: f}) => f(...args));
 const API = 'http://localhost:4000';
 
@@ -7,7 +13,7 @@ async function main() {
   const loginRes = await fetch(`${API}/auth/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email: 'admin@bizprint.mn', password: 'Admin@2026' }),
+    body: JSON.stringify({ email: 'admin@bizprint.mn', password: ADMIN_PASSWORD }),
   });
   const { access_token: token } = await loginRes.json();
   if (!token) { console.error('Login failed'); return; }

@@ -4,9 +4,15 @@
 const http = require('http');
 
 // Эхлээд login хийж шалгая
+const ADMIN_PASSWORD = process.env.SEED_ADMIN_PASSWORD;
+if (!ADMIN_PASSWORD) {
+  console.error('SEED_ADMIN_PASSWORD орчны хувьсагч шаардлагатай (нууц үгийг кодонд бүү бич).');
+  process.exit(1);
+}
+
 const loginData = JSON.stringify({
   email: 'admin@bizprint.mn',
-  password: 'Admin@2026'
+  password: ADMIN_PASSWORD
 });
 
 const req = http.request({
@@ -27,9 +33,9 @@ const req = http.request({
       const json = JSON.parse(body);
       console.log('\n=== НЭВТРЭЛТ АМЖИЛТТАЙ ===');
       console.log('Email:    admin@bizprint.mn');
-      console.log('Password: Admin@2026');
+      console.log('Password: (SEED_ADMIN_PASSWORD env)');
       console.log('Role:    ', json.user?.role || 'unknown');
-      console.log('Token:   ', json.access_token?.slice(0, 30) + '...');
+      console.log('Token:    (нууцлагдсан)');
     } else {
       console.log('Response:', body);
       console.log('\nНууц үг буруу байна. Шинэ нууц үгтэй хэрэглэгч үүсгэж байна...');
@@ -48,7 +54,7 @@ req.end();
 function createNew() {
   const data = JSON.stringify({
     email: 'superadmin@bizprint.mn',
-    password: 'Admin@2026',
+    password: ADMIN_PASSWORD,
     full_name: 'Super Admin',
     role: 'superadmin'
   });
@@ -69,7 +75,7 @@ function createNew() {
       if (res.statusCode === 200 || res.statusCode === 201) {
         console.log('\n=== ШИНЭ SUPERADMIN ҮҮСЛЭЭ ===');
         console.log('Email:    superadmin@bizprint.mn');
-        console.log('Password: Admin@2026');
+        console.log('Password: (SEED_ADMIN_PASSWORD env)');
       } else {
         console.log('Response:', body);
       }

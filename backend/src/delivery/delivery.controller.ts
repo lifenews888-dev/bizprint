@@ -4,6 +4,7 @@ import { DeliveryService } from './delivery.service'
 import { WebhookService } from './webhook.service'
 import { DeliveryStatus } from './delivery.entity'
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard'
+import { AdminGuard } from '../admin/admin.guard'
 
 @Controller('delivery')
 export class DeliveryController {
@@ -16,7 +17,10 @@ export class DeliveryController {
   // DELIVERY CRUD
   // ==========================================
 
+  // SECURITY: delivery CRUD previously had no auth at all. All first-party
+  // callers (admin web, driver app) already send a Bearer token.
   @Get()
+  @UseGuards(JwtAuthGuard)
   findAll() {
     return this.service.findAll()
   }
@@ -32,11 +36,13 @@ export class DeliveryController {
   }
 
   @Post()
+  @UseGuards(JwtAuthGuard)
   create(@Body() body: any) {
     return this.service.create(body)
   }
 
   @Patch(':id/status')
+  @UseGuards(JwtAuthGuard)
   updateStatus(
     @Param('id', ParseIntPipe) id: number,
     @Body('status') status: DeliveryStatus,
@@ -125,7 +131,10 @@ export class DeliveryController {
   // ==========================================
 
   // List all webhooks
+  // SECURITY: webhook management is admin-only (an anonymous caller could
+  // otherwise register a URL and receive all delivery events).
   @Get('webhooks/list')
+  @UseGuards(JwtAuthGuard, AdminGuard)
   listWebhooks() {
     return this.webhookService.findAll()
   }
@@ -134,6 +143,7 @@ export class DeliveryController {
   // POST /delivery/webhooks
   // Body: { name, url, secret?, events?, provider? }
   @Post('webhooks')
+  @UseGuards(JwtAuthGuard, AdminGuard)
   registerWebhook(@Body() body: {
     name: string
     url: string
@@ -147,6 +157,7 @@ export class DeliveryController {
 
   // Update a webhook
   @Patch('webhooks/:id')
+  @UseGuards(JwtAuthGuard, AdminGuard)
   updateWebhook(
     @Param('id', ParseIntPipe) id: number,
     @Body() body: any,
@@ -156,12 +167,14 @@ export class DeliveryController {
 
   // Delete a webhook
   @Delete('webhooks/:id')
+  @UseGuards(JwtAuthGuard, AdminGuard)
   deleteWebhook(@Param('id', ParseIntPipe) id: number) {
     return this.webhookService.remove(id)
   }
 
   // Test a webhook (sends a test event)
   @Post('webhooks/:id/test')
+  @UseGuards(JwtAuthGuard, AdminGuard)
   async testWebhook(@Param('id', ParseIntPipe) id: number) {
     const webhooks = await this.webhookService.findAll()
     const webhook = webhooks.find(w => w.id === id)

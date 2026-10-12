@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils'
 import { ADMIN_NAV, SUPERADMIN_NAV, ExternalLink, LogOut } from '@/config/admin-nav'
 import type { AdminNavGroup } from '@/config/admin-nav'
 import { clearAuthSession } from '@/lib/auth-session'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { ChevronLeft, ChevronRight, KeyRound } from 'lucide-react'
 import { Separator } from '@/components/ui/separator'
 
 interface Props {
@@ -154,6 +154,17 @@ export function AdminSidebar({ user, collapsed, setCollapsed, mobileOpen, setMob
           >
             <ExternalLink className="h-3.5 w-3.5 shrink-0" strokeWidth={1.6} />
             {!collapsed && <span>Сайт харах</span>}
+          </button>
+          <button
+            onClick={() => navigate('/admin/account/password')}
+            title={collapsed ? 'Нууц үг солих' : undefined}
+            className={cn(
+              'mb-0.5 flex w-full items-center gap-2.5 rounded-lg border-none bg-transparent px-2.5 py-2 text-[13px] text-muted-foreground/70 transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground cursor-pointer',
+              collapsed && 'justify-center px-0',
+            )}
+          >
+            <KeyRound className="h-3.5 w-3.5 shrink-0" strokeWidth={1.6} />
+            {!collapsed && <span>Нууц үг солих</span>}
           </button>
           <button
             onClick={logout}

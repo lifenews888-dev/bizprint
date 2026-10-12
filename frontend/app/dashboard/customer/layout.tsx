@@ -28,6 +28,7 @@ const NAV = [
     { label: 'Контент захиалах', href: '/dashboard/customer/ugc', icon: '🎨' },
     { label: 'Zoom уулзалт', href: '/dashboard/customer/meetings', icon: '📹' },
     { label: 'Чат', href: '/dashboard/customer/chat', icon: '💬' },
+    { label: 'Нууц үг солих', href: '/dashboard/customer/password', icon: '🔒' },
   ]},
 ]
 

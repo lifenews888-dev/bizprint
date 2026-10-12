@@ -1,9 +1,9 @@
-import { Body, Controller, Get, Headers, Param, Post, Req, UseGuards, UnauthorizedException, Logger, NotFoundException, BadRequestException } from '@nestjs/common'
+import { Body, Controller, Get, Headers, Param, Post, Req, UseGuards, UnauthorizedException, ForbiddenException, Logger, NotFoundException, BadRequestException } from '@nestjs/common'
 import { Throttle } from '@nestjs/throttler'
 import { InjectRepository } from '@nestjs/typeorm'
 import { Repository, LessThan } from 'typeorm'
 import { Cron } from '@nestjs/schedule'
-import { createHmac } from 'crypto'
+import { createHmac, timingSafeEqual } from 'crypto'
 import { PaymentService } from './payment.service'
 import { QPayService } from './qpay.service'
 import { BonumService } from './bonum.service'
@@ -11,6 +11,13 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard'
 import { AdminGuard } from '../admin/admin.guard'
 import { Order } from '../orders/entities/order.entity'
 import { PaymentLog } from './payment-log.entity'
+
+/** Constant-time comparison of two hex digests (avoids timing side channels). */
+function safeEqualHex(a: string, b: string): boolean {
+  const ab = Buffer.from(a, 'utf8')
+  const bb = Buffer.from(b, 'utf8')
+  return ab.length === bb.length && timingSafeEqual(ab, bb)
+}
 
 @Controller('payment')
 export class PaymentController {
@@ -24,12 +31,25 @@ export class PaymentController {
     @InjectRepository(PaymentLog) private readonly logRepo: Repository<PaymentLog>,
   ) {}
 
+  // IDOR guard for payment initiation/lookup: only the order's customer or an
+  // admin may act on it. Orders without a customer_id are admin-only.
+  private assertOrderAccess(order: Order, user: any) {
+    if (['admin', 'superadmin'].includes(user?.role)) return
+    if (order?.customer_id && user?.id && order.customer_id === user.id) return
+    throw new ForbiddenException('Энэ захиалгад хандах эрхгүй')
+  }
+
+  // SECURITY: auth + ownership required (previously anyone could create
+  // payments/invoices for any order id). All first-party callers (bizprint.mn
+  // checkout/dashboard via apiFetch, BizPrint desktop, Prinity) send a token.
   @Post('create')
-  async create(@Body() body: { amount: number; orderId: string; method?: 'qr' | 'bank' | 'cash' }) {
+  @UseGuards(JwtAuthGuard)
+  async create(@Body() body: { amount: number; orderId: string; method?: 'qr' | 'bank' | 'cash' }, @Req() req: any) {
     // SECURITY: дүнг клиентээс биш захиалгаас авна (өмнө нь 1₮-ийн нэхэмжлэл
     // үүсгээд төлж захиалгыг "paid" болгох боломжтой байсан).
     const order = body?.orderId ? await this.orderRepo.findOne({ where: { id: body.orderId } }).catch(() => null) : null
     if (!order) throw new NotFoundException('Захиалга олдсонгүй')
+    this.assertOrderAccess(order, req.user)
     if (order.payment_status === 'paid') throw new BadRequestException('Захиалгын төлбөр аль хэдийн төлөгдсөн')
     const total = Number(order.total_price)
     if (!(total > 0)) throw new BadRequestException('Захиалгын дүн тодорхойгүй')
@@ -91,12 +111,21 @@ export class PaymentController {
   }
 
   // ── QPay endpoints ──
+  // SECURITY: auth + ownership (no first-party caller found in site/desktop/driver).
   @Post('qpay/create')
-  async qpayCreate(@Body() body: { orderId: string; amount: number; description?: string }) {
-    const callbackUrl = `${process.env.BACKEND_URL || 'https://bizprint-production.up.railway.app'}/api/payment/qpay/callback`
+  @UseGuards(JwtAuthGuard)
+  async qpayCreate(@Body() body: { orderId: string; amount: number; description?: string }, @Req() req: any) {
+    // SECURITY: amount comes from the order in the DB, never from the client.
+    const order = body?.orderId ? await this.orderRepo.findOne({ where: { id: body.orderId } }).catch(() => null) : null
+    if (!order) throw new NotFoundException('Захиалга олдсонгүй')
+    this.assertOrderAccess(order, req.user)
+    if (order.payment_status === 'paid') throw new BadRequestException('Захиалгын төлбөр аль хэдийн төлөгдсөн')
+    const total = Math.round(Number(order.total_price))
+    if (!(total > 0)) throw new BadRequestException('Захиалгын дүн тодорхойгүй')
+    const callbackUrl = `${process.env.BACKEND_URL || 'https://api.bizprint.mn'}/api/payment/qpay/callback`
     return this.qpayService.createInvoice({
-      orderId: body.orderId,
-      amount: body.amount,
+      orderId: order.id,
+      amount: total,
       description: body.description || `BizPrint захиалга #${body.orderId}`,
       callbackUrl,
     })
@@ -150,8 +179,14 @@ export class PaymentController {
     return { status: 'ok' }
   }
 
+  // SECURITY: auth + ownership (no first-party caller found). The invoice is
+  // mapped to its order via invoice_no; unmapped invoices are admin-only.
   @Get('qpay/check/:invoiceId')
-  async qpayCheck(@Param('invoiceId') invoiceId: string) {
+  @UseGuards(JwtAuthGuard)
+  async qpayCheck(@Param('invoiceId') invoiceId: string, @Req() req: any) {
+    const order = await this.orderRepo.findOne({ where: { invoice_no: invoiceId } }).catch(() => null)
+    if (order) this.assertOrderAccess(order, req.user)
+    else if (!['admin', 'superadmin'].includes(req.user?.role)) throw new ForbiddenException('Энэ нэхэмжлэхэд хандах эрхгүй')
     return this.qpayService.checkPayment(invoiceId)
   }
 
@@ -166,21 +201,23 @@ export class PaymentController {
       return { error: 'orderId болон amount шаардлагатай' }
     }
 
-    // SECURITY: Validate amount against DB order
+    // SECURITY: Validate amount against DB order. The order must exist and
+    // have a positive total; the invoice is always issued for the DB amount.
     const order = await this.orderRepo.findOne({ where: { id: body.orderId } }).catch(() => null)
-    if (order && order.total_price) {
-      const dbAmount = Math.round(Number(order.total_price))
-      const requestedAmount = Math.round(body.amount)
-      if (Math.abs(dbAmount - requestedAmount) > 1) {
-        this.logger.warn(`Amount mismatch for order ${body.orderId}: DB=${dbAmount}, Requested=${requestedAmount}`)
-        return { error: 'Төлбөрийн дүн буруу байна' }
-      }
+    if (!order) return { error: 'Захиалга олдсонгүй' }
+    if (order.payment_status === 'paid') return { error: 'Захиалгын төлбөр аль хэдийн төлөгдсөн' }
+    const dbAmount = Math.round(Number(order.total_price))
+    if (!(dbAmount > 0)) return { error: 'Захиалгын дүн тодорхойгүй' }
+    const requestedAmount = Math.round(body.amount)
+    if (Math.abs(dbAmount - requestedAmount) > 1) {
+      this.logger.warn(`Amount mismatch for order ${body.orderId}: DB=${dbAmount}, Requested=${requestedAmount}`)
+      return { error: 'Төлбөрийн дүн буруу байна' }
     }
 
     try {
       const invoice = await this.bonum.createInvoice({
-        orderId: body.orderId,
-        amount: body.amount,
+        orderId: order.id,
+        amount: dbAmount,
         description: body.description,
         providers: body.providers,
       })
@@ -240,7 +277,7 @@ export class PaymentController {
     const expected = createHmac('sha256', CHECKSUM_KEY)
       .update(JSON.stringify(body))
       .digest('hex')
-    if (expected !== checksum) {
+    if (!safeEqualHex(expected, String(checksum).trim().toLowerCase())) {
       this.logger.warn(`Invalid webhook checksum for invoice ${body?.body?.invoiceId}`)
       this.logRepo.save(this.logRepo.create({
         invoice_id: body?.body?.invoiceId,
@@ -356,69 +393,10 @@ export class PaymentController {
     return this.bonum.getProviders()
   }
 
-  // One-off: creates a real 1₮ DB order + Bonum invoice end-to-end
-  // to verify the full flow works. Secret-protected to prevent abuse.
-  @Post('bonum/test-e2e')
-  async bonumTestE2E(@Body() body: { secret: string; amount?: number }) {
-    // SECURITY: creates real DB orders + live invoices, so it is a dev-only
-    // smoke test. Disabled in production and requires an explicitly-set secret
-    // (no hardcoded fallback).
-    if (process.env.NODE_ENV === 'production') {
-      return { error: 'Not available in production' };
-    }
-    const expected = process.env.BOOTSTRAP_SECRET;
-    if (!expected || body.secret !== expected) return { error: 'Invalid secret' };
-    const amount = Math.max(1, Math.min(10, Math.round(body.amount || 1)));
-
-    // Create minimal test order
-    const order = this.orderRepo.create({
-      quantity: 1,
-      total_price: amount,
-      unit_price: amount,
-      customer_name: 'E2E test',
-      product_name: 'Bonum E2E smoke test',
-      status: 'draft',
-      payment_status: 'pending',
-    } as any);
-    const saved = (await this.orderRepo.save(order)) as any;
-    const orderId: string = Array.isArray(saved) ? saved[0].id : saved.id;
-
-    try {
-      const invoice = await this.bonum.createInvoice({
-        orderId,
-        amount,
-        description: 'BizPrint E2E test',
-        providers: ['QPAY'],
-      });
-      await this.orderRepo.update(orderId, {
-        payment_method: 'bonum',
-        invoice_no: invoice.invoiceId,
-      });
-      return {
-        ok: true,
-        orderId,
-        amount,
-        invoiceId: invoice.invoiceId,
-        followUpLink: invoice.followUpLink,
-        instructions: 'Open followUpLink, pay 1₮ via bank app QR, then check order.payment_status',
-      };
-    } catch (e: any) {
-      return { ok: false, orderId, error: e.message };
-    }
-  }
-
-  @Get('bonum/test-token')
-  async bonumTestToken() {
-    if (process.env.NODE_ENV === 'production') {
-      return { error: 'Not available in production' }
-    }
-    try {
-      const token = await this.bonum.getToken()
-      return { ok: true, token: token.slice(0, 20) + '...' }
-    } catch (e: any) {
-      return { error: e.message }
-    }
-  }
+  // SECURITY: the former `bonum/test-e2e` (created real orders + live
+  // invoices) and `bonum/test-token` (leaked a token prefix) debug endpoints
+  // were removed from production code. Use a sandbox environment and the
+  // normal `bonum/create` flow for smoke tests.
 
   // —— Escrow payment history: status log per invoice ——————————————
   @UseGuards(JwtAuthGuard)

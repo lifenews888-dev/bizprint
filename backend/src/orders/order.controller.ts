@@ -260,8 +260,10 @@ export class OrdersController {
     return this.ordersService.updateOrder(id, body, { id: req.user?.id, role: req.user?.role });
   }
 
+  // SECURITY: revert skips the state machine's actor checks, so admin-only
+  // (only caller is the admin workflow page).
   @Patch(':id/revert')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, AdminGuard)
   revertStatus(
     @Param('id') id: string,
     @Body() body: { reason: string; target_stage?: string },

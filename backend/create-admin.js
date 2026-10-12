@@ -3,9 +3,15 @@
 
 const http = require('http');
 
+const ADMIN_PASSWORD = process.env.SEED_ADMIN_PASSWORD;
+if (!ADMIN_PASSWORD) {
+  console.error('SEED_ADMIN_PASSWORD орчны хувьсагч шаардлагатай (нууц үгийг кодонд бүү бич).');
+  process.exit(1);
+}
+
 const data = JSON.stringify({
   email: 'admin@bizprint.mn',
-  password: 'Admin@2026',
+  password: ADMIN_PASSWORD,
   full_name: 'Super Admin',
   role: 'superadmin'
 });
@@ -28,7 +34,7 @@ const req = http.request({
     if (res.statusCode === 201 || res.statusCode === 200) {
       console.log('\n=== SUPERADMIN АМЖИЛТТАЙ ҮҮСЛЭЭ ===');
       console.log('Email:    admin@bizprint.mn');
-      console.log('Password: Admin@2026');
+      console.log('Password: (SEED_ADMIN_PASSWORD env)');
     }
   });
 });
