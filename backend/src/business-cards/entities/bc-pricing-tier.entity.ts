@@ -28,6 +28,10 @@ export class BcPricingTier {
   @Column({ type: 'decimal', precision: 14, scale: 2, default: 0 })
   embossed: number;
 
+  // Лактай нэрийн хуудасны нэгж үнэ (2026-11-23-02 migration)
+  @Column({ type: 'decimal', precision: 14, scale: 2, default: 0 })
+  varnished: number;
+
   @Column({ default: 0 })
   sort_order: number;
 

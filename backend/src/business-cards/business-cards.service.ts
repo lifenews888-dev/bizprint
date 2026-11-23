@@ -8,6 +8,8 @@ import { BcLayout } from './entities/bc-layout.entity';
 import { BcPricingTier } from './entities/bc-pricing-tier.entity';
 import { BcLayoutBackground } from './entities/bc-layout-background.entity';
 
+export type BcFinish = 'standard' | 'laminated' | 'embossed' | 'varnished';
+
 @Injectable()
 export class BusinessCardsService {
   constructor(
@@ -185,6 +187,7 @@ export class BusinessCardsService {
         standard: t.standard || t.unit_price || 0,
         laminated: t.laminated || 0,
         embossed: t.embossed || 0,
+        varnished: t.varnished || 0,
         sort_order: i,
       }),
     );
@@ -207,5 +210,32 @@ export class BusinessCardsService {
     const total = subtotal + vat;
 
     return { unit_price: unitPrice, quantity, subtotal, vat, vat_rate: Number(product.vat_rate), total };
+  }
+
+  /**
+   * Өнгөлгөөтэй (finish) үнэ — чат автомат урсгал (flow-orders) ашиглана.
+   * Тухайн тоо ширхэгт хамаарах хамгийн том tier-ийн тухайн өнгөлгөөний нэгж үнийг авна.
+   * Үнэ тохируулаагүй (0) бол null буцаана — дуудагч тал татгалзах ёстой.
+   */
+  async calculateFinishPrice(productId: string, quantity: number, finish: BcFinish) {
+    const product = await this.findProduct(productId);
+    const tiers = (product.pricingTiers || []).sort((a, b) => a.quantity - b.quantity);
+    let tier: BcPricingTier | null = null;
+    for (const t of tiers) if (quantity >= t.quantity) tier = t;
+
+    let unitPrice = 0;
+    if (tier) {
+      unitPrice = finish === 'standard'
+        ? Number(tier.standard) || Number(tier.unit_price)
+        : Number(tier[finish]);
+    } else if (finish === 'standard') {
+      unitPrice = Number(product.base_price);
+    }
+    if (!(unitPrice > 0)) return null;
+
+    const subtotal = Math.round(unitPrice * quantity);
+    const vatRate = product.vat_enabled ? Number(product.vat_rate) : 0;
+    const vat = Math.round(subtotal * vatRate / 100);
+    return { unit_price: unitPrice, quantity, finish, subtotal, vat, vat_rate: vatRate, total: subtotal + vat };
   }
 }
