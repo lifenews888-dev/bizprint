@@ -92,6 +92,7 @@ import { WhitelabelModule } from './whitelabel/whitelabel.module'
 import { ProofingModule } from './proofing/proofing.module'
 import { PrepressModule } from './ai/prepress/prepress.module'
 import { PrintInquiryModule } from './print-inquiry/print-inquiry.module';
+import { FlowOrdersModule } from './flow-orders/flow-orders.module';
 import { GeoRoutingModule } from './geo-routing/geo-routing.module'
 import { ExcelProductsModule } from './excel-products/excel-products.module'
 import { ReviewsModule } from './reviews/reviews.module'
@@ -203,6 +204,7 @@ import { PrintNetworkModule } from './print-network/print-network.module'
     MaterialsModule,
     GeoRoutingModule,
     PrintInquiryModule,
+    FlowOrdersModule,
     QaModule,
     WarehouseModule,
     B2BModule,
