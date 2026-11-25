@@ -12,6 +12,7 @@ import {
   UseInterceptors,
   UploadedFile,
   BadRequestException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { Response } from 'express';
 import { FileInterceptor } from '@nestjs/platform-express';
@@ -23,6 +24,7 @@ import { AdminGuard } from '../admin/admin.guard';
 import { FilesService } from '../files/files.service';
 import { PdfInspectorService } from '../ai/pdf-inspector/pdf-inspector.service';
 import { UploadService } from '../upload/upload.service';
+import { MailService } from '../mail/mail.service';
 
 @Controller('orders')
 export class OrdersController {
@@ -32,7 +34,18 @@ export class OrdersController {
     private filesService: FilesService,
     private pdfInspector: PdfInspectorService,
     private uploadService: UploadService,
+    private mailService: MailService,
   ) {}
+
+  /** Хэвлэх эх хүлээн авах төлөвүүд (төлбөрийн дараа — үйлдвэрт орохоос өмнө) */
+  private static readonly ARTWORK_STATUSES = ['confirmed', 'pending_file', 'file_review', 'file_rejected'];
+
+  private assertOwner(order: { customer_id?: string }, user: any) {
+    const staff = ['admin', 'superadmin', 'sales', 'designer', 'staff'].includes(user?.role);
+    if (!staff && order.customer_id && order.customer_id !== user?.id) {
+      throw new ForbiddenException('Зөвхөн өөрийн захиалгад файл илгээнэ');
+    }
+  }
 
   /* ═══════════════════════════════════════
    *  OPS — KPI, Alerts, Bulk (BEFORE :id routes!)
@@ -196,10 +209,11 @@ export class OrdersController {
     if (!file) throw new BadRequestException('Файл байхгүй байна');
 
     const order = await this.ordersService.getOrderById(orderId);
-    const allowedStatuses = ['pending_file', 'file_rejected'];
-    if (!allowedStatuses.includes(order.status)) {
+    this.assertOwner(order, req.user);
+    // Олон файл илгээж болно: эхний файлын дараа file_review болсон ч дараагийнхыг хүлээн авна
+    if (!OrdersController.ARTWORK_STATUSES.includes(order.status)) {
       throw new BadRequestException(
-        `Файл оруулах боломжгүй. Захиалгын төлөв: "${order.status}". Зөвхөн "pending_file" эсвэл "file_rejected" үед файл оруулна.`,
+        `Файл оруулах боломжгүй. Захиалгын төлөв: "${order.status}". Үйлдвэрт орохоос өмнө файлаа илгээнэ.`,
       );
     }
 
@@ -233,7 +247,9 @@ export class OrdersController {
       if (order.status === 'file_rejected') {
         await this.ordersService.updateOrder(orderId, { status: 'pending_file' });
       }
-      await this.ordersService.updateOrder(orderId, { status: 'file_review' });
+      if (order.status === 'pending_file' || order.status === 'file_rejected') {
+        await this.ordersService.updateOrder(orderId, { status: 'file_review' });
+      }
     } catch (e) {
       console.log('Status transition warning:', e.message);
     }
@@ -252,6 +268,94 @@ export class OrdersController {
         ? `Файл амжилттай оруулж, PDF шинжилгээ хийгдлээ. Оноо: ${analysis?.score ?? '-'}/100`
         : 'Файл амжилттай оруулагдлаа. Шалгалтад орлоо.',
     };
+  }
+
+  /**
+   * Бэлэн файлгүй үйлчлүүлэгч: хаяг/бараан дээр гарах нэр, лого, имэйлээ үлдээнэ —
+   * BizPrint загварыг хийж тэр имэйл рүү илгээнэ. Хүсэлт order.options.design_request-д хадгалагдана.
+   */
+  @Post(':id/design-request')
+  @UseGuards(JwtAuthGuard)
+  @UseInterceptors(FileInterceptor('logo', {
+    storage: memoryStorage(),
+    limits: { fileSize: 50 * 1024 * 1024 },
+  }))
+  async designRequest(
+    @Param('id') orderId: string,
+    @UploadedFile() logo: Express.Multer.File | undefined,
+    @Body() body: { brand_text?: string; email?: string; notes?: string },
+    @Request() req: any,
+  ) {
+    const brandText = String(body?.brand_text || '').trim().slice(0, 500);
+    const email = String(body?.email || '').trim().toLowerCase();
+    const notes = String(body?.notes || '').trim().slice(0, 2000);
+    if (!brandText) throw new BadRequestException('Хаяг, бараан дээр гарах нэр/текстээ бичнэ үү');
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new BadRequestException('Загвар илгээх имэйл хаягаа зөв оруулна уу');
+
+    const order = await this.ordersService.getOrderById(orderId);
+    this.assertOwner(order, req.user);
+    if (!OrdersController.ARTWORK_STATUSES.includes(order.status)) {
+      throw new BadRequestException(`Захиалгын төлөв "${order.status}" — загварын хүсэлт хүлээн авах боломжгүй.`);
+    }
+
+    let logoUrl: string | null = null;
+    if (logo) {
+      const up = this.uploadService.processFile(logo);
+      if ('error' in up && up.error) throw new BadRequestException(up.error);
+      const url: string = (up as any).file_url;
+      logoUrl = url;
+      await this.filesService.create({
+        order_id: orderId,
+        filename: `ЛОГО — ${logo.originalname}`,
+        path: url,
+        size: logo.size,
+        mime_type: logo.mimetype,
+        uploaded_by: req.user?.id,
+        uploaded_by_role: req.user?.role || 'customer',
+      });
+    }
+
+    const request = {
+      brand_text: brandText,
+      email,
+      notes,
+      logo_url: logoUrl,
+      requested_at: new Date().toISOString(),
+      status: 'waiting_design', // загвар хийгдэж буй → имэйлээр илгээгдэнэ
+    };
+    const orderRepo = this.ordersService['ordersRepo'];
+    await orderRepo.update(orderId, {
+      options: { ...(order.options || {}), design_request: request } as any,
+      notes: [order.notes, `Загвар хийлгэх: «${brandText}» · имэйл ${email}${notes ? ` · ${notes}` : ''}`].filter(Boolean).join('\n'),
+    });
+
+    try {
+      if (order.status === 'file_rejected') await this.ordersService.updateOrder(orderId, { status: 'pending_file' });
+      if (order.status === 'pending_file' || order.status === 'file_rejected') {
+        await this.ordersService.updateOrder(orderId, { status: 'file_review' });
+      }
+    } catch (e) {
+      console.log('Status transition warning:', e.message);
+    }
+
+    const code = orderId.slice(-8).toUpperCase();
+    this.mailService.sendGenericNotification({
+      to: email,
+      name: order.customer_name || 'Хэрэглэгч',
+      title: `Загварын хүсэлт хүлээн авлаа — #${code}`,
+      message: `«${brandText}» гэсэн нэр${logoUrl ? ', лого' : ''}-г хүлээн авлаа. Манай дизайнер загварыг бэлтгээд энэ имэйл рүү илгээнэ. Батласны дараа үйлдвэрт оруулна.`,
+    }).catch((e) => console.log('Design request email failed:', e.message));
+    const ops = process.env.ORDERS_EMAIL || process.env.ADMIN_EMAIL;
+    if (ops) {
+      this.mailService.sendGenericNotification({
+        to: ops,
+        name: 'BizPrint',
+        title: `Загвар хийх хүсэлт #${code}`,
+        message: `${order.product_name || 'Захиалга'} · «${brandText}» · ${email}${logoUrl ? ` · лого: ${logoUrl}` : ''}${notes ? ` · ${notes}` : ''}`,
+      }).catch(() => {});
+    }
+
+    return { success: true, design_request: request, order_status: 'file_review' };
   }
 
   @Patch(':id/status')

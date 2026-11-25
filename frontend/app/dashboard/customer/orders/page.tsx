@@ -197,7 +197,7 @@ export default function OrdersPage() {
                     <ZoomSection order={o} onUpdate={(updated) => setOrders(prev => prev.map(ord => ord.id === updated.id ? { ...ord, ...updated } : ord))} />
 
                     <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
-                      {o.status === 'pending_file' && <ActionButton label="📁 Файл оруулах" color="#D97706" onClick={() => router.push(`/dashboard/customer/orders/${o.id}/upload`)} />}
+                      {(o.status === 'pending_file' || o.status === 'file_rejected') && <ActionButton label="📁 Файл / лого илгээх" color="#D97706" onClick={() => router.push(`/dashboard/customer/orders/${o.id}/upload`)} />}
                       <ActionButton label="💬 Чат" color="#3B82F6" onClick={() => router.push('/dashboard/customer/chat')} />
                       {(o.status === 'delivered' || o.status === 'completed') && <ActionButton label="⭐ Үнэлгээ" color="#F59E0B" onClick={() => {}} />}
                     </div>

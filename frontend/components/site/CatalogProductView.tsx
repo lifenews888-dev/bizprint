@@ -97,7 +97,7 @@ export default function CatalogProductView({ type, productId }: { type: ProductT
             {type.about && <p className="mt-4 max-w-xl text-[15px] leading-[1.6] text-gray-600">{type.about}</p>}
 
             <div className="mt-6 grid gap-2 text-[13px] text-gray-700 sm:grid-cols-3">
-              <span className="flex items-center gap-2 rounded-2xl bg-[#F5F5F5] px-3 py-2.5"><FileUp className="h-4 w-4 shrink-0" />Файлаа захиалгын дараа илгээнэ</span>
+              <span className="flex items-center gap-2 rounded-2xl bg-[#F5F5F5] px-3 py-2.5"><FileUp className="h-4 w-4 shrink-0" />Төлбөрийн дараа файл эсвэл лого, нэрээ илгээнэ</span>
               <span className="flex items-center gap-2 rounded-2xl bg-[#F5F5F5] px-3 py-2.5"><Truck className="h-4 w-4 shrink-0" />Хүргэлт 10–25 мянга</span>
               <span className="flex items-center gap-2 rounded-2xl bg-[#F5F5F5] px-3 py-2.5"><Clock className="h-4 w-4 shrink-0" />{catalog.delivery.time}</span>
             </div>
@@ -105,6 +105,11 @@ export default function CatalogProductView({ type, productId }: { type: ProductT
             <div className="mt-6 rounded-3xl bg-[#F5F5F5] p-5 sm:p-7">
               <ItemBuilder key={code} types={[type]} initialCode={code || undefined} actionLabel="Сагсанд нэмэх" onAction={add} />
             </div>
+            <p className="mt-3 rounded-2xl border border-gray-200 p-4 text-[13px] leading-[1.55] text-gray-600">
+              <span className="font-medium text-gray-900">Хэвлэх эх: </span>
+              бэлэн файлаа төлбөрийн дараа илгээнэ. Файлгүй бол хаяг, бараан дээр гарах нэр, логогоо илгээж имэйлээ үлдээнэ —
+              загварыг имэйлээр илгээж, батласны дараа хэвлэнэ.
+            </p>
             <p className="mt-3 text-[12px] text-gray-500">
               Олон бараа хамт бодох бол <Link href={`/quote?cat=${type.catSlug}`} className="underline">үнийн тооцоолуур</Link>. {catalog.version}.
             </p>

@@ -1,5 +1,6 @@
 'use client'
 import { apiFetch, getToken } from '@/lib/api'
+import ArtworkForm from '@/components/site/ArtworkForm'
 import { useState, useEffect, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Suspense } from 'react'
@@ -446,8 +447,13 @@ function CheckoutInner() {
           <p style={{ color: 'var(--text2)', fontSize: 15, margin: '0 0 24px' }}>
             {isDigitalPurchase
               ? 'Таны дижитал үйлчилгээ идэвхжлээ. Dashboard-аас ашиглах боломжтой.'
-              : 'Таны захиалга баталгаажлаа. Удахгүй үйлдвэрт шилжинэ.'}
+              : 'Таны захиалга баталгаажлаа. Хэвлэх эхээ илгээсний дараа үйлдвэрт шилжинэ.'}
           </p>
+          {!isDigitalPurchase && order?.id && (
+            <div style={{ background: '#F5F5F5', borderRadius: 16, padding: 20, margin: '0 0 24px' }}>
+              <ArtworkForm orderId={order.id} defaultEmail={form.customer_email} />
+            </div>
+          )}
           <div style={{ display: 'flex', gap: 12 }}>
             <button onClick={() => router.push(isDigitalPurchase ? '/dashboard/customer/subscription' : '/dashboard/orders')} style={{
               flex: 1, padding: '14px', background: '#FF6B00', color: '#fff', border: 'none',
