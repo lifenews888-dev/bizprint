@@ -123,7 +123,10 @@ export const siteNav = [
 export const footerLinks = [
   { label: 'Дэлгүүр', href: '/shop' },
   { label: 'Үнэ тооцоолох', href: '/quote' },
+  { label: 'Үнийн мэдээлэл', href: '/pricing' },
+  { label: 'B2B харилцагч', href: '/b2b' },
   { label: 'Захиалга хянах', href: '/track' },
+  { label: 'Хүргэлт', href: '/delivery' },
   { label: 'Бидний тухай', href: '/about' },
   { label: 'Түгээмэл асуулт', href: '/faq' },
   { label: 'Хамтран ажиллах', href: '/partner' },

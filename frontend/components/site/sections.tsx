@@ -3,6 +3,7 @@
 import { useState, type ReactNode } from 'react'
 import { ArrowRight, Phone, Mail, MapPin } from 'lucide-react'
 import SiteNav from './SiteNav'
+import { useSiteSettings } from '@/contexts/SiteSettingsContext'
 import { brand, hero as heroContent, about, products, work, contact, footerLinks } from './content'
 import { EASE, ORANGE, HeroShader, SafeBoundary, OrangeButton, ImageSlot, Badge, Lines, Starburst } from './primitives'
 
@@ -177,7 +178,27 @@ export function Work({ step = work.step }: { step?: string }) {
 
 /* ---------- 5. ХОЛБОО БАРИХ ---------- */
 
+const PAYMENT_LABELS: Record<string, string> = {
+  visa: 'Visa',
+  mastercard: 'Mastercard',
+  qpay: 'QPay',
+  socialpay: 'SocialPay',
+  monpay: 'MonPay',
+}
+
+/** Админы footer_payments тохиргоог (байхгүй бол өмнөх footer-ийн жагсаалтыг) ашиглана */
+function usePaymentMethods(): string[] {
+  const { settings } = useSiteSettings()
+  try {
+    const raw = settings?.footer_payments
+    const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw
+    if (Array.isArray(parsed) && parsed.length) return parsed.map(String)
+  } catch {}
+  return ['visa', 'mastercard', 'qpay', 'socialpay', 'monpay']
+}
+
 export function Contact() {
+  const payments = usePaymentMethods()
   return (
     <footer id="contact" className="bg-gray-900 text-white">
       <div className="mx-auto max-w-[1440px] px-5 pb-10 pt-16 sm:px-8 sm:pt-20 lg:px-12 lg:pt-28">
@@ -210,7 +231,16 @@ export function Contact() {
           </div>
         </div>
 
-        <div className="mt-16 flex flex-col gap-6 border-t border-white/10 pt-8 sm:flex-row sm:items-center sm:justify-between">
+        <div className="mt-12 flex flex-wrap items-center gap-2">
+          <span className="mr-1 text-[12px] text-gray-400">Төлбөр:</span>
+          {payments.map((p) => (
+            <span key={p} className="rounded-full border border-white/15 px-3 py-1 text-[12px] text-gray-300">
+              {PAYMENT_LABELS[p] || p}
+            </span>
+          ))}
+        </div>
+
+        <div className="mt-8 flex flex-col gap-6 border-t border-white/10 pt-8 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-3">
             <span className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-[10px] font-bold tracking-tight text-gray-900">{brand.short}</span>
             <span className="text-[13px] text-gray-400">
