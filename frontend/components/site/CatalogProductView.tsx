@@ -102,6 +102,17 @@ export default function CatalogProductView({ type, productId }: { type: ProductT
               <span className="flex items-center gap-2 rounded-2xl bg-[#F5F5F5] px-3 py-2.5"><Clock className="h-4 w-4 shrink-0" />{catalog.delivery.time}</span>
             </div>
 
+            {type.slug === 'bizcard' && (
+              <Link href="/business-cards"
+                className="mt-6 flex items-center justify-between gap-3 rounded-3xl border-2 border-[#FF6B00] bg-[#FF6B00]/5 p-4 text-left transition-colors hover:bg-[#FF6B00]/10 sm:p-5">
+                <span>
+                  <span className="block text-[15px] font-medium text-gray-900">Файлгүй юу? 389 бэлэн загвараас сонгоорой</span>
+                  <span className="block text-[13px] text-gray-600">Мэдээлэл, логогоо өгөхөд эх бэлтгэлийг бид хийнэ</span>
+                </span>
+                <ChevronRight className="h-5 w-5 shrink-0 text-[#FF6B00]" />
+              </Link>
+            )}
+
             <div className="mt-6 rounded-3xl bg-[#F5F5F5] p-5 sm:p-7">
               <ItemBuilder key={code} types={[type]} initialCode={code || undefined} actionLabel="Сагсанд нэмэх" onAction={add} />
             </div>

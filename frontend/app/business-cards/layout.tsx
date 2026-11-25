@@ -1,13 +1,15 @@
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
-  title: 'Нэрийн хуудасны загвар үнэгүй бүтээх | BizPrint',
-  description: 'Нэрийн хуудасны бэлэн загвар сонгоод мэдээллээ бөглөж, хэвлэлд бэлэн файл үнэгүй үүсгээрэй. Basic plan шаардлагагүй.',
+  title: 'Нэрийн хуудасны 389 бэлэн загвар | BizPrint',
+  description: 'Кодтой 389 бэлэн загвараас сонгоод мэдээлэл, логогоо өгөөд нэрийн хуудсаа захиалаарай. Эх бэлтгэлийг бид хийж, батлуулсны дараа хэвлэнэ.',
+  alternates: { canonical: 'https://bizprint.mn/business-cards' },
   openGraph: {
-    title: 'Нэрийн хуудасны загвар үнэгүй бүтээх',
-    description: 'Бэлэн загвар сонгох, мэдээлэл бөглөх, print-ready файл үүсгэх үнэгүй editor.',
+    title: 'Нэрийн хуудасны 389 бэлэн загвар',
+    description: 'Загвараа сонгох, мэдээллээ бөглөх, логогоо оруулах — эх бэлтгэлийг BizPrint хийнэ.',
     url: '/business-cards',
     type: 'website',
+    images: ['/bizcard/BP-NC-001.webp'],
   },
 }
 
