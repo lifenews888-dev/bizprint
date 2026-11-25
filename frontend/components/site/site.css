@@ -82,3 +82,32 @@ body:has(.site-light) { padding-bottom: 0; }
 .site-page :is(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), select, textarea) {
   border-radius: 14px;
 }
+
+/* ================================================================
+   Dashboard, админ, нэвтрэх хуудсууд (.site-app)
+   Апп-ын нягт байдлыг хадгалж, зөвхөн хэв маягийг нэгтгэнэ.
+   ================================================================ */
+.site-app :is(h1, h2) {
+  font-weight: 500 !important;
+  letter-spacing: -0.02em !important;
+}
+.site-app h1 {
+  line-height: 1.15;
+}
+.site-app :is(h1, h2) :is(span, em)[class*="FF6B00"],
+.site-app :is(h1, h2) :is(span, em)[style*="FF6B00" i],
+.site-app :is(h1, h2) :is(span, em)[style*="255, 107, 0"] {
+  color: inherit !important;
+  -webkit-text-fill-color: currentColor !important;
+}
+.site-app :is(a, button)[class*="bg-[#FF6B00]"],
+.site-app :is(a, button)[class*="bg-primary"]:not([role="switch"]):not([role="checkbox"]),
+.site-app :is(a, button)[style*="background: #FF6B00" i],
+.site-app :is(a, button)[style*="background:#FF6B00" i],
+.site-app :is(a, button)[style*="background: rgb(255, 107, 0)"],
+.site-app :is(a, button)[class*="bg-gray-900"] {
+  border-radius: 9999px !important;
+}
+.site-app :is(h1, h2) :is(span, em)[style*="--orange"] {
+  color: inherit !important;
+}

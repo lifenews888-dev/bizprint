@@ -12,6 +12,8 @@ import { Contact as SiteFooter } from '@/components/site/sections'
 const BARE_ROUTES = ['/login', '/register', '/design/editor', '/dashboard', '/admin', '/creator', '/designer', '/courier', '/sales', '/invite', '/loyalty', '/mobile', '/start']
 /** Шинэ загвартай хуудсууд: өөрийн цэс, footer-той — зөвхөн чат widget-ууд үлдэнэ */
 const OWN_CHROME_ROUTES = ['/', '/print']
+/** Өөрийн тусгай дизайнтай bare хуудсууд — .site-app хэв маягийг хэрэглэхгүй */
+const NO_APP_STYLE = ['/design/editor', '/invite']
 /** admin/chat хуудсанд ChatWidget давхардахгүй (ChatLayout ашигладаг) */
 const NO_CHAT_WIDGET = ['/admin/chat']
 
@@ -27,7 +29,10 @@ export default function LayoutShell({ children }: { children: React.ReactNode })
   const hideChatWidget = onChatPage || hasChatbot
 
   if (isBare) {
-    return <>{children}</>
+    const plain = NO_APP_STYLE.some(r => pathname === r || pathname.startsWith(r + '/'))
+    if (plain) return <>{children}</>
+    // display: contents — layout-д нөлөөлөхгүй, зөвхөн CSS хамрах хүрээ
+    return <div className="site-app" style={{ display: 'contents' }}>{children}</div>
   }
 
   if (OWN_CHROME_ROUTES.includes(pathname)) {

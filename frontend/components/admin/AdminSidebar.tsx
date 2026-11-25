@@ -56,12 +56,12 @@ export function AdminSidebar({ user, collapsed, setCollapsed, mobileOpen, setMob
         <div className="flex h-[52px] items-center shrink-0 border-b border-sidebar-border px-3">
           {!collapsed && (
             <Link href="/" className="flex items-center gap-2 no-underline flex-1">
-              <div className="flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-md bg-primary">
-                <span className="text-xs font-bold text-white">B</span>
+              <div className="flex h-[28px] w-[28px] shrink-0 items-center justify-center rounded-full bg-gray-900">
+                <span className="text-[9px] font-bold tracking-tight text-white">BP</span>
               </div>
               <div>
                 <div className="text-[13px] font-semibold leading-none text-sidebar-foreground">
-                  <span className="text-primary">Biz</span>Print
+                  BizPrint
                 </div>
                 <div className={cn('text-[10px]', isSuperAdmin ? 'text-red-500' : 'text-muted-foreground')}>
                   {isSuperAdmin ? 'Super Admin' : 'Admin Panel'}
@@ -122,19 +122,16 @@ export function AdminSidebar({ user, collapsed, setCollapsed, mobileOpen, setMob
                     onClick={() => navigate(item.href)}
                     title={collapsed ? item.label : undefined}
                     className={cn(
-                      'group mb-px flex w-full items-center gap-2.5 rounded-lg border-none px-2.5 py-2 text-[13px] transition-colors cursor-pointer',
+                      'group mb-px flex w-full items-center gap-2.5 rounded-full border-none px-2.5 py-2 text-[13px] transition-colors cursor-pointer',
                       collapsed && 'justify-center px-0',
                       active
-                        ? 'bg-primary/10 font-medium text-primary'
+                        ? 'bg-foreground font-medium text-background'
                         : 'bg-transparent text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground',
                     )}
                   >
                     <Icon className="h-[15px] w-[15px] shrink-0" strokeWidth={1.6} />
                     {!collapsed && (
                       <span className="truncate">{item.label}</span>
-                    )}
-                    {!collapsed && active && (
-                      <div className="ml-auto h-[5px] w-[5px] shrink-0 rounded-full bg-primary" />
                     )}
                   </button>
                 )

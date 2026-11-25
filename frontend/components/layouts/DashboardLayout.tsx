@@ -145,17 +145,12 @@ export default function DashboardLayout({ children, navGroups, creatorNavGroups,
         <div style={{ height: '54px', display: 'flex', alignItems: 'center', justifyContent: collapsed ? 'center' : 'space-between', padding: collapsed ? '0' : '0 14px', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
           {!collapsed && (
             <div onClick={() => router.push('/')} style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
-              <div style={{ width: '26px', height: '26px', background: '#FF6B00', borderRadius: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                <svg width="13" height="13" fill="#fff" viewBox="0 0 18 18">
-                  <rect x="2" y="2" width="6" height="6" rx="1.5"/>
-                  <rect x="10" y="2" width="6" height="6" rx="1.5" opacity=".6"/>
-                  <rect x="2" y="10" width="6" height="6" rx="1.5" opacity=".6"/>
-                  <rect x="10" y="10" width="6" height="6" rx="1.5" opacity=".85"/>
-                </svg>
+              <div style={{ width: '28px', height: '28px', background: '#111827', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <span style={{ color: '#fff', fontSize: 9, fontWeight: 700, letterSpacing: '-0.02em' }}>BP</span>
               </div>
               <div>
                 <div style={{ fontSize: '13px', fontWeight: 600, lineHeight: 1 }}>
-                  <span style={{ color: '#FF6B00' }}>Biz</span>Print
+                  BizPrint
                 </div>
                 <div style={{ fontSize: '10px', color: 'var(--text3)', marginTop: '1px' }}>
                   {creatorMode ? 'Creator' : (user?.role || 'Dashboard')}
@@ -260,7 +255,7 @@ export default function DashboardLayout({ children, navGroups, creatorNavGroups,
                     onClick={() => router.push(item.href)}
                     title={collapsed ? item.label : ''}
                     className="nb"
-                    style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '9px', padding: collapsed ? '9px 0' : '8px 10px', borderRadius: '8px', border: 'none', background: active ? 'rgba(255,107,0,0.1)' : 'transparent', color: active ? '#FF6B00' : 'var(--text3)', cursor: 'pointer', fontFamily: "'Segoe UI',system-ui,sans-serif", fontSize: '13px', fontWeight: active ? 500 : 400, justifyContent: collapsed ? 'center' : 'flex-start', marginBottom: '1px', transition: 'all .15s' }}>
+                    style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '9px', padding: collapsed ? '9px 0' : '8px 10px', borderRadius: '9999px', border: 'none', background: active ? 'var(--text)' : 'transparent', color: active ? 'var(--bg)' : 'var(--text3)', cursor: 'pointer', fontFamily: "'Segoe UI',system-ui,sans-serif", fontSize: '13px', fontWeight: active ? 500 : 400, justifyContent: collapsed ? 'center' : 'flex-start', marginBottom: '1px', transition: 'all .15s' }}>
                     <svg width="15" height="15" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24" style={{ flexShrink: 0 }}>
                       <path d={item.icon}/>
                     </svg>
@@ -279,7 +274,7 @@ export default function DashboardLayout({ children, navGroups, creatorNavGroups,
                         {badges[item.badge] > 99 ? '99+' : badges[item.badge]}
                       </span>
                     )}
-                    {!collapsed && active && !item.badge && <div style={{ marginLeft: 'auto', width: '5px', height: '5px', borderRadius: '50%', background: '#FF6B00', flexShrink: 0 }}/>}
+                    
                   </button>
                 )
               })}

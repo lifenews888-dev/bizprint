@@ -54,11 +54,11 @@ export default function CustomerLayout({ children }: { children: React.ReactNode
       <div className="hidden md:flex" style={{ width: 224, minWidth: 224, height: '100vh', background: 'var(--surface)', borderRight: '1px solid var(--border)', flexDirection: 'column', position: 'sticky', top: 0, zIndex: 20 }}>
         {/* Logo */}
         <div onClick={() => router.push('/')} style={{ height: 54, padding: '0 14px', display: 'flex', alignItems: 'center', gap: 8, borderBottom: '1px solid var(--border)', cursor: 'pointer' }}>
-          <div style={{ width: 26, height: 26, background: ORANGE, borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-            <svg width="13" height="13" fill="#fff" viewBox="0 0 18 18"><rect x="2" y="2" width="6" height="6" rx="1.5"/><rect x="10" y="2" width="6" height="6" rx="1.5" opacity=".6"/><rect x="2" y="10" width="6" height="6" rx="1.5" opacity=".6"/><rect x="10" y="10" width="6" height="6" rx="1.5" opacity=".85"/></svg>
+          <div style={{ width: 28, height: 28, background: '#111827', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <span style={{ color: '#fff', fontSize: 9, fontWeight: 700, letterSpacing: '-0.02em' }}>BP</span>
           </div>
           <div>
-            <div style={{ fontSize: 13, fontWeight: 600, lineHeight: 1 }}><span style={{ color: ORANGE }}>Biz</span>Print</div>
+            <div style={{ fontSize: 13, fontWeight: 600, lineHeight: 1 }}>BizPrint</div>
             <div style={{ fontSize: 10, color: 'var(--text3)', marginTop: 1 }}>Dashboard</div>
           </div>
         </div>
@@ -84,9 +84,9 @@ export default function CustomerLayout({ children }: { children: React.ReactNode
                 return (
                   <button key={item.href} onClick={() => router.push(item.href)} style={{
                     width: '100%', display: 'flex', alignItems: 'center', gap: 9, padding: '8px 10px',
-                    borderRadius: 8, border: 'none', cursor: 'pointer', fontSize: 13, marginBottom: 1,
-                    background: active ? 'rgba(255,107,0,0.1)' : 'transparent',
-                    color: active ? ORANGE : 'var(--text3)',
+                    borderRadius: 9999, border: 'none', cursor: 'pointer', fontSize: 13, marginBottom: 1,
+                    background: active ? 'var(--text)' : 'transparent',
+                    color: active ? 'var(--bg)' : 'var(--text3)',
                     fontWeight: active ? 500 : 400,
                   }}>
                     <span style={{ fontSize: 14, width: 15 }}>{item.icon}</span>
@@ -110,7 +110,7 @@ export default function CustomerLayout({ children }: { children: React.ReactNode
         <button onClick={() => setMobileNav(!mobileNav)} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 20, color: 'var(--text)' }}>
           {mobileNav ? '✕' : '☰'}
         </button>
-        <div style={{ fontSize: 15, fontWeight: 600 }}><span style={{ color: ORANGE }}>Biz</span>Print</div>
+        <div style={{ fontSize: 15, fontWeight: 600 }}>BizPrint</div>
         <div style={{ width: 28 }} />
       </div>
 
@@ -136,9 +136,9 @@ export default function CustomerLayout({ children }: { children: React.ReactNode
                     return (
                       <button key={item.href} onClick={() => { router.push(item.href); setMobileNav(false) }} style={{
                         width: '100%', display: 'flex', alignItems: 'center', gap: 9, padding: '10px 10px',
-                        borderRadius: 8, border: 'none', cursor: 'pointer', fontSize: 14, marginBottom: 1,
-                        background: active ? 'rgba(255,107,0,0.1)' : 'transparent',
-                        color: active ? ORANGE : 'var(--text3)', fontWeight: active ? 500 : 400,
+                        borderRadius: 9999, border: 'none', cursor: 'pointer', fontSize: 14, marginBottom: 1,
+                        background: active ? 'var(--text)' : 'transparent',
+                        color: active ? 'var(--bg)' : 'var(--text3)', fontWeight: active ? 500 : 400,
                       }}>
                         <span style={{ fontSize: 16, width: 18 }}>{item.icon}</span>
                         <span>{item.label}</span>
