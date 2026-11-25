@@ -7,7 +7,7 @@ import { useParams, useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useStore } from '@/lib/store'
 import { toast } from 'sonner'
-import { Heart, Share2, GitCompareArrows, ShoppingCart, Zap, Link2, ExternalLink } from 'lucide-react'
+import { Heart, Share2, GitCompareArrows, ShoppingCart, Zap, Link2, ExternalLink, ChevronLeft, ChevronRight } from 'lucide-react'
 import PriceCalculator from '@/components/PriceCalculator'
 import BookPriceCalculator from '@/components/BookPriceCalculator'
 import { fbPixel } from '@/components/FacebookPixel'
@@ -118,84 +118,94 @@ interface TrustSignal {
   title?: string
 }
 
-// ═══ GLASS GALLERY — autoplay + zone hover + zoom ═══
+// ═══ GALLERY — хэрэглэгч өөрөө удирдана: сум, thumbnail, swipe, гар, дарж томруулах ═══
 function Gallery({ product }: { product: ProductLike }) {
   const imgs: string[] = []
   if (product.thumbnail_url) imgs.push(product.thumbnail_url)
   if (Array.isArray(product.images)) product.images.forEach((img: string) => { if (img && !imgs.includes(img)) imgs.push(img) })
 
   const [active, setActive] = useState(0)
-  const [hovered, setHovered] = useState(false)
   const [zoom, setZoom] = useState(false)
-  const [mouse, setMouse] = useState({ x: 50, y: 50 })
+  const [origin, setOrigin] = useState({ x: 50, y: 50 })
   const ref = useRef<HTMLDivElement>(null)
-  const autoRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const touchX = useRef<number | null>(null)
+  const many = imgs.length > 1
 
-  useEffect(() => {
-    if (imgs.length <= 1) return
-    if (!hovered) autoRef.current = setInterval(() => setActive(p => (p + 1) % imgs.length), 4000)
-    return () => { if (autoRef.current) clearInterval(autoRef.current) }
-  }, [hovered, imgs.length])
+  const go = (dir: 1 | -1) => {
+    setZoom(false)
+    setActive(i => (i + dir + imgs.length) % imgs.length)
+  }
 
-  const onMove = (e: React.MouseEvent) => {
+  const pointTo = (e: React.MouseEvent) => {
     if (!ref.current) return
     const r = ref.current.getBoundingClientRect()
-    setMouse({ x: ((e.clientX - r.left) / r.width) * 100, y: ((e.clientY - r.top) / r.height) * 100 })
-    // Zone-based image switch
-    if (imgs.length > 1) {
-      const zone = Math.floor(((e.clientX - r.left) / r.width) * imgs.length)
-      setActive(Math.min(zone, imgs.length - 1))
-    }
+    setOrigin({ x: ((e.clientX - r.left) / r.width) * 100, y: ((e.clientY - r.top) / r.height) * 100 })
   }
+
+  const arrow = 'absolute top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border-none bg-white text-gray-900 shadow-[0_2px_8px_rgba(0,0,0,0.12)] transition-opacity duration-300 cursor-pointer md:opacity-0 md:group-hover:opacity-100 focus-visible:opacity-100'
 
   return (
     <div>
-      <div ref={ref}
-        className="product-hero relative rounded-2xl overflow-hidden bg-[var(--surface2)] cursor-crosshair mb-3 backdrop-blur-sm"
-        style={{ boxShadow: '0 8px 32px rgba(0,0,0,0.06)', aspectRatio: '4 / 3.5' }}
-        onMouseEnter={() => { setHovered(true); setZoom(true) }}
-        onMouseLeave={() => { setHovered(false); setZoom(false) }}
-        onMouseMove={onMove}>
-        <AnimatePresence mode="wait">
+      <div
+        ref={ref}
+        tabIndex={0}
+        role="region"
+        aria-roledescription="carousel"
+        aria-label="Бүтээгдэхүүний зураг"
+        className={`product-hero group relative mb-3 overflow-hidden rounded-2xl bg-[#F5F5F5] outline-none ${imgs.length ? (zoom ? 'cursor-zoom-out' : 'cursor-zoom-in') : ''}`}
+        style={{ aspectRatio: '4 / 3.5' }}
+        onClick={e => { if (!imgs.length) return; pointTo(e); setZoom(z => !z) }}
+        onMouseMove={e => { if (zoom) pointTo(e) }}
+        onMouseLeave={() => setZoom(false)}
+        onKeyDown={e => {
+          if (!many) return
+          if (e.key === 'ArrowLeft') { e.preventDefault(); go(-1) }
+          if (e.key === 'ArrowRight') { e.preventDefault(); go(1) }
+        }}
+        onTouchStart={e => { touchX.current = e.touches[0].clientX }}
+        onTouchEnd={e => {
+          if (touchX.current === null || !many) return
+          const dx = e.changedTouches[0].clientX - touchX.current
+          if (Math.abs(dx) > 40) go(dx < 0 ? 1 : -1)
+          touchX.current = null
+        }}
+      >
+        <AnimatePresence mode="wait" initial={false}>
           {imgs.length > 0 ? (
-            <motion.img key={active} src={imgs[active]} alt=""
-              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.4 }}
-              className="absolute inset-0 w-full h-full object-contain"
-              style={zoom ? { transform: 'scale(2.2)', transformOrigin: `${mouse.x}% ${mouse.y}%`, transition: 'transform 0.15s ease-out' } : { transition: 'transform 0.3s ease' }}
-              loading="lazy" />
+            <motion.img key={active} src={imgs[active]} alt={`${product.name_mn || product.name || 'Бүтээгдэхүүн'} — зураг ${active + 1}`}
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.25 }}
+              className="absolute inset-0 h-full w-full object-contain"
+              style={{ transform: zoom ? 'scale(2)' : 'scale(1)', transformOrigin: `${origin.x}% ${origin.y}%`, transition: 'transform 0.25s ease-out' }}
+              draggable={false} />
           ) : (
-            <div className="w-full h-full flex flex-col items-center justify-center">
-              <span className="text-6xl mb-2">🖨️</span>
+            <div className="flex h-full w-full flex-col items-center justify-center">
+              <span className="mb-2 text-6xl">🖨️</span>
               <span className="text-sm text-[var(--text3)]">{product.category || 'Бүтээгдэхүүн'}</span>
             </div>
           )}
         </AnimatePresence>
-        {/* Progress bars */}
-        {imgs.length > 1 && (
-          <div className="absolute bottom-3 left-3 right-3 flex gap-1 z-10">
-            {imgs.map((_, i) => (
-              <div key={i} className="flex-1 h-[3px] rounded-full overflow-hidden bg-white/20 backdrop-blur-sm">
-                <motion.div className="h-full rounded-full bg-white" initial={{ width: 0 }}
-                  animate={{ width: i === active ? '100%' : i < active ? '100%' : '0%' }}
-                  transition={{ duration: i === active ? (hovered ? 0.2 : 4) : 0.3 }} />
-              </div>
-            ))}
-          </div>
-        )}
-        {imgs.length > 1 && <>
-          <button onClick={() => setActive((active - 1 + imgs.length) % imgs.length)} className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-white/10 hover:bg-white/25 text-white border-none cursor-pointer flex items-center justify-center backdrop-blur-md z-10 transition-colors">‹</button>
-          <button onClick={() => setActive((active + 1) % imgs.length)} className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-white/10 hover:bg-white/25 text-white border-none cursor-pointer flex items-center justify-center backdrop-blur-md z-10 transition-colors">›</button>
+
+        {many && <>
+          <button type="button" aria-label="Өмнөх зураг" onClick={e => { e.stopPropagation(); go(-1) }} className={`${arrow} left-3`}>
+            <ChevronLeft size={18} />
+          </button>
+          <button type="button" aria-label="Дараагийн зураг" onClick={e => { e.stopPropagation(); go(1) }} className={`${arrow} right-3`}>
+            <ChevronRight size={18} />
+          </button>
+          <span className="pointer-events-none absolute bottom-3 right-3 z-10 rounded-full bg-white/90 px-3 py-1 text-[12px] font-medium tabular-nums text-gray-900">
+            {active + 1} / {imgs.length}
+          </span>
         </>}
       </div>
-      {/* Thumbnails */}
-      {imgs.length > 1 && (
+
+      {many && (
         <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
           {imgs.map((img, i) => (
-            <motion.button key={i} onClick={() => { setActive(i); setHovered(true); setTimeout(() => setHovered(false), 100) }}
-              whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
-              className={`shrink-0 w-16 h-16 rounded-xl overflow-hidden border-2 cursor-pointer transition-all ${i === active ? 'border-[#FF6B00] shadow-md shadow-[#FF6B00]/20' : 'border-transparent hover:border-[var(--border2)]'}`}>
-              <img src={img} alt="" className="w-full h-full object-cover" />
-            </motion.button>
+            <button key={i} type="button" onClick={() => { setZoom(false); setActive(i) }}
+              aria-label={`Зураг ${i + 1}`} aria-current={i === active}
+              className={`h-16 w-16 shrink-0 cursor-pointer overflow-hidden rounded-xl border-2 bg-[#F5F5F5] p-0 transition-colors duration-200 ${i === active ? 'border-gray-900' : 'border-transparent opacity-70 hover:opacity-100'}`}>
+              <img src={img} alt="" className="h-full w-full object-cover" loading="lazy" />
+            </button>
           ))}
         </div>
       )}

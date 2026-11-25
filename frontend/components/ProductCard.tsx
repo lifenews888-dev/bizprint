@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import ProductImage from './ProductImage'
 import { optimizeImage } from '@/lib/image'
 import { apiFetch } from '@/lib/api'
@@ -47,7 +47,6 @@ export default function ProductCard({ product, categoryLabel, onAddToCart }: Pro
   const [liked, setLiked] = useState(false)
   const [adopted, setAdopted] = useState<boolean | null>(null) // null = unknown / not sales agent
   const [adopting, setAdopting] = useState(false)
-  const autoRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   // Sales-only: check whether this product is already in my storefront so we
   // can render the right toggle state. Skips silently for any other role.
@@ -86,15 +85,6 @@ export default function ProductCard({ product, categoryLabel, onAddToCart }: Pro
   const productName = p.name_mn || p.name || 'Бүтээгдэхүүн'
   const productCategory = p.category || undefined
   const minQuantity = p.min_quantity || 0
-
-  // Autoplay when not hovered
-  useEffect(() => {
-    if (imgs.length <= 1) return
-    if (!hovered) {
-      autoRef.current = setInterval(() => setActiveImg(prev => (prev + 1) % imgs.length), 4000)
-    }
-    return () => { if (autoRef.current) clearInterval(autoRef.current) }
-  }, [hovered, imgs.length])
 
   // Hover zone slider — divide card width into equal zones per image
   const handleMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
