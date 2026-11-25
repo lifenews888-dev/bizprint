@@ -10,7 +10,7 @@ import { trackEvent } from '@/lib/analytics'
 const HIDE_ON = [
   '/admin', '/dashboard', '/login', '/register', '/forgot-password',
   '/reset-password', '/checkout', '/design/editor', '/creator', '/designer',
-  '/courier', '/sales', '/factory', '/mobile',
+  '/courier', '/sales', '/factory', '/mobile', '/print',
 ]
 
 export default function MobileStickyCTA() {

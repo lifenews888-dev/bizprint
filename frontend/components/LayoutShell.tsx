@@ -11,7 +11,7 @@ import MobileBottomNav from '@/components/MobileBottomNav'
 import { useSiteSettings } from '@/contexts/SiteSettingsContext'
 
 /** login, register зэрэг full-page хуудсуудад Nav/Footer нуугдана */
-const BARE_ROUTES = ['/login', '/register', '/design/editor', '/dashboard', '/admin', '/creator', '/designer', '/courier', '/sales', '/invite', '/loyalty', '/mobile', '/start']
+const BARE_ROUTES = ['/print', '/login', '/register', '/design/editor', '/dashboard', '/admin', '/creator', '/designer', '/courier', '/sales', '/invite', '/loyalty', '/mobile', '/start']
 /** admin/chat хуудсанд ChatWidget давхардахгүй (ChatLayout ашигладаг) */
 const NO_CHAT_WIDGET = ['/admin/chat']
 
