@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { Calendar, Clock, Eye, Newspaper } from 'lucide-react'
+import { formatPostDate } from '@/lib/post-date'
 
 export interface BlogPost {
   id: string
@@ -18,11 +19,7 @@ export interface BlogPost {
   view_count: number
 }
 
-/** published_at байвал түүнийг, байхгүй бол created_at-ыг харуулна */
-export const formatPostDate = (post: Pick<BlogPost, 'published_at' | 'created_at'>) =>
-  new Date(post.published_at || post.created_at).toLocaleDateString('mn-MN', {
-    year: 'numeric', month: 'long', day: 'numeric',
-  })
+export { formatPostDate }
 
 export function PostMeta({ post, className = '' }: { post: BlogPost; className?: string }) {
   return (

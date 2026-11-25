@@ -2,8 +2,9 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { ArrowLeft, Calendar, Clock, Eye, User } from 'lucide-react'
-import { sanitizeHtml } from '@/lib/sanitize'
-import { PostCard, formatPostDate } from '@/components/blog/PostCard'
+import { extractFaq, sanitizeHtmlServer } from '@/lib/sanitize-server'
+import { PostCard } from '@/components/blog/PostCard'
+import { formatPostDate } from '@/lib/post-date'
 import PostArticleActions from '@/components/blog/PostArticleActions'
 import { fetchPost, fetchRelatedPosts, postDate } from '@/lib/blog-api'
 import {
@@ -129,6 +130,20 @@ export default async function PostDetailPage({ params }: Params) {
     ],
   }
 
+  const faq = extractFaq(post.content)
+  const faqJsonLd = faq.length
+    ? {
+      '@context': 'https://schema.org',
+      '@type': 'FAQPage',
+      '@id': `${url}#faq`,
+      mainEntity: faq.map(item => ({
+        '@type': 'Question',
+        name: item.question,
+        acceptedAnswer: { '@type': 'Answer', text: item.answer },
+      })),
+    }
+    : null
+
   return (
     <div className="min-h-screen bg-[var(--bg)] text-[var(--text)]">
       <script
@@ -139,6 +154,12 @@ export default async function PostDetailPage({ params }: Params) {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: jsonLdScript(breadcrumbJsonLd) }}
       />
+      {faqJsonLd && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: jsonLdScript(faqJsonLd) }}
+        />
+      )}
 
       <article className="mx-auto max-w-3xl px-4 py-10 sm:py-14">
         <nav aria-label="Замнал" className="mb-6">
@@ -199,7 +220,7 @@ export default async function PostDetailPage({ params }: Params) {
         {post.content && (
           <div
             className="post-content mt-6 text-[15px] leading-[1.8] text-[var(--text)]"
-            dangerouslySetInnerHTML={{ __html: sanitizeHtml(post.content) }}
+            dangerouslySetInnerHTML={{ __html: sanitizeHtmlServer(post.content) }}
           />
         )}
 
