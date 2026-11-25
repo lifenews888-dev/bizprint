@@ -11,6 +11,7 @@ import {
   BusinessCardsService,
   BcFinish,
 } from '../business-cards/business-cards.service';
+import { FlowCatalogService } from './flow-catalog.service';
 import {
   FlowFinish,
   FlowOrder,
@@ -77,9 +78,12 @@ export class FlowOrdersService {
   constructor(
     @InjectRepository(FlowOrder) private readonly repo: Repository<FlowOrder>,
     private readonly businessCards: BusinessCardsService,
+    private readonly catalog: FlowCatalogService,
   ) {}
 
   async create(dto: CreateFlowOrderDto) {
+    if (dto.product === 'catalog') return this.createCatalog(dto);
+
     const finish: FlowFinish = dto.finish || 'none';
     const productId = dto.bcProductId || process.env.FLOW_BC_PRODUCT_ID;
     if (!productId)
@@ -98,33 +102,109 @@ export class FlowOrdersService {
         `Үнэ тохируулаагүй: ${finish} / ${dto.quantity}ш`,
       );
 
-    const now = new Date().toISOString();
-    const order = this.repo.create({
-      order_no: this.genOrderNo(),
-      source: dto.source || 'yria',
-      conversation_id: dto.conversationId,
-      customer_name: dto.customer.name?.trim() || null,
-      customer_phone: dto.customer.phone.replace(/[\s-]/g, ''),
-      product: dto.product || 'business_card',
+    return this.persist(dto, {
+      product: 'business_card',
       bc_product_id: productId,
-      template: dto.template,
+      template: dto.template || process.env.FLOW_BC_TEMPLATE || 'nh-classic-01',
       quantity: dto.quantity,
       finish,
-      fields: this.cleanFields(dto.fields),
-      logo_url: dto.logoUrl || null,
       unit_price: price.unit_price,
       amount_ex_vat: price.subtotal,
       vat: price.vat,
       amount: price.total,
+      spec: dto.design ? { design: this.cleanDesign(dto.design) } : null,
+    });
+  }
+
+  /** Албан үнийн жагсаалтын бараа (туг, даавуун хэвлэл …) — үнийг catalog-pricing бодно */
+  private async createCatalog(dto: CreateFlowOrderDto) {
+    if (!dto.productSlug || !dto.variantCode) {
+      throw new BadRequestException('productSlug, variantCode шаардлагатай');
+    }
+    const q = await this.catalog.quote({
+      productSlug: dto.productSlug,
+      variantCode: dto.variantCode,
+      widthM: dto.widthM,
+      heightM: dto.heightM,
+      quantity: dto.quantity,
+      sides: dto.sides,
+      addons: dto.addons,
+      extras: dto.extras,
+    });
+    return this.persist(dto, {
+      product: 'catalog',
+      bc_product_id: null,
+      product_slug: q.productSlug,
+      catalog_line: q.line as unknown as Record<string, unknown>,
+      template: dto.template || 'fabric-auto',
+      quantity: q.quantity,
+      finish: 'none',
+      unit_price: q.unitPrice,
+      amount_ex_vat: q.amountExVat,
+      vat: q.vat,
+      amount: q.total,
+      spec: {
+        productName: q.productName,
+        variantLabel: q.variantLabel,
+        unit: q.unit,
+        // Загварын хэмжээ: м² бараанд үнэтэй ижил, ширхгийн бараанд (өдөн туг, ширээний туг) зөвхөн дизайнд
+        widthM: q.line.w ?? dto.widthM ?? null,
+        heightM: q.line.h ?? dto.heightM ?? null,
+        sides: q.sides,
+        addons: q.line.addons ?? null,
+        extras: q.extras.length ? q.extras : null,
+        design: dto.design ? this.cleanDesign(dto.design) : null,
+      },
+    });
+  }
+
+  private async persist(dto: CreateFlowOrderDto, extra: Partial<FlowOrder>) {
+    const now = new Date().toISOString();
+    const order = this.repo.create({
+      order_no: this.genOrderNo(extra.product === 'catalog' ? 'BP' : 'NH'),
+      source: dto.source || 'yria',
+      conversation_id: dto.conversationId,
+      customer_name: dto.customer.name?.trim() || null,
+      customer_phone: dto.customer.phone.replace(/[\s-]/g, ''),
+      fields: this.cleanFields(dto.fields),
+      logo_url: dto.logoUrl || null,
       status: S.RENDERING,
       status_history: [{ from: null, to: S.RENDERING, at: now }],
       edit_count: 0,
+      ...extra,
     });
     const saved = await this.repo.save(order);
     this.logger.log(
-      `Flow order ${saved.order_no} (${saved.id}) — ${saved.quantity}ш ${finish}, ${saved.amount}₮`,
+      `Flow order ${saved.order_no} (${saved.id}) — ${saved.product_slug || saved.product} ×${saved.quantity}, ${saved.amount}₮`,
     );
     return this.toView(saved);
+  }
+
+  /** Дизайны brief: зөвхөн мэдэгдэж буй түлхүүр, өнгө нь #RRGGBB, текст ≤300 */
+  cleanDesign(input: Record<string, unknown>): Record<string, string> {
+    const out: Record<string, string> = {};
+    const color = (v: unknown) =>
+      typeof v === 'string' && /^#[0-9a-fA-F]{6}$/.test(v.trim())
+        ? v.trim().toUpperCase()
+        : null;
+    for (const k of ['background', 'textColor', 'accent']) {
+      const c = color(input?.[k]);
+      if (c) out[k] = c;
+    }
+    for (const k of ['headline', 'subline', 'extra']) {
+      const v = input?.[k];
+      if (typeof v === 'string' && v.trim()) out[k] = v.trim().slice(0, 300);
+    }
+    const layout = input?.layout;
+    if (
+      typeof layout === 'string' &&
+      ['center', 'left', 'logo-only', 'text-only'].includes(layout)
+    )
+      out.layout = layout;
+    const notes = input?.notes;
+    if (typeof notes === 'string' && notes.trim())
+      out.notes = notes.trim().slice(0, 1000);
+    return out;
   }
 
   async findOne(id: string) {
@@ -151,6 +231,7 @@ export class FlowOrdersService {
       dto.fields !== undefined ||
       dto.logoUrl !== undefined ||
       dto.template !== undefined ||
+      dto.design !== undefined ||
       dto.editCount !== undefined;
     if (designChange && !DESIGN_EDITABLE.includes(from)) {
       throw new BadRequestException(
@@ -183,6 +264,13 @@ export class FlowOrdersService {
     if (dto.editCount !== undefined) o.edit_count = dto.editCount;
     if (dto.logoUrl !== undefined) o.logo_url = dto.logoUrl;
     if (dto.template !== undefined) o.template = dto.template;
+    if (dto.design !== undefined) {
+      const prev = (o.spec?.design as Record<string, string>) || {};
+      o.spec = {
+        ...(o.spec || {}),
+        design: { ...prev, ...this.cleanDesign(dto.design) },
+      };
+    }
     if (dto.previewUrls !== undefined) o.preview_urls = dto.previewUrls;
     if (dto.pdfUrl !== undefined) o.pdf_url = dto.pdfUrl;
     if (dto.renderJobId !== undefined) o.render_job_id = dto.renderJobId;
@@ -245,10 +333,10 @@ export class FlowOrdersService {
     return out;
   }
 
-  private genOrderNo() {
+  private genOrderNo(prefix = 'NH') {
     const d = new Date(Date.now() + 8 * 3600 * 1000); // Улаанбаатарын цаг
     const ymd = d.toISOString().slice(2, 10).replace(/-/g, '');
-    return `NH${ymd}-${randomBytes(3).toString('hex').toUpperCase()}`;
+    return `${prefix}${ymd}-${randomBytes(3).toString('hex').toUpperCase()}`;
   }
 
   toView(o: FlowOrder) {
@@ -262,6 +350,9 @@ export class FlowOrdersService {
       customer: { name: o.customer_name, phone: o.customer_phone },
       product: o.product,
       bcProductId: o.bc_product_id,
+      productSlug: o.product_slug,
+      catalogLine: o.catalog_line,
+      spec: o.spec || null,
       template: o.template,
       quantity: o.quantity,
       finish: o.finish,

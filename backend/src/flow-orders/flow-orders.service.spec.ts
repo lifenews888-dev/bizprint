@@ -18,7 +18,8 @@ function makeService(price: any = { unit_price: 380, subtotal: 38000, vat: 0, to
     find: jest.fn(async () => [...store.values()]),
   };
   const bc: any = { calculateFinishPrice: jest.fn(async () => price) };
-  return { svc: new FlowOrdersService(repo, bc), repo, bc, store };
+  const catalog: any = { quote: jest.fn() };
+  return { svc: new FlowOrdersService(repo, bc, catalog), repo, bc, catalog, store };
 }
 
 const baseDto = () => ({
