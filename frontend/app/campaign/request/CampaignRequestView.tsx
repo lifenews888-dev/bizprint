@@ -50,14 +50,31 @@ export default function CampaignRequestView() {
     if (f.phone.replace(/\D/g, '').length < 6) return setError('Утасны дугаараа оруулна уу — бид утсаар холбогдоно.')
     setSending(true); setError('')
     try {
-      const res = await apiFetch<Done>('/campaigns/request', {
-        method: 'POST',
-        body: {
-          ...f,
-          budget: Number(f.budget) || 0,
-          lines: priced.map((x) => ({ type: x.type, title: x.p.title, subtitle: x.p.subtitle, people: x.people, notes: x.notes, line: x.line })),
-        },
-      })
+      const payload = {
+        ...f,
+        budget: Number(f.budget) || 0,
+        lines: priced.map((x) => ({ type: x.type, title: x.p.title, subtitle: x.p.subtitle, people: x.people, notes: x.notes, line: x.line })),
+      }
+      let res: Done
+      try {
+        res = await apiFetch<Done>('/campaigns/request', { method: 'POST', body: payload })
+      } catch (e) {
+        // Backend шинэчлэгдээгүй (404) үед хүсэлт алдагдахгүй — нийтийн /inquiries руу илгээнэ
+        if (!/cannot post|not found|404/i.test(String((e as Error)?.message || ''))) throw e
+        const rows = priced.map((x, i) => `${i + 1}. ${x.p.title}${x.p.subtitle ? ` (${x.p.subtitle})` : ''}${x.people > 1 ? ` × ${x.people}` : ''} — ${fmt(x.p.inc * x.people)}${x.notes ? ` · ${x.notes}` : ''}`)
+        const inq = await apiFetch<{ id: string; inquiry_number?: string }>('/inquiries', {
+          method: 'POST',
+          body: {
+            customer_name: f.contact_name, customer_phone: f.phone, customer_email: f.email || undefined, customer_company: f.company,
+            product_name: `Байгууллагын захиалга — ${priced.length} бараа`, category: 'campaign',
+            quantity: Math.max(1, priced.reduce((s, x) => s + x.people, 0)),
+            estimated_price: Math.round(total), preferred_contact: 'phone',
+            notes: [...rows, `Урьдчилсан дүн (НӨАТ орсон): ${fmt(total)}`, f.deadline && `Хугацаа: ${f.deadline}`, f.budget && `Төсөв: ${fmt(Number(f.budget))}`, f.notes].filter(Boolean).join('\n'),
+            pricing_snapshot: { source: 'campaign-request', lines: payload.lines, total },
+          },
+        })
+        res = { id: inq.id, code: inq.inquiry_number || 'Хүсэлт', estimate: total, linked: false }
+      }
       setDone(res)
       window.scrollTo({ top: 0, behavior: 'smooth' })
     } catch (e) {
