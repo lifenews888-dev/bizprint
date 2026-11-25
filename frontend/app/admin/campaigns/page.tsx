@@ -28,6 +28,7 @@ interface CampaignOrder {
   quantity?: number | string
   unit_price?: number | string
   total_price?: number | string
+  specs?: { subtitle?: string; notes?: string; people?: number; estimate_inc?: number }
 }
 
 interface Campaign {
@@ -84,8 +85,13 @@ export default function AdminCampaignsPage() {
     const lines: Record<string, QuoteLine> = {}
     let tot = 0
     for (const o of full.orders || []) {
-      lines[o.id] = { unit: Number(o.unit_price) || 0, total: Number(o.total_price) || 0 }
-      tot += Number(o.total_price) || 0
+      // Үнийн санал хоосон бол каталогийн урьдчилсан үнээр (НӨАТ орсон) бөглөнө
+      const est = Number(o.specs?.estimate_inc) || 0
+      const qty = Number(o.quantity) || 0
+      lines[o.id] = Number(o.total_price) > 0
+        ? { unit: Number(o.unit_price) || 0, total: Number(o.total_price) || 0 }
+        : { unit: qty ? Math.round(est / qty) : est, total: est }
+      tot += lines[o.id].total
     }
     setQuoteForm({ totalAmount: tot || Number(full.total_amount) || 0, notes: full.admin_notes || '', lines })
   }
@@ -186,7 +192,7 @@ export default function AdminCampaignsPage() {
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: 10, marginBottom: 18, fontSize: 12 }}>
               <Info label="И-мэйл" value={detail.customer_contact_email} />
-              <Info label="Утас" value={detail.customer_contact_phone} />
+              <Info label="Утас" value={detail.customer_contact_phone ? <a href={`tel:${detail.customer_contact_phone}`} style={{ color: '#FF6B00' }}>{detail.customer_contact_phone}</a> : undefined} />
               <Info label="Хэрэглэгчид" value={Number(detail.recipient_count || 0).toLocaleString()} />
               <Info label="Төсөв" value={`₮${Number(detail.estimated_budget || 0).toLocaleString()}`} />
               <Info label="Эхлэх" value={detail.start_date ? new Date(detail.start_date).toLocaleDateString('mn-MN') : '—'} />
@@ -203,7 +209,13 @@ export default function AdminCampaignsPage() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                 {(detail.orders || []).map((o) => (
                   <div key={o.id} style={{ display: 'grid', gridTemplateColumns: '1.5fr 80px 100px 110px', gap: 8, padding: '8px 10px', background: 'var(--surface2)', borderRadius: 6, alignItems: 'center', fontSize: 12 }}>
-                    <span>{o.product_name}</span>
+                    <span>
+                      {o.product_name}
+                      {o.specs?.subtitle && <span style={{ display: 'block', color: 'var(--text3)' }}>{o.specs.subtitle}</span>}
+                      {Number(o.specs?.people) > 1 && <span style={{ display: 'block', color: 'var(--text3)' }}>× {o.specs?.people} хүн/салбар</span>}
+                      {o.specs?.notes && <span style={{ display: 'block', fontStyle: 'italic' }}>{o.specs.notes}</span>}
+                      {Number(o.specs?.estimate_inc) > 0 && <span style={{ display: 'block', color: '#8B5CF6' }}>Каталог: ₮{Number(o.specs?.estimate_inc).toLocaleString()}</span>}
+                    </span>
                     <span style={{ textAlign: 'right' }}>{Number(o.quantity).toLocaleString()}</span>
                     <input type="number" value={quoteForm.lines[o.id]?.unit ?? 0} onChange={e => {
                       const unit = Number(e.target.value)

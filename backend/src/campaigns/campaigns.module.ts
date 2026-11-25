@@ -1,3 +1,5 @@
+import { MailModule } from '../mail/mail.module'
+import { Product } from '../products/product.entity'
 import { Module } from '@nestjs/common'
 import { TypeOrmModule } from '@nestjs/typeorm'
 import { Campaign } from './campaign.entity'
@@ -12,7 +14,8 @@ import { NotificationModule } from '../notifications/notification.module'
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([Campaign, CampaignOrder, CampaignRecipient, CampaignMilestone, User, Order]),
+    TypeOrmModule.forFeature([Campaign, CampaignOrder, CampaignRecipient, CampaignMilestone, User, Order, Product]),
+    MailModule,
     NotificationModule,
   ],
   controllers: [CampaignsController],

@@ -4,10 +4,21 @@ import { memoryStorage } from 'multer'
 import { CampaignsService } from './campaigns.service'
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard'
 import { AdminGuard } from '../admin/admin.guard'
+import { OptionalJwtAuthGuard } from '../auth/guards/optional-jwt-auth.guard'
 
 @Controller('campaigns')
 export class CampaignsController {
   constructor(private svc: CampaignsService) {}
+
+  /**
+   * Байгууллагын түргэн хүсэлт — нэвтрэлт шаардахгүй. Каталогоос сонгосон мөрүүдийн
+   * үнийг сервер дээр дахин бодож, шууд SUBMITTED төлөвтэй үүсгээд багт имэйл илгээнэ.
+   */
+  @Post('request')
+  @UseGuards(OptionalJwtAuthGuard)
+  publicRequest(@Body() body: any, @Req() req: any) {
+    return this.svc.publicRequest(req.user?.id || null, body)
+  }
 
   /** Customer creates a draft brief. */
   @Post()

@@ -9,6 +9,13 @@ import { User } from '../users/user.entity'
 import { Order, OrderStatus } from '../orders/entities/order.entity'
 import { NotificationService } from '../notifications/notification.service'
 import { parseRecipientCsv } from './csv-parser'
+import { Product } from '../products/product.entity'
+import { MailService } from '../mail/mail.service'
+import { priceCatalogLine, CatalogFormula, CatalogLine } from '../products/catalog-pricing'
+
+const esc = (v: unknown) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c] as string))
+const money = (n: number) => `${Math.round(n).toLocaleString('en-US')}₮`
+const clip = (v: unknown, n: number) => String(v ?? '').trim().slice(0, n)
 
 @Injectable()
 export class CampaignsService {
@@ -22,6 +29,8 @@ export class CampaignsService {
     @InjectRepository(User) private userRepo: Repository<User>,
     @InjectRepository(Order) private orderEntityRepo: Repository<Order>,
     private readonly notificationService: NotificationService,
+    @InjectRepository(Product) private productRepo: Repository<Product>,
+    private readonly mail: MailService,
   ) {}
 
   /**
@@ -86,6 +95,112 @@ export class CampaignsService {
     return this.findOne(campaign.id)
   }
 
+  /**
+   * Байгууллагын түргэн хүсэлт (нэвтрэлт заавал биш).
+   * body: { company, contact_name, phone, email?, title?, deadline?, notes?, budget?, brand?: {color?, slogan?},
+   *         lines: [{ type, title, subtitle?, people?, notes?, line: CatalogLine }] }
+   */
+  async publicRequest(userId: string | null, body: any) {
+    const company = clip(body?.company, 160)
+    const contactName = clip(body?.contact_name, 120)
+    const phone = clip(body?.phone, 40)
+    const email = clip(body?.email, 160).toLowerCase()
+    if (!company) throw new BadRequestException('Байгууллагын нэрээ оруулна уу')
+    if (!contactName) throw new BadRequestException('Холбогдох хүний нэрээ оруулна уу')
+    if (!/\d{6,}/.test(phone.replace(/\D/g, ''))) throw new BadRequestException('Утасны дугаараа зөв оруулна уу')
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new BadRequestException('Имэйл хаяг буруу байна')
+    const rawLines: any[] = Array.isArray(body?.lines) ? body.lines.slice(0, 30) : []
+    if (!rawLines.length) throw new BadRequestException('Дор хаяж нэг бүтээгдэхүүн нэмнэ үү')
+
+    // Үнийг сервер дээр дахин бодно (клиентийн үнэд итгэхгүй)
+    const slugs = [...new Set(rawLines.map((l) => clip(l?.type, 60)).filter(Boolean))]
+    const products = slugs.length ? await this.productRepo.find({ where: slugs.map((slug) => ({ slug })) as any }) : []
+    const bySlug = new Map(products.map((p: any) => [p.slug, p]))
+    const lines = rawLines.map((l) => {
+      const type = clip(l?.type, 60)
+      const people = Math.min(10000, Math.max(1, Math.round(Number(l?.people) || 1)))
+      const product: any = bySlug.get(type)
+      const priced = product?.price_formula?.type === 'catalog' && l?.line
+        ? priceCatalogLine(product.price_formula as CatalogFormula, l.line as CatalogLine) : null
+      const each = priced?.total || 0
+      return {
+        type, people, product,
+        title: clip(l?.title, 160) || product?.name || type,
+        subtitle: clip(l?.subtitle, 240),
+        notes: clip(l?.notes, 500),
+        line: l?.line,
+        each, total: each * people,
+        qty: Math.round(Number(l?.line?.qty) || 0) * people,
+      }
+    })
+    const estimate = lines.reduce((s, l) => s + l.total, 0)
+
+    // Харилцагчийг танихыг оролдоно: нэвтэрсэн → тэр; үгүй бол имэйлээр
+    let customerId: string | null = userId
+    if (!customerId && email) {
+      const u = await this.userRepo.findOne({ where: { email } }).catch(() => null)
+      if (u) customerId = u.id
+    }
+
+    const code = await this.nextCode()
+    const notes = clip(body?.notes, 2000)
+    const campaign = await this.repo.save(this.repo.create({
+      code,
+      customer_id: customerId,
+      customer_company: company,
+      customer_contact_name: contactName,
+      customer_contact_phone: phone,
+      customer_contact_email: email || undefined,
+      title: clip(body?.title, 160) || `${company} — байгууллагын захиалга`,
+      description: notes || undefined,
+      brand_kit: { primary_color: clip(body?.brand?.color, 20) || undefined, slogan: clip(body?.brand?.slogan, 200) || undefined, source: 'public-request', estimate_inc: estimate },
+      estimated_budget: Math.max(0, Number(body?.budget) || 0),
+      deadline: /^\d{4}-\d{2}-\d{2}$/.test(String(body?.deadline || '')) ? body.deadline : undefined,
+      recipient_count: Math.max(0, ...lines.map((l) => l.people)),
+      status: CampaignStatus.SUBMITTED,
+    } as any)) as unknown as Campaign
+
+    for (const l of lines) {
+      await this.orderRepo.save(this.orderRepo.create({
+        campaign_id: campaign.id,
+        product_id: l.product?.id,
+        product_name: l.title,
+        product_category: l.type,
+        type: (l.people > 1 ? 'personalised' : 'bulk') as any,
+        quantity: l.qty,
+        per_recipient_qty: l.people > 1 ? Math.round(Number(l.line?.qty) || 0) : undefined,
+        specs: { catalog: { type: l.type, line: l.line }, subtitle: l.subtitle, notes: l.notes, people: l.people, estimate_each_inc: l.each, estimate_inc: l.total },
+        status: CampaignOrderStatus.PLANNED,
+      } as any))
+    }
+
+    await this.notificationService.create({
+      user_id: 'admin',
+      type: 'order',
+      title: '🎯 Байгууллагын шинэ хүсэлт',
+      message: `${code} — ${company} · ${contactName} ${phone} · ойролцоогоор ${money(estimate)}`,
+      data: { campaign_id: campaign.id, code },
+    }).catch(() => {})
+
+    const rows = lines.map((l, i) => `<tr><td style="padding:6px 8px;border-bottom:1px solid #E5E7EB">${i + 1}. <b>${esc(l.title)}</b>${l.subtitle ? `<br><span style="color:#6B7280">${esc(l.subtitle)}</span>` : ''}${l.people > 1 ? `<br><span style="color:#6B7280">× ${l.people} хүн/салбар</span>` : ''}${l.notes ? `<br><i>${esc(l.notes)}</i>` : ''}</td><td style="padding:6px 8px;border-bottom:1px solid #E5E7EB;text-align:right;white-space:nowrap">${l.total ? money(l.total) : 'үнэ тохирно'}</td></tr>`).join('')
+    const table = `<table style="width:100%;border-collapse:collapse;font-size:14px">${rows}<tr><td style="padding:8px;text-align:right"><b>Урьдчилсан дүн (НӨАТ орсон)</b></td><td style="padding:8px;text-align:right"><b>${money(estimate)}</b></td></tr></table>`
+    const ops = process.env.ORDERS_EMAIL || process.env.ADMIN_EMAIL
+    if (ops) {
+      this.mail.sendGenericNotification({
+        to: ops, name: 'BizPrint баг', title: `Байгууллагын хүсэлт ${code} — ${company}`,
+        message: `<p><b>${esc(company)}</b><br>${esc(contactName)} · <a href="tel:${esc(phone)}">${esc(phone)}</a>${email ? ` · ${esc(email)}` : ''}</p>${body?.deadline ? `<p>Хугацаа: ${esc(body.deadline)}</p>` : ''}${notes ? `<p>${esc(notes)}</p>` : ''}${table}<p>24 цагийн дотор холбогдож үнийн санал илгээнэ үү.</p>`,
+      }).catch((e) => this.logger.warn(`campaign request mail: ${e?.message}`))
+    }
+    if (email) {
+      this.mail.sendGenericNotification({
+        to: email, name: contactName, title: `Таны хүсэлт хүлээн авлаа (${code})`,
+        message: `<p>${esc(company)}-ийн хүсэлтийг хүлээн авлаа. Манай менежер ажлын 24 цагийн дотор холбогдож эцсийн үнийн санал, хугацааг баталгаажуулна.</p>${table}<p>Яаралтай бол: 7200-0444 · info@bizprint.mn</p>`,
+      }).catch((e) => this.logger.warn(`campaign confirm mail: ${e?.message}`))
+    }
+
+    return { id: campaign.id, code, estimate, lines: lines.length, linked: !!customerId }
+  }
+
   /** Customer submits the brief to admin for quoting. */
   async submit(campaignId: string, customerId: string) {
     const c = await this.findOne(campaignId)
@@ -124,7 +239,7 @@ export class CampaignsService {
     })
 
     await this.notificationService.create({
-      user_id: c.customer_id,
+      user_id: c.customer_id || 'admin',
       type: 'order',
       title: '💼 Кампанит ажлын үнийн санал бэлэн',
       message: `${c.code} — нийт ₮${body.total_amount.toLocaleString()}`,

@@ -39,9 +39,9 @@ export class Campaign {
   @Column({ unique: true })
   code: string
 
-  /** Customer who owns the campaign (B2B contact). */
-  @Column()
-  customer_id: string
+  /** Customer who owns the campaign (B2B contact). Нэвтрээгүй байгууллагын хүсэлтэд null. */
+  @Column({ type: 'varchar', nullable: true })
+  customer_id: string | null
 
   @Column({ nullable: true })
   customer_company: string
