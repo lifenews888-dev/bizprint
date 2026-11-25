@@ -24,7 +24,8 @@ CAT_JSON = ROOT / "lib" / "pricing" / "catalog.json"
 MIGR_DIR = ROOT.parent / "backend" / "migrations"
 SITE = Path(sys.argv[1])
 VERSION = "Албан үнэ 2026-11-25"
-MIGR_NAME = "2026-11-25-01-shop-catalog-v1.sql"
+# Хэрэгжсэн migration-ийг ХЭЗЭЭ Ч засахгүй (backend boot унана) — шинэчлэл бүрт шинэ нэр
+MIGR_NAME = "2026-11-25-02-shop-catalog-v2.sql"
 IMG_BASE = "/catalog-img/"
 PRINITY_URL = "https://prinity-cloud-production.up.railway.app/u/Nn36KDAEc2Q-fpugKEDsv0IA_kWHnP8g"
 
@@ -113,6 +114,11 @@ for tn in PRINITY_TYPES:
         types[tn]["external"] = {"url": PRINITY_URL, "label": "Зургаа Prinity-ээр илгээх",
                                  "note": "Зураг, альбумын захиалгыг Prinity дээр зургаа оруулж, хэмжээгээ сонгоод илгээнэ."}
 if BOOK_TYPE in types: types[BOOK_TYPE]["books"] = True
+
+# Бодит ажлын зураг (E:\\Biz print\\Бодит зураг-аас 1:1 тайрсан) — албан мокапын дараа нэмнэ
+REAL = json.loads((Path(__file__).with_name("real-images.json")).read_text(encoding="utf-8"))
+for t in types.values():
+    t["img"] = t["img"] + REAL.get(t["slug"], [])
 
 cat_order = {c: i for i, (c, _) in enumerate(CATEGORIES)}
 type_list = sorted(types.values(), key=lambda t: cat_order[t["cat"]])
@@ -238,7 +244,11 @@ for p in products:
     sql += f"SELECT pg_temp.bp_upsert('products', {lit(p)}::jsonb, ARRAY['slug']);\n"
 
 MIGR_DIR.mkdir(parents=True, exist_ok=True)
-(MIGR_DIR / MIGR_NAME).write_text(sql, encoding="utf-8")
+for old in sorted(MIGR_DIR.glob("*-shop-catalog-*.sql")):
+    if old.name != MIGR_NAME and old.read_text(encoding="utf-8") == sql:
+        print(f"{old.name} ижил агуулгатай — шинэ migration үүсгэхгүй"); break
+else:
+    (MIGR_DIR / MIGR_NAME).write_text(sql, encoding="utf-8")
 print(f"{MIGR_DIR / MIGR_NAME}: {len(products)} бүтээгдэхүүн, {len(cats_sql)} ангилал")
 if problems:
     print("Анхаарах:"); [print("  -", p) for p in problems]

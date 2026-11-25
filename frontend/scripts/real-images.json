@@ -1,0 +1,40 @@
+{
+ "flagoutdoor": [
+  "/catalog-img/real-flagoutdoor-1.jpg",
+  "/catalog-img/real-flagoutdoor-2.jpg"
+ ],
+ "flagindoor": [
+  "/catalog-img/real-flagindoor-1.jpg",
+  "/catalog-img/real-flagindoor-2.jpg"
+ ],
+ "featherflag": [
+  "/catalog-img/real-featherflag-1.jpg"
+ ],
+ "tableflag": [
+  "/catalog-img/real-tableflag-1.jpg",
+  "/catalog-img/real-tableflag-2.jpg"
+ ],
+ "wallflag": [
+  "/catalog-img/real-wallflag-1.jpg",
+  "/catalog-img/real-wallflag-2.jpg"
+ ],
+ "medal": [
+  "/catalog-img/real-medal-1.jpg"
+ ],
+ "backdrop": [
+  "/catalog-img/real-backdrop-1.jpg",
+  "/catalog-img/real-backdrop-2.jpg"
+ ],
+ "xstand": [
+  "/catalog-img/real-xstand-1.jpg"
+ ],
+ "pvcboard": [
+  "/catalog-img/real-pvcboard-1.jpg"
+ ],
+ "pen": [
+  "/catalog-img/real-pen-1.jpg"
+ ],
+ "badge": [
+  "/catalog-img/real-badge-1.jpg"
+ ]
+}

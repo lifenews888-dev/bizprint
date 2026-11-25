@@ -115,6 +115,7 @@ export const contact = {
 export const siteNav = [
   { label: 'Дэлгүүр', href: '/shop' },
   { label: 'Үнэ тооцоолох', href: '/quote' },
+  { label: 'Галерей', href: '/gallery' },
   { label: 'Байгууллагад', href: '/campaign/request' },
   { label: 'Блог', href: '/posts' },
   { label: 'Холбоо барих', href: '/contact' },
@@ -123,6 +124,7 @@ export const siteNav = [
 export const footerLinks = [
   { label: 'Дэлгүүр', href: '/shop' },
   { label: 'Үнэ тооцоолох', href: '/quote' },
+  { label: 'Галерей', href: '/gallery' },
   { label: 'Үнийн мэдээлэл', href: '/pricing' },
   { label: 'B2B харилцагч', href: '/b2b' },
   { label: 'Захиалга хянах', href: '/track' },

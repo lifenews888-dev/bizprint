@@ -6,6 +6,7 @@ import { ArrowRight } from 'lucide-react'
 import { API_URL } from '@/lib/api'
 import Image from 'next/image'
 import popular from '@/lib/pricing/popular.json'
+import gallery from '@/lib/gallery.json'
 import BlogSection from '@/components/blog/BlogSection'
 import { Hero, About, Work, Contact } from './sections'
 import { Badge, EASE, Lines, OrangeButton, WhiteButton } from './primitives'
@@ -53,6 +54,34 @@ function LiveProducts() {
               </div>
               <p className="mt-3 text-[15px] leading-tight text-gray-900">{t.name}</p>
               <p className="mt-1 text-[13px] text-gray-500">{t.from.toLocaleString('en-US')}₮/{t.per}-аас</p>
+            </Link>
+          ))}
+        </div>
+      </div>
+    </section>
+  )
+}
+
+/* ---------- Бодит ажил (галерей) ---------- */
+
+const GALLERY_PICK = ['/gallery/real-01-flagoutdoor.webp', '/gallery/real-16-backdrop.webp', '/gallery/real-10-tableflag.webp', '/gallery/real-15-medal.webp']
+
+function RealWork() {
+  const items = GALLERY_PICK.map((src) => gallery.items.find((g) => g.src === src)).filter(Boolean) as typeof gallery.items
+  return (
+    <section className="bg-white pb-8 pt-16 sm:pt-20">
+      <div className="mx-auto max-w-[1440px] px-5 sm:px-8 lg:px-12">
+        <div className="mb-8 flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
+          <h2 className={h2}>Бодит ажил</h2>
+          <OrangeButton href="/gallery">Галерей үзэх</OrangeButton>
+        </div>
+        <div className="grid grid-cols-2 gap-4 md:grid-cols-4 lg:gap-6">
+          {items.map((g) => (
+            <Link key={g.src} href="/gallery" className="group block">
+              <div className="relative aspect-[4/5] overflow-hidden rounded-3xl bg-[#F5F5F5]">
+                <Image src={g.src} alt={g.title} fill sizes="(min-width: 768px) 25vw, 50vw" className="object-cover transition-transform duration-500 group-hover:scale-[1.03]" />
+              </div>
+              <p className="mt-3 text-[15px] text-gray-900">{g.title}</p>
             </Link>
           ))}
         </div>
@@ -173,6 +202,7 @@ export default function HomeLanding() {
       <About />
       <LiveProducts />
       <Work step="3" />
+      <RealWork />
       <QuickQuote />
       <Services />
       <Reviews />

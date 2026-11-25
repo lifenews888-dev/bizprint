@@ -1,0 +1,252 @@
+{
+ "items": [
+  {
+   "src": "/gallery/poster-01-flagoutdoor.webp",
+   "title": "Гадна туг — постер",
+   "cat": "Туг далбаа",
+   "slug": "flagoutdoor",
+   "poster": true,
+   "w": 1080,
+   "h": 1350
+  },
+  {
+   "src": "/gallery/poster-02-tableflag.webp",
+   "title": "Ширээний туг — постер",
+   "cat": "Туг далбаа",
+   "slug": "tableflag",
+   "poster": true,
+   "w": 1080,
+   "h": 1350
+  },
+  {
+   "src": "/gallery/poster-03-featherflag.webp",
+   "title": "Өдөн туг — постер",
+   "cat": "Туг далбаа",
+   "slug": "featherflag",
+   "poster": true,
+   "w": 1080,
+   "h": 1350
+  },
+  {
+   "src": "/gallery/poster-04-flagindoor.webp",
+   "title": "Байгууллагын туг — постер",
+   "cat": "Туг далбаа",
+   "slug": "flagindoor",
+   "poster": true,
+   "w": 1080,
+   "h": 1350
+  },
+  {
+   "src": "/gallery/poster-05-backdrop.webp",
+   "title": "Үзэсгэлэнгийн фон — постер",
+   "cat": "Баннер, стенд",
+   "slug": "backdrop",
+   "poster": true,
+   "w": 1080,
+   "h": 1350
+  },
+  {
+   "src": "/gallery/poster-06-xstand.webp",
+   "title": "X стенд — постер",
+   "cat": "Баннер, стенд",
+   "slug": "xstand",
+   "poster": true,
+   "w": 1080,
+   "h": 1350
+  },
+  {
+   "src": "/gallery/poster-07-medal.webp",
+   "title": "Шагналын тууз — постер",
+   "cat": "Үнэмлэх, тэмдэг, шагнал",
+   "slug": "medal",
+   "poster": true,
+   "w": 1080,
+   "h": 1350
+  },
+  {
+   "src": "/gallery/poster-08-pen.webp",
+   "title": "Логотой үзэг — постер",
+   "cat": "Промо бэлэг дурсгал",
+   "slug": "pen",
+   "poster": true,
+   "w": 1080,
+   "h": 1350
+  },
+  {
+   "src": "/gallery/real-01-flagoutdoor.webp",
+   "title": "Барилгын гадна туг",
+   "cat": "Туг далбаа",
+   "slug": "flagoutdoor",
+   "w": 1080,
+   "h": 1350
+  },
+  {
+   "src": "/gallery/real-02-flagoutdoor.webp",
+   "title": "Фасадны босоо туг",
+   "cat": "Туг далбаа",
+   "slug": "flagoutdoor",
+   "w": 1080,
+   "h": 1350
+  },
+  {
+   "src": "/gallery/real-03-flagoutdoor.webp",
+   "title": "Брэндийн том туг",
+   "cat": "Туг далбаа",
+   "slug": "flagoutdoor",
+   "w": 1080,
+   "h": 1350
+  },
+  {
+   "src": "/gallery/real-04-flagoutdoor.webp",
+   "title": "Төрийн далбаа",
+   "cat": "Туг далбаа",
+   "slug": "flagoutdoor",
+   "w": 1080,
+   "h": 1350
+  },
+  {
+   "src": "/gallery/real-05-flagindoor.webp",
+   "title": "Хүрээтэй байгууллагын туг",
+   "cat": "Туг далбаа",
+   "slug": "flagindoor",
+   "w": 1080,
+   "h": 1350
+  },
+  {
+   "src": "/gallery/real-06-flagindoor.webp",
+   "title": "Хүрээтэй төрийн далбаа",
+   "cat": "Туг далбаа",
+   "slug": "flagindoor",
+   "w": 1080,
+   "h": 1350
+  },
+  {
+   "src": "/gallery/real-07-flagindoor.webp",
+   "title": "Тавиуртай дотор туг",
+   "cat": "Туг далбаа",
+   "slug": "flagindoor",
+   "w": 1080,
+   "h": 1350
+  },
+  {
+   "src": "/gallery/real-08-flagindoor.webp",
+   "title": "Хийдийн туг",
+   "cat": "Туг далбаа",
+   "slug": "flagindoor",
+   "w": 1080,
+   "h": 1350
+  },
+  {
+   "src": "/gallery/real-09-featherflag.webp",
+   "title": "Өдөн туг",
+   "cat": "Туг далбаа",
+   "slug": "featherflag",
+   "w": 1080,
+   "h": 1350
+  },
+  {
+   "src": "/gallery/real-10-tableflag.webp",
+   "title": "Ширээний туг",
+   "cat": "Туг далбаа",
+   "slug": "tableflag",
+   "w": 1080,
+   "h": 1350
+  },
+  {
+   "src": "/gallery/real-11-tableflag.webp",
+   "title": "Ширээний туг — улсын",
+   "cat": "Туг далбаа",
+   "slug": "tableflag",
+   "w": 1080,
+   "h": 1350
+  },
+  {
+   "src": "/gallery/real-12-tableflag.webp",
+   "title": "Ширээний туг хайрцагтай",
+   "cat": "Туг далбаа",
+   "slug": "tableflag",
+   "w": 1080,
+   "h": 1350
+  },
+  {
+   "src": "/gallery/real-13-wallflag.webp",
+   "title": "Дарцаг",
+   "cat": "Туг далбаа",
+   "slug": "wallflag",
+   "w": 1080,
+   "h": 1350
+  },
+  {
+   "src": "/gallery/real-14-wallflag.webp",
+   "title": "Хос дарцаг",
+   "cat": "Туг далбаа",
+   "slug": "wallflag",
+   "w": 1080,
+   "h": 1350
+  },
+  {
+   "src": "/gallery/real-15-medal.webp",
+   "title": "Шагналын тууз",
+   "cat": "Үнэмлэх, тэмдэг, шагнал",
+   "slug": "medal",
+   "w": 1080,
+   "h": 1350
+  },
+  {
+   "src": "/gallery/real-16-backdrop.webp",
+   "title": "Үзэсгэлэнгийн бүүт",
+   "cat": "Баннер, стенд",
+   "slug": "backdrop",
+   "w": 1080,
+   "h": 1350
+  },
+  {
+   "src": "/gallery/real-17-backdrop.webp",
+   "title": "Үзэсгэлэнгийн фон",
+   "cat": "Баннер, стенд",
+   "slug": "backdrop",
+   "w": 1080,
+   "h": 1350
+  },
+  {
+   "src": "/gallery/real-18-xstand.webp",
+   "title": "X стенд — меню",
+   "cat": "Баннер, стенд",
+   "slug": "xstand",
+   "w": 1080,
+   "h": 1350
+  },
+  {
+   "src": "/gallery/real-19-pvcboard.webp",
+   "title": "Хөөсөн хавтан, хөлтэй стенд",
+   "cat": "Хавтан, самбар",
+   "slug": "pvcboard",
+   "w": 1080,
+   "h": 1350
+  },
+  {
+   "src": "/gallery/real-20-pen.webp",
+   "title": "Логотой бал",
+   "cat": "Промо бэлэг дурсгал",
+   "slug": "pen",
+   "w": 1080,
+   "h": 1350
+  },
+  {
+   "src": "/gallery/real-21.webp",
+   "title": "Урилга",
+   "cat": "Маркетингийн хэвлэл",
+   "slug": "",
+   "w": 1080,
+   "h": 1350
+  },
+  {
+   "src": "/gallery/real-22-badge.webp",
+   "title": "Энгэрийн тэмдэг",
+   "cat": "Үнэмлэх, тэмдэг, шагнал",
+   "slug": "badge",
+   "w": 1080,
+   "h": 1350
+  }
+ ]
+}

@@ -1,178 +1,127 @@
 'use client'
-import { useState, useEffect } from 'react'
+
+import { useEffect, useMemo, useState } from 'react'
+import Image from 'next/image'
+import Link from 'next/link'
+import { ArrowRight, ChevronLeft, ChevronRight, X } from 'lucide-react'
 import { API_URL } from '@/lib/api'
+import gallery from '@/lib/gallery.json'
 
-interface GalleryItem {
-  id: number | string
-  title: string
-  category: string
-  image: string
-  description: string
-  featured?: boolean
-}
+/**
+ * Бодит ажлын галерей. Үндсэн зургууд repo-д (lib/gallery.json, public/gallery/),
+ * админаас /gallery API-д нэмсэн зургууд араас нь нэмэгдэнэ.
+ */
+type Item = { src: string; title: string; cat: string; slug?: string; poster?: boolean; desc?: string }
+type ApiItem = { id?: string; url?: string; image_url?: string; caption?: string; title?: string; category?: string; description?: string; is_active?: boolean }
 
-interface CategoryResponse {
-  parent_id?: string | number | null
-  is_active?: boolean
-  name_mn?: string
-  name?: string
-}
-
-interface GalleryResponse {
-  id?: number | string
-  caption?: string
-  alt?: string
-  title?: string
-  name?: string
-  category?: string
-  url?: string
-  image_url?: string
-  image?: string
-  description?: string
-  is_featured?: boolean
-}
-
-const FALLBACK_CATEGORIES = ['Бүгд', 'Нэрийн хуудас', 'Флаер', 'Баннер', 'Хаяг', 'Ном', 'Хайрцаг', 'Стикер']
-
-const FALLBACK_GALLERY = [
-  { id: 1, title: 'Корпорэйт нэрийн хуудас', category: 'Нэрийн хуудас', image: 'https://images.unsplash.com/photo-1611532736597-de2d4265fba3?w=600', description: '350gsm, soft-touch ламинат', featured: true },
-  { id: 2, title: 'Алтан фойл визит карт', category: 'Нэрийн хуудас', image: 'https://images.unsplash.com/photo-1572044162444-ad60f128bdea?w=600', description: 'Алтан фойл дарлалтай, матт' },
-  { id: 3, title: 'Минимал визит', category: 'Нэрийн хуудас', image: 'https://images.unsplash.com/photo-1589041127168-9b1915731dc3?w=600', description: '300gsm, хоёр талдаа хэвлэл' },
-  { id: 4, title: 'Spot UV визит', category: 'Нэрийн хуудас', image: 'https://images.unsplash.com/photo-1616628188540-925618b3f14f?w=600', description: 'Spot UV гялгар бүрэлт' },
-  { id: 5, title: 'Ресторан флаер', category: 'Флаер', image: 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=600', description: 'A5, 2 талдаа хэвлэл', featured: true },
-  { id: 6, title: 'Фитнес промо флаер', category: 'Флаер', image: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?w=600', description: 'A4, гялгар ламинат' },
-  { id: 7, title: 'Хүнсний флаер', category: 'Флаер', image: 'https://images.unsplash.com/photo-1586281380349-632531db7ed4?w=600', description: 'A5, матт бүрэлт' },
-  { id: 8, title: 'Концертын флаер', category: 'Флаер', image: 'https://images.unsplash.com/photo-1514320291840-2e0a9bf2a9ae?w=600', description: 'A6, 4+4 хэвлэл' },
-  { id: 9, title: 'Роллап стенд', category: 'Баннер', image: 'https://images.unsplash.com/photo-1558618666-fcd25c85f82e?w=600', description: '85×200cm, PVC хэвлэл', featured: true },
-  { id: 10, title: 'Гадна баннер', category: 'Баннер', image: 'https://images.unsplash.com/photo-1557804506-669a67965ba0?w=600', description: '3×2м, хулдаас хэвлэл' },
-  { id: 11, title: 'Арга хэмжээний баннер', category: 'Баннер', image: 'https://images.unsplash.com/photo-1542744173-8e7e53415bb0?w=600', description: '2×1м, PVC' },
-  { id: 12, title: 'X-banner стенд', category: 'Баннер', image: 'https://images.unsplash.com/photo-1551135049-8a33b5883817?w=600', description: '60×160cm, PVC' },
-  { id: 13, title: '3D товгор үсэг', category: 'Хаяг', image: 'https://images.unsplash.com/photo-1563986768609-322da13575f3?w=600', description: 'Нерж, LED гэрэлтэй', featured: true },
-  { id: 14, title: 'Гэрэлт самбар', category: 'Хаяг', image: 'https://images.unsplash.com/photo-1533750349088-cd871a92f312?w=600', description: 'LED backlit, акрил' },
-  { id: 15, title: 'PVC хаяг', category: 'Хаяг', image: 'https://images.unsplash.com/photo-1555774698-0b77e0d5fac6?w=600', description: 'PVC, UV хэвлэл' },
-  { id: 16, title: 'Алтан нерж хаяг', category: 'Хаяг', image: 'https://images.unsplash.com/photo-1497366216548-37526070297c?w=600', description: 'Нерж, лазер зүсэлт' },
-  { id: 17, title: 'Компанийн каталог', category: 'Ном', image: 'https://images.unsplash.com/photo-1586075010923-2dd4570fb338?w=600', description: 'A4, 32 хуудас, садлаар', featured: true },
-  { id: 18, title: 'Хүүхдийн ном', category: 'Ном', image: 'https://images.unsplash.com/photo-1512820790803-83ca734da794?w=600', description: 'A5, зузаан хавтастай' },
-  { id: 19, title: 'Сурах бичиг', category: 'Ном', image: 'https://images.unsplash.com/photo-1497633762265-9d179a990aa6?w=600', description: 'B5, 200 хуудас, офсет' },
-  { id: 20, title: 'Нүүр будалтын хайрцаг', category: 'Хайрцаг', image: 'https://images.unsplash.com/photo-1556228578-0d85b1a4d571?w=600', description: 'Хатуу хавтаг, UV хэвлэл' },
-  { id: 21, title: 'Хүнсний хайрцаг', category: 'Хайрцаг', image: 'https://images.unsplash.com/photo-1607082349566-187342175e2f?w=600', description: 'E-commerce, хүнсний зэрэглэл' },
-  { id: 22, title: 'Бэлэг дурсгалын хайрцаг', category: 'Хайрцаг', image: 'https://images.unsplash.com/photo-1513885535751-8b9238bd345a?w=600', description: 'Тусгай зүсэлт, фойл' },
-  { id: 23, title: 'Гоо сайхны хайрцаг', category: 'Хайрцаг', image: 'https://images.unsplash.com/photo-1596462502278-27bfdc403348?w=600', description: 'Дээд зэрэглэлийн материал' },
-  { id: 24, title: 'Эмийн хайрцаг', category: 'Хайрцаг', image: 'https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=600', description: 'Стандарт хайрцаг, бар код' },
-  { id: 25, title: 'Брэндийн стикер', category: 'Стикер', image: 'https://images.unsplash.com/photo-1588345921523-c2dcdb7f1dcd?w=600', description: 'Vinyl, Die-cut', featured: true },
-  { id: 26, title: 'Бүтээгдэхүүний шошго', category: 'Стикер', image: 'https://images.unsplash.com/photo-1570831739435-6601aa3fa4fb?w=600', description: 'Ороомог шошго, 500ш' },
-]
+const BASE: Item[] = gallery.items as Item[]
 
 export default function GalleryPage() {
+  const [extra, setExtra] = useState<Item[]>([])
   const [cat, setCat] = useState('Бүгд')
-  const [lightbox, setLightbox] = useState<GalleryItem | null>(null)
-  const [gallery, setGallery] = useState<GalleryItem[]>(FALLBACK_GALLERY)
-  const [categories, setCategories] = useState<string[]>(FALLBACK_CATEGORIES)
+  const [open, setOpen] = useState<number | null>(null)
 
-  // Fetch categories from system
   useEffect(() => {
-    fetch(`${API_URL}/api/categories`).then(r => r.ok ? r.json() as Promise<CategoryResponse[]> : null)
-      .then(cats => {
-        if (!Array.isArray(cats)) return
-        const roots = cats.filter(c => !c.parent_id && c.is_active)
-        const names = roots.map(c => c.name_mn || c.name).filter((name): name is string => Boolean(name)).sort()
-        if (names.length > 0) setCategories(['Бүгд', ...names])
-      }).catch(() => {})
+    fetch(`${API_URL}/api/gallery`)
+      .then((r) => (r.ok ? (r.json() as Promise<ApiItem[]>) : []))
+      .then((d) => {
+        if (!Array.isArray(d)) return
+        setExtra(
+          d.filter((x) => x.is_active !== false && (x.url || x.image_url)).map((x) => ({
+            src: (x.url || x.image_url)!,
+            title: x.title || x.caption || 'BizPrint',
+            cat: x.category || 'Бусад',
+            desc: x.description,
+          })),
+        )
+      })
+      .catch(() => {})
   }, [])
 
-  // Fetch admin-uploaded images, merge with fallback if few
-  useEffect(() => {
-    fetch(`${API_URL}/api/gallery`).then(r => r.ok ? r.json() as Promise<GalleryResponse[]> : null)
-      .then(data => {
-        if (!Array.isArray(data) || data.length === 0) return
-        const mapped: GalleryItem[] = data.map((g, i) => ({
-          id: g.id || i,
-          title: g.caption || g.alt || g.title || g.name || '',
-          category: g.category || '',
-          image: g.url || g.image_url || g.image || '',
-          description: g.description || '',
-          featured: g.is_featured || false,
-        })).filter(g => g.image)
-        if (mapped.length > 0) {
-          setGallery(mapped.length >= 8 ? mapped : [...mapped, ...FALLBACK_GALLERY.slice(0, 8 - mapped.length)])
-        }
-      }).catch(() => {})
-  }, [])
+  const all = useMemo(() => [...BASE, ...extra], [extra])
+  const cats = useMemo(() => ['Бүгд', 'Постер', ...[...new Set(all.map((i) => i.cat))]].filter((c, i, a) => a.indexOf(c) === i && (c !== 'Постер' || all.some((x) => x.poster))), [all])
+  const list = all.filter((i) => cat === 'Бүгд' || (cat === 'Постер' ? i.poster : i.cat === cat))
+  const cur = open !== null ? list[open] : null
 
-  const filtered = gallery.filter(g => cat === 'Бүгд' || g.category === cat)
-  const counts = categories.reduce((acc, c) => {
-    acc[c] = c === 'Бүгд' ? gallery.length : gallery.filter(g => g.category === c).length
-    return acc
-  }, {} as Record<string, number>)
+  useEffect(() => {
+    if (open === null) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(null)
+      if (e.key === 'ArrowRight') setOpen((i) => (i === null ? i : (i + 1) % list.length))
+      if (e.key === 'ArrowLeft') setOpen((i) => (i === null ? i : (i + list.length - 1) % list.length))
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [open, list.length])
+
+  const pill = (on: boolean) =>
+    `shrink-0 rounded-full border px-4 py-2 text-[13px] transition-colors ${on ? 'border-gray-900 bg-gray-900 text-white' : 'border-gray-200 bg-white text-gray-800 hover:border-gray-400'}`
 
   return (
-    <div style={{ maxWidth: 1100, margin: '0 auto', padding: '32px 20px' }}>
-      <div style={{ textAlign: 'center', marginBottom: 32 }}>
-        <h1 style={{ fontSize: 28, fontWeight: 800, color: 'var(--text)' }}>Бүтээлийн <span style={{ color: '#FF6B00' }}>галерей</span></h1>
-        <p style={{ fontSize: 14, color: 'var(--text3)', marginTop: 4 }}>Манай хэвлэлийн шилдэг бүтээлүүд</p>
-      </div>
+    <div className="bg-white">
+      <section className="mx-auto max-w-[1440px] px-5 pb-6 pt-10 sm:px-8 sm:pt-14 lg:px-12">
+        <p className="mb-4 text-[12px] font-medium uppercase tracking-[0.1em] text-gray-500">Галерей · бодит ажил</p>
+        <h1>Бидний хэвлэсэн ажлууд.</h1>
+        <p className="mt-4 max-w-2xl text-[15px] leading-[1.6] text-gray-600 sm:text-[17px]">
+          Туг далбаа, стенд, үзэсгэлэнгийн фон, шагнал, бэлэг — захиалагчдад хүлээлгэн өгсөн бүтээгдэхүүний бодит зургууд.
+        </p>
+        <nav className="-mx-5 mt-8 flex gap-2 overflow-x-auto px-5 pb-2 sm:mx-0 sm:flex-wrap sm:px-0">
+          {cats.map((c) => (
+            <button key={c} type="button" className={pill(c === cat)} onClick={() => { setCat(c); setOpen(null) }}>{c}</button>
+          ))}
+        </nav>
+      </section>
 
-      {/* Category filter */}
-      <div style={{ display: 'flex', gap: 8, justifyContent: 'center', marginBottom: 32, flexWrap: 'wrap' }}>
-        {categories.filter(c => counts[c] > 0).map(c => (
-          <button key={c} onClick={() => setCat(c)} style={{ padding: '8px 18px', borderRadius: 99, border: '1px solid var(--border)', background: cat === c ? '#FF6B00' : 'var(--surface)', color: cat === c ? '#fff' : 'var(--text2)', fontSize: 13, fontWeight: 500, cursor: 'pointer', transition: 'all 0.2s' }}>
-            {c} {c !== 'Бүгд' && <span style={{ opacity: 0.7 }}>({counts[c]})</span>}
-          </button>
-        ))}
-      </div>
-
-      {/* Masonry grid */}
-      <div style={{ columnCount: 3, columnGap: 16 }} className="gallery-masonry">
-        {filtered.map(g => (
-          <div key={g.id} onClick={() => setLightbox(g)} className="gallery-item" style={{ breakInside: 'avoid', marginBottom: 16, borderRadius: 12, overflow: 'hidden', border: '1px solid var(--border)', background: 'var(--surface)', cursor: 'pointer', position: 'relative' }}>
-            <div style={{ position: 'relative', overflow: 'hidden' }}>
-              <img src={g.image} alt={g.title} loading="lazy" className="gallery-img" style={{ width: '100%', display: 'block', transition: 'transform 0.3s' }} />
-              {/* Hover overlay */}
-              <div className="gallery-overlay" style={{ position: 'absolute', inset: 0, background: 'linear-gradient(transparent 40%, rgba(0,0,0,0.6))', opacity: 0, transition: 'opacity 0.3s', display: 'flex', alignItems: 'flex-end', padding: 12 }}>
-                <span style={{ color: '#fff', fontSize: 12, fontWeight: 600 }}>Дэлгэрэнгүй үзэх</span>
+      <div className="mx-auto max-w-[1440px] px-5 pb-24 pt-4 sm:px-8 lg:px-12">
+        <div className="grid grid-cols-2 gap-3 sm:gap-5 md:grid-cols-3 xl:grid-cols-4">
+          {list.map((it, i) => (
+            <button key={it.src} type="button" onClick={() => setOpen(i)} className="group block text-left">
+              <div className="relative aspect-[4/5] overflow-hidden rounded-3xl bg-[#F5F5F5]">
+                <Image src={it.src} alt={it.title} fill sizes="(min-width: 1280px) 25vw, (min-width: 768px) 33vw, 50vw"
+                  className="object-cover transition-transform duration-500 group-hover:scale-[1.03]" />
               </div>
-              {g.featured && (
-                <span style={{ position: 'absolute', top: 8, left: 8, fontSize: 10, fontWeight: 700, background: '#FF6B00', color: '#fff', padding: '3px 8px', borderRadius: 6 }}>Онцлох</span>
+              <p className="mt-3 text-[15px] leading-tight text-gray-900">{it.title}</p>
+              <p className="mt-1 text-[13px] text-gray-500">{it.cat}</p>
+            </button>
+          ))}
+        </div>
+
+        <div className="mt-16 flex flex-col items-start gap-4 rounded-3xl bg-[#F5F5F5] p-6 sm:flex-row sm:items-center sm:justify-between sm:p-8">
+          <div>
+            <p className="text-[20px] font-medium tracking-[-0.02em] text-gray-900">Танд ийм бүтээгдэхүүн хэрэгтэй юу?</p>
+            <p className="mt-1 text-[14px] text-gray-600">Дэлгүүрээс сонгоод үнээ шууд бодоорой.</p>
+          </div>
+          <Link href="/shop" className="inline-flex items-center gap-2 rounded-full bg-[#FF6B00] px-6 py-3 text-[14px] font-medium text-white hover:opacity-90">
+            Дэлгүүр <ArrowRight className="h-4 w-4" />
+          </Link>
+        </div>
+      </div>
+
+      {cur && open !== null && (
+        <div className="fixed inset-0 z-[5000] flex items-center justify-center bg-black/90 p-4" onClick={() => setOpen(null)}>
+          <div className="relative flex max-h-full w-full max-w-[960px] flex-col items-center gap-4 sm:flex-row sm:items-end" onClick={(e) => e.stopPropagation()}>
+            <div className="relative aspect-[4/5] w-full max-w-[min(560px,70vh)] overflow-hidden rounded-3xl bg-black">
+              <Image src={cur.src} alt={cur.title} fill sizes="560px" className="object-contain" />
+            </div>
+            <div className="w-full text-white sm:flex-1">
+              <p className="text-[12px] uppercase tracking-[0.1em] text-white/60">{cur.cat}</p>
+              <p className="mt-1 text-[24px] font-medium leading-tight">{cur.title}</p>
+              {cur.desc && <p className="mt-2 text-[14px] text-white/70">{cur.desc}</p>}
+              {cur.slug && (
+                <Link href={`/product/${cur.slug}`} className="mt-4 inline-flex items-center gap-2 rounded-full bg-[#FF6B00] px-5 py-2.5 text-[14px] font-medium text-white hover:opacity-90">
+                  Захиалах, үнэ бодох <ArrowRight className="h-4 w-4" />
+                </Link>
               )}
+              <p className="mt-4 text-[12px] text-white/50">{open + 1} / {list.length}</p>
             </div>
-            <div style={{ padding: '10px 14px' }}>
-              <h3 style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)', marginBottom: 2 }}>{g.title}</h3>
-              <p style={{ fontSize: 11, color: 'var(--text3)' }}>{g.description}</p>
-            </div>
+            <button type="button" aria-label="Хаах" onClick={() => setOpen(null)} className="absolute -top-2 right-0 flex h-10 w-10 items-center justify-center rounded-full bg-white/15 text-white hover:bg-white/25"><X className="h-5 w-5" /></button>
           </div>
-        ))}
-      </div>
-
-      {/* Lightbox */}
-      {lightbox && (
-        <div onClick={() => setLightbox(null)} style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.92)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-          <div onClick={e => e.stopPropagation()} style={{ maxWidth: 700, width: '100%', borderRadius: 16, overflow: 'hidden', background: 'var(--surface)' }}>
-            <img src={lightbox.image} alt={lightbox.title} style={{ width: '100%', display: 'block', maxHeight: '60vh', objectFit: 'cover' }} />
-            <div style={{ padding: '20px 24px' }}>
-              <h2 style={{ fontSize: 18, fontWeight: 700, color: 'var(--text)', marginBottom: 4 }}>{lightbox.title}</h2>
-              <p style={{ fontSize: 13, color: 'var(--text3)', marginBottom: 4 }}>{lightbox.category} · {lightbox.description}</p>
-              <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
-                <a href="/quote" style={{ flex: 1, textAlign: 'center', padding: '10px 0', borderRadius: 10, background: '#FF6B00', color: '#fff', textDecoration: 'none', fontSize: 13, fontWeight: 600 }}>Ижил захиалах →</a>
-                <button onClick={() => setLightbox(null)} style={{ flex: 1, padding: '10px 0', borderRadius: 10, background: 'var(--surface2)', color: 'var(--text2)', border: '1px solid var(--border)', fontSize: 13, cursor: 'pointer' }}>Хаах</button>
-              </div>
-            </div>
-          </div>
+          <button type="button" aria-label="Өмнөх" onClick={(e) => { e.stopPropagation(); setOpen((i) => (i === null ? i : (i + list.length - 1) % list.length)) }}
+            className="absolute left-3 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-white/15 text-white hover:bg-white/25"><ChevronLeft className="h-5 w-5" /></button>
+          <button type="button" aria-label="Дараах" onClick={(e) => { e.stopPropagation(); setOpen((i) => (i === null ? i : (i + 1) % list.length)) }}
+            className="absolute right-3 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-white/15 text-white hover:bg-white/25"><ChevronRight className="h-5 w-5" /></button>
         </div>
       )}
-
-      {/* CTA */}
-      <div style={{ textAlign: 'center', marginTop: 48, padding: '36px 24px', background: 'var(--surface)', borderRadius: 20, border: '1px solid var(--border)' }}>
-        <h2 style={{ fontSize: 20, fontWeight: 700, color: 'var(--text)', marginBottom: 8 }}>Таны бизнест тохирсон хэвлэл хэрэгтэй юу?</h2>
-        <p style={{ fontSize: 13, color: 'var(--text3)', marginBottom: 20 }}>Үнийн санал авах, захиалга өгөх</p>
-        <a href="/quote" style={{ display: 'inline-block', padding: '12px 32px', background: '#FF6B00', color: '#fff', borderRadius: 12, textDecoration: 'none', fontSize: 14, fontWeight: 600 }}>Үнэ тооцоолох →</a>
-      </div>
-
-      <style>{`
-        @media (max-width: 768px) { .gallery-masonry { column-count: 2 !important; } }
-        @media (max-width: 480px) { .gallery-masonry { column-count: 1 !important; } }
-        .gallery-item:hover .gallery-overlay { opacity: 1 !important; }
-        .gallery-item:hover .gallery-img { transform: scale(1.05); }
-      `}</style>
     </div>
   )
 }
