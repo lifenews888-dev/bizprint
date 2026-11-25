@@ -10,7 +10,7 @@ export const brand = {
   email: 'info@bizprint.mn',
   address: 'Чингэлтэй дүүрэг, 6-р хороо, Лааганы гудамж, Логос Төв 7 давхар, 701 тоот',
   addressShort: 'Логос Төв · 701 тоот',
-  orderHref: '#contact',
+  orderHref: '/quote',
 }
 
 export const nav = [
@@ -109,4 +109,52 @@ export const contact = {
     { label: 'TikTok', href: 'https://tiktok.com/@bizprintmn' },
     { label: 'YouTube', href: 'https://youtube.com/@BizPrin' },
   ],
+}
+
+// ---------- Сайтын нийтлэг цэс (шинэ загвар) ----------
+export const siteNav = [
+  { label: 'Дэлгүүр', href: '/shop' },
+  { label: 'Үнэ тооцоолох', href: '/quote' },
+  { label: 'Байгууллагад', href: '/campaign/request' },
+  { label: 'Блог', href: '/posts' },
+  { label: 'Холбоо барих', href: '/contact' },
+]
+
+export const footerLinks = [
+  { label: 'Дэлгүүр', href: '/shop' },
+  { label: 'Үнэ тооцоолох', href: '/quote' },
+  { label: 'Захиалга хянах', href: '/track' },
+  { label: 'Бидний тухай', href: '/about' },
+  { label: 'Түгээмэл асуулт', href: '/faq' },
+  { label: 'Хамтран ажиллах', href: '/partner' },
+]
+
+// ---------- Нүүр хуудас (bizprint.mn) ----------
+export const home = {
+  hero: {
+    ...hero,
+    cta: 'Бүтээгдэхүүн сонгох',
+    ctaHref: '/shop',
+    secondary: 'Үнэ тооцоолох',
+    secondaryHref: '/quote',
+  },
+  products: {
+    pill: 'Бүтээгдэхүүн',
+    headline: 'Хамгийн их захиалагддаг',
+    sub: 'Бараагаа сонгоод хэмжээ, тоо ширхэг, материалаа оруулж шууд захиална.',
+    cta: 'Бүх бүтээгдэхүүн',
+  },
+  quote: {
+    pill: 'Үнэ шууд мэдэх',
+    headline: ['10 секундэд', 'үнээ мэдээрэй.'],
+    paragraph: 'Бүтээгдэхүүн, тираж сонгоход үнэ шууд гарна. Бүртгэл шаардлагагүй.',
+    steps: ['Бүтээгдэхүүнээ сонгоно', 'Тоо ширхэгээ оруулна', 'Үнэ шууд гарна'],
+  },
+  services: [
+    { title: 'Хэвлэл захиалах', note: 'Нэрийн хуудаснаас баннер хүртэл', href: '/quote' },
+    { title: 'Дизайн хийлгэх', note: 'Загваргүй бол бид гаргана', href: '/design/editor' },
+    { title: 'Байгууллагын захиалга', note: 'Оффис, эвент, бөөн захиалга', href: '/campaign/request' },
+    { title: 'Яаралтай хэвлэл', note: 'Богино хугацаанд гүйцэтгэнэ', href: '/quick-order' },
+  ],
+  reviews: { pill: 'Сэтгэгдэл', headline: 'Үйлчлүүлэгчид юу гэж байна' },
 }

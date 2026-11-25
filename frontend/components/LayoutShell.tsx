@@ -11,7 +11,9 @@ import MobileBottomNav from '@/components/MobileBottomNav'
 import { useSiteSettings } from '@/contexts/SiteSettingsContext'
 
 /** login, register зэрэг full-page хуудсуудад Nav/Footer нуугдана */
-const BARE_ROUTES = ['/print', '/login', '/register', '/design/editor', '/dashboard', '/admin', '/creator', '/designer', '/courier', '/sales', '/invite', '/loyalty', '/mobile', '/start']
+const BARE_ROUTES = ['/login', '/register', '/design/editor', '/dashboard', '/admin', '/creator', '/designer', '/courier', '/sales', '/invite', '/loyalty', '/mobile', '/start']
+/** Шинэ загвартай хуудсууд: өөрийн цэс, footer-той — зөвхөн чат widget-ууд үлдэнэ */
+const OWN_CHROME_ROUTES = ['/', '/print']
 /** admin/chat хуудсанд ChatWidget давхардахгүй (ChatLayout ашигладаг) */
 const NO_CHAT_WIDGET = ['/admin/chat']
 
@@ -28,6 +30,16 @@ export default function LayoutShell({ children }: { children: React.ReactNode })
 
   if (isBare) {
     return <>{children}</>
+  }
+
+  if (OWN_CHROME_ROUTES.includes(pathname)) {
+    return (
+      <>
+        {children}
+        {!hideChatWidget && <ChatWidget />}
+        <ChatbotEmbed />
+      </>
+    )
   }
 
   return (

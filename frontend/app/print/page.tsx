@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import PrintLanding from '@/components/print-landing/PrintLanding'
+import PrintLanding from '@/components/site/PrintLanding'
 
 export const metadata: Metadata = {
   title: 'BizPrint — Нэрийн хуудаснаас фасадны туг хүртэл',

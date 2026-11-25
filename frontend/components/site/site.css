@@ -34,4 +34,4 @@
 @media (prefers-reduced-motion: reduce) { .animate-marquee { animation: none; } }
 
 /* Mobile sticky CTA энэ хуудсанд нуугдсан тул доод зайг арилгана */
-body:has(.print-landing) { padding-bottom: 0; }
+body:has(.site-light) { padding-bottom: 0; }

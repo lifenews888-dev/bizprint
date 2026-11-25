@@ -12,10 +12,12 @@ const HIDE_ON = [
   '/reset-password', '/checkout', '/design/editor', '/creator', '/designer',
   '/courier', '/sales', '/factory', '/mobile', '/print',
 ]
+/** Яг энэ замд л нуух (дэд замууд биш) */
+const HIDE_EXACT = ['/']
 
 export default function MobileStickyCTA() {
   const pathname = usePathname() || '/'
-  const hide = HIDE_ON.some(p => pathname === p || pathname.startsWith(p + '/'))
+  const hide = HIDE_EXACT.includes(pathname) || HIDE_ON.some(p => pathname === p || pathname.startsWith(p + '/'))
   if (hide) return null
 
   const onCallClick = () => trackEvent('cta_call_click', { location: 'mobile_sticky', pathname })
