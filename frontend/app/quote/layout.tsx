@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
   title: 'Үнийн тооцоолуур | BizPrint',
-  description: 'Хэвлэлийн үнийг шууд тооцоолоорой. Түргэн тооцоо, нарийвчилсан, AI тооцоолуур.',
+  description: 'BizPrint-ийн албан ёсны үнийн жагсаалтаар хэвлэлийн үнээ шууд тооцоолоорой: баннер, нэрийн хуудас, туг, хаяг реклам, промо, ном. Бүх үнэ НӨАТ-тэй, хүргэлт бүсээр.',
   alternates: { canonical: 'https://bizprint.mn/quote' },
 }
 

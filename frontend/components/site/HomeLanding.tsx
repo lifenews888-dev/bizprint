@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { ArrowRight } from 'lucide-react'
 import { apiFetch, API_URL } from '@/lib/api'
 import ProductCard from '@/components/ProductCard'
-import InstantQuoteWidget from '@/components/InstantQuoteWidget'
+import popular from '@/lib/pricing/popular.json'
 import BlogSection from '@/components/blog/BlogSection'
 import { Hero, About, Products as StaticProducts, Work, Contact } from './sections'
 import { Badge, EASE, Lines, OrangeButton, WhiteButton } from './primitives'
@@ -130,7 +130,23 @@ function QuickQuote() {
             </ol>
           </div>
           <div className="rounded-3xl bg-[#F5F5F5] p-2">
-            <InstantQuoteWidget />
+            <ul className="divide-y divide-gray-200/70 rounded-[20px] bg-white">
+              {popular.items.map((p) => (
+                <li key={p.code}>
+                  <Link href={`/quote?code=${p.code}`} className="flex items-center justify-between gap-4 px-5 py-4 transition-colors hover:bg-gray-50">
+                    <span className="min-w-0">
+                      <span className="block text-[15px] text-gray-900">{p.title}</span>
+                      <span className="block text-[12px] text-gray-500">{p.calc}</span>
+                    </span>
+                    <span className="shrink-0 text-[16px] font-medium text-gray-900">{p.inc.toLocaleString('en-US')}₮</span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+            <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-4">
+              <span className="text-[12px] text-gray-500">НӨАТ-тэй үнэ · албан ёсны жагсаалт {popular.version}</span>
+              <OrangeButton href="/quote" size="sm">Өөрийн үнээ бодох</OrangeButton>
+            </div>
           </div>
         </div>
       </div>
