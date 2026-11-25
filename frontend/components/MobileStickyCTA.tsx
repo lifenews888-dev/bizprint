@@ -21,7 +21,14 @@ export default function MobileStickyCTA() {
   if (hide) return null
 
   const onCallClick = () => trackEvent('cta_call_click', { location: 'mobile_sticky', pathname })
-  const onChatClick = () => trackEvent('cta_chat_click', { location: 'mobile_sticky', pathname })
+  const onChatClick = (e: React.MouseEvent) => {
+    trackEvent('cta_chat_click', { location: 'mobile_sticky', pathname })
+    // Yria чатбот идэвхтэй бол /quick-order руу шилжихгүй, чатын цонхыг нээнэ
+    if ((window as unknown as { __bizprintChat?: boolean }).__bizprintChat) {
+      e.preventDefault()
+      window.dispatchEvent(new Event('bizprint:open-chat'))
+    }
+  }
   const onQuoteClick = () => trackEvent('cta_quote_click', { location: 'mobile_sticky', pathname })
 
   return (
