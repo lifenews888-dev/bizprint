@@ -145,9 +145,7 @@ export default function DashboardLayout({ children, navGroups, creatorNavGroups,
         <div style={{ height: '54px', display: 'flex', alignItems: 'center', justifyContent: collapsed ? 'center' : 'space-between', padding: collapsed ? '0' : '0 14px', borderBottom: '1px solid var(--border)', flexShrink: 0 }}>
           {!collapsed && (
             <div onClick={() => router.push('/')} style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
-              <div style={{ width: '28px', height: '28px', background: '#111827', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                <span style={{ color: '#fff', fontSize: 9, fontWeight: 700, letterSpacing: '-0.02em' }}>BP</span>
-              </div>
+              <img src="/brand/bizprint-mark-256.png" alt="BizPrint" width={28} height={28} style={{ width: '28px', height: '28px', borderRadius: '8px', objectFit: 'cover', flexShrink: 0 }} />
               <div>
                 <div style={{ fontSize: '13px', fontWeight: 600, lineHeight: 1 }}>
                   BizPrint

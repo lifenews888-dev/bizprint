@@ -1,5 +1,5 @@
-const CACHE_NAME = 'bizprint-shell-v1'
-const SHELL_URLS = ['/', '/manifest.webmanifest', '/icons/bizprint-icon.svg']
+const CACHE_NAME = 'bizprint-shell-v2'
+const SHELL_URLS = ['/', '/manifest.webmanifest', '/favicon.ico', '/icons/bizprint-icon-192.png', '/icons/bizprint-icon-512.png']
 
 self.addEventListener('install', event => {
   event.waitUntil(

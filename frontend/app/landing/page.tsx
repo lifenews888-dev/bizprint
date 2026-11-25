@@ -183,9 +183,7 @@ export default function LandingPage() {
       {/* ═══ NAV ═══ */}
       <nav style={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 100, height: 60, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 2rem', background: 'rgba(5,5,7,0.9)', backdropFilter: 'blur(20px)', borderBottom: `1px solid ${T.border}` }}>
         <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', textDecoration: 'none' }}>
-          <div style={{ width: 28, height: 28, background: T.accent, borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <span style={{ color: 'white', fontSize: '0.8rem', fontWeight: 900 }}>B</span>
-          </div>
+          <img src="/brand/bizprint-mark-256.png" alt="BizPrint" width={28} height={28} style={{ width: 28, height: 28, borderRadius: 6, objectFit: 'cover' }} />
           <span style={{ fontWeight: 800, fontSize: '1.1rem', color: T.text }}>Biz<span style={{ color: T.accent }}>Print</span></span>
         </Link>
         <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>

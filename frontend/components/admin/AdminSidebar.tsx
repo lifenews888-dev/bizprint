@@ -56,9 +56,7 @@ export function AdminSidebar({ user, collapsed, setCollapsed, mobileOpen, setMob
         <div className="flex h-[52px] items-center shrink-0 border-b border-sidebar-border px-3">
           {!collapsed && (
             <Link href="/" className="flex items-center gap-2 no-underline flex-1">
-              <div className="flex h-[28px] w-[28px] shrink-0 items-center justify-center rounded-full bg-gray-900">
-                <span className="text-[9px] font-bold tracking-tight text-white">BP</span>
-              </div>
+              <img src="/brand/bizprint-mark-256.png" alt="BizPrint" width={28} height={28} className="h-[28px] w-[28px] shrink-0 rounded-[8px] object-cover" />
               <div>
                 <div className="text-[13px] font-semibold leading-none text-sidebar-foreground">
                   BizPrint

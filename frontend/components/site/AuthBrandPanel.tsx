@@ -21,9 +21,7 @@ export default function AuthBrandPanel({
       </div>
       <div className="relative z-10">
         <Link href="/" className="inline-flex items-center gap-3 no-underline">
-          <span className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-900 text-[11px] font-bold tracking-tight text-white">
-            {brand.short}
-          </span>
+          <img src="/brand/bizprint-mark-256.png" alt={brand.name} width={40} height={40} className="h-10 w-10 rounded-[10px] object-cover" />
           <span className="text-[15px] font-medium text-gray-900">{brand.name}</span>
         </Link>
       </div>

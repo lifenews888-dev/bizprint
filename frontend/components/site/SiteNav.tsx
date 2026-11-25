@@ -49,8 +49,8 @@ export default function SiteNav() {
       <header className="relative z-20 mx-auto w-full max-w-[1440px] p-2 sm:p-3">
         <nav className="flex items-center justify-between rounded-full bg-white p-[5px]" aria-label="Үндсэн цэс">
           <div className="flex items-center gap-6">
-            <Link href="/" className="flex h-9 w-9 items-center justify-center rounded-full bg-gray-900 text-[10px] font-bold tracking-tight text-white sm:h-10 sm:w-10 sm:text-[11px]" aria-label={brand.name}>
-              {brand.short}
+            <Link href="/" className="block h-9 w-9 overflow-hidden rounded-[10px] sm:h-10 sm:w-10" aria-label={brand.name}>
+              <img src="/brand/bizprint-mark-256.png" alt={brand.name} width={40} height={40} className="h-full w-full object-cover" />
             </Link>
             <ul className="hidden items-center gap-6 lg:flex">
               {siteNav.map((n) => (

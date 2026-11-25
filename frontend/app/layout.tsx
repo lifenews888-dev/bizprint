@@ -27,7 +27,6 @@ export async function generateMetadata(): Promise<Metadata> {
   let title = FALLBACK_TITLE
   let description = FALLBACK_DESC
   let ogImage: string | undefined
-  let favicon: string | undefined
 
   try {
     const controller = new AbortController()
@@ -39,7 +38,6 @@ export async function generateMetadata(): Promise<Metadata> {
       title = s.seo_meta_title || s.site_name || FALLBACK_TITLE
       description = s.seo_meta_description || FALLBACK_DESC
       ogImage = s.seo_og_image || undefined
-      favicon = s.site_favicon || undefined
     }
   } catch {}
 
@@ -61,7 +59,15 @@ export async function generateMetadata(): Promise<Metadata> {
     formatDetection: {
       telephone: true,
     },
-    icons: favicon ? { icon: favicon } : undefined,
+    // Албан лого (2026-11-25). CMS-ийн хуучин site_favicon-оор дарагдахгүй.
+    icons: {
+      icon: [
+        { url: '/favicon.ico', sizes: 'any' },
+        { url: '/icons/bizprint-icon-32.png', sizes: '32x32', type: 'image/png' },
+        { url: '/icons/bizprint-icon-192.png', sizes: '192x192', type: 'image/png' },
+      ],
+      apple: '/icons/apple-touch-icon.png',
+    },
     openGraph: {
       type: 'website',
       url: SITE_URL,
@@ -176,7 +182,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: jsonLdScript(siteJsonLd) }}
         />
-        <link rel="apple-touch-icon" href="/icons/bizprint-icon-192.png" />
         {process.env.NEXT_PUBLIC_GA_ID && (
           <>
             <script async src={`https://www.googletagmanager.com/gtag/js?id=${process.env.NEXT_PUBLIC_GA_ID}`} />

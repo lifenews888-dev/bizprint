@@ -82,9 +82,7 @@ export default function QuotePreview({
             {/* Header */}
             <div style={{ background: 'linear-gradient(135deg, #FF6B00, #E55D00)', padding: '24px 30px', color: '#fff', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 20, borderRadius: '12px 12px 0 0' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <div style={{ width: 40, height: 40, background: '#fff', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <span style={{ fontSize: 18, fontWeight: 800, color: '#FF6B00' }}>B</span>
-                </div>
+                <img src="/brand/bizprint-mark-256.png" alt="BizPrint" width={40} height={40} style={{ width: 40, height: 40, borderRadius: 8, objectFit: 'cover' }} />
                 <div>
                   <div style={{ fontSize: 22, fontWeight: 800 }}>BizPrint</div>
                   <div style={{ fontSize: 10, opacity: 0.8 }}>Хэвлэлийн платформ</div>

@@ -33,16 +33,10 @@ export default function manifest(): MetadataRoute.Manifest {
         purpose: 'maskable',
       },
       {
-        src: '/icons/bizprint-icon.svg',
-        sizes: 'any',
-        type: 'image/svg+xml',
+        src: '/icons/apple-touch-icon.png',
+        sizes: '180x180',
+        type: 'image/png',
         purpose: 'any',
-      },
-      {
-        src: '/icons/bizprint-icon.svg',
-        sizes: 'any',
-        type: 'image/svg+xml',
-        purpose: 'maskable',
       },
     ],
   }

@@ -368,20 +368,7 @@ export default function MegaNav() {
               <img src={headerLogoUrl} alt={siteName} className="h-10" />
             ) : (
               <>
-                <svg width="38" height="38" viewBox="0 0 48 48" fill="none" className="flex-shrink-0">
-                  <defs>
-                    <linearGradient id="nav-og" x1="0" y1="0" x2="48" y2="24" gradientUnits="userSpaceOnUse">
-                      <stop stopColor="#FF6B00"/><stop offset="1" stopColor="#F59E0B"/>
-                    </linearGradient>
-                    <linearGradient id="nav-pp" x1="0" y1="24" x2="48" y2="48" gradientUnits="userSpaceOnUse">
-                      <stop stopColor="#8B5CF6"/><stop offset="1" stopColor="#6D28D9"/>
-                    </linearGradient>
-                  </defs>
-                  <path d="M4 14C4 8.477 8.477 4 14 4h6c5.523 0 10 4.477 10 10v4c0 2.21-1.79 4-4 4H14c-5.523 0-10-4.477-10-10z" fill="url(#nav-og)"/>
-                  <path d="M30 8a10 10 0 0114 0 10 10 0 010 14c-2 2-6 2-8 0l-6-6a10 10 0 010-8z" fill="url(#nav-og)" opacity="0.8"/>
-                  <path d="M4 30c0-2.21 1.79-4 4-4h10c5.523 0 10 4.477 10 10v4c0 2.21-1.79 4-4 4H14c-5.523 0-10-4.477-10-10v-4z" fill="url(#nav-pp)"/>
-                  <path d="M30 30c0-2.21 1.79-4 4-4h4c2.21 0 4 1.79 4 4v4c0 5.523-4.477 10-10 10h-2c-2.21 0-4-1.79-4-4v-6c0-2.21 1.79-4 4-4z" fill="url(#nav-pp)" opacity="0.8"/>
-                </svg>
+                <img src="/brand/bizprint-mark-256.png" alt={siteName} width={38} height={38} className="flex-shrink-0 rounded-[9px] object-cover" style={{ width: 38, height: 38 }} />
                 <span className="text-[22px] font-extrabold text-[#111] tracking-tight leading-none">
                   <span className="text-[#FF6B00]">{siteName.substring(0, 3)}</span>{siteName.substring(3)}
                 </span>
@@ -705,20 +692,7 @@ export default function MegaNav() {
                 <img src={headerLogoUrl} alt={siteName} className="h-8" />
               ) : (
                 <>
-                  <svg width="30" height="30" viewBox="0 0 48 48" fill="none">
-                    <defs>
-                      <linearGradient id="m-og" x1="0" y1="0" x2="48" y2="24" gradientUnits="userSpaceOnUse">
-                        <stop stopColor="#FF6B00"/><stop offset="1" stopColor="#F59E0B"/>
-                      </linearGradient>
-                      <linearGradient id="m-pp" x1="0" y1="24" x2="48" y2="48" gradientUnits="userSpaceOnUse">
-                        <stop stopColor="#8B5CF6"/><stop offset="1" stopColor="#6D28D9"/>
-                      </linearGradient>
-                    </defs>
-                    <path d="M4 14C4 8.477 8.477 4 14 4h6c5.523 0 10 4.477 10 10v4c0 2.21-1.79 4-4 4H14c-5.523 0-10-4.477-10-10z" fill="url(#m-og)"/>
-                    <path d="M30 8a10 10 0 0114 0 10 10 0 010 14c-2 2-6 2-8 0l-6-6a10 10 0 010-8z" fill="url(#m-og)" opacity="0.8"/>
-                    <path d="M4 30c0-2.21 1.79-4 4-4h10c5.523 0 10 4.477 10 10v4c0 2.21-1.79 4-4 4H14c-5.523 0-10-4.477-10-10v-4z" fill="url(#m-pp)"/>
-                    <path d="M30 30c0-2.21 1.79-4 4-4h4c2.21 0 4 1.79 4 4v4c0 5.523-4.477 10-10 10h-2c-2.21 0-4-1.79-4-4v-6c0-2.21 1.79-4 4-4z" fill="url(#m-pp)" opacity="0.8"/>
-                  </svg>
+                  <img src="/brand/bizprint-mark-256.png" alt={siteName} width={30} height={30} className="flex-shrink-0 rounded-[9px] object-cover" style={{ width: 30, height: 30 }} />
                   <span className="text-[17px] font-extrabold text-[#111] tracking-tight">
                     <span className="text-[#FF6B00]">{siteName.substring(0, 3)}</span>{siteName.substring(3)}
                   </span>

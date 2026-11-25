@@ -54,9 +54,7 @@ export default function CustomerLayout({ children }: { children: React.ReactNode
       <div className="hidden md:flex" style={{ width: 224, minWidth: 224, height: '100vh', background: 'var(--surface)', borderRight: '1px solid var(--border)', flexDirection: 'column', position: 'sticky', top: 0, zIndex: 20 }}>
         {/* Logo */}
         <div onClick={() => router.push('/')} style={{ height: 54, padding: '0 14px', display: 'flex', alignItems: 'center', gap: 8, borderBottom: '1px solid var(--border)', cursor: 'pointer' }}>
-          <div style={{ width: 28, height: 28, background: '#111827', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-            <span style={{ color: '#fff', fontSize: 9, fontWeight: 700, letterSpacing: '-0.02em' }}>BP</span>
-          </div>
+          <img src="/brand/bizprint-mark-256.png" alt="BizPrint" width={28} height={28} style={{ width: 28, height: 28, borderRadius: 8, objectFit: 'cover', flexShrink: 0 }} />
           <div>
             <div style={{ fontSize: 13, fontWeight: 600, lineHeight: 1 }}>BizPrint</div>
             <div style={{ fontSize: 10, color: 'var(--text3)', marginTop: 1 }}>Dashboard</div>

@@ -242,7 +242,7 @@ export function Contact() {
 
         <div className="mt-8 flex flex-col gap-6 border-t border-white/10 pt-8 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-3">
-            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-[10px] font-bold tracking-tight text-gray-900">{brand.short}</span>
+            <img src="/brand/bizprint-mark-256.png" alt={brand.name} width={36} height={36} className="h-9 w-9 rounded-[10px] object-cover" />
             <span className="text-[13px] text-gray-400">
               © {new Date().getFullYear()} {brand.name} · {brand.company}
             </span>
