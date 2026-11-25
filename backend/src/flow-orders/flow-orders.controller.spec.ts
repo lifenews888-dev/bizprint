@@ -51,6 +51,17 @@ describe('FlowOrdersController (HTTP)', () => {
     expect(service.create).toHaveBeenCalled();
   });
 
+  it('туг (catalog) захиалгын body-г хүлээж авна', async () => {
+    await request(app.getHttpServer()).post('/api/flow/orders').set(auth).send({
+      conversationId: 'c1', customer: { phone: '99112233' }, product: 'catalog',
+      productSlug: 'flagoutdoor', variantCode: 'BP-041', widthM: 1.2, heightM: 2.4, sides: 2,
+      quantity: 1, fields: {}, logoUrl: 'https://cdn.x.mn/logo.png',
+      extras: [{ variantCode: 'BP-047', quantity: 1 }],
+      design: { background: '#0B3D2E', headline: 'Компани', layout: 'center' },
+      source: 'yria',
+    }).expect(201);
+  });
+
   it('үнийг (amount) клиентээс хүлээж авахгүй', async () => {
     await request(app.getHttpServer()).post('/api/flow/orders').set(auth)
       .send({ ...n8nCreateBody, amount: 1 }).expect(400);
@@ -62,6 +73,7 @@ describe('FlowOrdersController (HTTP)', () => {
       { status: 'render_failed', renderError: 'x' },
       { status: 'awaiting_payment', approvedAt: new Date().toISOString(), qpayInvoiceId: 'inv' },
       { status: 'rendering', fields: { name: 'X' }, editCount: 1, logoUrl: 'https://x.mn/logo.png' },
+      { status: 'rendering', design: { background: '#FF0000', headline: 'Шинэ' }, editCount: 2 },
       { status: 'needs_human', editCount: 4 },
       { status: 'in_production', paidAt: new Date().toISOString(), paidAmount: 38000, paymentId: 'p', sentToFactoryAt: new Date().toISOString() },
       { status: 'ready', readyAt: new Date().toISOString() },

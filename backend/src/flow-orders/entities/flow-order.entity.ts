@@ -45,6 +45,18 @@ export class FlowOrder {
   @Column({ type: 'varchar', length: 32, default: 'business_card' })
   product: string;
   @Column({ type: 'uuid', nullable: true }) bc_product_id: string | null;
+  // Албан үнийн жагсаалтын бараа (product='catalog') — migration 2026-11-25-06
+  @Column({ type: 'varchar', length: 64, nullable: true })
+  product_slug: string | null;
+  @Column({ type: 'jsonb', nullable: true }) catalog_line: Record<
+    string,
+    unknown
+  > | null;
+  /** Хэмжээ, тал, материалын нэр, дизайны brief гэх мэт загвар/үйлдвэрт хэрэгтэй мэдээлэл */
+  @Column({ type: 'jsonb', nullable: true }) spec: Record<
+    string,
+    unknown
+  > | null;
   @Column({ type: 'varchar', length: 64 }) template: string;
   @Column({ type: 'int' }) quantity: number;
   @Column({ type: 'varchar', length: 16, default: 'none' }) finish: FlowFinish;
