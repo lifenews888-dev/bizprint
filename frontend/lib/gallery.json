@@ -73,6 +73,60 @@
    "h": 1350
   },
   {
+   "src": "/gallery/poster-09-book.webp",
+   "title": "Ном, эмхэтгэл — постер",
+   "cat": "Маркетингийн хэвлэл",
+   "slug": "book",
+   "poster": true,
+   "w": 1080,
+   "h": 1350
+  },
+  {
+   "src": "/gallery/poster-10-brochure.webp",
+   "title": "Брошур — постер",
+   "cat": "Маркетингийн хэвлэл",
+   "slug": "brochure",
+   "poster": true,
+   "w": 1080,
+   "h": 1350
+  },
+  {
+   "src": "/gallery/poster-11-menu.webp",
+   "title": "Меню — постер",
+   "cat": "Маркетингийн хэвлэл",
+   "slug": "menu",
+   "poster": true,
+   "w": 1080,
+   "h": 1350
+  },
+  {
+   "src": "/gallery/poster-12-wallflag.webp",
+   "title": "Дарцаг — постер",
+   "cat": "Туг далбаа",
+   "slug": "wallflag",
+   "poster": true,
+   "w": 1080,
+   "h": 1350
+  },
+  {
+   "src": "/gallery/poster-13-paperbag.webp",
+   "title": "Цаасан уут — постер",
+   "cat": "Промо бэлэг дурсгал",
+   "slug": "paperbag",
+   "poster": true,
+   "w": 1080,
+   "h": 1350
+  },
+  {
+   "src": "/gallery/poster-14-vipset.webp",
+   "title": "Бэлгийн багц — постер",
+   "cat": "Промо бэлэг дурсгал",
+   "slug": "vipset",
+   "poster": true,
+   "w": 1080,
+   "h": 1350
+  },
+  {
    "src": "/gallery/real-01-flagoutdoor.webp",
    "title": "Барилгын гадна туг",
    "cat": "Туг далбаа",
@@ -245,6 +299,102 @@
    "title": "Энгэрийн тэмдэг",
    "cat": "Үнэмлэх, тэмдэг, шагнал",
    "slug": "badge",
+   "w": 1080,
+   "h": 1350
+  },
+  {
+   "src": "/gallery/real-23-flagindoor.webp",
+   "title": "Сургуулийн залаатай туг",
+   "cat": "Туг далбаа",
+   "slug": "flagindoor",
+   "w": 1080,
+   "h": 1350
+  },
+  {
+   "src": "/gallery/real-24-flagindoor.webp",
+   "title": "Улс орнуудын далбаа, суурьтай",
+   "cat": "Туг далбаа",
+   "slug": "flagindoor",
+   "w": 1080,
+   "h": 1350
+  },
+  {
+   "src": "/gallery/real-25-tableflag.webp",
+   "title": "Ширээний туг, Y суурьтай",
+   "cat": "Туг далбаа",
+   "slug": "tableflag",
+   "w": 1080,
+   "h": 1350
+  },
+  {
+   "src": "/gallery/real-26-wallflag.webp",
+   "title": "Гурвалжин дарцаг",
+   "cat": "Туг далбаа",
+   "slug": "wallflag",
+   "w": 1080,
+   "h": 1350
+  },
+  {
+   "src": "/gallery/real-27-flagoutdoor.webp",
+   "title": "Сурталчилгааны туг",
+   "cat": "Туг далбаа",
+   "slug": "flagoutdoor",
+   "w": 1080,
+   "h": 1350
+  },
+  {
+   "src": "/gallery/real-28-backdrop.webp",
+   "title": "Үзэсгэлэнгийн павильоны хэвлэл",
+   "cat": "Баннер, стенд",
+   "slug": "backdrop",
+   "w": 1080,
+   "h": 1350
+  },
+  {
+   "src": "/gallery/real-29-book.webp",
+   "title": "Хурлын эмхэтгэл, ном",
+   "cat": "Маркетингийн хэвлэл",
+   "slug": "book",
+   "w": 1080,
+   "h": 1350
+  },
+  {
+   "src": "/gallery/real-30-brochure.webp",
+   "title": "Танилцуулга, нүүр хуудас",
+   "cat": "Маркетингийн хэвлэл",
+   "slug": "brochure",
+   "w": 1080,
+   "h": 1350
+  },
+  {
+   "src": "/gallery/real-31-menu.webp",
+   "title": "Рестораны цэс",
+   "cat": "Маркетингийн хэвлэл",
+   "slug": "menu",
+   "w": 1080,
+   "h": 1350
+  },
+  {
+   "src": "/gallery/real-32-notebook.webp",
+   "title": "Хүүхдийн будгийн дэвтэр",
+   "cat": "Промо бэлэг дурсгал",
+   "slug": "notebook",
+   "w": 1080,
+   "h": 1350
+  },
+  {
+   "src": "/gallery/real-33-paperbag.webp",
+   "title": "Брэндийн цаасан уут",
+   "cat": "Промо бэлэг дурсгал",
+   "slug": "paperbag",
+   "w": 1080,
+   "h": 1350
+  },
+  {
+   "src": "/gallery/real-34-vipset.webp",
+   "title": "Бэлгийн багц",
+   "cat": "Промо бэлэг дурсгал",
+   "slug": "vipset",
    "w": 1080,
    "h": 1350
   }

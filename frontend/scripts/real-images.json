@@ -1,29 +1,34 @@
 {
  "flagoutdoor": [
   "/catalog-img/real-flagoutdoor-1.jpg",
-  "/catalog-img/real-flagoutdoor-2.jpg"
+  "/catalog-img/real-flagoutdoor-2.jpg",
+  "/catalog-img/real-flagoutdoor-3.jpg"
  ],
  "flagindoor": [
   "/catalog-img/real-flagindoor-1.jpg",
-  "/catalog-img/real-flagindoor-2.jpg"
+  "/catalog-img/real-flagindoor-2.jpg",
+  "/catalog-img/real-flagindoor-3.jpg"
  ],
  "featherflag": [
   "/catalog-img/real-featherflag-1.jpg"
  ],
  "tableflag": [
   "/catalog-img/real-tableflag-1.jpg",
-  "/catalog-img/real-tableflag-2.jpg"
+  "/catalog-img/real-tableflag-2.jpg",
+  "/catalog-img/real-tableflag-3.jpg"
  ],
  "wallflag": [
   "/catalog-img/real-wallflag-1.jpg",
-  "/catalog-img/real-wallflag-2.jpg"
+  "/catalog-img/real-wallflag-2.jpg",
+  "/catalog-img/real-wallflag-3.jpg"
  ],
  "medal": [
   "/catalog-img/real-medal-1.jpg"
  ],
  "backdrop": [
   "/catalog-img/real-backdrop-1.jpg",
-  "/catalog-img/real-backdrop-2.jpg"
+  "/catalog-img/real-backdrop-2.jpg",
+  "/catalog-img/real-backdrop-3.jpg"
  ],
  "xstand": [
   "/catalog-img/real-xstand-1.jpg"
@@ -36,5 +41,23 @@
  ],
  "badge": [
   "/catalog-img/real-badge-1.jpg"
+ ],
+ "book": [
+  "/catalog-img/real-book-1.jpg"
+ ],
+ "brochure": [
+  "/catalog-img/real-brochure-1.jpg"
+ ],
+ "menu": [
+  "/catalog-img/real-menu-1.jpg"
+ ],
+ "notebook": [
+  "/catalog-img/real-notebook-1.jpg"
+ ],
+ "paperbag": [
+  "/catalog-img/real-paperbag-1.jpg"
+ ],
+ "vipset": [
+  "/catalog-img/real-vipset-1.jpg"
  ]
 }

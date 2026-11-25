@@ -25,7 +25,7 @@ MIGR_DIR = ROOT.parent / "backend" / "migrations"
 SITE = Path(sys.argv[1])
 VERSION = "Албан үнэ 2026-11-25"
 # Хэрэгжсэн migration-ийг ХЭЗЭЭ Ч засахгүй (backend boot унана) — шинэчлэл бүрт шинэ нэр
-MIGR_NAME = "2026-11-25-02-shop-catalog-v2.sql"
+MIGR_NAME = "2026-11-25-04-shop-catalog-v3.sql"
 IMG_BASE = "/catalog-img/"
 PRINITY_URL = "https://prinity-cloud-production.up.railway.app/u/Nn36KDAEc2Q-fpugKEDsv0IA_kWHnP8g"
 
