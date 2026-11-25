@@ -1,5 +1,5 @@
 {
- "version": "v6 · 2026-11-22",
+ "version": "Албан үнэ 2026-11-25",
  "items": [
   {
    "code": "BP-077",
@@ -10,7 +10,7 @@
   {
    "code": "BP-007",
    "title": "Бельги баннер 1×3 м",
-   "calc": "3 м² × 31,900₮ + олс, бөгж",
+   "calc": "Бэлэн хэмжээ 95,700₮ + олс, бөгж",
    "inc": 103950
   },
   {
@@ -30,6 +30,382 @@
    "title": "Логотой үзэг 100ш",
    "calc": "100 × 2,970₮",
    "inc": 297000
+  }
+ ],
+ "categories": [
+  "Нэрийн хуудас",
+  "Маркетингийн хэвлэл",
+  "Албан хэрэг, бичиг хэрэг",
+  "Баннер, стенд",
+  "Стикер, наалт",
+  "Хавтан, самбар",
+  "Туг далбаа",
+  "Хаяг реклам",
+  "Хувцас, даавуун хэвлэл",
+  "Промо бэлэг дурсгал",
+  "Үнэмлэх, тэмдэг, шагнал",
+  "Зураг, альбум"
+ ],
+ "types": [
+  {
+   "name": "Нэрийн хуудас",
+   "slug": "bizcard",
+   "cat": "Нэрийн хуудас",
+   "img": "/catalog-img/bizcard-1.jpg",
+   "from": 55000,
+   "per": "200ш"
+  },
+  {
+   "name": "Брошур, танилцуулга",
+   "slug": "brochure",
+   "cat": "Маркетингийн хэвлэл",
+   "img": "/catalog-img/brochure-1.jpg",
+   "from": 760,
+   "per": "ш"
+  },
+  {
+   "name": "Кирматай хавтас",
+   "slug": "folder",
+   "cat": "Маркетингийн хэвлэл",
+   "img": "/catalog-img/folder-1.jpg",
+   "from": 931700,
+   "per": "100ш"
+  },
+  {
+   "name": "Постер, фото цаасан хэвлэл",
+   "slug": "poster",
+   "cat": "Маркетингийн хэвлэл",
+   "img": "/catalog-img/poster-1.jpg",
+   "from": 22600,
+   "per": "м²"
+  },
+  {
+   "name": "Меню",
+   "slug": "menu",
+   "cat": "Маркетингийн хэвлэл",
+   "img": "/catalog-img/menu-1.jpg",
+   "from": 15400,
+   "per": "ш"
+  },
+  {
+   "name": "Ном, сэтгүүл, каталог",
+   "slug": "book",
+   "cat": "Маркетингийн хэвлэл",
+   "img": "/catalog-img/book-1.jpg",
+   "from": 18200,
+   "per": "ш"
+  },
+  {
+   "name": "Албан бланк",
+   "slug": "letterhead",
+   "cat": "Албан хэрэг, бичиг хэрэг",
+   "img": "/catalog-img/letterhead-1.jpg",
+   "from": 79200,
+   "per": "100ш"
+  },
+  {
+   "name": "Календарь",
+   "slug": "calendar",
+   "cat": "Албан хэрэг, бичиг хэрэг",
+   "img": "/catalog-img/calendar-1.jpg",
+   "from": 16000,
+   "per": "ш"
+  },
+  {
+   "name": "Стенд (X баннер)",
+   "slug": "xstand",
+   "cat": "Баннер, стенд",
+   "img": "/catalog-img/xstand-1.jpg",
+   "from": 29700,
+   "per": "ш"
+  },
+  {
+   "name": "Хулдаасан баннер",
+   "slug": "banner",
+   "cat": "Баннер, стенд",
+   "img": "/catalog-img/banner-1.jpg",
+   "from": 21500,
+   "per": "м²"
+  },
+  {
+   "name": "Арга хэмжээний фон (backdrop)",
+   "slug": "backdrop",
+   "cat": "Баннер, стенд",
+   "img": "/catalog-img/backdrop-1.jpg",
+   "from": 503800,
+   "per": "ш"
+  },
+  {
+   "name": "Авто стикер, наалт",
+   "slug": "sticker",
+   "cat": "Стикер, наалт",
+   "img": "/catalog-img/sticker-1.jpg",
+   "from": 49500,
+   "per": "м²"
+  },
+  {
+   "name": "Цонхны хуулга",
+   "slug": "window",
+   "cat": "Стикер, наалт",
+   "img": "/catalog-img/window-1.jpg",
+   "from": 41300,
+   "per": "м²"
+  },
+  {
+   "name": "UV-DTF наалт",
+   "slug": "uvdtf",
+   "cat": "Стикер, наалт",
+   "img": "/catalog-img/uvdtf-1.jpg",
+   "from": 34100,
+   "per": "ш"
+  },
+  {
+   "name": "PVC, хөөсөн хавтан хэвлэл",
+   "slug": "pvcboard",
+   "cat": "Хавтан, самбар",
+   "img": "/catalog-img/pvcboard-1.jpg",
+   "from": 16500,
+   "per": "ш"
+  },
+  {
+   "name": "Акрил хавтан",
+   "slug": "acrylic",
+   "cat": "Хавтан, самбар",
+   "img": "/catalog-img/acrylic-1.jpg",
+   "from": 172700,
+   "per": "м²"
+  },
+  {
+   "name": "Метал хавтан хэвлэл",
+   "slug": "metal",
+   "cat": "Хавтан, самбар",
+   "img": "/catalog-img/metal-1.jpg",
+   "from": 166100,
+   "per": "м²"
+  },
+  {
+   "name": "Хаалганы хаяг, заагч",
+   "slug": "doorsign",
+   "cat": "Хавтан, самбар",
+   "img": "/catalog-img/doorsign-1.jpg",
+   "from": 11000,
+   "per": "ш"
+  },
+  {
+   "name": "Дотор туг",
+   "slug": "flagindoor",
+   "cat": "Туг далбаа",
+   "img": "/catalog-img/flagindoor-1.jpg",
+   "from": 66000,
+   "per": "м²"
+  },
+  {
+   "name": "Гадна туг",
+   "slug": "flagoutdoor",
+   "cat": "Туг далбаа",
+   "img": "/catalog-img/flagoutdoor-1.jpg",
+   "from": 27500,
+   "per": "ш"
+  },
+  {
+   "name": "Г хэлбэрийн туг",
+   "slug": "lflag",
+   "cat": "Туг далбаа",
+   "img": "/catalog-img/lflag-1.jpg",
+   "from": 231000,
+   "per": "ш"
+  },
+  {
+   "name": "Өдөн туг",
+   "slug": "featherflag",
+   "cat": "Туг далбаа",
+   "img": "/catalog-img/featherflag-1.jpg",
+   "from": 132000,
+   "per": "ш"
+  },
+  {
+   "name": "Ширээний туг",
+   "slug": "tableflag",
+   "cat": "Туг далбаа",
+   "img": "/catalog-img/tableflag-1.jpg",
+   "from": 22000,
+   "per": "ш"
+  },
+  {
+   "name": "Ханын туг, дарцаг",
+   "slug": "wallflag",
+   "cat": "Туг далбаа",
+   "img": "/catalog-img/wallflag-1.jpg",
+   "from": 16500,
+   "per": "ш"
+  },
+  {
+   "name": "Ширээний бүтээлэг",
+   "slug": "tablecloth",
+   "cat": "Туг далбаа",
+   "img": "/catalog-img/tablecloth-1.jpg",
+   "from": 66000,
+   "per": "м²"
+  },
+  {
+   "name": "Лайтбокс (гэрэлтдэг хаяг)",
+   "slug": "lightbox",
+   "cat": "Хаяг реклам",
+   "img": "/catalog-img/lightbox-1.jpg",
+   "from": 518100,
+   "per": "м²"
+  },
+  {
+   "name": "Биет үсэг, фасадны хаяг",
+   "slug": "letters",
+   "cat": "Хаяг реклам",
+   "img": "/catalog-img/letters-1.jpg",
+   "from": 88000,
+   "per": "ш"
+  },
+  {
+   "name": "DTF хэвлэл (хувцасны наалт)",
+   "slug": "dtf",
+   "cat": "Хувцас, даавуун хэвлэл",
+   "img": "/catalog-img/dtf-1.jpg",
+   "from": 6820,
+   "per": "ш"
+  },
+  {
+   "name": "Футболк, цамц",
+   "slug": "tshirt",
+   "cat": "Хувцас, даавуун хэвлэл",
+   "img": "/catalog-img/tshirt-1.jpg",
+   "from": 20900,
+   "per": "ш"
+  },
+  {
+   "name": "Малгай",
+   "slug": "cap",
+   "cat": "Хувцас, даавуун хэвлэл",
+   "img": "/catalog-img/cap-1.jpg",
+   "from": 7370,
+   "per": "ш"
+  },
+  {
+   "name": "Тэмдэглэлийн дэвтэр",
+   "slug": "notebook",
+   "cat": "Промо бэлэг дурсгал",
+   "img": "/catalog-img/notebook-1.jpg",
+   "from": 5500,
+   "per": "ш"
+  },
+  {
+   "name": "Үзэг",
+   "slug": "pen",
+   "cat": "Промо бэлэг дурсгал",
+   "img": "/catalog-img/pen-1.jpg",
+   "from": 2640,
+   "per": "ш"
+  },
+  {
+   "name": "Шаазан аяга",
+   "slug": "mug",
+   "cat": "Промо бэлэг дурсгал",
+   "img": "/catalog-img/mug-1.jpg",
+   "from": 8690,
+   "per": "ш"
+  },
+  {
+   "name": "Даавуун цүнх",
+   "slug": "tote",
+   "cat": "Промо бэлэг дурсгал",
+   "img": "/catalog-img/tote-1.jpg",
+   "from": 10100,
+   "per": "ш"
+  },
+  {
+   "name": "Термос, усны сав",
+   "slug": "thermos",
+   "cat": "Промо бэлэг дурсгал",
+   "img": "/catalog-img/thermos-1.jpg",
+   "from": 8250,
+   "per": "ш"
+  },
+  {
+   "name": "Технологийн бэлэг",
+   "slug": "tech",
+   "cat": "Промо бэлэг дурсгал",
+   "img": "/catalog-img/tech-1.jpg",
+   "from": 4400,
+   "per": "ш"
+  },
+  {
+   "name": "VIP бэлгийн багц",
+   "slug": "vipset",
+   "cat": "Промо бэлэг дурсгал",
+   "img": "/catalog-img/vipset-1.jpg",
+   "from": 8250,
+   "per": "ш"
+  },
+  {
+   "name": "Цаасан бэлгийн уут",
+   "slug": "paperbag",
+   "cat": "Промо бэлэг дурсгал",
+   "img": "/catalog-img/paperbag-1.jpg",
+   "from": 3740,
+   "per": "ш"
+  },
+  {
+   "name": "Түлхүүрийн оосор",
+   "slug": "keychain",
+   "cat": "Промо бэлэг дурсгал",
+   "img": "/catalog-img/keychain-1.jpg",
+   "from": 3190,
+   "per": "ш"
+  },
+  {
+   "name": "Үнэмлэх, оосор",
+   "slug": "idcard",
+   "cat": "Үнэмлэх, тэмдэг, шагнал",
+   "img": "/catalog-img/idcard-1.jpg",
+   "from": 880,
+   "per": "ш"
+  },
+  {
+   "name": "Энгэрийн тэмдэг, пин",
+   "slug": "badge",
+   "cat": "Үнэмлэх, тэмдэг, шагнал",
+   "img": "/catalog-img/badge-1.jpg",
+   "from": 2530,
+   "per": "ш"
+  },
+  {
+   "name": "Медаль, цом, шагнал",
+   "slug": "medal",
+   "cat": "Үнэмлэх, тэмдэг, шагнал",
+   "img": "/catalog-img/medal-1.jpg",
+   "from": 2970,
+   "per": "ш"
+  },
+  {
+   "name": "Canvas зураг",
+   "slug": "canvas",
+   "cat": "Зураг, альбум",
+   "img": "/catalog-img/canvas-1.jpg",
+   "from": 34100,
+   "per": "м²"
+  },
+  {
+   "name": "Зураг угаалт",
+   "slug": "photo",
+   "cat": "Зураг, альбум",
+   "img": "/catalog-img/photo-1.jpg",
+   "from": 8030,
+   "per": "ш"
+  },
+  {
+   "name": "Альбум ном",
+   "slug": "album",
+   "cat": "Зураг, альбум",
+   "img": "/catalog-img/album-1.jpg",
+   "from": 88000,
+   "per": "ш"
   }
  ]
 }

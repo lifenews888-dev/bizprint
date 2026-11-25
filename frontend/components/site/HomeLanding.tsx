@@ -3,50 +3,24 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { ArrowRight } from 'lucide-react'
-import { apiFetch, API_URL } from '@/lib/api'
-import ProductCard from '@/components/ProductCard'
+import { API_URL } from '@/lib/api'
+import Image from 'next/image'
 import popular from '@/lib/pricing/popular.json'
 import BlogSection from '@/components/blog/BlogSection'
-import { Hero, About, Products as StaticProducts, Work, Contact } from './sections'
+import { Hero, About, Work, Contact } from './sections'
 import { Badge, EASE, Lines, OrangeButton, WhiteButton } from './primitives'
 import { home } from './content'
 
-type ProductItem = Parameters<typeof ProductCard>[0]['product']
-type Category = { id: string | number; name_mn?: string; name?: string; isActive?: boolean }
 type Review = { text?: string; customer_name?: string; customer_company?: string; product_category?: string }
 
 const h2 = 'text-[clamp(1.75rem,7vw,4.2rem)] font-medium leading-[1.08] tracking-[-0.03em] text-gray-900 sm:text-[clamp(2.5rem,5vw,4.2rem)]'
 
-/* ---------- Бүтээгдэхүүн (API) ---------- */
+/* ---------- Бүтээгдэхүүн (албан үнийн жагсаалт) ---------- */
 
 function LiveProducts() {
-  const [cats, setCats] = useState<Category[] | null>(null)
-  const [active, setActive] = useState<string | null>(null)
-  const [byCat, setByCat] = useState<Record<string, ProductItem[]>>({})
-  const [failed, setFailed] = useState(false)
-
-  useEffect(() => {
-    apiFetch<Category[]>('/categories', { auth: false })
-      .then((d) => {
-        const list = Array.isArray(d) ? d.filter((c) => c.isActive !== false).slice(0, 8) : []
-        if (!list.length) return setFailed(true)
-        setCats(list)
-        setActive(String(list[0].id))
-      })
-      .catch(() => setFailed(true))
-  }, [])
-
-  useEffect(() => {
-    if (!active || byCat[active]) return
-    apiFetch<{ data?: ProductItem[] } | ProductItem[]>(`/products?categoryId=${active}&limit=8`, { auth: false })
-      .then((d) => setByCat((p) => ({ ...p, [active]: Array.isArray(d) ? d : d?.data ?? [] })))
-      .catch(() => setByCat((p) => ({ ...p, [active]: [] })))
-  }, [active, byCat])
-
-  // API ажиллахгүй бол статик карусель харуулна
-  if (failed) return <StaticProducts />
-
-  const items = active ? byCat[active] : undefined
+  const cats = popular.categories
+  const [active, setActive] = useState(cats[0])
+  const items = popular.types.filter((t) => t.cat === active)
 
   return (
     <section id="products" className="bg-white pb-16 pt-8 sm:pb-20 lg:pb-28">
@@ -61,46 +35,26 @@ function LiveProducts() {
         </div>
 
         <div className="mb-8 flex gap-2 overflow-x-auto px-5 pb-1 sm:px-8 lg:px-12" style={{ scrollbarWidth: 'none' }} role="tablist">
-          {(cats ?? []).map((c) => {
-            const id = String(c.id)
-            const on = id === active
-            return (
-              <button
-                key={id}
-                role="tab"
-                aria-selected={on}
-                onClick={() => setActive(id)}
-                className={`shrink-0 rounded-full border px-4 py-2 text-[13px] font-medium transition-colors duration-300 ${
-                  on ? 'border-gray-900 bg-gray-900 text-white' : 'border-gray-200 text-gray-900 hover:border-gray-400'
-                }`}
-              >
-                {c.name_mn || c.name}
-              </button>
-            )
-          })}
+          {cats.map((c) => (
+            <button key={c} role="tab" aria-selected={c === active} onClick={() => setActive(c)}
+              className={`shrink-0 rounded-full border px-4 py-2 text-[13px] font-medium transition-colors duration-300 ${
+                c === active ? 'border-gray-900 bg-gray-900 text-white' : 'border-gray-200 text-gray-900 hover:border-gray-400'
+              }`}>
+              {c}
+            </button>
+          ))}
         </div>
 
-        <div className="px-5 sm:px-8 lg:px-12">
-          {items === undefined ? (
-            <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4 lg:gap-6">
-              {Array.from({ length: 8 }).map((_, i) => (
-                <div key={i} className="aspect-square animate-pulse rounded-2xl bg-gray-100" />
-              ))}
-            </div>
-          ) : items.length ? (
-            <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4 lg:gap-6">
-              {items.slice(0, 8).map((p, i) => (
-                <ProductCard key={p.id || i} product={p} />
-              ))}
-            </div>
-          ) : (
-            <p className="py-12 text-center text-[14px] text-gray-500">
-              Энэ ангилалд бүтээгдэхүүн алга.{' '}
-              <Link href="/shop" className="font-medium text-gray-900 underline">
-                Дэлгүүрээс харах
-              </Link>
-            </p>
-          )}
+        <div className="grid grid-cols-2 gap-4 px-5 sm:px-8 md:grid-cols-3 lg:grid-cols-4 lg:gap-6 lg:px-12">
+          {items.slice(0, 8).map((t) => (
+            <Link key={t.slug} href={`/product/${t.slug}`} className="group block">
+              <div className="relative aspect-square overflow-hidden rounded-3xl bg-[#F5F5F5]">
+                <Image src={t.img} alt={t.name} fill sizes="(min-width: 1024px) 25vw, 50vw" className="object-cover transition-transform duration-500 group-hover:scale-[1.03]" />
+              </div>
+              <p className="mt-3 text-[15px] leading-tight text-gray-900">{t.name}</p>
+              <p className="mt-1 text-[13px] text-gray-500">{t.from.toLocaleString('en-US')}₮/{t.per}-аас</p>
+            </Link>
+          ))}
         </div>
       </div>
     </section>

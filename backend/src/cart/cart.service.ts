@@ -1,4 +1,5 @@
 import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common'
+import { priceCatalogLine, type CatalogFormula, type CatalogLine } from '../products/catalog-pricing'
 import { InjectRepository } from '@nestjs/typeorm'
 import { Repository } from 'typeorm'
 
@@ -485,7 +486,12 @@ export class CartService {
     const pricingMode = String(product.pricing_mode || 'fixed')
     const dynamicSource = ['pricing-catalog', 'ai-upload', 'server', 'quote', 'inquiry'].includes(source)
     const shouldUseCatalog = !dynamicSource && pricingMode === 'fixed' && catalog > 0
-    const unitPrice = shouldUseCatalog ? catalog : (submitted > 0 ? submitted : catalog)
+    let unitPrice = shouldUseCatalog ? catalog : (submitted > 0 ? submitted : catalog)
+    // Албан үнийн жагсаалтын бараа: үнийг серверт дахин бодно (клиентийн үнэд итгэхгүй)
+    if (pricingMode === 'catalog' && specs?.catalog?.line) {
+      const server = priceCatalogLine(product.price_formula as CatalogFormula, specs.catalog.line as CatalogLine)
+      if (server) unitPrice = this.roundMoney(server.total / Math.max(1, quantity))
+    }
     const delta = submitted > 0 ? this.roundMoney(submitted - unitPrice) : 0
 
     return {

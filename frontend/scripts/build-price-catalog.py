@@ -3,6 +3,7 @@
 bizprint-ийн албан ёсны үнийн Excel-ээс сайтын тооцоолуурын өгөгдөл үүсгэнэ.
 
   python scripts/build-price-catalog.py "<зам>/bizprint-alban-yosny-une-v6.xlsx"
+  python scripts/build-shop-catalog.py  "<зам>/Сайтын үнийн жагсаалт - НӨАТ орсон v1.xlsx"
 
 Гаралт: lib/pricing/catalog.json — ЗӨВХӨН үйлчлүүлэгчид харагдах үнэ.
 Excel-ийн өртөг, маржин, нийлүүлэгч, төлөвийн мэдээлэл JSON-д ОРОХГҮЙ.
@@ -112,7 +113,7 @@ FAMILY_RENAME = {"Стандарт": "Байгууллагын туг 2×1м (и
                  "Суурь иш": "Тугны суурь, иш"}
 GENERIC_VARIANTS = {"UV технологи", "Стандарт", "Зүсэлттэй", "Хэвлэлтэй", "Дотор туг", "Гадна туг",
                     "Гадна уян туг", "Ширээний туг", "Дарцаг", "1 ш"}
-DROP_CODES = {"BP-199"}  # «Шаазан аяга» — Промо хуудсанд шатлалын үнэтэй (PR-05)
+DROP_CODES = set()  # сайтын албан жагсаалтад бүгд орсон
 
 items = [it for it in items if it["code"] not in DROP_CODES]
 last_size = {}
@@ -222,21 +223,4 @@ catalog = {
 OUT.write_text(json.dumps(catalog, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
 print(f"{OUT}: {len(items)} бараа, {len(promo)} промо, {len(books)} ном, {len(locations)} байршил")
 
-# --- Нүүр хуудасны «түгээмэл захиалга» (catalog.json-ыг нүүр хуудсанд ачаалахгүйн тулд) ---
-VAT = 1.10
-byc = {it["code"]: it for it in catalog["items"]}
-def inc(x): return round(x * VAT)
-popular = []
-def add(code, title, calc, total_ex):
-    popular.append({"code": code, "title": title, "calc": calc, "inc": inc(total_ex)})
-it = byc["BP-077"]; add("BP-077", "Нэрийн хуудас 500ш", f"300гр, энгийн · {it['pack']}ш багц", it["ex"])
-it = byc["BP-007"]; add("BP-007", "Бельги баннер 1×3 м", f"3 м² × {inc(it['ex']):,}₮ + олс, бөгж", (it["ex"] + it["rope"]) * 3)
-it = byc["BP-001"]; add("BP-001", "X баннер стенд", "160×60 см, хүрээ + хэвлэл", it["ex"])
-it = byc["BP-056"]; add("BP-056", "Байгууллагын туг 2×1 м", "Суурьтай иж бүрдэл", it["ex"])
-pen = byc.get("PR-01")
-if pen:
-    t = [x for x in pen["tiers"] if x["min"] <= 100][-1]
-    add("PR-01", "Логотой үзэг 100ш", f"100 × {inc(t['ex']):,}₮", t["ex"] * 100)
-POP = OUT.with_name("popular.json")
-POP.write_text(json.dumps({"version": catalog["version"], "items": popular}, ensure_ascii=False, indent=1), encoding="utf-8")
-print(f"{POP}: {len(popular)} жишээ")
+# Дараагийн алхам: scripts/build-shop-catalog.py (сайтын албан жагсаалт, дэлгүүр, popular.json)

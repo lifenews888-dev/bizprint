@@ -11,6 +11,8 @@ import { Heart, Share2, GitCompareArrows, ShoppingCart, Zap, Link2, ExternalLink
 import PriceCalculator from '@/components/PriceCalculator'
 import BookPriceCalculator from '@/components/BookPriceCalculator'
 import { fbPixel } from '@/components/FacebookPixel'
+import CatalogProductView from '@/components/site/CatalogProductView'
+import { getType } from '@/lib/pricing'
 import {
   CLIENT_PRICING_SNAPSHOT_VERSION,
   PRICING_CONTRACT_VERSION,
@@ -506,8 +508,12 @@ export default function ProductPageClient({ initialProduct, slug: slugProp }: { 
     return true
   }
 
+  // Албан үнийн жагсаалтын бараа — шинэ стандарт хуудас (lib/pricing)
+  const catalogType = getType(normalizeSlug(_slug)) || (product?.slug ? getType(product.slug) : undefined)
+  if (catalogType) return <CatalogProductView type={catalogType} productId={product?.slug === catalogType.slug ? product.id : undefined} />
+
   if (loading) return <div className="min-h-screen flex items-center justify-center bg-[var(--bg)]"><div className="w-10 h-10 border-[3px] border-[var(--border)] border-t-[#FF6B00] rounded-full animate-spin" /></div>
-  if (!hasProductId(product)) return (
+  if (!hasProductId(product) || (product as { is_active?: boolean }).is_active === false) return (
     <div className="min-h-[60vh] flex flex-col items-center justify-center bg-[var(--bg)]">
       <motion.span initial={{ scale: 0 }} animate={{ scale: 1 }} className="text-5xl mb-4">😕</motion.span>
       <h2 className="text-xl font-bold text-[var(--text)] mb-2">Бүтээгдэхүүн олдсонгүй</h2>

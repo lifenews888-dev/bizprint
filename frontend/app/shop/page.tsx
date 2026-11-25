@@ -1,16 +1,17 @@
-import { Suspense } from 'react'
 import type { Metadata } from 'next'
-import ShopPageInner from './ShopPageInner'
+import { redirect } from 'next/navigation'
+import ShopCatalog from '@/components/site/ShopCatalog'
+import { catBySlug, catSlug } from '@/lib/pricing'
 
 export const metadata: Metadata = {
   title: 'Дэлгүүр | BizPrint — Хэвлэлийн бүтээгдэхүүн',
-  description: 'Нэрийн хуудас, флаер, баннер, стикер зэрэг хэвлэлийн бүтээгдэхүүнийг онлайнаар захиалаарай.',
+  description: 'Нэрийн хуудас, брошур, баннер, туг, стикер, хаяг реклам, промо бэлэг — албан үнээр онлайнаар захиалаарай. Бүх үнэ НӨАТ орсон.',
+  alternates: { canonical: 'https://bizprint.mn/shop' },
 }
 
-export default function ShopPage() {
-  return (
-    <Suspense fallback={<div className="flex items-center justify-center h-64"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500" /></div>}>
-      <ShopPageInner />
-    </Suspense>
-  )
+export default async function ShopPage({ searchParams }: { searchParams: Promise<{ cat?: string; category?: string }> }) {
+  const sp = await searchParams
+  const c = sp.cat || sp.category
+  if (c && (catBySlug(c) || catSlug(c))) redirect(`/shop/category/${catSlug(c) || c}`)
+  return <ShopCatalog />
 }
