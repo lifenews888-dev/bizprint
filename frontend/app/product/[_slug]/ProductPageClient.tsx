@@ -622,7 +622,7 @@ export default function ProductPageClient({ initialProduct, slug: slugProp }: { 
             </div>
 
             {p.category && <Link href={`/shop?category=${p.category}`} className="text-[10px] font-bold text-[#FF6B00] uppercase tracking-widest no-underline">{p.category}</Link>}
-            <h1 className="text-lg font-extrabold leading-snug tracking-tight !mt-1">{p.name_mn || p.name}</h1>
+            <h1 data-keep-size className="text-lg font-extrabold leading-snug tracking-tight !mt-1">{p.name_mn || p.name}</h1>
             {p.sku && <div className="text-[10px] text-[var(--text3)] font-mono !mt-0">SKU: {p.sku}</div>}
 
             {/* Price — glass card (live from calculator) */}

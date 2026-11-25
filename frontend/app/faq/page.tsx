@@ -55,7 +55,7 @@ const DEFAULT_FAQ: FaqItem[] = [
   { category: 'other', q: 'BizPrint гэж юу вэ?', a: 'BizPrint бол Монголын анхны AI-д суурилсан хэвлэлийн B2B marketplace платформ юм.' },
   { category: 'other', q: 'Партнер болох боломжтой юу?', a: 'Тийм, үйлдвэр, дизайнер, хүргэлтийн компани бүгд партнер болж болно. /partner хуудаснаас бүртгүүлнэ.' },
   { category: 'other', q: 'Аюулгүй байдал хэрхэн хангадаг вэ?', a: 'SSL шифрлэлт, JWT токен, escrow төлбөр, KYC баталгаажуулалт зэргээр аюулгүй байдлыг хангана.' },
-  { category: 'other', q: 'Утсаар захиалга өгөх боломжтой юу?', a: 'Тийм, bizprint.mn сайт утасны browser-д бүрэн тохирсон. Мөн +976 7711-7700 дугаараар залгаж болно.' },
+  { category: 'other', q: 'Утсаар захиалга өгөх боломжтой юу?', a: 'Тийм, bizprint.mn сайт утасны browser-д бүрэн тохирсон. Мөн 7200-0444 дугаараар залгаж болно.' },
 ]
 
 const DEFAULT_HERO = { hero_title: 'Түгээмэл асуулт', hero_desc: 'Хариулт олдохгүй бол бидэнтэй холбогдоорой' }
@@ -172,7 +172,7 @@ export default function FaqPage() {
       <div style={{ textAlign: 'center', marginTop: 40, padding: 32, borderRadius: 16, background: 'rgba(255,107,0,0.05)', border: '1px solid rgba(255,107,0,0.2)' }}>
         <p style={{ fontSize: 15, fontWeight: 600, color: 'var(--text)', marginBottom: 8 }}>Хариулт олдсонгүй юу?</p>
         <p style={{ fontSize: 13, color: 'var(--text3)', marginBottom: 16 }}>Бидэнтэй холбогдоорой</p>
-        <a href="tel:+97677117700" style={{ display: 'inline-block', padding: '10px 24px', borderRadius: 10, background: '#FF6B00', color: '#fff', textDecoration: 'none', fontSize: 14, fontWeight: 600 }}>📞 +976 7711-7700</a>
+        <a href="tel:+97672000444" style={{ display: 'inline-block', padding: '10px 24px', borderRadius: 10, background: '#FF6B00', color: '#fff', textDecoration: 'none', fontSize: 14, fontWeight: 600 }}>📞 7200-0444</a>
       </div>
     </div>
   )

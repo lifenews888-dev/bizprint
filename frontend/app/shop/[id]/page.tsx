@@ -462,7 +462,7 @@ export default function ProductConfiguratorPage() {
           {/* Header */}
           <div style={{ marginBottom: 20 }}>
             <div style={{ fontSize: 11, fontWeight: 700, color: O, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 6 }}>{product.category || 'Хэвлэл'}</div>
-            <h1 style={{ fontSize: 26, fontWeight: 800, color: '#111', margin: '0 0 8px', lineHeight: 1.2 }}>{productName}</h1>
+            <h1 data-keep-size style={{ fontSize: 26, fontWeight: 800, color: '#111', margin: '0 0 8px', lineHeight: 1.2 }}>{productName}</h1>
             {product.rating != null && <Stars rating={Number(product.rating)} />}
             {product.description && <p style={{ fontSize: 14, color: '#666', lineHeight: 1.6, margin: '10px 0 0' }}>{product.description}</p>}
           </div>

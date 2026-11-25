@@ -8,14 +8,14 @@ const DEFAULTS = {
   hero_title: 'Холбоо барих',
   hero_desc: 'Асуулт, санал хүсэлт байвал бидэнтэй холбогдоорой',
   info: [
-    { icon: '📞', title: 'Утас', value: '+976 7711-7700', link: 'tel:+97677117700' },
+    { icon: '📞', title: 'Утас', value: '7200-0444', link: 'tel:+97672000444' },
     { icon: '📧', title: 'И-мэйл', value: 'info@bizprint.mn', link: 'mailto:info@bizprint.mn' },
-    { icon: '📍', title: 'Хаяг', value: 'Улаанбаатар, Монгол', link: '' },
+    { icon: '📍', title: 'Хаяг', value: 'Логос Төв 7 давхар, 701 тоот, Чингэлтэй дүүрэг', link: '' },
     { icon: '🕐', title: 'Цагийн хуваарь', value: 'Даваа-Баасан: 09:00-18:00', link: '' },
   ],
   social: [
-    { label: 'Facebook', url: 'https://facebook.com/bizprint.mn', icon: '🔵' },
-    { label: 'Instagram', url: 'https://instagram.com/bizprint.mn', icon: '🟣' },
+    { label: 'Facebook', url: 'https://facebook.com/bizprintpro', icon: '🔵' },
+    { label: 'Instagram', url: 'https://instagram.com/bizprintpro25', icon: '🟣' },
   ],
   map_embed: '',
 }

@@ -44,7 +44,7 @@ export default function LayoutShell({ children }: { children: React.ReactNode })
     <>
       <AnnouncementBar />
       <SiteHeader />
-      <main>{children}</main>
+      <main className="site-page">{children}</main>
       {!hideChatWidget && <ChatWidget />}
       <ChatbotEmbed />
       <SiteFooter />

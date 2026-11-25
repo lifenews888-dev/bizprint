@@ -134,9 +134,9 @@ const DEFAULT_SETTINGS: SettingsMap = {
   // site
   site_name: 'BizPrint',
   site_logo_url: '',
-  site_phone: '+976 7711-7700',
+  site_phone: '7200-0444',
   site_email: 'info@bizprint.mn',
-  site_address: 'Улаанбаатар, Монгол',
+  site_address: 'Логос Төв 7 давхар, 701 тоот, Чингэлтэй дүүрэг',
   site_facebook: 'https://facebook.com/bizprint.mn',
   site_instagram: 'https://instagram.com/bizprint.mn',
   site_youtube: 'https://youtube.com/@bizprint',
@@ -155,7 +155,7 @@ const DEFAULT_SETTINGS: SettingsMap = {
   footer_logo_url: '',
   footer_description: 'Хэвлэлийн салбарын бүх оролцогчдыг нэгтгэсэн экосистем.',
   footer_copyright: '© 2026 BizPrint. Бүх эрх хуулиар хамгаалагдсан.',
-  footer_location: 'Улаанбаатар, Монгол',
+  footer_location: 'Логос Төв 7 давхар, 701 тоот, Чингэлтэй дүүрэг',
   footer_columns: [
     { title: 'БҮТЭЭГДЭХҮҮН', links: [{label:'Нэрийн хуудас',url:'/shop/category/business-card'},{label:'Флаер',url:'/shop/category/flyer'},{label:'Баннер',url:'/shop/category/banner'},{label:'Стикер',url:'/shop/category/sticker'},{label:'Бүх бүтээгдэхүүн',url:'/shop'}]},
     { title: 'ҮЙЛЧИЛГЭЭ', links: [{label:'Үнэ тооцоолох',url:'/quote'},{label:'Захиалга өгөх',url:'/orders/new'},{label:'Creator Marketplace',url:'/marketplace'}]},

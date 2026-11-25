@@ -35,3 +35,50 @@
 
 /* Mobile sticky CTA энэ хуудсанд нуугдсан тул доод зайг арилгана */
 body:has(.site-light) { padding-bottom: 0; }
+
+/* ================================================================
+   Шинэ загварын хэв маяг — дотоод нийтийн хуудсууд (.site-page)
+   Хуудсуудын логикийг хөндөхгүйгээр харагдах байдлыг нэгтгэнэ.
+   ================================================================ */
+
+/* Гарчиг: дунд жинтэй, нягт, нэг өнгө (/print загвар) */
+.site-page h1,
+.site-page h2 {
+  font-weight: 500 !important;
+  letter-spacing: -0.03em !important;
+  line-height: 1.1;
+}
+.site-page h1:not([data-keep-size]) {
+  font-size: clamp(1.9rem, 4vw, 3.2rem) !important;
+}
+.site-page h3 {
+  letter-spacing: -0.01em;
+}
+/* Гарчиг доторх улбар шар "онцолсон үг"-ийг арилгана */
+.site-page :is(h1, h2) :is(span, em)[class*="FF6B00"],
+.site-page :is(h1, h2) :is(span, em)[style*="FF6B00" i],
+.site-page :is(h1, h2) :is(span, em)[style*="255, 107, 0"] {
+  color: inherit !important;
+  background: none !important;
+  -webkit-text-fill-color: currentColor !important;
+}
+
+/* Улбар шар үндсэн товчнууд → pill хэлбэр */
+.site-page :is(a, button)[class*="bg-[#FF6B00]"],
+.site-page :is(a, button)[style*="background: #FF6B00" i],
+.site-page :is(a, button)[style*="background:#FF6B00" i],
+.site-page :is(a, button)[style*="background: rgb(255, 107, 0)"],
+.site-page :is(a, button)[style*="background-color: rgb(255, 107, 0)"] {
+  border-radius: 9999px !important;
+}
+
+/* Хар (gray-900) товчнуудыг ч мөн pill болгоно */
+.site-page :is(a, button)[class*="bg-gray-900"],
+.site-page :is(a, button)[class*="bg-[#111"] {
+  border-radius: 9999px !important;
+}
+
+/* Оруулах талбарууд: зөөлөн саарал суурь */
+.site-page :is(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), select, textarea) {
+  border-radius: 14px;
+}

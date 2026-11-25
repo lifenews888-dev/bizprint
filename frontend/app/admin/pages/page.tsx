@@ -627,7 +627,7 @@ function ContactMetadata({ form, setForm }: MetaProps) {
           <div key={i} className="grid grid-cols-[40px_1fr_1.5fr_1.5fr_32px] gap-2 items-center">
             <Input value={item.icon || ''} onChange={e => updateItem('info', info, i, 'icon', e.target.value)} className="text-center text-lg p-1" maxLength={2} />
             <Input value={item.title || ''} onChange={e => updateItem('info', info, i, 'title', e.target.value)} placeholder="Утас" />
-            <Input value={item.value || ''} onChange={e => updateItem('info', info, i, 'value', e.target.value)} placeholder="+976 7711-7700" />
+            <Input value={item.value || ''} onChange={e => updateItem('info', info, i, 'value', e.target.value)} placeholder="7200-0444" />
             <Input value={item.link || ''} onChange={e => updateItem('info', info, i, 'link', e.target.value)} placeholder="tel:+976... (хоосон ч болно)" className="font-mono text-xs" />
             <button onClick={() => setArr('info', info.filter((_, j) => j !== i))} className="text-destructive hover:text-destructive/80 cursor-pointer text-sm">✕</button>
           </div>

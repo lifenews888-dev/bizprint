@@ -1,17 +1,17 @@
 /** BizPrint site configuration — single source of truth */
 
 export const SITE_CONFIG = {
-  phone: '+976 7711-7700',
-  phoneDisplay: '+976 7711-7700',
-  phoneRaw: '97677117700',
+  phone: '+976 7200-0444',
+  phoneDisplay: '7200-0444',
+  phoneRaw: '97672000444',
   email: 'info@bizprint.mn',
-  address: 'Улаанбаатар, Монгол',
+  address: 'Логос Төв 7 давхар, 701 тоот, Чингэлтэй дүүрэг',
   workingHours: 'Даваа-Баасан: 09:00-18:00',
   companyName: 'BizPrint',
   siteUrl: process.env.NEXT_PUBLIC_SITE_URL || 'https://bizprint.mn',
   social: {
-    facebook: 'https://facebook.com/bizprint.mn',
-    instagram: 'https://instagram.com/bizprint.mn',
+    facebook: 'https://facebook.com/bizprintpro',
+    instagram: 'https://instagram.com/bizprintpro25',
   },
 }
 

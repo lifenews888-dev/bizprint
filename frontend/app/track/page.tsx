@@ -161,8 +161,8 @@ function TrackContent() {
             <a href="/contact" style={{ flex: 1, padding: '12px 0', border: '1px solid var(--border)', borderRadius: 12, textAlign: 'center', fontSize: 13, color: 'var(--text2)', textDecoration: 'none' }}>
               💬 Холбогдох
             </a>
-            <a href="tel:+97677117700" style={{ flex: 1, padding: '12px 0', background: '#FF6B00', borderRadius: 12, textAlign: 'center', fontSize: 13, color: '#fff', textDecoration: 'none', fontWeight: 600 }}>
-              📞 7711-7700
+            <a href="tel:+97672000444" style={{ flex: 1, padding: '12px 0', background: '#FF6B00', borderRadius: 12, textAlign: 'center', fontSize: 13, color: '#fff', textDecoration: 'none', fontWeight: 600 }}>
+              📞 7200-0444
             </a>
           </div>
         </div>
