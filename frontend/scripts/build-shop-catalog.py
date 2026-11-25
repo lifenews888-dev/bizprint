@@ -127,6 +127,15 @@ for i, t in enumerate(type_list):
     t["about"] = first.get("about", "")
     t["sort"] = i + 1
 
+# Эзэмшигчийн баталсан үнийн засвар (xlsx-ээс давуу) — { код: НӨАТ орсон үнэ }
+PRICE_OVERRIDE = {
+    "BP-047": 44000,  # Барьдаг иш — 40,000₮ + НӨАТ (2026-11-25, Мөнхбат)
+}
+for x in items:
+    if x["code"] in PRICE_OVERRIDE:
+        x["inc"] = PRICE_OVERRIDE[x["code"]]
+        x["ex"] = round(x["inc"] / 1.1)
+
 cat.update({
     "version": VERSION,
     "categories": [c for c, _ in CATEGORIES if c in {t["cat"] for t in type_list}],

@@ -16,7 +16,7 @@ const FLAG_OUTDOOR = {
     variants: [
       { code: 'BP-041', family: 'Гадна туг', option: 'Нимгэн силк', unit: 'm2', inc: 55000, ex: 50000,
         presets: [{ w: 1.0, h: 0.5, inc: 27500 }, { w: 2.0, h: 1.0, inc: 110000 }] },
-      { code: 'BP-047', family: 'Тугны суурь, иш', option: 'Барьдаг иш', unit: 'pcs', inc: 41800, ex: 38000 },
+      { code: 'BP-047', family: 'Тугны суурь, иш', option: 'Барьдаг иш', unit: 'pcs', inc: 44000, ex: 40000 },
     ],
   },
 };
@@ -58,10 +58,10 @@ describe('FlowCatalogService', () => {
       productSlug: 'flagoutdoor', variantCode: 'BP-041', widthM: 1.2, heightM: 2.4, quantity: 2, sides: 2,
       extras: [{ variantCode: 'BP-047', quantity: 2 }],
     });
-    // 1.2×2.4 = 2.88м² × 55,000 = 158,400 → 2 тал → 316,800 × 2ш = 633,600 ; иш 41,800×2
+    // 1.2×2.4 = 2.88м² × 55,000 = 158,400 → 2 тал → 316,800 × 2ш = 633,600 ; иш 44,000×2
     expect(q.mainTotal).toBe(633600);
-    expect(q.extras[0]).toMatchObject({ variantCode: 'BP-047', quantity: 2, total: 83600 });
-    expect(q.total).toBe(633600 + 83600);
+    expect(q.extras[0]).toMatchObject({ variantCode: 'BP-047', quantity: 2, total: 88000 });
+    expect(q.total).toBe(633600 + 88000);
   });
 
   it('does not double pcs products and requires dimensions for m²', async () => {
