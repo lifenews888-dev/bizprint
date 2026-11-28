@@ -206,7 +206,6 @@ export class SystemService {
     max_file_size_mb: 50,
     stamp_threshold: 10000,
     delivery_fee: 5000,
-    free_delivery_min: 50000,
     creator_commission: 15,
     new_user_bonus: 1000,
   };
@@ -219,7 +218,6 @@ export class SystemService {
     max_file_size_mb: { type: 'number', label: 'Файлын хэмжээ (MB)', description: 'Хамгийн их upload хэмжээ', category: 'system' },
     stamp_threshold: { type: 'number', label: 'Тамгын босго (₮)', description: 'Хэдэн төгрөгийн захиалгад 1 тамга өгөх', category: 'pricing' },
     delivery_fee: { type: 'number', label: 'Хүргэлтийн хөлс (₮)', description: 'Стандарт хүргэлтийн үнэ', category: 'delivery' },
-    free_delivery_min: { type: 'number', label: 'Үнэгүй хүргэлт (₮)', description: 'Энэ дүнгээс дээш үнэгүй хүргэнэ', category: 'delivery' },
     creator_commission: { type: 'number', label: 'Бүтээгчийн шимтгэл (%)', description: 'Дизайнер, лайвчинд өгөх хувь', category: 'pricing' },
     new_user_bonus: { type: 'number', label: 'Шинэ хэрэглэгч бонус (₮)', description: 'Бүртгүүлэхэд өгөх бонус', category: 'pricing' },
   };

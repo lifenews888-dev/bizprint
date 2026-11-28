@@ -39,7 +39,6 @@ const SETTING_GROUPS: SettingGroup[] = [
     { key: 'auto_dispatch', label: 'Автомат илгээх', type: 'boolean', default_value: false, desc: 'Үйлдвэрлэл дууссаны дараа автомат хүргэлтэд өгөх' },
     { key: 'delivery_timeout_hours', label: 'Хүргэлтийн хугацаа', type: 'number', default_value: 48, unit: 'цаг', min: 1, max: 168 },
     { key: 'default_delivery_cost', label: 'Хүргэлтийн зардал', type: 'number', default_value: 5000, unit: '₮', min: 0 },
-    { key: 'free_delivery_threshold', label: 'Үнэгүй хүргэлтийн босго', type: 'number', default_value: 50000, unit: '₮', min: 0, desc: 'Энэ дүнгээс дээш захиалгад хүргэлт үнэгүй' },
   ]},
   { key: 'files', label: 'Файл', icon: '📁', color: '#F59E0B', settings: [
     { key: 'max_upload_size_mb', label: 'Файлын дээд хэмжээ', type: 'number', default_value: 100, unit: 'MB', min: 1, max: 500 },

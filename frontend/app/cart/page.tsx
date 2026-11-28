@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Trash2, Minus, Plus, Heart, ShoppingBag, ArrowRight, Truck, Shield, RotateCcw } from 'lucide-react'
 import { toast } from 'sonner'
+import { catalog } from '@/lib/pricing'
 
 const fmt = (n: number) => '₮' + n.toLocaleString('mn-MN')
 
@@ -17,8 +18,10 @@ export default function CartPage() {
   const itemTotal = cartTotal()
   const subtotalExclVat = Math.round(itemTotal / 1.1)
   const tax = itemTotal - subtotalExclVat
-  const shipping = itemTotal >= 50000 ? 0 : 5000
-  const grandTotal = itemTotal + shipping
+  // Хүргэлт барааны үнэд ордоггүй — ачааны хэмжээ, бүсээр тусад нь тооцно (албан үнийн жагсаалт)
+  const grandTotal = itemTotal
+  const deliveryFrom = Math.min(...Object.values(catalog.delivery.base))
+  const deliveryMax = catalog.delivery.max
   const pricingAuditSummary = summarizeCartPricingAudit(cart)
   const { message: pricingAuditMessage, tone: pricingAuditTone } = getCartPricingAuditSummaryMessage(pricingAuditSummary, cart.length)
 
@@ -151,7 +154,7 @@ export default function CartPage() {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-[var(--text3)]">Хүргэлт</span>
-                  <span className={`font-semibold ${shipping === 0 ? 'text-emerald-600' : ''}`}>{shipping === 0 ? 'Үнэгүй' : fmt(shipping)}</span>
+                  <span className="font-semibold text-right">Тусад нь</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-[var(--text3)]">НӨАТ (10%)</span>
@@ -163,11 +166,10 @@ export default function CartPage() {
                 </div>
               </div>
 
-              {shipping > 0 && (
-                <div className="text-[10px] text-emerald-600 bg-emerald-50 rounded-lg px-3 py-2 font-semibold">
-                  🚚 ₮50,000+ захиалгад хүргэлт ҮНЭГҮЙ! Дутуу: {fmt(50000 - itemTotal)}
-                </div>
-              )}
+              <div className="text-[11px] text-[var(--text2)] bg-[var(--surface2)] rounded-lg px-3 py-2 leading-relaxed">
+                🚚 Хотод хүргэлт {fmt(deliveryFrom)}–{fmt(deliveryMax)} (ачааны хэмжээ, бүсээс хамаарна).<br />
+                🏢 {catalog.delivery.pickup}.
+              </div>
 
               {pricingAuditMessage && (
                 <div

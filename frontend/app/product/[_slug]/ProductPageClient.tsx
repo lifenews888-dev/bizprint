@@ -234,10 +234,6 @@ function PromoDrawer() {
               <button onClick={() => setOpen(false)} className="w-8 h-8 rounded-full bg-[var(--surface2)] border-none cursor-pointer text-[var(--text3)] hover:bg-[var(--surface3)] text-lg flex items-center justify-center">×</button>
             </div>
             <div className="flex-1 overflow-y-auto p-5 space-y-4">
-              <div className="rounded-xl bg-gradient-to-r from-[#FF6B00] to-[#F59E0B] p-4 text-white">
-                <div className="text-xs font-bold uppercase tracking-wider opacity-70 mb-1">Энэ 7 хоногт</div>
-                <div className="text-lg font-extrabold mb-1">₮50,000+ захиалгад хүргэлт ҮНЭГҮЙ</div>
-              </div>
               <div className="rounded-xl border border-[var(--border)] p-4">
                 <div className="text-sm font-bold text-[var(--text)] mb-2">💳 Хэсэгчлэн төлөх</div>
                 <div className="flex gap-2">{['StorePay', 'Simple', 'LendMN'].map(p => <span key={p} className="text-[10px] font-semibold px-2.5 py-1.5 rounded-lg bg-[var(--surface2)] border border-[var(--border)] text-[var(--text2)]">{p}</span>)}</div>
