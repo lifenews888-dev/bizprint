@@ -1,5 +1,8 @@
 import { CartService } from './cart.service';
 import { CartStatus } from './cart.entity';
+import { sealPrice } from '../common/price-seal';
+
+process.env.PRICE_SEAL_SECRET = process.env.PRICE_SEAL_SECRET || 'test-price-seal-secret-at-least-24-chars';
 
 function makeRepo(overrides: Record<string, any> = {}) {
   return {
@@ -61,7 +64,7 @@ function makeService(overrides: Record<string, any> = {}) {
 }
 
 describe('CartService pricing', () => {
-  it('stores submitted customer unit price and pricing specs when adding an item', async () => {
+  it('stores a server-sealed customer unit price and pricing specs when adding an item', async () => {
     const { service, deps } = makeService();
     deps.productRepo.findOne.mockResolvedValue({
       id: 'product-1',
@@ -78,7 +81,12 @@ describe('CartService pricing', () => {
       unit_price: 561000,
       specs: {
         pricing: { vat: 51000, vat_included: true, source: 'pricing-catalog' },
-        pricing_snapshot: { source: 'pricing-catalog', pricingContractVersion: 'pricing-golden-v1', total: 1122000 },
+        pricing_snapshot: {
+          source: 'pricing-catalog',
+          pricingContractVersion: 'pricing-golden-v1',
+          total: 1122000,
+          serverQuote: { price_seal: sealPrice({ scope: 'pricing-catalog', unit_price: 561000, quantity: 2 }) },
+        },
       },
     });
 

@@ -4,6 +4,7 @@ import { ProductsMasterService } from '../products-master/products-master.servic
 import { ProductPriceCalculatorService } from './product-price-calculator.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AdminGuard } from '../admin/admin.guard';
+import { sealPrice } from '../common/price-seal';
 
 @Controller('products')
 export class ProductsController {
@@ -34,7 +35,12 @@ export class ProductsController {
   async calculatePrice(@Param('id') id: string, @Body() input: any) {
     const product = await this.productsService.findOne(id);
     if (!product) return { error: 'Product not found' };
-    return this.priceCalc.calculate(product, input);
+    const result = this.priceCalc.calculate(product, input);
+    // Сагсанд нэмэхэд «серверийн үнэ» гэдгийг батлах битүүмж (бараанд уясан)
+    const price_seal = result.is_estimate
+      ? null
+      : sealPrice({ scope: `server:${product.id}`, unit_price: Math.round(Number(result.unit_price) || 0), quantity: result.quantity });
+    return { ...result, price_seal };
   }
 
   @Get(':id/estimate-lead-time')

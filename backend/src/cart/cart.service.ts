@@ -1,4 +1,4 @@
-import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common'
+import { Injectable, Optional, BadRequestException, NotFoundException } from '@nestjs/common'
 import { priceCatalogLine, type CatalogFormula, type CatalogLine } from '../products/catalog-pricing'
 import { InjectRepository } from '@nestjs/typeorm'
 import { Repository } from 'typeorm'
@@ -15,6 +15,9 @@ import { User } from '../users/user.entity'
 import { PricingService } from '../quote/pricing.service'
 import { QuoteService } from '../quote/quote.service'
 import { EventsLogService } from '../events/events.service'
+import { PrinityOrderClient } from '../prinity/prinity-order.client'
+import { ProductPriceCalculatorService } from '../products/product-price-calculator.service'
+import { verifyPriceSeal } from '../common/price-seal'
 
 @Injectable()
 export class CartService {
@@ -50,6 +53,7 @@ export class CartService {
     private pricingService: PricingService,
     private quoteService: QuoteService,
     private eventsLog: EventsLogService,
+    @Optional() private prinity?: PrinityOrderClient,
   ) {}
 
   // ── Get or create active cart ──────────────────────────────────────────────
@@ -366,10 +370,17 @@ export class CartService {
       actor_type: 'user',
     })
 
-    return this.orderRepo.findOne({
+    const saved = await this.orderRepo.findOne({
       where: { id: order.id },
       relations: ['items', 'vendor_groups'],
     })
+    void this.prinity?.mirror({
+      ...saved,
+      customer_name: customer?.full_name || null,
+      customer_phone: customer?.phone || null,
+      customer_email: customer?.email || null,
+    }, quotation.items || []).catch(() => {})
+    return saved
   }
 
   private formatCartResponse(cart: Cart | null) {
@@ -485,9 +496,33 @@ export class CartService {
     const catalog = this.roundMoney(Number(product.sale_price ?? product.base_price ?? 0))
     const pricingMode = String(product.pricing_mode || 'fixed')
     const dynamicSource = ['pricing-catalog', 'ai-upload', 'server', 'quote', 'inquiry'].includes(source)
-    const shouldUseCatalog = !dynamicSource && pricingMode === 'fixed' && catalog > 0
-    let unitPrice = shouldUseCatalog ? catalog : (submitted > 0 ? submitted : catalog)
-    // Албан үнийн жагсаалтын бараа: үнийг серверт дахин бодно (клиентийн үнэд итгэхгүй)
+
+    // SECURITY: хөтчөөс ирсэн үнэд итгэхгүй. «Динамик» эх сурвалжийн үнийг
+    // зөвхөн сервер өөрөө битүүмжилсэн (price_seal) үед шууд хүлээн авна.
+    // Өмнө нь source: 'server' гэж бичээд дурын үнэ (ж: 1₮) илгээж болдог байсан.
+    const seal = snapshot?.serverQuote?.price_seal ?? snapshot?.breakdown?.price_seal
+      ?? pricing?.price_seal ?? specs?.price_seal
+    // 'server' үнэ нь тухайн бараанд уягдсан (өөр барааны битүүмжийг ашиглахгүй)
+    const sealScope = source === 'server' ? `server:${product.id}` : source
+    const sealed = dynamicSource && submitted > 0
+      && verifyPriceSeal(seal, { scope: sealScope, unit_price: submitted, quantity })
+
+    let unitPrice: number
+    let floor: number | null = null
+    if (sealed) {
+      unitPrice = submitted
+    } else if (pricingMode === 'fixed' && catalog > 0) {
+      unitPrice = catalog
+    } else {
+      // Шатлал / талбайн томьёотой бараа: серверийн үнэ бодогчоор доод үнэ гаргаж,
+      // хөтчийн үнэ түүнээс доош байвал доод үнийг авна.
+      floor = this.serverFloorUnitPrice(product, specs, quantity)
+      unitPrice = floor !== null
+        ? Math.max(submitted, floor)
+        : (submitted > 0 ? submitted : catalog)
+    }
+    // Албан үнийн жагсаалтын бараа: үнийг серверт дахин бодно (клиентийн үнэд итгэхгүй).
+    // Битүүмжээс ч илүү эрхтэй — каталогийн мөр байвал үргэлж серверийн үнийг авна.
     if (pricingMode === 'catalog' && specs?.catalog?.line) {
       const server = priceCatalogLine(product.price_formula as CatalogFormula, specs.catalog.line as CatalogLine)
       if (server) unitPrice = this.roundMoney(server.total / Math.max(1, quantity))
@@ -505,6 +540,8 @@ export class CartService {
         pricing_mode: pricingMode,
         submitted_unit_price: submitted,
         catalog_unit_price: catalog,
+        server_floor_unit_price: floor,
+        sealed,
         accepted_unit_price: unitPrice,
         quantity,
         delta,
@@ -512,6 +549,31 @@ export class CartService {
       },
     }
   }
+
+  /** Серверийн үнэ бодогчоор тухайн тоо/хэмжээний нэгж үнэ. Бодож чадахгүй бол null. */
+  private serverFloorUnitPrice(product: Product, specs: Record<string, any>, quantity: number): number | null {
+    try {
+      const opts = specs?.options && typeof specs.options === 'object' ? specs.options : specs
+      const mm = (...vs: unknown[]) => {
+        for (const v of vs) {
+          const n = Number(v)
+          if (Number.isFinite(n) && n > 0) return n
+        }
+        return undefined
+      }
+      const r = this.priceCalc.calculate(product, {
+        quantity,
+        width_mm: mm(opts?.width_mm, specs?.pricing?.width_mm),
+        height_mm: mm(opts?.height_mm, specs?.pricing?.height_mm),
+      })
+      const unit = this.roundMoney(Number(r?.unit_price))
+      return unit > 0 ? unit : null
+    } catch {
+      return null
+    }
+  }
+
+  private readonly priceCalc = new ProductPriceCalculatorService()
 
   private validateQuotationTotals(quotation: Quotation) {
     const items = quotation.items || []

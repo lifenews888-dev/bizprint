@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common'
+import { sealPrice } from '../../common/price-seal'
 import Anthropic from '@anthropic-ai/sdk'
 import pdfParse from 'pdf-parse'
 import { PDFDocument } from 'pdf-lib'
@@ -247,6 +248,8 @@ ${extraHint ? `- Нэмэлт мэдээлэл: ${extraHint}` : ''}
         unit_price:        quote.unit_price,
         total_price:       quote.total_price,
         currency:          'MNT',
+        // Сагсанд нэмэхэд серверийн үнэ гэдгийг батлах битүүмж
+        price_seal:        sealPrice({ scope: 'ai-upload', unit_price: Math.round(Number(quote.unit_price) || 0), quantity }),
         // Зардлын задаргаа
         paper_cost:        quote.paper_cost,
         print_cost:        quote.print_cost,
