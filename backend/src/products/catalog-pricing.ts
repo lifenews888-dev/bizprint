@@ -38,6 +38,13 @@ const tierFor = <T extends { min: number }>(tiers: T[], qty: number): T => {
   return t;
 };
 
+/** Шатлалын нийт дүн — дараагийн шатлалын бага хэмжээний нийт дүнгээс хэтрэхгүй (frontend-тэй ижил). */
+const tierTotal = <T extends { min: number }>(tiers: T[], qty: number, unit: (t: T) => number): number => {
+  let total = unit(tierFor(tiers, qty)) * qty;
+  for (const x of tiers) if (x.min > qty && unit(x) * x.min < total) total = unit(x) * x.min;
+  return total;
+};
+
 /** Мөрийн НӨАТ орсон нийт үнэ ба сагсны тоо. Таарахгүй бол null. */
 export function priceCatalogLine(formula: CatalogFormula, line: CatalogLine): { total: number; cartQty: number } | null {
   if (!formula || formula.type !== 'catalog' || !line?.code) return null;
@@ -46,8 +53,7 @@ export function priceCatalogLine(formula: CatalogFormula, line: CatalogLine): { 
     const b = formula.books?.find((x) => x.code === line.code);
     if (!b) return null;
     const qty = Math.max(BOOK_MIN, Math.round(Number(line.qty) || 0));
-    const per = roundp(tierFor(b.tiers, qty).ex * (1 + VAT));
-    return { total: per * qty, cartQty: qty };
+    return { total: tierTotal(b.tiers, qty, (x) => roundp(x.ex * (1 + VAT))), cartQty: qty };
   }
 
   const v = formula.variants.find((x) => x.code === line.code && !x.addon);
@@ -70,7 +76,7 @@ export function priceCatalogLine(formula: CatalogFormula, line: CatalogLine): { 
     case 'tier': {
       const min = v.min || 1;
       const q = Math.max(min, Math.round(Number(line.qty) || min));
-      total = tierFor(v.tiers?.length ? v.tiers : [{ min, inc: v.inc }], q).inc * q;
+      total = tierTotal(v.tiers?.length ? v.tiers : [{ min, inc: v.inc }], q, (x) => x.inc);
       cartQty = q;
       break;
     }

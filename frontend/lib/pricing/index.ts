@@ -113,6 +113,26 @@ export function tierFor<T extends { min: number }>(tiers: T[], qty: number): T {
   return t
 }
 
+/**
+ * Шатлалтай үнийн нийт дүн. Дараагийн шатлалын бага хэмжээгээр авахаас
+ * илүү үнэтэй гарахгүй (ж: 49ш нь 50ш-ийн нийт дүнгээс хэтрэхгүй).
+ * backend/src/products/catalog-pricing.ts-д ижил дүрэм бий.
+ */
+export function tierTotal<T extends { min: number }>(tiers: T[], qty: number, unit: (t: T) => number) {
+  const tier = tierFor(tiers, qty)
+  let total = unit(tier) * qty
+  let capped: T | undefined
+  for (const x of tiers) {
+    if (x.min > qty && unit(x) * x.min < total) {
+      total = unit(x) * x.min
+      capped = x
+    }
+  }
+  return { total, tier, capped }
+}
+
+const capNote = (c: { min: number }) => `Дээд хязгаар: ${qtyFmt(c.min)} ширхгийн нийт дүнгээс хэтрэхгүй`
+
 export function unitLabel(u: Unit) {
   return u === 'm2' ? 'м²' : u === 'pack' ? 'багц' : u === 'lm' ? 'м' : 'ш'
 }
@@ -158,13 +178,14 @@ export function priceLine(line: Line): Priced | null {
     const b = getBook(line.code)
     if (!b) return null
     const qty = Math.max(BOOK_MIN, Math.round(line.qty || 0))
-    const t = tierFor(b.tiers, qty)
-    const per = roundp(t.ex * (1 + catalog.vatRate))
+    const bookPer = (x: { ex: number }) => roundp(x.ex * (1 + catalog.vatRate))
+    const { total, tier: t, capped } = tierTotal(b.tiers, qty, bookPer)
+    const per = bookPer(t)
     return {
       title: `Ном, сэтгүүл ${b.size}`,
       subtitle: `${b.pages} нүүр · ${b.paper} · ${b.binding}`,
-      inc: per * qty,
-      steps: [`${qtyFmt(qty)} ш × ${fmt(per)} (${qtyFmt(t.min)}+ ширхгийн үнэ)`],
+      inc: total,
+      steps: [`${qtyFmt(qty)} ш × ${fmt(per)} (${qtyFmt(t.min)}+ ширхгийн үнэ)`, ...(capped ? [capNote(capped)] : [])],
       delivery: qty >= 1000 ? 'L' : 'M',
       cartQty: qty,
       warning: (line.qty || 0) < BOOK_MIN ? `Хамгийн бага захиалга ${BOOK_MIN} ш` : undefined,
@@ -205,10 +226,12 @@ export function priceLine(line: Line): Priced | null {
     case 'tier': {
       const min = it.min || 1
       const q = Math.max(min, Math.round(line.qty || min))
-      const t = tierFor(it.tiers || [{ min, inc: it.inc }], q)
-      inc = t.inc * q
+      const r = tierTotal(it.tiers?.length ? it.tiers : [{ min, inc: it.inc }], q, (x) => x.inc)
+      const t = r.tier
+      inc = r.total
       cartQty = q
       steps.push(`${qtyFmt(q)} ш × ${fmt(t.inc)} (${qtyFmt(t.min)}+ ширхгийн үнэ)`)
+      if (r.capped) steps.push(capNote(r.capped))
       if ((line.qty || 0) < min) warning = `Хамгийн бага захиалга ${min} ш`
       break
     }
