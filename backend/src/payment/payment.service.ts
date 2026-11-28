@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, Logger, NotFoundException, OnModuleInit, ServiceUnavailableException } from '@nestjs/common'
+import { BadRequestException, Injectable, Logger, NotFoundException, OnModuleInit, Optional, ServiceUnavailableException } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
 import { Repository } from 'typeorm'
 import axios from 'axios'
@@ -13,6 +13,7 @@ import { BizEvent } from '../events/event-types'
 import { WalletService } from '../wallet/wallet.service'
 
 import { loadTdbConfig, missingTdbOAuthEnv, missingTdbQrEnv, TdbConfig } from './tdb-config'
+import { PrinityOrderClient } from '../prinity/prinity-order.client'
 
 @Injectable()
 export class PaymentService implements OnModuleInit {
@@ -33,6 +34,7 @@ export class PaymentService implements OnModuleInit {
     private notificationService: NotificationService,
     private readonly eventBus: EventBusService,
     private readonly walletService: WalletService,
+    @Optional() private readonly prinity?: PrinityOrderClient,
   ) {}
 
   onModuleInit() {
@@ -367,6 +369,7 @@ export class PaymentService implements OnModuleInit {
     // Idempotent: repeated status polls / callbacks must not re-run side
     // effects (notifications, emails, ORDER_PAID events).
     if (payment.status === 'paid') {
+      void this.prinity?.markPaid(payment.order_id, { amount: Number(payment.amount), method: payment.provider || 'qr', ref: invoice_code })
       return { success: true, invoice_code, status: 'paid', alreadyPaid: true }
     }
 
@@ -380,6 +383,7 @@ export class PaymentService implements OnModuleInit {
       order.status = OrderStatus.PENDING_FILE
       order.payment_status = 'paid'
       await this.orderRepo.save(order)
+      void this.prinity?.markPaid(order.id, { amount: Number(payment.amount), method: payment.provider || 'qr', ref: invoice_code })
 
       // Хэрэглэгчид файл илгээх сануулга
       if (order.customer_id) {

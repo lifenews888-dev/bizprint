@@ -6,6 +6,7 @@ import { TypeOrmModule } from '@nestjs/typeorm'
 import { ThrottlerModule } from '@nestjs/throttler'
 import { ScheduleModule } from '@nestjs/schedule'
 import { EventsModule } from './events/events.module'
+import { PrinityModule } from './prinity/prinity.module'
 import { SyncModule } from './sync/sync.module'
 
 import { AuthModule } from './auth/auth.module'
@@ -102,6 +103,7 @@ import { PrintNetworkModule } from './print-network/print-network.module'
 @Module({
   imports: [
     EventsModule,   // ← Global EventBus (must be first)
+    PrinityModule,  // bizprint.mn захиалга → Prinity (PRINITY_ORDER_URL заагаагүй бол унтраалттай)
     SyncModule,     // ← WebSocket /sync gateway
     ChatModule,
     ConfigModule.forRoot({ isGlobal: true }),

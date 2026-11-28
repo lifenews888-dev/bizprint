@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, BadRequestException, ForbiddenException, Logger } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ForbiddenException, Logger, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Order, OrderStatus } from './entities/order.entity';
@@ -14,6 +14,7 @@ import { AssignmentEngineService } from '../vendors/services/assignment-engine.s
 import { VendorTierService } from '../vendors/services/vendor-tier.service';
 import { ProductionGateService } from '../files/production-gate.service';
 import { ZoomService } from '../design-requests/zoom.service';
+import { PrinityOrderClient } from '../prinity/prinity-order.client';
 
 // Canonical order state progression (matches OrderStatus enum exactly)
 // Production sub-stages (designing, printing, qc, etc.) belong in production_stages table
@@ -84,6 +85,7 @@ export class OrdersService {
     private readonly vendorTier: VendorTierService,
     private readonly productionGate: ProductionGateService,
     private readonly zoomService: ZoomService,
+    @Optional() private readonly prinity?: PrinityOrderClient,
   ) {}
 
   async createOrder(data: any) {
@@ -189,6 +191,7 @@ export class OrdersService {
       notes: `Quote ${(quote as any).quote_number}-аас үүсгэгдсэн`,
     });
     const saved: Order = await this.ordersRepo.save(order as any);
+    void this.prinity?.mirror(saved).catch(() => {});
 
     await quoteRepo.update(quoteId, { status: 'ordered' });
 

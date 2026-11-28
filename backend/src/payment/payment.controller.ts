@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Headers, Param, Post, Req, UseGuards, UnauthorizedException, ForbiddenException, Logger, NotFoundException, BadRequestException } from '@nestjs/common'
+import { Body, Controller, Get, Headers, Param, Post, Req, UseGuards, UnauthorizedException, ForbiddenException, Logger, NotFoundException, BadRequestException, Optional } from '@nestjs/common'
 import { Throttle } from '@nestjs/throttler'
 import { InjectRepository } from '@nestjs/typeorm'
 import { Repository, LessThan } from 'typeorm'
@@ -11,6 +11,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard'
 import { AdminGuard } from '../admin/admin.guard'
 import { Order } from '../orders/entities/order.entity'
 import { PaymentLog } from './payment-log.entity'
+import { PrinityOrderClient } from '../prinity/prinity-order.client'
 
 /** Constant-time comparison of two hex digests (avoids timing side channels). */
 function safeEqualHex(a: string, b: string): boolean {
@@ -29,6 +30,7 @@ export class PaymentController {
     private readonly bonum: BonumService,
     @InjectRepository(Order) private readonly orderRepo: Repository<Order>,
     @InjectRepository(PaymentLog) private readonly logRepo: Repository<PaymentLog>,
+    @Optional() private readonly prinity?: PrinityOrderClient,
   ) {}
 
   // IDOR guard for payment initiation/lookup: only the order's customer or an
@@ -325,6 +327,7 @@ export class PaymentController {
         // NOTE: Only updating payment_status — order status transitions go through
         // the FROZEN state machine via OrdersService.updateOrder() elsewhere.
         await this.orderRepo.update(order.id, { payment_status: 'paid' })
+        void this.prinity?.markPaid(order.id, { amount: Number(body?.body?.amount || order.total_price), method: 'bonum', ref: String(invoiceId) })
         this.logger.log(`Order ${order.id} PAID via Bonum. Invoice: ${invoiceId}, Amount: ${body?.body?.amount}`)
       } else {
         this.logger.warn(`Order not found for invoiceId: ${invoiceId}`)
