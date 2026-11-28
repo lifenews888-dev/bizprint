@@ -9,7 +9,7 @@ echo.
 
 :: Start backend in new window
 echo [1/2] Starting Backend (port 4000)...
-start "BizPrint Backend" cmd /k "cd /d C:\Users\User\projects\bizprint\backend && npm run start:dev"
+start "BizPrint Backend" cmd /k "cd /d C:\Users\User\projects\01-bizprint\bizprint\backend && npm run start:dev"
 
 :: Wait for backend to boot
 echo     Waiting 8 seconds for backend to boot...
