@@ -4,7 +4,7 @@ import {
 } from '@nestjs/common';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
-import { basename, extname, join } from 'path';
+import { basename, extname, join, win32 } from 'path';
 import { mkdirSync } from 'fs';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { OptionalJwtAuthGuard } from '../auth/guards/optional-jwt-auth.guard';
@@ -214,7 +214,7 @@ const parseOptionalEnumFilter = (value: unknown, allowed: string[], label: strin
 
 const safeUploadDisplayName = (value: unknown): string => {
   const rawName = typeof value === 'string' || typeof value === 'number' ? value : 'file';
-  const name = basename(String(rawName || 'file'))
+  const name = win32.basename(String(rawName || 'file'))
     .replace(/[\r\n\t]+/g, ' ')
     .replace(/[\0-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '')
     .replace(/[<>:"|?*]/g, '_')
@@ -239,7 +239,7 @@ const safeUploadSize = (file: Express.Multer.File, maxBytes: number): number => 
 
 const safeUploadUrl = (file: Express.Multer.File): string => {
   const rawFilename = typeof file.filename === 'string' || typeof file.filename === 'number' ? file.filename : 'file';
-  const cleaned = basename(String(rawFilename || 'file'))
+  const cleaned = win32.basename(String(rawFilename || 'file'))
     .replace(/[\r\n\t\0]/g, '')
     .replace(/[\x01-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '')
     .replace(/[<>:"|?*]/g, '_')

@@ -54,7 +54,7 @@ export class UploadService {
 
     // Path traversal hardening — strip any directory components from the
     // client-supplied name before we touch the filesystem.
-    const baseName = path.basename(file.originalname || 'upload');
+    const baseName = path.win32.basename(file.originalname || 'upload');
     const ext = path.extname(baseName).toLowerCase();
 
     if (!ALLOWED_EXTS.includes(ext)) {

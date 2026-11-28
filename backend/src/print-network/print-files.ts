@@ -54,7 +54,7 @@ export function verifyPrintFile(file: Express.Multer.File | undefined) {
   }
   return {
     file_url: `/uploads/print-files/${file.filename}`,
-    original_name: path.basename(file.originalname),
+    original_name: path.win32.basename(file.originalname || ''),
     size_bytes: file.size,
   }
 }
